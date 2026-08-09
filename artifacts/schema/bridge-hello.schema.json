@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "hello"
+    },
+    "protocol_version": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bridge_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "type",
+    "protocol_version",
+    "token",
+    "bridge_version"
+  ],
+  "additionalProperties": false
+}

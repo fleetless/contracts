@@ -1,0 +1,28 @@
+{
+  "name": "@fleetless/contracts",
+  "version": "0.1.0",
+  "description": "Fleetless wire contracts: bridge-cloud protocol, API schemas, error codes",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "artifacts"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "artifacts": "tsx scripts/export-schemas.ts"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
