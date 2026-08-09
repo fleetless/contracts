@@ -13,17 +13,45 @@ import {
   bridgeHello,
   cloudHelloOk,
   cloudHelloError,
+  cloudPing,
+  bridgePong,
   datapointFrame,
   bridgeState,
 } from '../src/protocol.js'
+import {
+  robot,
+  createRobotRequest,
+  createRobotResponse,
+  robotListItem,
+  robotListResponse,
+  datapointValue,
+} from '../src/rest.js'
+import {
+  clientSubscribe,
+  clientUnsubscribe,
+  subscribeError,
+  datapointEvent,
+} from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 
 export const exportedSchemas = {
   'bridge-hello': bridgeHello,
   'cloud-hello-ok': cloudHelloOk,
   'cloud-hello-error': cloudHelloError,
+  'cloud-ping': cloudPing,
+  'bridge-pong': bridgePong,
   'datapoint-frame': datapointFrame,
   'bridge-state': bridgeState,
+  robot: robot,
+  'create-robot-request': createRobotRequest,
+  'create-robot-response': createRobotResponse,
+  'robot-list-item': robotListItem,
+  'robot-list-response': robotListResponse,
+  'datapoint-value': datapointValue,
+  'client-subscribe': clientSubscribe,
+  'client-unsubscribe': clientUnsubscribe,
+  'subscribe-error': subscribeError,
+  'datapoint-event': datapointEvent,
   'api-error': apiError,
 } as const
 

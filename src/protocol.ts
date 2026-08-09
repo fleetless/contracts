@@ -52,6 +52,24 @@ export const datapointFrame = z.object({
 export type DatapointFrame = z.infer<typeof datapointFrame>
 
 /**
+ * Latency probe, cloud → bridge. The cloud sends its own clock in `ts_ms`;
+ * the bridge echoes it back untouched and the cloud derives the round-trip
+ * latency shown as `bridge-state.latency_ms`.
+ */
+export const cloudPing = z.object({
+  type: z.literal('ping'),
+  ts_ms: z.number().int().nonnegative(),
+})
+export type CloudPing = z.infer<typeof cloudPing>
+
+/** Immediate bridge answer to a `CloudPing`, `ts_ms` echoed unchanged. */
+export const bridgePong = z.object({
+  type: z.literal('pong'),
+  ts_ms: z.number().int().nonnegative(),
+})
+export type BridgePong = z.infer<typeof bridgePong>
+
+/**
  * The built-in `bridge-state` datapoint every robot has (spec §4.3):
  * connection status plus latency, the basis for offline-aware client UIs.
  */
