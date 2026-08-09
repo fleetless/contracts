@@ -95,6 +95,18 @@ describe('W1 realtime client protocol', () => {
     ).toBe(true)
   })
 
+  it('subscribe errors can echo malformed robot_id and slug (the frame must be constructible exactly then)', () => {
+    expect(
+      subscribeError.safeParse({
+        type: 'subscribe_error',
+        robot_id: 'not-a-uuid',
+        slug: 'Not A Slug',
+        code: 'validation_error',
+        message: 'robot_id must be a uuid.',
+      }).success,
+    ).toBe(true)
+  })
+
   it('datapoint events mirror the REST read shape plus addressing', () => {
     expect(
       datapointEvent.safeParse({

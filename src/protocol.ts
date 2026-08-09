@@ -10,10 +10,15 @@ export const PROTOCOL_VERSION = 1
 
 /**
  * A slug names an exposed service or datapoint: lowercase, dash-separated,
- * letter-initial, 2..63 characters. Slugs are stable and decoupled from ROS
- * names (spec §4.1) — every wave inherits this rule.
+ * letter-initial, 2..63 characters, no leading/trailing/doubled dashes.
+ * Slugs are stable and decoupled from ROS names (spec §4.1) — every wave
+ * inherits this rule; W2 makes slugs user-authored in the exposure editor.
  */
-export const slug = z.string().regex(/^[a-z][a-z0-9-]{1,62}$/)
+export const slug = z
+  .string()
+  .min(2)
+  .max(63)
+  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
 
 /** First frame a bridge sends after the socket opens. */
 export const bridgeHello = z.object({
@@ -27,7 +32,7 @@ export type BridgeHello = z.infer<typeof bridgeHello>
 /** Cloud accepts the bridge: the robot is online from here on. */
 export const cloudHelloOk = z.object({
   type: z.literal('hello_ok'),
-  robot_id: z.string().min(1),
+  robot_id: z.uuid(),
 })
 export type CloudHelloOk = z.infer<typeof cloudHelloOk>
 

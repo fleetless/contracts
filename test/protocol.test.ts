@@ -49,7 +49,7 @@ describe('contracts v1', () => {
     for (const good of ['battery', 'front-cam', 'bridge-state', 'ab']) {
       expect(slug.safeParse(good).success).toBe(true)
     }
-    for (const bad of ['Battery', '1st', '-x', 'a', 'a_b', 'a b']) {
+    for (const bad of ['Battery', '1st', '-x', 'a', 'a_b', 'a b', 'foo-', 'a--b']) {
       expect(slug.safeParse(bad).success).toBe(false)
     }
   })

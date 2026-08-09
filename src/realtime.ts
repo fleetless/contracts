@@ -24,11 +24,14 @@ export type ClientUnsubscribe = z.infer<typeof clientUnsubscribe>
 /**
  * Refusal of a subscribe, addressed by the (robot_id, slug) it refers to.
  * Codes follow the §11.5 error culture: stable code + human message.
+ * robot_id/slug are plain strings ECHOING what the client sent — the frame
+ * must be constructible precisely when those values are malformed, so that
+ * a bad robot_id or slug gets a diagnosis instead of a dead socket.
  */
 export const subscribeError = z.object({
   type: z.literal('subscribe_error'),
-  robot_id: z.uuid(),
-  slug,
+  robot_id: z.string(),
+  slug: z.string(),
   code: z.string().min(1),
   message: z.string().min(1),
 })
