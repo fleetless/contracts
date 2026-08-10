@@ -90,6 +90,18 @@ export type Role = z.infer<typeof role>
  */
 export const rolePermissions = z.object({
   role_id: z.uuid(),
+  /**
+   * **A slug is unique per robot across ALL service kinds** (spec §4.1:
+   * "Jeder Dienst erhält einen Slug" — one namespace, not one per kind), and
+   * the cloud's config validation enforces that with a kind-agnostic
+   * collection pass. That is why this list carries slugs and not
+   * (kind, slug) pairs: when W4 adds actions, services and publishers, a
+   * grant keeps meaning exactly what it means today, and this shape does not
+   * change. What W4 does need is an endpoint that lists every *grantable*
+   * slug of a robot with its kind, so the console's matrix can offer them —
+   * today it enumerates datapoints only, which is the seam that would
+   * otherwise force a rebuild.
+   */
   grants: z.array(
     z.object({
       robot_id: z.uuid(),
