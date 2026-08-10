@@ -324,6 +324,8 @@ describe('W2 error vocabulary', () => {
       'unknown_type',
       'unknown_topic',
       'invalid_rate',
+      'invalid_range',
+      'no_data',
       'config_conflict',
       'robot_offline',
       'bridge_timeout',

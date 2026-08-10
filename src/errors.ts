@@ -33,7 +33,10 @@ export const ERROR_CODES = [
   'unknown_type',
   'unknown_topic',
   'invalid_rate',
+  'invalid_range',
   'config_conflict',
+  // W2 — reading
+  'no_data',
   // W2 — talking to the robot
   'robot_offline',
   'bridge_timeout',
