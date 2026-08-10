@@ -43,14 +43,27 @@ export const clientLogoutRequest = z.object({
 export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
 
 /**
- * Who the caller turned out to be. Returned by the "who am I" endpoint so a
- * client can render a session without decoding a token itself — decoding a
- * JWT in the client is how apps end up trusting claims nobody verified.
+ * Who the caller turned out to be. Returned by the "who am I" endpoint and by
+ * the realtime `auth_ok` frame, so a client can render a session without
+ * decoding a token itself — decoding a JWT in the client is how apps end up
+ * trusting claims nobody verified.
+ *
+ * **Three kinds of caller reach the client API, not two.** Besides end users
+ * and server keys, a **developer** does: spec §15.2 says the console's
+ * playground runs over the real client API and appears in the audit as the
+ * developer, and the console's own live views (robot list badges, the Live
+ * tab) subscribe on `/realtime` as one. A developer is **org-scoped, not
+ * app-scoped** — they own the configuration of every robot in their org — so
+ * `app_id` and `role_id` are null for them, and roles do not filter what they
+ * see. `kind` states this explicitly rather than leaving it to be inferred
+ * from which id happens to be set.
  */
 export const clientIdentity = z.object({
+  kind: z.enum(['developer', 'end_user', 'server_key']),
+  developer_id: z.uuid().nullable(),
   end_user_id: z.uuid().nullable(),
   server_key_id: z.uuid().nullable(),
-  app_id: z.uuid(),
+  app_id: z.uuid().nullable(),
   role_id: z.uuid().nullable(),
   email: z.email().nullable(),
 })

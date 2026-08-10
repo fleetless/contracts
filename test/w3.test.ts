@@ -168,13 +168,24 @@ describe('W3 apps, keys and roles', () => {
 
   it('reports who the caller is without making the client decode a token', () => {
     expect(
-      clientIdentity.safeParse({ end_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' })
+      clientIdentity.safeParse({ kind: 'end_user', developer_id: null, end_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' })
         .success,
     ).toBe(true)
     expect(
-      clientIdentity.safeParse({ end_user_id: null, server_key_id: UUID, app_id: UUID2, role_id: null, email: null })
+      clientIdentity.safeParse({ kind: 'server_key', developer_id: null, end_user_id: null, server_key_id: UUID, app_id: UUID2, role_id: null, email: null })
         .success,
     ).toBe(true)
+  })
+
+  it('represents a developer on the client API — org-scoped, no app, no role', () => {
+    // The console's live views and the §15.2 playground are developers on the
+    // client API. Requiring app_id would have made /realtime client-only and
+    // silently killed every live badge in the console.
+    expect(
+      clientIdentity.safeParse({ kind: 'developer', developer_id: UUID, end_user_id: null, server_key_id: null, app_id: null, role_id: null, email: 'dev@example.com' })
+        .success,
+    ).toBe(true)
+    expect(clientIdentity.safeParse({ kind: 'nobody', developer_id: null, end_user_id: null, server_key_id: null, app_id: null, role_id: null, email: null }).success).toBe(false)
   })
 })
 
@@ -240,7 +251,7 @@ describe('W3 realtime authentication', () => {
     expect(
       authOk.safeParse({
         type: 'auth_ok',
-        identity: { end_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' },
+        identity: { kind: 'end_user', developer_id: null, end_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' },
       }).success,
     ).toBe(true)
     expect(authError.safeParse({ type: 'auth_error', code: 'unauthorized', message: 'bad token' }).success).toBe(true)
