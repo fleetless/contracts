@@ -41,6 +41,9 @@ import {
   robotDetailsDoc,
 } from '../src/rest.js'
 import {
+  clientAuth,
+  authOk,
+  authError,
   clientSubscribe,
   clientUnsubscribe,
   subscribeError,
@@ -68,7 +71,12 @@ import {
   rolePermissions,
   appMembership,
 } from '../src/apps.js'
-import { clientLoginRequest, clientRefreshRequest, clientIdentity } from '../src/client-auth.js'
+import {
+  clientLoginRequest,
+  clientRefreshRequest,
+  clientLogoutRequest,
+  clientIdentity,
+} from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
 
 export const exportedSchemas = {
@@ -103,6 +111,9 @@ export const exportedSchemas = {
   'introspection-response': introspectionResponse,
   'datapoint-list-response': datapointListResponse,
   'robot-details-doc': robotDetailsDoc,
+  'client-auth': clientAuth,
+  'auth-ok': authOk,
+  'auth-error': authError,
   'client-subscribe': clientSubscribe,
   'client-unsubscribe': clientUnsubscribe,
   'subscribe-error': subscribeError,
@@ -127,6 +138,7 @@ export const exportedSchemas = {
   'app-membership': appMembership,
   'client-login-request': clientLoginRequest,
   'client-refresh-request': clientRefreshRequest,
+  'client-logout-request': clientLogoutRequest,
   'client-identity': clientIdentity,
   'audit-actor': auditActor,
   'audit-event': auditEvent,

@@ -33,6 +33,16 @@ export const clientRefreshRequest = z.object({
 export type ClientRefreshRequest = z.infer<typeof clientRefreshRequest>
 
 /**
+ * Logging out revokes the whole token family server-side. Without this, a
+ * refresh token stolen before the user pressed "log out" keeps working —
+ * clearing a client-side store is a UI gesture, not a revocation.
+ */
+export const clientLogoutRequest = z.object({
+  refresh_token: z.string().min(1),
+})
+export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
+
+/**
  * Who the caller turned out to be. Returned by the "who am I" endpoint so a
  * client can render a session without decoding a token itself — decoding a
  * JWT in the client is how apps end up trusting claims nobody verified.

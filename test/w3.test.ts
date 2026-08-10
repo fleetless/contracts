@@ -21,6 +21,10 @@ import {
   appMembership,
   clientLoginRequest,
   clientIdentity,
+  clientLogoutRequest,
+  clientAuth,
+  authOk,
+  authError,
   auditActor,
   auditEvent,
   ERROR_CODES,
@@ -224,5 +228,28 @@ describe('W3 error vocabulary', () => {
     ]) {
       expect(ERROR_CODES).toContain(code)
     }
+  })
+})
+
+describe('W3 realtime authentication', () => {
+  it('authenticates with a first frame, not a query string', () => {
+    // A browser cannot set Authorization on a WS handshake, and a token in
+    // the URL outlives the request in every log it passes through.
+    expect(clientAuth.safeParse({ type: 'auth', token: 'ey...' }).success).toBe(true)
+    expect(clientAuth.safeParse({ type: 'auth', token: '' }).success).toBe(false)
+    expect(
+      authOk.safeParse({
+        type: 'auth_ok',
+        identity: { end_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' },
+      }).success,
+    ).toBe(true)
+    expect(authError.safeParse({ type: 'auth_error', code: 'unauthorized', message: 'bad token' }).success).toBe(true)
+  })
+
+  it('revokes server-side on logout', () => {
+    // Clearing a client store is a UI gesture; the family has to die on the
+    // server or a token stolen before logout keeps working.
+    expect(clientLogoutRequest.safeParse({ refresh_token: 'r' }).success).toBe(true)
+    expect(clientLogoutRequest.safeParse({}).success).toBe(false)
   })
 })

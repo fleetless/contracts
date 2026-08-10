@@ -1,11 +1,50 @@
 import { z } from 'zod'
 import { slug } from './common.js'
+import { clientIdentity } from './client-auth.js'
 
 /**
  * Client realtime protocol (spec §11.1): WebSocket subscriptions on
  * datapoints. W1 scope: subscribe/unsubscribe plus the datapoint event
  * stream; command parity arrives in W4.
  */
+
+/**
+ * The first frame a client sends after the socket opens (W3, spec §3.4).
+ *
+ * A browser cannot set an `Authorization` header on a WebSocket handshake,
+ * and a token in the query string would outlive the request in server,
+ * proxy and browser-history logs. So `/realtime` authenticates the way
+ * `/bridge` already does: with a frame. `token` is the same bearer value
+ * REST takes — a user's JWT or a server key (`flk_…`), told apart by prefix.
+ *
+ * Any `subscribe` before `auth_ok` is refused, and a socket that sends no
+ * auth frame in time is closed with **4002**, the code the bridge socket
+ * already uses for a missing hello.
+ */
+export const clientAuth = z.object({
+  type: z.literal('auth'),
+  token: z.string().min(1),
+})
+export type ClientAuth = z.infer<typeof clientAuth>
+
+/**
+ * Who the socket turned out to belong to. Carrying the identity here means a
+ * client never has to decode a JWT to render its own session — decoding a
+ * token client-side is how apps end up trusting claims nobody verified.
+ */
+export const authOk = z.object({
+  type: z.literal('auth_ok'),
+  identity: clientIdentity,
+})
+export type AuthOk = z.infer<typeof authOk>
+
+/** Refusal, followed by close 1008 — same shape as the bridge's hello_error. */
+export const authError = z.object({
+  type: z.literal('auth_error'),
+  code: z.string().min(1),
+  message: z.string().min(1),
+})
+export type AuthError = z.infer<typeof authError>
 
 export const clientSubscribe = z.object({
   type: z.literal('subscribe'),

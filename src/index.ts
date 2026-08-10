@@ -97,12 +97,18 @@ export type {
   PutRobotDetailsRequest,
 } from './rest.js'
 export {
+  clientAuth,
+  authOk,
+  authError,
   clientSubscribe,
   clientUnsubscribe,
   subscribeError,
   datapointEvent,
 } from './realtime.js'
 export type {
+  ClientAuth,
+  AuthOk,
+  AuthError,
   ClientSubscribe,
   ClientUnsubscribe,
   SubscribeError,
@@ -159,8 +165,18 @@ export type {
   RolePermissions,
   AppMembership,
 } from './apps.js'
-export { clientLoginRequest, clientRefreshRequest, clientIdentity } from './client-auth.js'
-export type { ClientLoginRequest, ClientRefreshRequest, ClientIdentity } from './client-auth.js'
+export {
+  clientLoginRequest,
+  clientRefreshRequest,
+  clientLogoutRequest,
+  clientIdentity,
+} from './client-auth.js'
+export type {
+  ClientLoginRequest,
+  ClientRefreshRequest,
+  ClientLogoutRequest,
+  ClientIdentity,
+} from './client-auth.js'
 export { auditActor, auditEvent, auditListResponse } from './audit.js'
 export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
 export { apiError, ERROR_CODES } from './errors.js'
