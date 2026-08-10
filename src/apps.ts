@@ -12,8 +12,13 @@ import { slug } from './common.js'
  */
 
 /**
- * The app identifier a client sends at login. Same rule as a service slug —
- * stable, lowercase, dash-separated — and unique per org.
+ * The app identifier a client sends at login. Same rule as a service slug:
+ * stable, lowercase, dash-separated.
+ *
+ * **Globally unique, not per org.** `clientLoginRequest` carries only the
+ * identifier, the email and the password — there is no org context to
+ * disambiguate with, so a per-org identifier could not be resolved at login
+ * at all. A collision is refused with `identifier_taken`.
  */
 export const appIdentifier = slug
 
