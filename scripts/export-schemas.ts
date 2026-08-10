@@ -47,6 +47,29 @@ import {
   datapointEvent,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
+import {
+  org,
+  orgMember,
+  sessionTokens,
+  signUpRequest,
+  signUpResponse,
+  developerLoginRequest,
+  endUser,
+  invitation,
+  createInvitationRequest,
+  acceptInvitationRequest,
+} from '../src/identity.js'
+import {
+  app,
+  createAppRequest,
+  serverKey,
+  createServerKeyResponse,
+  role,
+  rolePermissions,
+  appMembership,
+} from '../src/apps.js'
+import { clientLoginRequest, clientRefreshRequest, clientIdentity } from '../src/client-auth.js'
+import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
 
 export const exportedSchemas = {
   'bridge-hello': bridgeHello,
@@ -85,6 +108,29 @@ export const exportedSchemas = {
   'subscribe-error': subscribeError,
   'datapoint-event': datapointEvent,
   'api-error': apiError,
+  org: org,
+  'org-member': orgMember,
+  'session-tokens': sessionTokens,
+  'sign-up-request': signUpRequest,
+  'sign-up-response': signUpResponse,
+  'developer-login-request': developerLoginRequest,
+  'end-user': endUser,
+  invitation: invitation,
+  'create-invitation-request': createInvitationRequest,
+  'accept-invitation-request': acceptInvitationRequest,
+  app: app,
+  'create-app-request': createAppRequest,
+  'server-key': serverKey,
+  'create-server-key-response': createServerKeyResponse,
+  role: role,
+  'role-permissions': rolePermissions,
+  'app-membership': appMembership,
+  'client-login-request': clientLoginRequest,
+  'client-refresh-request': clientRefreshRequest,
+  'client-identity': clientIdentity,
+  'audit-actor': auditActor,
+  'audit-event': auditEvent,
+  'audit-list-response': auditListResponse,
 } as const
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]

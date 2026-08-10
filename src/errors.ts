@@ -40,5 +40,20 @@ export const ERROR_CODES = [
   // W2 — talking to the robot
   'robot_offline',
   'bridge_timeout',
+  // W3 — identity and rights. `forbidden` is deliberately the answer both
+  // for "your role does not grant this" and for "there is no such slug":
+  // roles are the only filter (§3.3), and a caller must not be able to map
+  // the configuration of an app they have no rights in.
+  'unauthorized',
+  'forbidden',
+  'invalid_credentials',
+  'token_expired',
+  'token_revoked',
+  'invite_expired',
+  'invite_used',
+  'email_taken',
+  'identifier_taken',
+  'weak_password',
+  'not_a_member',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

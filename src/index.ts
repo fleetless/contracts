@@ -108,5 +108,60 @@ export type {
   SubscribeError,
   DatapointEvent,
 } from './realtime.js'
+export {
+  password,
+  orgMemberRole,
+  org,
+  orgMember,
+  sessionTokens,
+  refreshRequest,
+  signUpRequest,
+  signUpResponse,
+  developerLoginRequest,
+  endUser,
+  invitation,
+  createInvitationRequest,
+  acceptInvitationRequest,
+} from './identity.js'
+export type {
+  OrgMemberRole,
+  Org,
+  OrgMember,
+  SessionTokens,
+  RefreshRequest,
+  SignUpRequest,
+  SignUpResponse,
+  DeveloperLoginRequest,
+  EndUser,
+  Invitation,
+  CreateInvitationRequest,
+  AcceptInvitationRequest,
+} from './identity.js'
+export {
+  appIdentifier,
+  app,
+  createAppRequest,
+  updateAppRequest,
+  serverKeyToken,
+  serverKey,
+  createServerKeyResponse,
+  role,
+  rolePermissions,
+  appMembership,
+} from './apps.js'
+export type {
+  App,
+  CreateAppRequest,
+  UpdateAppRequest,
+  ServerKey,
+  CreateServerKeyResponse,
+  Role,
+  RolePermissions,
+  AppMembership,
+} from './apps.js'
+export { clientLoginRequest, clientRefreshRequest, clientIdentity } from './client-auth.js'
+export type { ClientLoginRequest, ClientRefreshRequest, ClientIdentity } from './client-auth.js'
+export { auditActor, auditEvent, auditListResponse } from './audit.js'
+export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
 export { apiError, ERROR_CODES } from './errors.js'
 export type { ApiError, ErrorCode } from './errors.js'
