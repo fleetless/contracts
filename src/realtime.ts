@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { slug } from './protocol.js'
+import { slug } from './common.js'
 
 /**
  * Client realtime protocol (spec §11.1): WebSocket subscriptions on

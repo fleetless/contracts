@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import { slug } from './common.js'
+import { robotConfigDoc } from './config.js'
+import { rosGraph, typeDefinition } from './introspection.js'
+import { rosTypeName } from './common.js'
 
 /**
  * Bridge <-> cloud protocol, version 1.
@@ -8,17 +12,8 @@ import { z } from 'zod'
  */
 export const PROTOCOL_VERSION = 1
 
-/**
- * A slug names an exposed service or datapoint: lowercase, dash-separated,
- * letter-initial, 2..63 characters, no leading/trailing/doubled dashes.
- * Slugs are stable and decoupled from ROS names (spec §4.1) — every wave
- * inherits this rule; W2 makes slugs user-authored in the exposure editor.
- */
-export const slug = z
-  .string()
-  .min(2)
-  .max(63)
-  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+/** Re-exported so consumers keep importing wire names from one place. */
+export { slug } from './common.js'
 
 /** First frame a bridge sends after the socket opens. */
 export const bridgeHello = z.object({
@@ -73,6 +68,74 @@ export const bridgePong = z.object({
   ts_ms: z.number().int().nonnegative(),
 })
 export type BridgePong = z.infer<typeof bridgePong>
+
+/**
+ * The published configuration, cloud → bridge (spec §4.1: the bridge applies
+ * the published version). Sent right after `hello_ok` and again on every
+ * publish, so a bridge never has to ask.
+ *
+ * `version: 0` with an empty document means *nothing published yet* — a fresh
+ * robot, not an error.
+ */
+export const cloudConfig = z.object({
+  type: z.literal('config'),
+  version: z.number().int().nonnegative(),
+  doc: robotConfigDoc,
+})
+export type CloudConfig = z.infer<typeof cloudConfig>
+
+/**
+ * What the bridge made of it. A single unusable entry must never stop the
+ * others: the bridge applies what it can, reports the rest per slug, and
+ * sets `ok: false`. The console shows this as "published v2 · applied v1".
+ */
+export const bridgeConfigApplied = z.object({
+  type: z.literal('config_applied'),
+  version: z.number().int().nonnegative(),
+  ok: z.boolean(),
+  errors: z.array(z.object({ slug: z.string(), message: z.string().min(1) })),
+})
+export type BridgeConfigApplied = z.infer<typeof bridgeConfigApplied>
+
+/** Cloud asks for a fresh ROS graph; `request_id` correlates the answer. */
+export const cloudIntrospectRequest = z.object({
+  type: z.literal('introspect_request'),
+  request_id: z.string().min(1).max(64),
+})
+export type CloudIntrospectRequest = z.infer<typeof cloudIntrospectRequest>
+
+/** The graph snapshot, bridge → cloud. */
+export const bridgeIntrospect = z.object({
+  type: z.literal('introspect'),
+  request_id: z.string().min(1).max(64),
+  graph: rosGraph,
+})
+export type BridgeIntrospect = z.infer<typeof bridgeIntrospect>
+
+/**
+ * Field trees are fetched on demand, not shipped with the graph: a robot with
+ * hundreds of topics would otherwise push hundreds of kilobytes on every
+ * refresh, for types nobody opened.
+ */
+export const cloudTypeRequest = z.object({
+  type: z.literal('type_request'),
+  request_id: z.string().min(1).max(64),
+  type_names: z.array(rosTypeName).min(1).max(50),
+})
+export type CloudTypeRequest = z.infer<typeof cloudTypeRequest>
+
+/**
+ * The resolved definitions. Names the bridge cannot resolve in its sourced
+ * workspace are listed in `unresolved` — an unknown type is an answer, not a
+ * failed frame.
+ */
+export const bridgeTypeDefinitions = z.object({
+  type: z.literal('type_definitions'),
+  request_id: z.string().min(1).max(64),
+  definitions: z.array(typeDefinition),
+  unresolved: z.array(z.string()),
+})
+export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
 
 /**
  * The built-in `bridge-state` datapoint every robot has (spec §4.3):

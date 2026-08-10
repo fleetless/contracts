@@ -1,6 +1,6 @@
+export { slug, rosName, rosTypeName, fieldPath } from './common.js'
 export {
   PROTOCOL_VERSION,
-  slug,
   bridgeHello,
   cloudHelloOk,
   cloudHelloError,
@@ -8,6 +8,12 @@ export {
   bridgePong,
   datapointFrame,
   bridgeState,
+  cloudConfig,
+  bridgeConfigApplied,
+  cloudIntrospectRequest,
+  bridgeIntrospect,
+  cloudTypeRequest,
+  bridgeTypeDefinitions,
 } from './protocol.js'
 export type {
   BridgeHello,
@@ -17,7 +23,34 @@ export type {
   BridgePong,
   DatapointFrame,
   BridgeState,
+  CloudConfig,
+  BridgeConfigApplied,
+  CloudIntrospectRequest,
+  BridgeIntrospect,
+  CloudTypeRequest,
+  BridgeTypeDefinitions,
 } from './protocol.js'
+export {
+  RESERVED_SLUGS,
+  datapointRate,
+  datapointRange,
+  datapointConfig,
+  robotConfigDoc,
+  valueRule,
+  validationIssue,
+  configState,
+} from './config.js'
+export type {
+  DatapointRate,
+  DatapointRange,
+  DatapointConfig,
+  RobotConfigDoc,
+  ValueRule,
+  ValidationIssue,
+  ConfigState,
+} from './config.js'
+export { rosGraphEntry, rosGraph, typeField, typeDefinition } from './introspection.js'
+export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {
   robot,
   robotToken,
@@ -26,6 +59,20 @@ export {
   robotListItem,
   robotListResponse,
   datapointValue,
+  robotDetailResponse,
+  configDraftResponse,
+  putConfigDraftRequest,
+  publishConfigResponse,
+  configVersionsResponse,
+  configVersionResponse,
+  introspectionResponse,
+  typesResponse,
+  fetchTypesRequest,
+  fetchTypesResponse,
+  datapointDescriptor,
+  datapointListResponse,
+  robotDetailsDoc,
+  putRobotDetailsRequest,
 } from './rest.js'
 export type {
   Robot,
@@ -34,6 +81,20 @@ export type {
   RobotListItem,
   RobotListResponse,
   DatapointValue,
+  RobotDetailResponse,
+  ConfigDraftResponse,
+  PutConfigDraftRequest,
+  PublishConfigResponse,
+  ConfigVersionsResponse,
+  ConfigVersionResponse,
+  IntrospectionResponse,
+  TypesResponse,
+  FetchTypesRequest,
+  FetchTypesResponse,
+  DatapointDescriptor,
+  DatapointListResponse,
+  RobotDetailsDoc,
+  PutRobotDetailsRequest,
 } from './rest.js'
 export {
   clientSubscribe,
@@ -47,5 +108,5 @@ export type {
   SubscribeError,
   DatapointEvent,
 } from './realtime.js'
-export { apiError } from './errors.js'
-export type { ApiError } from './errors.js'
+export { apiError, ERROR_CODES } from './errors.js'
+export type { ApiError, ErrorCode } from './errors.js'

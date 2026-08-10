@@ -11,3 +11,31 @@ export const apiError = z.object({
   details: z.unknown().optional(),
 })
 export type ApiError = z.infer<typeof apiError>
+
+/**
+ * The codes in use as of W2. The wire deliberately allows any string — this
+ * list is the shared vocabulary, not a closed set, so a new refusal never
+ * needs a contracts release before it can be reported honestly.
+ */
+export const ERROR_CODES = [
+  // W1
+  'not_found',
+  'validation_error',
+  'bad_request',
+  'unknown_datapoint',
+  'invalid_token',
+  'protocol_mismatch',
+  'invalid_frame',
+  // W2 — configuration
+  'duplicate_slug',
+  'reserved_slug',
+  'unknown_field_path',
+  'unknown_type',
+  'unknown_topic',
+  'invalid_rate',
+  'config_conflict',
+  // W2 — talking to the robot
+  'robot_offline',
+  'bridge_timeout',
+] as const
+export type ErrorCode = (typeof ERROR_CODES)[number]
