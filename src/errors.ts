@@ -154,6 +154,15 @@ export const ERROR_CODES = [
    */
   'quota_exceeded',
   /**
+   * A named credential cannot be deleted because cameras still reference it.
+   * Refusing beats deleting: a shared credential typically serves several
+   * cameras across several robots, so a blind rotation is exactly how one of
+   * them silently stops working — on a robot the developer had forgotten
+   * about. The details carry `used_by`, so the answer names what to fix
+   * rather than only what went wrong.
+   */
+  'credential_in_use',
+  /**
    * An action goal was never accepted — no server answered within the
    * bridge's patience (W5, from W4's review). Distinct from `failed`, which
    * means the robot tried: nothing tried here. It exists so a slug whose ROS
