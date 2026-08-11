@@ -110,6 +110,7 @@ export {
   jobResponse,
   exposure,
   exposureListResponse,
+  SNAPSHOT_HEADERS,
   cameraDescriptor,
   cameraListResponse,
   liveSessionResponse,

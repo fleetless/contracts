@@ -289,11 +289,32 @@ export type ExposureListResponse = z.infer<typeof exposureListResponse>
  * | route | answers |
  * |---|---|
  * | `GET /api/robots/:id/cameras`                    | `cameraListResponse` |
- * | `GET /api/robots/:id/cameras/:slug/snapshot`     | the image bytes, plus `X-Fleetless-Age-Ms` |
+ * | `GET /api/robots/:id/cameras/:slug/snapshot`     | the image bytes, plus the headers below |
  * | `GET /api/robots/:id/cameras/:slug/snapshot/meta`| `snapshotMetaResponse` — age without the bytes |
  * | `POST /api/robots/:id/cameras/:slug/live`        | `liveSessionResponse` — takes a refcount hold |
  * | `DELETE /api/robots/:id/cameras/:slug/live`      | 204 — releases this viewer's hold |
  */
+
+/**
+ * The response headers a binary snapshot carries, named here so the cloud and
+ * every client agree without negotiating:
+ *
+ * - `Content-Type`      — the image's mime, standard rather than invented.
+ * - `X-Fleetless-Age-Ms`      — how old the frame is, **computed by the cloud**.
+ * - `X-Fleetless-Timestamp-Ms`— the bridge's capture time.
+ * - `X-Fleetless-Width` / `X-Fleetless-Height`.
+ *
+ * A client must take `age_ms` from the header and **never** recompute it as
+ * `Date.now() - timestamp_ms`: the cloud is the one clock that knows how long
+ * it has actually been holding the frame, and recomputing reintroduces the
+ * viewer's clock skew as a source of lying about freshness.
+ */
+export const SNAPSHOT_HEADERS = {
+  ageMs: 'x-fleetless-age-ms',
+  timestampMs: 'x-fleetless-timestamp-ms',
+  width: 'x-fleetless-width',
+  height: 'x-fleetless-height',
+} as const
 
 export const cameraDescriptor = z.object({
   slug,
