@@ -470,8 +470,34 @@ export const orgQuotas = z.object({
 })
 export type OrgQuotas = z.infer<typeof orgQuotas>
 
+/**
+ * What an org is **actually using**, per quota.
+ *
+ * A separate shape rather than `orgQuotas.partial()`, which is what this was
+ * first — and that was wrong in a way its own tests caught: a limit is
+ * `positive()` because a quota of zero would forbid everything, but a
+ * **usage** of zero is the honest answer for every org on the day it signs
+ * up. Reusing one schema for a limit and a measurement is the same mistake as
+ * letting an empty bucket and a zero average share a representation, which
+ * this wave spent a lot of care avoiding one layer up.
+ *
+ * Every field is optional because a quota we do not measure must be
+ * **absent**, never reported as `0` — "not measured" and "measured as zero"
+ * are different facts, and a dashboard that renders the first as the second
+ * is lying quietly.
+ */
+export const orgQuotaUsageCounts = z.object({
+  max_robots: z.number().int().nonnegative(),
+  max_apps: z.number().int().nonnegative(),
+  max_end_users: z.number().int().nonnegative(),
+  max_retention_bytes: z.number().int().nonnegative(),
+  max_retention_writes_per_minute: z.number().int().nonnegative(),
+  max_realtime_connections: z.number().int().nonnegative(),
+}).partial()
+export type OrgQuotaUsageCounts = z.infer<typeof orgQuotaUsageCounts>
+
 /** Limits beside what is actually used — a limit alone tells nobody where they stand. */
-export const orgQuotaUsage = z.object({ quotas: orgQuotas, usage: orgQuotas.partial() })
+export const orgQuotaUsage = z.object({ quotas: orgQuotas, usage: orgQuotaUsageCounts })
 export type OrgQuotaUsage = z.infer<typeof orgQuotaUsage>
 
 /**
