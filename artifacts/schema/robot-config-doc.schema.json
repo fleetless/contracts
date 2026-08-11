@@ -464,13 +464,76 @@
         ],
         "additionalProperties": false
       }
+    },
+    "cameras": {
+      "default": [],
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+          },
+          "topic": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$"
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 255,
+            "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 7680
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 4320
+          },
+          "fps": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 60
+          },
+          "bitrate_kbps": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 50000
+          },
+          "snapshot_interval_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 3600000
+          }
+        },
+        "required": [
+          "slug",
+          "topic",
+          "type",
+          "width",
+          "height",
+          "fps",
+          "bitrate_kbps",
+          "snapshot_interval_ms"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
     "datapoints",
     "actions",
     "services",
-    "publishers"
+    "publishers",
+    "cameras"
   ],
   "additionalProperties": false
 }

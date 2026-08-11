@@ -19,7 +19,8 @@
               "datapoint",
               "action",
               "service",
-              "publisher"
+              "publisher",
+              "camera"
             ]
           },
           "builtin": {

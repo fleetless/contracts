@@ -19,6 +19,10 @@ export {
   cloudPublish,
   bridgeJobUpdate,
   bridgeJobLost,
+  snapshotHeader,
+  cloudCameraStart,
+  cloudCameraStop,
+  bridgeCameraState,
 } from './protocol.js'
 export type {
   BridgeHello,
@@ -39,6 +43,10 @@ export type {
   CloudPublish,
   BridgeJobUpdate,
   BridgeJobLost,
+  SnapshotHeader,
+  CloudCameraStart,
+  CloudCameraStop,
+  BridgeCameraState,
 } from './protocol.js'
 export { jobState, job, jobEvent, busyDetails, publisherBusyDetails } from './jobs.js'
 export type { JobState, Job, JobEvent, BusyDetails, PublisherBusyDetails } from './jobs.js'
@@ -48,6 +56,7 @@ export {
   actionConfig,
   serviceConfig,
   publisherConfig,
+  cameraConfig,
   datapointRate,
   datapointRange,
   datapointConfig,
@@ -61,6 +70,7 @@ export type {
   ActionConfig,
   ServiceConfig,
   PublisherConfig,
+  CameraConfig,
   DatapointRate,
   DatapointRange,
   DatapointConfig,
@@ -100,6 +110,10 @@ export {
   jobResponse,
   exposure,
   exposureListResponse,
+  cameraDescriptor,
+  cameraListResponse,
+  liveSessionResponse,
+  snapshotMetaResponse,
 } from './rest.js'
 export type {
   Robot,
@@ -129,6 +143,10 @@ export type {
   JobResponse,
   Exposure,
   ExposureListResponse,
+  CameraDescriptor,
+  CameraListResponse,
+  LiveSessionResponse,
+  SnapshotMetaResponse,
 } from './rest.js'
 export {
   clientAuth,

@@ -161,6 +161,44 @@ export const publisherConfig = z.object({
 export type PublisherConfig = z.infer<typeof publisherConfig>
 
 /**
+ * A camera the robot exposes (spec §10).
+ *
+ * W5 binds **ROS image topics**; RTSP, MJPEG and V4L2 are further source
+ * adapters against this same shape and arrive in W6.
+ *
+ * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
+ * developer's control over **the robot's own bandwidth**, which is why they
+ * live in the configuration rather than in a viewer's request. A viewer never
+ * gets to make a robot send more.
+ *
+ * The two modes are deliberately independent (§10):
+ *
+ * - **Snapshot** runs always, at `snapshot_interval_ms`, whether or not
+ *   anyone is watching live. The cloud caches the one frame and serves every
+ *   client from it, so a hundred pollers cost the robot exactly one image per
+ *   interval.
+ * - **Live** runs on demand and is refcounted in the cloud: the first viewer
+ *   starts it, the last one ends it.
+ */
+export const cameraConfig = z.object({
+  slug,
+  topic: rosName,
+  /** `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage`. */
+  type: rosTypeName,
+  width: z.number().int().positive().max(7680),
+  height: z.number().int().positive().max(4320),
+  fps: z.number().int().positive().max(60),
+  bitrate_kbps: z.number().int().positive().max(50_000),
+  /**
+   * How often a snapshot is captured. Bounded below at one second because a
+   * snapshot is the *cheap* mode — a developer who wants motion wants live,
+   * and an interval faster than this is a live stream wearing a disguise.
+   */
+  snapshot_interval_ms: z.number().int().min(1000).max(3_600_000),
+})
+export type CameraConfig = z.infer<typeof cameraConfig>
+
+/**
  * A whole robot configuration. One document per draft and per published
  * version. The kinds are sibling arrays, and **slugs are one namespace across
  * all of them** (§4.1) — which is what lets a role grant say
@@ -177,6 +215,8 @@ export const robotConfigDoc = z.object({
   actions: z.array(actionConfig).max(200).default([]),
   services: z.array(serviceConfig).max(200).default([]),
   publishers: z.array(publisherConfig).max(200).default([]),
+  /** W5, defaulted for the same reason the W4 kinds were: stored jsonb. */
+  cameras: z.array(cameraConfig).max(50).default([]),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 

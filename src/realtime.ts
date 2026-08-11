@@ -118,7 +118,7 @@ export const commandResult = z.object({
    * later. Returning the kind lets a client refuse its own mistake at once,
    * instead of reporting it as the machine's.
    */
-  kind: z.enum(['datapoint', 'action', 'service', 'publisher']).nullable(),
+  kind: z.enum(['datapoint', 'action', 'service', 'publisher', 'camera']).nullable(),
   code: z.string().nullable(),
   message: z.string().nullable(),
   /**
@@ -172,6 +172,20 @@ export const clientSubscribe = z.object({
   type: z.literal('subscribe'),
   robot_id: z.uuid(),
   slug,
+  /**
+   * What the subscriber expects, and how it wants it (W5).
+   *
+   * `kind` lets the server answer **`wrong_kind`** instead of accepting a
+   * subscribe the client will then filter to silence — and silence is
+   * indistinguishable from an idle slug, so it tells a developer nothing.
+   * Optional, so an older client that omits it keeps today's behaviour.
+   *
+   * `options` is where a camera says what it wants; a datapoint needs none.
+   * It exists now rather than later because adding a field to a frame three
+   * repos parse is cheap once and expensive twice.
+   */
+  kind: z.enum(['datapoint', 'action', 'service', 'camera']).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
 })
 export type ClientSubscribe = z.infer<typeof clientSubscribe>
 

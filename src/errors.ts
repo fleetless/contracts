@@ -111,5 +111,24 @@ export const ERROR_CODES = [
    * it sends them looking for a configuration mistake that is not there.
    */
   'not_subscribable',
+  // W5 — cameras.
+  /** The robot is connected but this camera is not publishing (§10). */
+  'camera_offline',
+  /**
+   * Nothing has been captured yet. An answer, not a failure: a camera
+   * configured a moment ago has no frame, and serving an older one from a
+   * different camera — or none, silently — would both be worse.
+   */
+  'no_snapshot_yet',
+  /** Live cannot start: no media server, no token, or the bridge refused. */
+  'live_unavailable',
+  /**
+   * The slug exists and is granted, but is not the kind this verb addresses —
+   * subscribing to a datapoint with an action helper, calling a service
+   * helper on an action. Answering instead of falling silent is the point:
+   * silence is also what an idle slug looks like, so it tells the caller
+   * nothing.
+   */
+  'wrong_kind',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

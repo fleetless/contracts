@@ -273,7 +273,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  */
 export const exposure = z.object({
   slug,
-  kind: z.enum(['datapoint', 'action', 'service', 'publisher']),
+  kind: z.enum(['datapoint', 'action', 'service', 'publisher', 'camera']),
   builtin: z.boolean(),
 })
 export type Exposure = z.infer<typeof exposure>
@@ -282,3 +282,61 @@ export const exposureListResponse = z.object({
   exposures: z.array(exposure),
 })
 export type ExposureListResponse = z.infer<typeof exposureListResponse>
+
+/* ------------------------------------------------------------------ W5 --
+ * Cameras (spec §10). Routes, written down as the W4 command routes are:
+ *
+ * | route | answers |
+ * |---|---|
+ * | `GET /api/robots/:id/cameras`                    | `cameraListResponse` |
+ * | `GET /api/robots/:id/cameras/:slug/snapshot`     | the image bytes, plus `X-Fleetless-Age-Ms` |
+ * | `POST /api/robots/:id/cameras/:slug/live`        | `liveSessionResponse` — takes a refcount hold |
+ * | `DELETE /api/robots/:id/cameras/:slug/live`      | 204 — releases this viewer's hold |
+ */
+
+export const cameraDescriptor = z.object({
+  slug,
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  fps: z.number().int().positive(),
+  snapshot_interval_ms: z.number().int().positive(),
+})
+export type CameraDescriptor = z.infer<typeof cameraDescriptor>
+
+export const cameraListResponse = z.object({ cameras: z.array(cameraDescriptor) })
+export type CameraListResponse = z.infer<typeof cameraListResponse>
+
+/**
+ * What a viewer needs to join, and **what it costs them to hold**.
+ *
+ * `POST` takes a refcount hold and `DELETE` releases it; the first hold
+ * starts the robot publishing and the last release stops it (§10). A client
+ * that forgets to release keeps a robot streaming to nobody, so the SDK hands
+ * back a `release()` rather than a bare token, and `expires_at` bounds the
+ * damage when a process dies without releasing anything.
+ */
+export const liveSessionResponse = z.object({
+  url: z.string().min(1),
+  room: z.string().min(1),
+  token: z.string().min(1),
+  expires_at: z.iso.datetime(),
+})
+export type LiveSessionResponse = z.infer<typeof liveSessionResponse>
+
+/**
+ * The snapshot read, when a caller wants metadata rather than raw bytes.
+ *
+ * `age_ms` is not a convenience: a cached frame served without its age is
+ * indistinguishable from a live one, and §10 makes snapshots deliberately
+ * cheap and therefore deliberately old. `null` values mean nothing has been
+ * captured yet — which is an answer, not an error.
+ */
+export const snapshotMetaResponse = z.object({
+  slug,
+  timestamp_ms: z.number().int().nonnegative().nullable(),
+  age_ms: z.number().int().nonnegative().nullable(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  mime: z.string().nullable(),
+})
+export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>

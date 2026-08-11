@@ -247,3 +247,73 @@ export const bridgeState = z.object({
   latency_ms: z.number().nonnegative().nullable(),
 })
 export type BridgeState = z.infer<typeof bridgeState>
+
+/* ------------------------------------------------------------------ W5 --
+ * Cameras (spec §10).
+ */
+
+/**
+ * The header of a **binary** snapshot frame, bridge → cloud.
+ *
+ * A snapshot frame is laid out as:
+ *
+ *   [4-byte big-endian header length][UTF-8 JSON header][image bytes]
+ *
+ * Binary rather than base64 in a text frame, because base64 costs a third of
+ * the robot's upstream for nothing. Self-contained rather than a JSON frame
+ * followed by a binary one, because that pairing would depend on frame
+ * ordering — and W4 established, at some cost, that ordering across a socket
+ * is not something to lean on.
+ *
+ * `timestamp_ms` is the bridge's **capture** time (§6.3), which is what lets
+ * every consumer state a snapshot's true age. A picture that lies about when
+ * it was taken is this wave's version of a job that reads "running" when
+ * nobody knows.
+ */
+export const snapshotHeader = z.object({
+  type: z.literal('snapshot'),
+  slug,
+  /** `image/jpeg` in practice; stated so nothing has to sniff the bytes. */
+  mime: z.string().min(1).max(64),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  timestamp_ms: z.number().int().nonnegative(),
+})
+export type SnapshotHeader = z.infer<typeof snapshotHeader>
+
+/**
+ * Cloud → bridge: start publishing this camera live.
+ *
+ * The **cloud** mints the room and the publisher token, for the same reason
+ * it mints a `job_id` before asking anything (§6.1): the side that owns the
+ * refcount must own the identity of the stream, or a robot could end up
+ * publishing into a room nobody is watching.
+ */
+export const cloudCameraStart = z.object({
+  type: z.literal('camera_start'),
+  slug,
+  url: z.string().min(1),
+  room: z.string().min(1),
+  token: z.string().min(1),
+})
+export type CloudCameraStart = z.infer<typeof cloudCameraStart>
+
+/** Cloud → bridge: the last viewer left; stop publishing (§10 refcount). */
+export const cloudCameraStop = z.object({
+  type: z.literal('camera_stop'),
+  slug,
+})
+export type CloudCameraStop = z.infer<typeof cloudCameraStop>
+
+/**
+ * What the bridge made of it. `publishing: false` with an `error` is how a
+ * camera that cannot start says so — the cloud must not leave a viewer
+ * watching a black rectangle while believing the stream is live.
+ */
+export const bridgeCameraState = z.object({
+  type: z.literal('camera_state'),
+  slug,
+  publishing: z.boolean(),
+  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+})
+export type BridgeCameraState = z.infer<typeof bridgeCameraState>
