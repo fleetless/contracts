@@ -13,6 +13,38 @@ export const apiError = z.object({
 export type ApiError = z.infer<typeof apiError>
 
 /**
+ * One violated §4.4 rule. `details` on the envelope stays `unknown` — codes
+ * are an open set, so their payloads cannot all be enumerated — but the
+ * payload of `parameter_invalid` **is** pinned here, because otherwise every
+ * consumer guesses: the cloud emits one shape, the SDK sniffs for two, the
+ * console renders a third, and each is right in its own tests.
+ *
+ * `field` is the **flat key exactly as the caller sent it** — the same string
+ * as the `parameterSpec.name` it violated. That is the entire justification
+ * for the flat parameter form: a refusal has to name something the caller can
+ * find in what they typed, and a console can attach the error to that one
+ * input rather than to the form.
+ */
+export const parameterViolation = z.object({
+  field: z.string().min(1),
+  /** Which rule failed — `min`, `max`, `enum`, `pattern`, `required`, `undeclared`. */
+  rule: z.string().min(1),
+  message: z.string().min(1),
+})
+export type ParameterViolation = z.infer<typeof parameterViolation>
+
+/**
+ * The `details` of a `parameter_invalid` refusal. Always at least one
+ * violation: a refusal that names none would leave the caller with nothing to
+ * fix. All violations are reported at once, not just the first — a caller
+ * fixing parameters one round-trip at a time is a caller who gives up.
+ */
+export const parameterInvalidDetails = z.object({
+  violations: z.array(parameterViolation).min(1),
+})
+export type ParameterInvalidDetails = z.infer<typeof parameterInvalidDetails>
+
+/**
  * The codes in use as of W2. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.

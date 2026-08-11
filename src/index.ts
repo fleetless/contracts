@@ -223,5 +223,5 @@ export type {
 } from './client-auth.js'
 export { auditActor, auditEvent, auditListResponse } from './audit.js'
 export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
-export { apiError, ERROR_CODES } from './errors.js'
-export type { ApiError, ErrorCode } from './errors.js'
+export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'
+export type { ApiError, ParameterViolation, ParameterInvalidDetails, ErrorCode } from './errors.js'

@@ -19,6 +19,8 @@ import {
   typeDefinition,
   parameterFieldsOf,
   exposureListResponse,
+  parameterViolation,
+  parameterInvalidDetails,
   ERROR_CODES,
 } from '../src/index.js'
 
@@ -203,5 +205,23 @@ describe('W4 exposures and errors', () => {
     for (const code of ['busy', 'parameter_invalid', 'job_lost', 'publisher_busy', 'unknown_command']) {
       expect(ERROR_CODES).toContain(code)
     }
+  })
+})
+
+describe('W4 parameter refusals', () => {
+  it('pins the shape of a parameter_invalid, so nobody has to sniff for it', () => {
+    // Left as `unknown` on the envelope, three consumers each guessed a
+    // different shape and each was right in its own tests.
+    const details = {
+      violations: [
+        { field: 'order', rule: 'required', message: 'order is required' },
+        { field: 'speed', rule: 'max', message: 'speed must be at most 1.5' },
+      ],
+    }
+    expect(parameterInvalidDetails.safeParse(details).success).toBe(true)
+    // A refusal naming no violation leaves the caller nothing to fix.
+    expect(parameterInvalidDetails.safeParse({ violations: [] }).success).toBe(false)
+    // `field` is the flat key as sent — the same string as the spec it broke.
+    expect(parameterViolation.safeParse({ field: 'target_pose.position.x', rule: 'min', message: 'too small' }).success).toBe(true)
   })
 })
