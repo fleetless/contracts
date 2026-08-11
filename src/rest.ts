@@ -185,6 +185,30 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
 
 /* ------------------------------------------------------------------ W4 --
  * The command surface (spec §11.1, §11.3) and what a role may be granted.
+ *
+ * The routes, written down because cloud, console and SDK each need them and
+ * a body schema does not imply a path:
+ *
+ * | route | body | answers |
+ * |---|---|---|
+ * | `POST /api/robots/:id/jobs/:slug`        | `invokeRequest` | `invokeResponse` (action) or `serviceCallResponse` (service) |
+ * | `GET /api/robots/:id/jobs/:slug`         | —               | `jobResponse` (the current job, or null) |
+ * | `POST /api/robots/:id/jobs/:slug/cancel` | —               | `jobResponse` |
+ * | `POST /api/robots/:id/publishers/:slug`  | `publishRequest`| 204 |
+ * | `GET /api/robots/:id/exposures`          | —               | `exposureListResponse` |
+ *
+ * **Commands are addressed by slug, never by kind.** Slugs are one namespace
+ * across all kinds (§4.1) and a role grant is `{robot, slug}` with no kind in
+ * it — so a path segment naming the kind would demand a fact the permission
+ * model deliberately does not carry. The cloud already knows from the
+ * published configuration whether a slug is an action or a service; a caller
+ * who wants to know asks `/exposures`.
+ *
+ * That is also why invoking and calling are the same route: both create the
+ * job on that slug. They differ only in what the cloud waits for before it
+ * answers — a service call awaits the terminal update and returns the result
+ * inline, an action returns as soon as the job exists. Publishing is not a
+ * job and so is not under `/jobs`.
  */
 
 /**

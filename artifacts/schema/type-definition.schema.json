@@ -1,29 +1,106 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "name": {
-      "type": "string",
-      "maxLength": 255,
-      "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+        },
+        "kind": {
+          "type": "string",
+          "const": "msg"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "fields"
+      ],
+      "additionalProperties": false
     },
-    "kind": {
-      "type": "string",
-      "const": "msg"
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+        },
+        "kind": {
+          "type": "string",
+          "const": "srv"
+        },
+        "request": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "response": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "request",
+        "response"
+      ],
+      "additionalProperties": false
     },
-    "fields": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/__schema0"
-      }
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+        },
+        "kind": {
+          "type": "string",
+          "const": "action"
+        },
+        "goal": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        },
+        "feedback": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema0"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "goal",
+        "result",
+        "feedback"
+      ],
+      "additionalProperties": false
     }
-  },
-  "required": [
-    "name",
-    "kind",
-    "fields"
   ],
-  "additionalProperties": false,
   "$defs": {
     "__schema0": {
       "type": "object",

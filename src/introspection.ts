@@ -53,12 +53,59 @@ export const typeField: z.ZodType<TypeField> = z.lazy(() =>
  * A resolved type of one robot. Custom types are per robot (spec §4.5): two
  * robots may define `custom_msgs/msg/Speed` differently and both are right.
  *
- * W2 resolves messages only — service and action trees arrive in W4 with the
- * parameters that need them.
+ * W2 resolved messages only; W4 adds services and actions, because a
+ * `parameterSpec.name` has to resolve against *something*, and an action has
+ * no flat field list — it has a goal, a result and a feedback tree.
+ *
+ * **Which tree a parameter resolves against** (the rule every consumer needs
+ * and none should re-derive):
+ *
+ * | config kind | type | parameters resolve against |
+ * |---|---|---|
+ * | `actionConfig`    | `pkg/action/T` | `goal`     |
+ * | `serviceConfig`   | `pkg/srv/T`    | `request`  |
+ * | `publisherConfig` | `pkg/msg/T`    | `fields`   |
+ *
+ * `result`/`feedback`/`response` are never parameter targets — nobody passes
+ * a result in. They are carried so the console can show what an action will
+ * report back, and so a client knows the shape of `job.result` in advance.
+ *
+ * The `msg` member keeps W2's exact shape, so every type already stored stays
+ * valid without migration.
  */
-export const typeDefinition = z.object({
-  name: rosTypeName,
-  kind: z.literal('msg'),
-  fields: z.array(typeField),
-})
+export const typeDefinition = z.discriminatedUnion('kind', [
+  z.object({
+    name: rosTypeName,
+    kind: z.literal('msg'),
+    fields: z.array(typeField),
+  }),
+  z.object({
+    name: rosTypeName,
+    kind: z.literal('srv'),
+    request: z.array(typeField),
+    response: z.array(typeField),
+  }),
+  z.object({
+    name: rosTypeName,
+    kind: z.literal('action'),
+    goal: z.array(typeField),
+    result: z.array(typeField),
+    feedback: z.array(typeField),
+  }),
+])
 export type TypeDefinition = z.infer<typeof typeDefinition>
+
+/**
+ * The tree a `parameterSpec.name` must resolve against, per the table above.
+ * One helper so cloud, console and SDK cannot each pick a different field.
+ */
+export function parameterFieldsOf(def: TypeDefinition): TypeField[] {
+  switch (def.kind) {
+    case 'msg':
+      return def.fields
+    case 'srv':
+      return def.request
+    case 'action':
+      return def.goal
+  }
+}

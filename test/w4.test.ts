@@ -16,6 +16,8 @@ import {
   bridgeHello,
   bridgeJobUpdate,
   bridgeJobLost,
+  typeDefinition,
+  parameterFieldsOf,
   exposureListResponse,
   ERROR_CODES,
 } from '../src/index.js'
@@ -157,6 +159,30 @@ describe('W4 bridge protocol', () => {
         feedback: null, progress: 1, result: { ok: true }, error: null, timestamp_ms: 1786400000000,
       }).success,
     ).toBe(true)
+  })
+})
+
+describe('W4 type trees', () => {
+  const F = { name: 'x', type: 'float64', array: false, fields: null }
+
+  it('resolves services and actions, not only messages', () => {
+    // A parameterSpec has to resolve against something, and an action has no
+    // flat field list — it has three trees.
+    expect(typeDefinition.safeParse({ name: 'p/msg/T', kind: 'msg', fields: [F] }).success).toBe(true)
+    expect(typeDefinition.safeParse({ name: 'p/srv/T', kind: 'srv', request: [F], response: [] }).success).toBe(true)
+    expect(
+      typeDefinition.safeParse({ name: 'p/action/T', kind: 'action', goal: [F], result: [], feedback: [] }).success,
+    ).toBe(true)
+    // W2's stored `msg` shape is unchanged, so nothing needs migrating.
+    expect(typeDefinition.safeParse({ name: 'p/msg/T', kind: 'msg' }).success).toBe(false)
+  })
+
+  it('points a parameter at the one tree it may name', () => {
+    // goal, request, fields — never result/feedback/response: nobody passes
+    // a result in. One helper, so three repos cannot pick three fields.
+    expect(parameterFieldsOf({ name: 'p/action/T', kind: 'action', goal: [F], result: [], feedback: [] })).toEqual([F])
+    expect(parameterFieldsOf({ name: 'p/srv/T', kind: 'srv', request: [F], response: [] })).toEqual([F])
+    expect(parameterFieldsOf({ name: 'p/msg/T', kind: 'msg', fields: [F] })).toEqual([F])
   })
 })
 

@@ -69,7 +69,7 @@ export type {
   ValidationIssue,
   ConfigState,
 } from './config.js'
-export { rosGraphEntry, rosGraph, typeField, typeDefinition } from './introspection.js'
+export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf } from './introspection.js'
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {
   robot,
