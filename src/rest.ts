@@ -240,7 +240,23 @@ export const publishRequest = z.object({
 })
 export type PublishRequest = z.infer<typeof publishRequest>
 
-/** The job currently running on a slug, or null when nothing is. */
+/**
+ * The **most recent** job on a slug — running or already finished — or null
+ * only when nothing has ever run there.
+ *
+ * It said "the job currently running" until W4's review, and that quietly
+ * made §11.3's first sentence false. The spec offers two equal ways to
+ * observe a slug — *"Polling (REST) oder Subscription (Realtime)"* — but a
+ * route that forgets a job the moment it settles lets a poller see only
+ * `running`, then `null`. Succeeded, failed, cancelled, `lost` and
+ * never-invoked all become the same answer, so §6.1's promise that a lost
+ * job is *said out loud* held for subscribers and silently did not hold for
+ * anyone polling. It is also the recovery `command_outcome_unknown` points
+ * a caller to.
+ *
+ * Read `job.state` to tell a live job from a finished one; that is what the
+ * field is for.
+ */
 export const jobResponse = z.object({ job: job.nullable() })
 export type JobResponse = z.infer<typeof jobResponse>
 
