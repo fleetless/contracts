@@ -61,8 +61,14 @@ describe('W2 exposure model', () => {
     expect(datapointRate.safeParse({ mode: 'max_hz' }).success).toBe(false)
   })
 
-  it('keeps retention a documented placeholder until W6', () => {
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: null }).success).toBe(true)
+  it('W6: retention is a boolean with exactly one spelling of "not recorded"', () => {
+    // The W5 placeholder accepted `null`. It is now a boolean, and `false` is
+    // the only representation of "not recorded" the contract admits — the
+    // cloud normalises a stored `null` on read rather than the contract
+    // carrying two spellings of one fact.
+    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: true }).success).toBe(true)
+    expect(datapointConfig.parse({ ...DATAPOINT }).retention).toBe(false)
+    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: null }).success).toBe(false)
     expect(datapointConfig.safeParse({ ...DATAPOINT, retention: { days: 7 } }).success).toBe(false)
   })
 

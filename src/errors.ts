@@ -130,6 +130,29 @@ export const ERROR_CODES = [
    * nothing.
    */
   'wrong_kind',
+  // W6 — retention and history.
+  /**
+   * The slug exists and is granted, but is configured live-only, so there is
+   * no history to return. An empty array would be indistinguishable from a
+   * recorded datapoint that happens to have no samples in the range, and the
+   * two need completely different actions from the developer: one is "turn
+   * recording on", the other is "look at a different window".
+   */
+  'not_recorded',
+  /**
+   * `min`/`max`/`avg` was asked of a value that is not a number, and no
+   * numeric `field` was named. Refusing beats coercing: an average of
+   * booleans or strings is a number that means nothing, and it would be
+   * charted as confidently as a real one.
+   */
+  'not_aggregatable',
+  /**
+   * An org quota (§12.4) is exhausted. The message names **which** one —
+   * "quota exceeded" without saying which is a dead end for whoever has to
+   * act on it. Recording stops; live values keep flowing, because a storage
+   * limit is not a reason to take a robot away from its operator.
+   */
+  'quota_exceeded',
   /**
    * An action goal was never accepted — no server answered within the
    * bridge's patience (W5, from W4's review). Distinct from `failed`, which

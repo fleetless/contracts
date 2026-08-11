@@ -64,6 +64,9 @@ export {
   valueRule,
   validationIssue,
   configState,
+  // W6
+  credentialRef,
+  cameraSource,
 } from './config.js'
 export type {
   ParameterSpec,
@@ -115,6 +118,26 @@ export {
   cameraListResponse,
   liveSessionResponse,
   snapshotMetaResponse,
+  // W6 — retention, history, quotas, credentials.
+  historyQuery,
+  historySamplesResponse,
+  historyBucketsResponse,
+  orgQuotas,
+  orgQuotaUsage,
+  credentialSummary,
+  credentialListResponse,
+  credentialWriteRequest,
+} from './rest.js'
+export type {
+  CameraSource,
+  HistoryQuery,
+  HistorySamplesResponse,
+  HistoryBucketsResponse,
+  OrgQuotas,
+  OrgQuotaUsage,
+  CredentialSummary,
+  CredentialListResponse,
+  CredentialWriteRequest,
 } from './rest.js'
 export type {
   Robot,

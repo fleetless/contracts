@@ -135,7 +135,8 @@
       ]
     },
     "retention": {
-      "type": "null"
+      "default": false,
+      "type": "boolean"
     },
     "buffer": {
       "default": {
@@ -170,6 +171,7 @@
     "scale",
     "offset",
     "range",
+    "retention",
     "buffer"
   ],
   "additionalProperties": false

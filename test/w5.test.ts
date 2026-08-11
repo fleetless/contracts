@@ -13,7 +13,8 @@ import {
 } from '../src/index.js'
 
 const CAM = {
-  slug: 'front', topic: '/image_raw', type: 'sensor_msgs/msg/Image',
+  slug: 'front',
+  source: { kind: 'ros', topic: '/image_raw', type: 'sensor_msgs/msg/Image' },
   width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000,
 }
 

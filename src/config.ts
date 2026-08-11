@@ -81,11 +81,22 @@ export const datapointConfig = z.object({
   offset: z.number().nullable(),
   range: datapointRange.nullable(),
   /**
-   * Recording (spec §8) is a W6 feature. The field exists so the shape does
-   * not change under stored configurations later; until W6 the only accepted
-   * value is `null` and the editor does not offer it.
+   * Record this datapoint (spec §8). Recorded values go to the time-series
+   * store and are queryable through the history API; everything else is
+   * live-only and leaves no trace.
+   *
+   * **Exactly one representation of "not recorded": `false`.** W5 reserved
+   * this field as `z.null().optional()`, so stored documents may carry
+   * `retention: null` — the cloud normalises that to `false` on read rather
+   * than the contract accepting both, because two spellings of one fact is
+   * the defect this project has spent two waves removing.
+   *
+   * Defaulted so a document written before W6 still parses. Note that
+   * `.default()` publishes as `required` in the generated artifact — the
+   * fourth instance, deferred to W7 with the fix identified
+   * (`io: 'input'`, split per schema).
    */
-  retention: z.null().optional(),
+  retention: z.boolean().default(false),
   /**
    * What happens to this datapoint's values while the bridge is disconnected
    * (spec §6.3). Buffered values are backfilled after reconnect — **after**
@@ -180,11 +191,63 @@ export type PublisherConfig = z.infer<typeof publisherConfig>
  * - **Live** runs on demand and is refcounted in the cloud: the first viewer
  *   starts it, the last one ends it.
  */
+/**
+ * A reference to a named credential (§12), by **name**. Never a secret, so it
+ * is safe everywhere a configuration document goes: version history, the
+ * console, audit details, a log line.
+ */
+export const credentialRef = z.string().min(1).max(64)
+
+/**
+ * Where a camera's frames come from (§10 names four sources).
+ *
+ * A discriminated union rather than optional fields, so an impossible camera
+ * is **unrepresentable** rather than merely invalid — there is no way to
+ * write an RTSP camera with a ROS topic, or a V4L2 device with a URL, and
+ * therefore no validation rule to forget.
+ *
+ * `credentials_ref` names a shared credential; one site account typically
+ * serves many cameras, across robots. Credentials themselves never appear
+ * here — see `cloudConfig.credentials`, which carries them on the wire to the
+ * robot and nowhere else.
+ *
+ * A URL **may** carry userinfo (`rtsp://user:pass@host`). It publishes, with
+ * a `credentials_in_url` **warning**: that password becomes part of the
+ * configuration document, so it lands in every published version and in the
+ * audit log, and cannot be rotated without republishing. If both are present
+ * the named credential wins, with a second warning — silently preferring one
+ * would make a rotation appear not to work.
+ */
+export const cameraSource = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('ros'),
+    topic: rosName,
+    /** `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage`. */
+    type: rosTypeName,
+  }),
+  z.object({
+    kind: z.literal('rtsp'),
+    url: z.string().min(1).max(2048),
+    /** TCP by default: UDP loses frames on a congested link, silently. */
+    transport: z.enum(['tcp', 'udp']).default('tcp'),
+    credentials_ref: credentialRef.nullable().default(null),
+  }),
+  z.object({
+    kind: z.literal('mjpeg'),
+    url: z.string().min(1).max(2048),
+    credentials_ref: credentialRef.nullable().default(null),
+  }),
+  z.object({
+    kind: z.literal('v4l2'),
+    /** e.g. `/dev/video0`. Resolved on the robot, never by the cloud. */
+    device: z.string().min(1).max(128),
+  }),
+])
+export type CameraSource = z.infer<typeof cameraSource>
+
 export const cameraConfig = z.object({
   slug,
-  topic: rosName,
-  /** `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage`. */
-  type: rosTypeName,
+  source: cameraSource,
   width: z.number().int().positive().max(7680),
   height: z.number().int().positive().max(4320),
   fps: z.number().int().positive().max(60),

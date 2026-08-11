@@ -35,7 +35,7 @@ import {
   liveSessionResponse,
   snapshotMetaResponse,
 } from '../src/rest.js'
-import { robotConfigDoc, datapointConfig, validationIssue, configState } from '../src/config.js'
+import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource } from '../src/config.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
   robot,
@@ -106,6 +106,16 @@ import {
   bridgeJobLost,
 } from '../src/protocol.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
+import {
+  historyQuery,
+  historySamplesResponse,
+  historyBucketsResponse,
+  orgQuotas,
+  orgQuotaUsage,
+  credentialSummary,
+  credentialListResponse,
+  credentialWriteRequest,
+} from '../src/rest.js'
 
 export const exportedSchemas = {
   // W5 — cameras. Every bridge<->cloud frame is validated against its
@@ -118,6 +128,16 @@ export const exportedSchemas = {
   'camera-list-response': cameraListResponse,
   'live-session-response': liveSessionResponse,
   'snapshot-meta-response': snapshotMetaResponse,
+  // W6 — retention, history, quotas, credentials, camera sources.
+  'camera-source': cameraSource,
+  'history-query': historyQuery,
+  'history-samples-response': historySamplesResponse,
+  'history-buckets-response': historyBucketsResponse,
+  'org-quotas': orgQuotas,
+  'org-quota-usage': orgQuotaUsage,
+  'credential-summary': credentialSummary,
+  'credential-list-response': credentialListResponse,
+  'credential-write-request': credentialWriteRequest,
   'bridge-hello': bridgeHello,
   'cloud-hello-ok': cloudHelloOk,
   'cloud-hello-error': cloudHelloError,

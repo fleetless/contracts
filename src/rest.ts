@@ -377,3 +377,122 @@ export const snapshotMetaResponse = z.object({
   mime: z.string().nullable(),
 })
 export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>
+
+// ---------------------------------------------------------------------------
+// W6 — retention, history and org quotas (§8, §12.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * A history query (§8). `from`/`to` accept **either** a relative expression
+ * (`now-30s`, `now-5m`, `now-1h`) **or** absolute unix milliseconds, because
+ * a chart asks the first way and a report asks the second, and making a
+ * client convert is making it guess our clock.
+ *
+ * `window` without `agg` is meaningless and `agg` without `window` is
+ * ambiguous — both are refused rather than assigned a default, since a
+ * silently chosen aggregation is a chart that lies quietly.
+ */
+export const historyQuery = z.object({
+  from: z.string().min(1).max(32),
+  /** Defaults to now. */
+  to: z.string().min(1).max(32).optional(),
+  /** Bucket width, e.g. `10s`, `1m`. Absent means raw samples. */
+  window: z.string().min(2).max(16).optional(),
+  agg: z.enum(['min', 'max', 'avg']).optional(),
+  /** A numeric field inside an object value, e.g. `pose.x` (§4.4 paths). */
+  field: z.string().min(1).max(128).optional(),
+  limit: z.number().int().positive().max(10_000).optional(),
+})
+export type HistoryQuery = z.infer<typeof historyQuery>
+
+/**
+ * Raw samples. `timestamp_ms` is the **bridge's capture time** (§6.3) — the
+ * same instant the live value carried, so a recorded point and a live one can
+ * be placed on one axis without apology.
+ *
+ * `truncated` says the limit was hit. A short array that does not admit it is
+ * indistinguishable from a quiet period, and the two lead a developer to
+ * opposite conclusions.
+ */
+export const historySamplesResponse = z.object({
+  slug,
+  kind: z.literal('samples'),
+  samples: z.array(z.object({ timestamp_ms: z.number().int().nonnegative(), value: z.unknown() })),
+  truncated: z.boolean(),
+})
+export type HistorySamplesResponse = z.infer<typeof historySamplesResponse>
+
+/**
+ * Aggregated buckets — a **separate shape**, not the samples shape with nulls
+ * in it, so a client knows by type what it received rather than by
+ * inspection.
+ *
+ * `sample_count` exists because an empty bucket and a bucket whose average is
+ * zero are different facts. W5 established at some cost what happens when two
+ * facts share one representation, and a chart is the easiest place in this
+ * product to draw a gap as a line.
+ */
+export const historyBucketsResponse = z.object({
+  slug,
+  kind: z.literal('buckets'),
+  window_ms: z.number().int().positive(),
+  agg: z.enum(['min', 'max', 'avg']),
+  buckets: z.array(
+    z.object({
+      bucket_start_ms: z.number().int().nonnegative(),
+      /** `null` only ever means "no samples in this bucket". */
+      value: z.number().nullable(),
+      sample_count: z.number().int().nonnegative(),
+    }),
+  ),
+})
+export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
+
+/**
+ * Org protection quotas (§12.4) — generous, server-side adjustable, visible
+ * in Settings. Protection against runaway use, not a business model; a later
+ * one docks onto the same dials.
+ */
+export const orgQuotas = z.object({
+  max_robots: z.number().int().positive(),
+  max_apps: z.number().int().positive(),
+  max_end_users: z.number().int().positive(),
+  max_retention_bytes: z.number().int().nonnegative(),
+  max_retention_writes_per_minute: z.number().int().nonnegative(),
+  max_realtime_connections: z.number().int().positive(),
+})
+export type OrgQuotas = z.infer<typeof orgQuotas>
+
+/** Limits beside what is actually used — a limit alone tells nobody where they stand. */
+export const orgQuotaUsage = z.object({ quotas: orgQuotas, usage: orgQuotas.partial() })
+export type OrgQuotaUsage = z.infer<typeof orgQuotaUsage>
+
+/**
+ * A named credential as the API is willing to describe it (§10, W6).
+ *
+ * **There is no password field here, and there is no route that returns one.**
+ * A secret you can read back is not a secret; `set` and `username` are enough
+ * to manage a credential and not enough to be a leak.
+ *
+ * `used_by` is what makes sharing safe: one site account typically serves many
+ * cameras across several robots, and rotating it blind is how one of them
+ * silently stops working. Deleting a credential still named by a camera is
+ * refused for the same reason.
+ */
+export const credentialSummary = z.object({
+  name: z.string().min(1).max(64),
+  username: z.string().nullable(),
+  set: z.boolean(),
+  used_by: z.array(z.object({ robot_id: z.uuid(), slug })),
+})
+export type CredentialSummary = z.infer<typeof credentialSummary>
+
+export const credentialListResponse = z.object({ credentials: z.array(credentialSummary) })
+export type CredentialListResponse = z.infer<typeof credentialListResponse>
+
+/** Write-only. The only shape that carries a password anywhere in the REST API. */
+export const credentialWriteRequest = z.object({
+  username: z.string().min(1).max(128),
+  password: z.string().min(1).max(512),
+})
+export type CredentialWriteRequest = z.infer<typeof credentialWriteRequest>

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "ros"
+        },
+        "topic": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$"
+        },
+        "type": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+        }
+      },
+      "required": [
+        "kind",
+        "topic",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "rtsp"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "transport": {
+          "default": "tcp",
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp"
+          ]
+        },
+        "credentials_ref": {
+          "default": null,
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "url",
+        "transport",
+        "credentials_ref"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "mjpeg"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "credentials_ref": {
+          "default": null,
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "url",
+        "credentials_ref"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "v4l2"
+        },
+        "device": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "kind",
+        "device"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
