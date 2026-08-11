@@ -447,8 +447,40 @@ export const historyBucketsResponse = z.object({
   buckets: z.array(
     z.object({
       bucket_start_ms: z.number().int().nonnegative(),
-      /** `null` only ever means "no samples in this bucket". */
+      /**
+       * The aggregate over this bucket's **numeric** samples — or `null` when
+       * none of them were numeric, which is **not** the same as the bucket
+       * being empty. `sample_count` is the field that separates those facts:
+       *
+       *     value: null,  sample_count: 0    nothing was recorded — a gap
+       *     value: null,  sample_count: 3    three samples, none of them numeric
+       *     value: 0,     sample_count: 3    three samples, and the average is zero
+       *
+       * A chart must draw the first as a break in the line and must **not**
+       * draw the second as one: data exists there, it simply has no height.
+       *
+       * This sentence previously read "`null` only ever means 'no samples in
+       * this bucket'", and the implementation counted numeric contributors,
+       * so the second row above was indistinguishable from the first and the
+       * console rendered "empty — no samples" over live data.
+       */
       value: z.number().nullable(),
+      /**
+       * Every sample that landed in this bucket and inside the queried range,
+       * whether or not it contributed to `value` — which is the point of the
+       * field, since only a count of *all* samples can prove a bucket empty
+       * rather than merely unplottable.
+       *
+       * Two consequences, stated rather than left to be discovered:
+       *
+       * - `value` is not an average *of* `sample_count` samples when a
+       *   datapoint's values are mixed, so **`value * sample_count` is not a
+       *   sum**.
+       * - On a first or last bucket the count reflects the **range**, not the
+       *   bucket: an edge bucket can begin before `from` or extend past `to`,
+       *   and only in-range samples are counted. A low edge count is a
+       *   boundary effect, not a quiet period.
+       */
       sample_count: z.number().int().nonnegative(),
     }),
   ),
