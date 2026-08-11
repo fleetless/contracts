@@ -127,7 +127,18 @@ export const cloudInvoke = z.object({
   type: z.literal('invoke'),
   job_id: z.uuid(),
   slug,
-  /** Already validated against §4.4 rules; the bridge validates structurally. */
+  /**
+   * Already validated against §4.4 rules; the bridge validates structurally.
+   *
+   * **Flat, keyed by `parameterSpec.name`** — `{"target_pose.position.x": 1}`,
+   * not a nested message tree. Three things follow from that and none of them
+   * survive the nested form: the key a caller sends is the key a rule names,
+   * so a `parameter_invalid` can report a `field` the caller can actually
+   * find; the console binds one form input per spec; and a goal field that no
+   * `parameterSpec` declares simply cannot be set, which is what §4.4 means by
+   * the developer deciding what a client may pass. The bridge unflattens once,
+   * on the way into the ROS goal or request.
+   */
   params: z.record(z.string(), z.unknown()),
 })
 export type CloudInvoke = z.infer<typeof cloudInvoke>
@@ -142,6 +153,14 @@ export type CloudCancel = z.infer<typeof cloudCancel>
 export const cloudPublish = z.object({
   type: z.literal('publish'),
   slug,
+  /**
+   * Flat and keyed by `parameterSpec.name`, exactly like `cloudInvoke.params`
+   * — a publisher carries parameter specs and the same §4.4 validation, so it
+   * must carry the same shape. Note this is *not* the shape of
+   * `publisherConfig.failsafe`, which is a complete nested ROS message: the
+   * failsafe is authored once by the developer against the type, never sent
+   * by a caller and never rule-checked per field.
+   */
   message: z.record(z.string(), z.unknown()),
 })
 export type CloudPublish = z.infer<typeof cloudPublish>

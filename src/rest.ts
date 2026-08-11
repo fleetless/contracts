@@ -187,7 +187,12 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  * The command surface (spec §11.1, §11.3) and what a role may be granted.
  */
 
-/** Invoke an action or call a service; parameters by field path (§4.4). */
+/**
+ * Invoke an action or call a service; parameters by field path (§4.4).
+ *
+ * Flat, keyed by `parameterSpec.name` — see `cloudInvoke.params` for why the
+ * flat form is the one that makes a refusal legible.
+ */
 export const invokeRequest = z.object({
   params: z.record(z.string(), z.unknown()),
 })
