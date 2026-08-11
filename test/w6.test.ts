@@ -50,6 +50,21 @@ describe('W6 camera sources', () => {
     expect(cameraSource.safeParse({ kind: 'rtsp', url: 'rtsp://u:p@cam.local/s' }).success).toBe(true)
   })
 
+  it('refuses a URL scheme that would make a camera a file reader on the robot', () => {
+    // The bridge opens these with libraries that honour file: and ftp:, so an
+    // unconstrained URL turns a config document into an arbitrary local-file
+    // read — and the two distinct failure codes into an existence oracle.
+    // Spec §7.6 forbids exactly this class; it came back by omission.
+    for (const url of ['file:///etc/hostname', 'ftp://host/x', 'http://cam/s.mjpg']) {
+      expect(cameraSource.safeParse({ kind: 'rtsp', url }).success).toBe(false)
+    }
+    for (const url of ['file:///etc/hostname', 'ftp://host/x', 'rtsp://cam/s']) {
+      expect(cameraSource.safeParse({ kind: 'mjpeg', url }).success).toBe(false)
+    }
+    expect(cameraSource.safeParse({ kind: 'rtsp', url: 'rtsps://cam/s' }).success).toBe(true)
+    expect(cameraSource.safeParse({ kind: 'mjpeg', url: 'https://cam/s.mjpg' }).success).toBe(true)
+  })
+
   it('references a shared credential by NAME, so nothing secret enters the document', () => {
     const parsed = cameraSource.parse({ kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials_ref: 'site-nvr' })
     expect(parsed).toMatchObject({ credentials_ref: 'site-nvr' })

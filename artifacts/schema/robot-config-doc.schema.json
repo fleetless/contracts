@@ -517,7 +517,8 @@
                   "url": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 2048
+                    "maxLength": 2048,
+                    "pattern": "^rtsps?:\\/\\/"
                   },
                   "transport": {
                     "default": "tcp",
@@ -559,7 +560,8 @@
                   "url": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 2048
+                    "maxLength": 2048,
+                    "pattern": "^https?:\\/\\/"
                   },
                   "credentials_ref": {
                     "default": null,

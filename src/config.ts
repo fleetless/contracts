@@ -227,14 +227,27 @@ export const cameraSource = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('rtsp'),
-    url: z.string().min(1).max(2048),
+    /**
+     * Scheme-constrained deliberately. The playbook drafted `z.string().url()`
+     * here and the shipped contract was `z.string().min(1).max(2048)` — nobody
+     * recorded the change, and the W6 review found the consequence: the bridge
+     * opens these with libraries that honour `file:` and `ftp:`, so an
+     * unconstrained URL turns a configuration document into an arbitrary
+     * local-file read on the robot, with the two distinct failure codes
+     * doubling as a file-existence oracle. Spec §7.6 is ROS-pure exposure with
+     * no shell or http features; that rule came back by omission rather than
+     * by intent. The bridge re-checks this too — a robot must not become a
+     * file server because a validator changed.
+     */
+    url: z.string().min(1).max(2048).regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL'),
     /** TCP by default: UDP loses frames on a congested link, silently. */
     transport: z.enum(['tcp', 'udp']).default('tcp'),
     credentials_ref: credentialRef.nullable().default(null),
   }),
   z.object({
     kind: z.literal('mjpeg'),
-    url: z.string().min(1).max(2048),
+    /** `http:`/`https:` only — see the `rtsp` variant above for why. */
+    url: z.string().min(1).max(2048).regex(/^https?:\/\//i, 'must be an http:// or https:// URL'),
     credentials_ref: credentialRef.nullable().default(null),
   }),
   z.object({
