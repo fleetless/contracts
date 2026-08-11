@@ -24,6 +24,17 @@ import {
   cloudTypeRequest,
   bridgeTypeDefinitions,
 } from '../src/protocol.js'
+import {
+  snapshotHeader,
+  cloudCameraStart,
+  cloudCameraStop,
+  bridgeCameraState,
+} from '../src/protocol.js'
+import {
+  cameraListResponse,
+  liveSessionResponse,
+  snapshotMetaResponse,
+} from '../src/rest.js'
 import { robotConfigDoc, datapointConfig, validationIssue, configState } from '../src/config.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
@@ -97,6 +108,16 @@ import {
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 
 export const exportedSchemas = {
+  // W5 — cameras. Every bridge<->cloud frame is validated against its
+  // generated schema in both directions, so a frame missing from this map is
+  // a frame the bridge cannot check.
+  'snapshot-header': snapshotHeader,
+  'cloud-camera-start': cloudCameraStart,
+  'cloud-camera-stop': cloudCameraStop,
+  'bridge-camera-state': bridgeCameraState,
+  'camera-list-response': cameraListResponse,
+  'live-session-response': liveSessionResponse,
+  'snapshot-meta-response': snapshotMetaResponse,
   'bridge-hello': bridgeHello,
   'cloud-hello-ok': cloudHelloOk,
   'cloud-hello-error': cloudHelloError,

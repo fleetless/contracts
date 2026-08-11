@@ -130,5 +130,13 @@ export const ERROR_CODES = [
    * nothing.
    */
   'wrong_kind',
+  /**
+   * An action goal was never accepted — no server answered within the
+   * bridge's patience (W5, from W4's review). Distinct from `failed`, which
+   * means the robot tried: nothing tried here. It exists so a slug whose ROS
+   * server is absent cannot stay wedged forever with the platform reporting
+   * a machine as busy doing something it never started.
+   */
+  'goal_timeout',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
