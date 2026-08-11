@@ -290,6 +290,7 @@ export type ExposureListResponse = z.infer<typeof exposureListResponse>
  * |---|---|
  * | `GET /api/robots/:id/cameras`                    | `cameraListResponse` |
  * | `GET /api/robots/:id/cameras/:slug/snapshot`     | the image bytes, plus `X-Fleetless-Age-Ms` |
+ * | `GET /api/robots/:id/cameras/:slug/snapshot/meta`| `snapshotMetaResponse` — age without the bytes |
  * | `POST /api/robots/:id/cameras/:slug/live`        | `liveSessionResponse` — takes a refcount hold |
  * | `DELETE /api/robots/:id/cameras/:slug/live`      | 204 — releases this viewer's hold |
  */
@@ -324,7 +325,13 @@ export const liveSessionResponse = z.object({
 export type LiveSessionResponse = z.infer<typeof liveSessionResponse>
 
 /**
- * The snapshot read, when a caller wants metadata rather than raw bytes.
+ * The snapshot read **without the bytes**.
+ *
+ * A viewer polling at the camera's interval otherwise re-downloads a whole
+ * image to discover whether a new one exists. This is the cheap question —
+ * *how old is what you have?* — so a client can fetch pixels only when the
+ * timestamp actually moved. It matters most on the console's snapshot view,
+ * which polls continuously while a tab is open.
  *
  * `age_ms` is not a convenience: a cached frame served without its age is
  * indistinguishable from a live one, and §10 makes snapshots deliberately
