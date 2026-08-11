@@ -86,10 +86,18 @@
         "error"
       ],
       "additionalProperties": false
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "action",
+        "service"
+      ]
     }
   },
   "required": [
-    "job"
+    "job",
+    "kind"
   ],
   "additionalProperties": false
 }

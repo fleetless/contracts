@@ -40,8 +40,8 @@ export type {
   BridgeJobUpdate,
   BridgeJobLost,
 } from './protocol.js'
-export { jobState, job, jobEvent, busyDetails } from './jobs.js'
-export type { JobState, Job, JobEvent, BusyDetails } from './jobs.js'
+export { jobState, job, jobEvent, busyDetails, publisherBusyDetails } from './jobs.js'
+export type { JobState, Job, JobEvent, BusyDetails, PublisherBusyDetails } from './jobs.js'
 export {
   RESERVED_SLUGS,
   parameterSpec,

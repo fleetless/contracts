@@ -226,7 +226,11 @@ export type InvokeRequest = z.infer<typeof invokeRequest>
  * The answer to an invoke. The job id is informative (§11.3): state is
  * observed by slug afterwards, over polling or a subscription.
  */
-export const invokeResponse = z.object({ job })
+export const invokeResponse = z.object({
+  job,
+  /** The slug's kind — see `commandResult.kind` for why the caller needs it. */
+  kind: z.enum(['action', 'service']),
+})
 export type InvokeResponse = z.infer<typeof invokeResponse>
 
 /** A service call answers with its result directly — no job to observe. */

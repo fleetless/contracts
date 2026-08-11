@@ -21,6 +21,7 @@ import {
   exposureListResponse,
   parameterViolation,
   parameterInvalidDetails,
+  publisherBusyDetails,
   ERROR_CODES,
 } from '../src/index.js'
 
@@ -118,7 +119,7 @@ describe('W4 command parity', () => {
     expect(clientInvoke.safeParse({ type: 'invoke', robot_id: UUID2, slug: 'drive-to', params: {} }).success).toBe(false)
     expect(clientCancel.safeParse({ type: 'cancel', request_id: 'r2', robot_id: UUID2, slug: 'drive-to' }).success).toBe(true)
     expect(
-      commandResult.safeParse({ type: 'command_result', request_id: 'r1', ok: false, job: null, code: 'busy', message: 'already running' }).success,
+      commandResult.safeParse({ type: 'command_result', request_id: 'r1', ok: false, job: null, kind: 'action', code: 'busy', message: 'already running' }).success,
     ).toBe(true)
   })
 
@@ -127,7 +128,7 @@ describe('W4 command parity', () => {
     // parameter_invalid was actionable over HTTP and opaque over the socket,
     // because there was nowhere on the frame to put the violations.
     const r = {
-      type: 'command_result', request_id: 'r9', ok: false, job: null,
+      type: 'command_result', request_id: 'r9', ok: false, job: null, kind: 'action',
       code: 'parameter_invalid', message: '1 parameter invalid',
       details: { violations: [{ field: 'order', rule: 'max', message: 'too big' }] },
     }
@@ -238,5 +239,26 @@ describe('W4 parameter refusals', () => {
     expect(parameterInvalidDetails.safeParse({ violations: [] }).success).toBe(false)
     // `field` is the flat key as sent — the same string as the spec it broke.
     expect(parameterViolation.safeParse({ field: 'target_pose.position.x', rule: 'min', message: 'too small' }).success).toBe(true)
+  })
+})
+
+describe('W4 review fixes', () => {
+  it('tells a client which kind it just commanded', () => {
+    // Invoke and call share a route; only a *client* distinguishes them. With
+    // no kind coming back, a service helper aimed at an action slug starts the
+    // real action and then blames the robot for not finishing.
+    const base = { type: 'command_result', request_id: 'k', ok: true, job: null, code: null, message: null }
+    expect(commandResult.safeParse({ ...base, kind: 'service' }).success).toBe(true)
+    // Null when the slug never resolved — a forbidden refusal names no kind.
+    expect(commandResult.safeParse({ ...base, kind: null }).success).toBe(true)
+    expect(commandResult.safeParse(base).success).toBe(false)
+  })
+
+  it('makes publisher_busy say how much longer, not just that it is busy', () => {
+    // "has not been quiet long enough" names a state and no action: the caller
+    // cannot read quiet_timeout_ms, so without a number they busy-loop — on
+    // the one verb that moves a machine.
+    expect(publisherBusyDetails.safeParse({ quiet_timeout_ms: 3000, retry_after_ms: 1200 }).success).toBe(true)
+    expect(publisherBusyDetails.safeParse({ quiet_timeout_ms: 3000 }).success).toBe(false)
   })
 })

@@ -68,3 +68,24 @@ export const busyDetails = z.object({
   running: job,
 })
 export type BusyDetails = z.infer<typeof busyDetails>
+
+/**
+ * What a `publisher_busy` refusal tells the caller (spec §6.4).
+ *
+ * "Another caller is publishing and has not been quiet long enough" names a
+ * state and no action: the caller does not know how much longer, because
+ * `quiet_timeout_ms` lives in the configuration document, which a client app
+ * never reads. Without a number they busy-loop — on the one verb that moves
+ * a machine, on a platform with no rate limiting. So the refusal carries the
+ * wait itself.
+ *
+ * `holder` is deliberately absent: it would name another end user to a
+ * caller who may have no right to know they exist.
+ */
+export const publisherBusyDetails = z.object({
+  /** The configured silence a holder must leave before anyone else may publish. */
+  quiet_timeout_ms: z.number().int().nonnegative(),
+  /** How much of that silence is still outstanding, now. */
+  retry_after_ms: z.number().int().nonnegative(),
+})
+export type PublisherBusyDetails = z.infer<typeof publisherBusyDetails>

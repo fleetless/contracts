@@ -107,6 +107,18 @@ export const commandResult = z.object({
    * - any other refusal: `null`.
    */
   job: job.nullable(),
+  /**
+   * The **kind** of the slug this command addressed, when the slug resolved.
+   *
+   * Invoke and call share a route on purpose — both create the job on the
+   * slug — but a *client* library distinguishes them: `services.call` waits
+   * for a terminal state, `actions.invoke` does not. Without the kind coming
+   * back, calling a service helper on an action slug **starts the real action
+   * on the robot** and then blames the robot for not finishing, half a minute
+   * later. Returning the kind lets a client refuse its own mistake at once,
+   * instead of reporting it as the machine's.
+   */
+  kind: z.enum(['datapoint', 'action', 'service', 'publisher']).nullable(),
   code: z.string().nullable(),
   message: z.string().nullable(),
   /**
