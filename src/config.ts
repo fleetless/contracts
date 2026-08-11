@@ -252,8 +252,36 @@ export const cameraSource = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('v4l2'),
-    /** e.g. `/dev/video0`. Resolved on the robot, never by the cloud. */
-    device: z.string().min(1).max(128),
+    /**
+     * e.g. `/dev/video0`, or a stable `/dev/v4l/by-id/...` symlink. Resolved
+     * on the robot, never by the cloud.
+     *
+     * Constrained to `/dev/` for the same reason the `rtsp` and `mjpeg` URLs
+     * are constrained to their schemes, and it was missed the first time
+     * (Momus, W6 verification). The device string reaches
+     * `cv2.VideoCapture(device)` on the robot, and OpenCV does not restrict
+     * itself to devices: measured on cv2 4.5.4, an ordinary local video file
+     * opens and its pixels are published to the cloud, and so does
+     * `http://127.0.0.1:8899/secret.jpg`. Unconstrained, this field is an
+     * arbitrary local-file read *and* an outbound fetch from inside the robot
+     * — the §7.6 violation closed for the other two source kinds, reachable
+     * through the fourth, because "it is just a device path" read like a
+     * reason not to check.
+     *
+     * Narrower than the URL hole in one respect worth recording: a non-media
+     * file and a missing file both fail to open, so this branch never worked
+     * as a file-existence oracle.
+     *
+     * The bridge re-derives this constraint rather than trusting the wire
+     * (`validate_device_path`), exactly as it re-derives the URL scheme.
+     */
+    device: z
+      .string()
+      .min(1)
+      .max(128)
+      .regex(/^\/dev\/[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'must be a device path under /dev/')
+      .refine((v) => !v.split('/').includes('..'), 'must not contain a `..` path segment')
+      .refine((v) => !v.endsWith('/'), 'must name a device, not a directory'),
   }),
 ])
 export type CameraSource = z.infer<typeof cameraSource>
