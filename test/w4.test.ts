@@ -122,6 +122,21 @@ describe('W4 command parity', () => {
     ).toBe(true)
   })
 
+  it('lets a realtime refusal carry the same details REST does', () => {
+    // Without this the socket broke §11.1's parity promise: the same
+    // parameter_invalid was actionable over HTTP and opaque over the socket,
+    // because there was nowhere on the frame to put the violations.
+    const r = {
+      type: 'command_result', request_id: 'r9', ok: false, job: null,
+      code: 'parameter_invalid', message: '1 parameter invalid',
+      details: { violations: [{ field: 'order', rule: 'max', message: 'too big' }] },
+    }
+    const parsed = commandResult.parse(r)
+    expect(parameterInvalidDetails.safeParse(parsed.details).success).toBe(true)
+    // Still optional — most refusals carry none.
+    expect(commandResult.safeParse({ ...r, details: undefined }).success).toBe(true)
+  })
+
   it('answers an unknown frame instead of closing the socket', () => {
     expect(errorFrame.safeParse({ type: 'error', code: 'unknown_command', message: 'this cloud does not know "invoke2"' }).success).toBe(true)
   })

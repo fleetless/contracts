@@ -109,6 +109,18 @@ export const commandResult = z.object({
   job: job.nullable(),
   code: z.string().nullable(),
   message: z.string().nullable(),
+  /**
+   * The same payload the REST envelope carries in `apiError.details` — for
+   * `parameter_invalid`, a `parameterInvalidDetails`.
+   *
+   * Added because it was missing, and its absence quietly broke §11.1: this
+   * socket is supposed to do *everything* REST can do, but a
+   * `parameter_invalid` arriving here had nowhere to put its violations, so
+   * the same refusal was actionable over HTTP and opaque over the socket.
+   * A client cannot bind an error to the input that caused it from a code
+   * alone — which is the entire point of the flat parameter shape.
+   */
+  details: z.unknown().optional(),
 })
 export type CommandResult = z.infer<typeof commandResult>
 
@@ -126,6 +138,24 @@ export const errorFrame = z.object({
 })
 export type ErrorFrame = z.infer<typeof errorFrame>
 
+/**
+ * Subscribe to a slug's stream (spec §11.3: **state is observed by slug**).
+ *
+ * Which kinds are subscribable, and why it is not a matter of taste:
+ *
+ * - **datapoint** — its values.
+ * - **action** — its `jobEvent`s.
+ * - **service** — its `jobEvent`s too. A service call mints a job like an
+ *   action does; the only difference is that the caller usually gets the
+ *   result inline. But when they do *not* — a socket that died before the
+ *   reply, answered with `command_outcome_unknown` — the documented recovery
+ *   is to observe the slug. Refusing that leaves the caller with an error
+ *   that names a remedy the platform does not offer.
+ * - **publisher** — not subscribable: there is no job and no stream. It must
+ *   still be refused *honestly*, with a code saying so, and never as though
+ *   the slug did not exist. A caller who was granted a slug is entitled to
+ *   be told the truth about it.
+ */
 export const clientSubscribe = z.object({
   type: z.literal('subscribe'),
   robot_id: z.uuid(),

@@ -125,7 +125,8 @@
           "type": "null"
         }
       ]
-    }
+    },
+    "details": {}
   },
   "required": [
     "type",

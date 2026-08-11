@@ -104,5 +104,12 @@ export const ERROR_CODES = [
   'publisher_busy',
   /** A well-formed realtime frame this server does not know — the socket stays open. */
   'unknown_command',
+  /**
+   * The slug exists and is granted, but has nothing to observe — a publisher
+   * has no job and no stream. Distinct from `unknown_datapoint` on purpose:
+   * answering "no such slug" about one the caller was granted is a lie, and
+   * it sends them looking for a configuration mistake that is not there.
+   */
+  'not_subscribable',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
