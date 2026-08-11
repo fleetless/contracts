@@ -184,7 +184,15 @@ export const clientSubscribe = z.object({
    * It exists now rather than later because adding a field to a frame three
    * repos parse is cheap once and expensive twice.
    */
-  kind: z.enum(['datapoint', 'action', 'service', 'camera']).optional(),
+  /**
+   * `publisher` is here even though a publisher is not subscribable: a client
+   * that models the five grantable kinds and honestly names one gets the
+   * informative `not_subscribable` the cloud already computes, instead of a
+   * `validation_error` reciting an enum. Refusing the *word* rather than the
+   * request was the same mistake as the silent wrong-verb subscribe this
+   * field was added to fix.
+   */
+  kind: z.enum(['datapoint', 'action', 'service', 'publisher', 'camera']).optional(),
   options: z.record(z.string(), z.unknown()).optional(),
 })
 export type ClientSubscribe = z.infer<typeof clientSubscribe>

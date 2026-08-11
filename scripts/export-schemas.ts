@@ -209,6 +209,28 @@ if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
   mkdirSync(dir, { recursive: true })
   for (const [name, schema] of Object.entries(exportedSchemas)) {
+    // KNOWN CONTRADICTION, deferred to W6 with the fix already identified.
+    //
+    // Output mode marks a `.default()`ed field as *required*, because after
+    // parsing it is always present. So the published schema says a config
+    // frame must carry `cameras` (and the W4 kinds), while the source of
+    // truth in `robotConfigDoc` promises the opposite and the bridge's own
+    // runtime agrees with the promise, not the artifact. Fourth time
+    // `.default()` has been mistaken for optionality in this project.
+    //
+    // `z.toJSONSchema(schema, { io: 'input' })` fixes it — verified: the
+    // config doc's `required` drops from all five kinds to `['datapoints']`.
+    // It is NOT applied yet because applying it here applies it to every
+    // schema, including responses, where output mode is the correct
+    // description: a response schema states what the server will send, and
+    // relaxing it would be a different lie in the other direction. Measured
+    // blast radius of the blanket switch: 90 artifacts, 436 deletions.
+    // The real fix is per-schema — input mode for frames a receiver must
+    // accept, output mode for responses — which is a judgement call over
+    // ~60 schemas plus a re-vendor and a re-pin across four repos. That is
+    // not work to do at a wave boundary with blockers in flight, and nothing
+    // bites today because the cloud only ever sends a parsed document with
+    // its defaults already applied.
     writeFileSync(join(dir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema), null, 2) + '\n')
     console.log(`wrote ${name}.schema.json`)
   }

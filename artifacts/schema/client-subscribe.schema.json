@@ -23,6 +23,7 @@
         "datapoint",
         "action",
         "service",
+        "publisher",
         "camera"
       ]
     },

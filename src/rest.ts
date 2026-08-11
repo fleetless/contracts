@@ -334,8 +334,17 @@ export type CameraListResponse = z.infer<typeof cameraListResponse>
  * `POST` takes a refcount hold and `DELETE` releases it; the first hold
  * starts the robot publishing and the last release stops it (§10). A client
  * that forgets to release keeps a robot streaming to nobody, so the SDK hands
- * back a `release()` rather than a bare token, and `expires_at` bounds the
- * damage when a process dies without releasing anything.
+ * back a `release()` rather than a bare token.
+ *
+ * **`expires_at` is a join deadline, not a session backstop.** A LiveKit
+ * token is checked when a participant connects and not again afterwards, so a
+ * viewer who has already joined keeps receiving video straight past this
+ * moment. Do not design cleanup around it. What actually ends a session is
+ * `release()` together with disconnecting the room, the cloud reconciling the
+ * hold away against LiveKit's real participants, or a revocation kicking the
+ * participant out. This comment previously claimed the opposite and the SDK
+ * inherited the claim from here — a developer reading it would reasonably
+ * have skipped cleanup on purpose.
  */
 export const liveSessionResponse = z.object({
   url: z.string().min(1),

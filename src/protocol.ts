@@ -270,6 +270,32 @@ export type BridgeState = z.infer<typeof bridgeState>
  * it was taken is this wave's version of a job that reads "running" when
  * nobody knows.
  */
+/**
+ * The largest a snapshot frame — header and image bytes together — may be on
+ * the `/bridge` socket.
+ *
+ * This is a **byte** bound and not a pixel one, deliberately. A camera's
+ * `width`/`height` govern the *live* stream, which travels through LiveKit
+ * and never touches this socket, so capping resolution to protect the socket
+ * would cost live quality to solve a snapshot problem.
+ *
+ * The bound exists because exceeding it is not a dropped frame: `ws` enforces
+ * its payload limit before the frame is ever delivered and closes the
+ * connection with 1009 — taking datapoints, jobs, commands and configuration
+ * down with it. The bridge would then reconnect, receive the same
+ * configuration, capture the same frame and be closed again: a robot that
+ * will not stay online, from a configuration the platform accepted. Measured
+ * during the W5 review, a 4K JPEG of real camera content lands around
+ * 2.2 MiB and 1080p on a noisy scene within 40% of this number, so the margin
+ * is thinner than it looks.
+ *
+ * **The bridge must degrade rather than exceed it** — lower JPEG quality,
+ * then downscale, and if it still does not fit, skip the frame and say so.
+ * A missing snapshot is a gap, and this wave already established that a gap
+ * is an honest answer; a closed socket is not.
+ */
+export const SNAPSHOT_MAX_BYTES = 1_572_864 // 1.5 MiB, against a 2 MiB socket ceiling
+
 export const snapshotHeader = z.object({
   type: z.literal('snapshot'),
   slug,
