@@ -11,6 +11,37 @@ import { slug, rosName, rosTypeName, fieldPath } from './common.js'
  * cameras — without changing draft/publish, versioning or slug rules.
  */
 
+/**
+ * Parameter checks for actions, services and publishers (spec §4.4).
+ *
+ * Defined in W2 so the shape is settled and stored configurations stay
+ * valid; **enforced in W4**, where parameters exist. There is deliberately
+ * no evaluator in W2 — a rule engine without a caller is dead weight.
+ */
+export const valueRule = z.object({
+  min: z.number().optional(),
+  max: z.number().optional(),
+  enum: z.array(z.union([z.string(), z.number()])).min(1).optional(),
+  pattern: z.string().optional(),
+  required: z.boolean().optional(),
+})
+export type ValueRule = z.infer<typeof valueRule>
+
+/**
+ * One parameter of an action, service or publisher, with the check the cloud
+ * applies before anything reaches a robot (spec §4.4). `valueRule` was
+ * defined in W2 and deliberately left unenforced until its subjects existed;
+ * W4 is when they exist.
+ */
+export const parameterSpec = z.object({
+  /** Field path into the ROS request/goal/message — same grammar as a datapoint's. */
+  name: fieldPath,
+  /** The ROS type, for the console to render an input the developer recognises. */
+  type: z.string().min(1).max(255),
+  rule: valueRule,
+})
+export type ParameterSpec = z.infer<typeof parameterSpec>
+
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
 export const RESERVED_SLUGS = ['bridge-state', 'robot-details'] as const
 
@@ -55,33 +86,91 @@ export const datapointConfig = z.object({
    * value is `null` and the editor does not offer it.
    */
   retention: z.null().optional(),
+  /**
+   * What happens to this datapoint's values while the bridge is disconnected
+   * (spec §6.3). Buffered values are backfilled after reconnect — **after**
+   * live telemetry and job results, at a limited rate, so closing a gap can
+   * never delay what is happening now. An unbuffered datapoint simply has a
+   * gap, which is an honest answer and often the right one.
+   */
+  buffer: z
+    .object({
+      enabled: z.boolean(),
+      max_values: z.number().int().positive().max(100_000),
+    })
+    .default({ enabled: false, max_values: 0 }),
 })
 export type DatapointConfig = z.infer<typeof datapointConfig>
 
 /**
+ * An action the robot can be asked to perform (spec §4.2, §11.3). At most one
+ * job runs per action slug; a second call is refused `busy`, and every
+ * observer of the slug watches the same job.
+ */
+export const actionConfig = z.object({
+  slug,
+  ros_name: rosName,
+  type: rosTypeName,
+  parameters: z.array(parameterSpec).max(50),
+})
+export type ActionConfig = z.infer<typeof actionConfig>
+
+/** A ROS service call with validated parameters (spec §4.2). */
+export const serviceConfig = z.object({
+  slug,
+  ros_name: rosName,
+  type: rosTypeName,
+  parameters: z.array(parameterSpec).max(50),
+})
+export type ServiceConfig = z.infer<typeof serviceConfig>
+
+/**
+ * A topic clients may publish to (spec §4.2, §6.4).
+ *
+ * The two timeouts are the whole safety story of this kind, and they are
+ * different things:
+ *
+ * - `timeout_ms` + `failsafe`: if client publishes stop arriving — including
+ *   because the client crashed or lost its connection — **the bridge itself**
+ *   publishes `failsafe` on the topic. This is the platform's safety
+ *   primitive (§7.2); a cmd_vel publisher with a zero-twist failsafe is the
+ *   canonical case.
+ * - `quiet_timeout_ms`: how long a publisher must be silent before a
+ *   *different* user may publish. Whoever publishes holds the publisher
+ *   implicitly exclusive, with no session machinery.
+ */
+export const publisherConfig = z.object({
+  slug,
+  topic: rosName,
+  type: rosTypeName,
+  parameters: z.array(parameterSpec).max(50),
+  timeout_ms: z.number().int().positive().max(60_000),
+  /** The message the bridge publishes on timeout. Shape is the ROS type's. */
+  failsafe: z.unknown(),
+  quiet_timeout_ms: z.number().int().nonnegative().max(600_000),
+})
+export type PublisherConfig = z.infer<typeof publisherConfig>
+
+/**
  * A whole robot configuration. One document per draft and per published
- * version; the other service kinds become sibling arrays here.
+ * version. The kinds are sibling arrays, and **slugs are one namespace across
+ * all of them** (§4.1) — which is what lets a role grant say
+ * `{robot, slug}` without ever naming a kind.
  */
 export const robotConfigDoc = z.object({
   datapoints: z.array(datapointConfig).max(200),
+  /**
+   * The three kinds W4 adds default to empty so that **every configuration
+   * published before W4 still parses**. Stored documents are jsonb; a
+   * required field here would have invalidated live robots' published
+   * versions on the first read after deploy.
+   */
+  actions: z.array(actionConfig).max(200).default([]),
+  services: z.array(serviceConfig).max(200).default([]),
+  publishers: z.array(publisherConfig).max(200).default([]),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 
-/**
- * Parameter checks for actions, services and publishers (spec §4.4).
- *
- * Defined in W2 so the shape is settled and stored configurations stay
- * valid; **enforced in W4**, where parameters exist. There is deliberately
- * no evaluator in W2 — a rule engine without a caller is dead weight.
- */
-export const valueRule = z.object({
-  min: z.number().optional(),
-  max: z.number().optional(),
-  enum: z.array(z.union([z.string(), z.number()])).min(1).optional(),
-  pattern: z.string().optional(),
-  required: z.boolean().optional(),
-})
-export type ValueRule = z.infer<typeof valueRule>
 
 /**
  * One thing the cloud has to say about a configuration (spec §11.5: field +

@@ -136,6 +136,28 @@
     },
     "retention": {
       "type": "null"
+    },
+    "buffer": {
+      "default": {
+        "enabled": false,
+        "max_values": 0
+      },
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "max_values": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 100000
+        }
+      },
+      "required": [
+        "enabled",
+        "max_values"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
@@ -147,7 +169,8 @@
     "unit",
     "scale",
     "offset",
-    "range"
+    "range",
+    "buffer"
   ],
   "additionalProperties": false
 }

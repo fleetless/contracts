@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { slug } from './common.js'
 import { robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
+import { jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
@@ -96,6 +97,63 @@ export const bridgeConfigApplied = z.object({
   errors: z.array(z.object({ slug: z.string(), message: z.string().min(1) })),
 })
 export type BridgeConfigApplied = z.infer<typeof bridgeConfigApplied>
+
+/**
+ * Commands, cloud → bridge (spec §6.1, §11.3). The **cloud** mints the
+ * `job_id` before the bridge is asked to do anything, so a job exists —
+ * and can be reported `lost` — even if the answer never comes back.
+ */
+export const cloudInvoke = z.object({
+  type: z.literal('invoke'),
+  job_id: z.uuid(),
+  slug,
+  /** Already validated against §4.4 rules; the bridge validates structurally. */
+  params: z.record(z.string(), z.unknown()),
+})
+export type CloudInvoke = z.infer<typeof cloudInvoke>
+
+/** Cancel by slug — the bridge must issue a real ROS goal cancel (§11.3). */
+export const cloudCancel = z.object({
+  type: z.literal('cancel'),
+  slug,
+})
+export type CloudCancel = z.infer<typeof cloudCancel>
+
+export const cloudPublish = z.object({
+  type: z.literal('publish'),
+  slug,
+  message: z.record(z.string(), z.unknown()),
+})
+export type CloudPublish = z.infer<typeof cloudPublish>
+
+/**
+ * Progress on a job, bridge → cloud. `timestamp_ms` is capture time, so a
+ * burst delivered late after a reconnect is visibly late (§6.3).
+ */
+export const bridgeJobUpdate = z.object({
+  type: z.literal('job_update'),
+  job_id: z.uuid(),
+  slug,
+  state: jobState,
+  feedback: z.unknown().nullable(),
+  progress: z.number().min(0).max(1).nullable(),
+  result: z.unknown().nullable(),
+  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+  timestamp_ms: z.number().int().nonnegative(),
+})
+export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
+
+/**
+ * What a restarted bridge says about jobs it can no longer account for
+ * (§6.1). Job state lives only in bridge memory; after a crash or update
+ * mid-disconnect the honest answer is "I lost this", and the cloud must
+ * publish that rather than leaving the job reading "running".
+ */
+export const bridgeJobLost = z.object({
+  type: z.literal('job_lost'),
+  job_ids: z.array(z.uuid()),
+})
+export type BridgeJobLost = z.infer<typeof bridgeJobLost>
 
 /** Cloud asks for a fresh ROS graph; `request_id` correlates the answer. */
 export const cloudIntrospectRequest = z.object({

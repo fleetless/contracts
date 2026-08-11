@@ -61,5 +61,16 @@ export const ERROR_CODES = [
    * nothing about any other principal or about what exists.
    */
   'account_blocked',
+  // W4 — the command path.
+  /** One job per action slug (§11.3); the refusal carries what is running. */
+  'busy',
+  /** A parameter failed its §4.4 rule; details name the field and the rule. */
+  'parameter_invalid',
+  /** The bridge could not account for this job after a restart (§6.1). */
+  'job_lost',
+  /** Another user holds this publisher and has not been quiet long enough (§6.4). */
+  'publisher_busy',
+  /** A well-formed realtime frame this server does not know — the socket stays open. */
+  'unknown_command',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

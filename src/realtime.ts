@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
+import { job } from './jobs.js'
 
 /**
  * Client realtime protocol (spec §11.1): WebSocket subscriptions on
@@ -45,6 +46,75 @@ export const authError = z.object({
   message: z.string().min(1),
 })
 export type AuthError = z.infer<typeof authError>
+
+/**
+ * Command parity (spec §11.1): everything REST can do — invoke an action,
+ * call a service, publish, cancel — also travels over this socket.
+ *
+ * **Every command carries a `request_id` and every reply echoes it.** A
+ * subscribe that gets dropped is self-healing: the client resubscribes on
+ * reconnect and nothing was promised. A *command* that gets dropped is an
+ * instruction someone believes they issued and no one will ever run — on a
+ * machine that may be moving. Correlation is what makes the difference
+ * observable instead of silent.
+ */
+export const clientInvoke = z.object({
+  type: z.literal('invoke'),
+  request_id: z.string().min(1).max(64),
+  robot_id: z.uuid(),
+  slug,
+  /** Parameters by field path, validated against the config's rules (§4.4). */
+  params: z.record(z.string(), z.unknown()),
+})
+export type ClientInvoke = z.infer<typeof clientInvoke>
+
+export const clientCancel = z.object({
+  type: z.literal('cancel'),
+  request_id: z.string().min(1).max(64),
+  robot_id: z.uuid(),
+  /** Cancel is addressed by slug (§11.3), not by job id. */
+  slug,
+})
+export type ClientCancel = z.infer<typeof clientCancel>
+
+export const clientPublish = z.object({
+  type: z.literal('publish'),
+  request_id: z.string().min(1).max(64),
+  robot_id: z.uuid(),
+  slug,
+  message: z.record(z.string(), z.unknown()),
+})
+export type ClientPublish = z.infer<typeof clientPublish>
+
+/**
+ * The reply to exactly one command. `ok:false` carries the stable code —
+ * `busy`, `robot_offline`, `parameter_invalid`, `forbidden` — so a caller
+ * branches without parsing prose.
+ */
+export const commandResult = z.object({
+  type: z.literal('command_result'),
+  request_id: z.string().min(1).max(64),
+  ok: z.boolean(),
+  /** Present when a command started or addressed a job. */
+  job: job.nullable(),
+  code: z.string().nullable(),
+  message: z.string().nullable(),
+})
+export type CommandResult = z.infer<typeof commandResult>
+
+/**
+ * A well-formed frame this server does not understand. The socket **stays
+ * open** — closing it would mean a newer client against an older cloud
+ * reconnects, resends, and takes every unrelated subscription down with it
+ * on every attempt. Close 1008 is reserved for frames that are not parseable
+ * JSON objects at all.
+ */
+export const errorFrame = z.object({
+  type: z.literal('error'),
+  code: z.string().min(1),
+  message: z.string().min(1),
+})
+export type ErrorFrame = z.infer<typeof errorFrame>
 
 export const clientSubscribe = z.object({
   type: z.literal('subscribe'),

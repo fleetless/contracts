@@ -3,6 +3,7 @@ import { bridgeState } from './protocol.js'
 import { slug, rosTypeName } from './common.js'
 import { configState, datapointRange, datapointRate, robotConfigDoc, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
+import { job } from './jobs.js'
 
 /**
  * REST shapes of the robot resource (spec §11.1). W1 scope: create, list,
@@ -180,3 +181,55 @@ export type RobotDetailsDoc = z.infer<typeof robotDetailsDoc>
 
 export const putRobotDetailsRequest = z.object({ details: robotDetailsDoc })
 export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
+
+
+/* ------------------------------------------------------------------ W4 --
+ * The command surface (spec §11.1, §11.3) and what a role may be granted.
+ */
+
+/** Invoke an action or call a service; parameters by field path (§4.4). */
+export const invokeRequest = z.object({
+  params: z.record(z.string(), z.unknown()),
+})
+export type InvokeRequest = z.infer<typeof invokeRequest>
+
+/**
+ * The answer to an invoke. The job id is informative (§11.3): state is
+ * observed by slug afterwards, over polling or a subscription.
+ */
+export const invokeResponse = z.object({ job })
+export type InvokeResponse = z.infer<typeof invokeResponse>
+
+/** A service call answers with its result directly — no job to observe. */
+export const serviceCallResponse = z.object({
+  result: z.unknown(),
+})
+export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
+
+export const publishRequest = z.object({
+  message: z.record(z.string(), z.unknown()),
+})
+export type PublishRequest = z.infer<typeof publishRequest>
+
+/** The job currently running on a slug, or null when nothing is. */
+export const jobResponse = z.object({ job: job.nullable() })
+export type JobResponse = z.infer<typeof jobResponse>
+
+/**
+ * Every slug of a robot that a role can be granted, **with its kind**.
+ *
+ * The roles matrix was built in W3 against the datapoint list, which was the
+ * only kind that existed. With four kinds it needs one list that names them,
+ * or the matrix silently cannot grant an action.
+ */
+export const exposure = z.object({
+  slug,
+  kind: z.enum(['datapoint', 'action', 'service', 'publisher']),
+  builtin: z.boolean(),
+})
+export type Exposure = z.infer<typeof exposure>
+
+export const exposureListResponse = z.object({
+  exposures: z.array(exposure),
+})
+export type ExposureListResponse = z.infer<typeof exposureListResponse>

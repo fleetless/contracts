@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 255,
+      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
+    },
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "enum": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "name",
+    "type",
+    "rule"
+  ],
+  "additionalProperties": false
+}

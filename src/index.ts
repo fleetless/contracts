@@ -14,6 +14,11 @@ export {
   bridgeIntrospect,
   cloudTypeRequest,
   bridgeTypeDefinitions,
+  cloudInvoke,
+  cloudCancel,
+  cloudPublish,
+  bridgeJobUpdate,
+  bridgeJobLost,
 } from './protocol.js'
 export type {
   BridgeHello,
@@ -29,9 +34,20 @@ export type {
   BridgeIntrospect,
   CloudTypeRequest,
   BridgeTypeDefinitions,
+  CloudInvoke,
+  CloudCancel,
+  CloudPublish,
+  BridgeJobUpdate,
+  BridgeJobLost,
 } from './protocol.js'
+export { jobState, job, jobEvent, busyDetails } from './jobs.js'
+export type { JobState, Job, JobEvent, BusyDetails } from './jobs.js'
 export {
   RESERVED_SLUGS,
+  parameterSpec,
+  actionConfig,
+  serviceConfig,
+  publisherConfig,
   datapointRate,
   datapointRange,
   datapointConfig,
@@ -41,6 +57,10 @@ export {
   configState,
 } from './config.js'
 export type {
+  ParameterSpec,
+  ActionConfig,
+  ServiceConfig,
+  PublisherConfig,
   DatapointRate,
   DatapointRange,
   DatapointConfig,
@@ -73,6 +93,13 @@ export {
   datapointListResponse,
   robotDetailsDoc,
   putRobotDetailsRequest,
+  invokeRequest,
+  invokeResponse,
+  serviceCallResponse,
+  publishRequest,
+  jobResponse,
+  exposure,
+  exposureListResponse,
 } from './rest.js'
 export type {
   Robot,
@@ -95,11 +122,23 @@ export type {
   DatapointListResponse,
   RobotDetailsDoc,
   PutRobotDetailsRequest,
+  InvokeRequest,
+  InvokeResponse,
+  ServiceCallResponse,
+  PublishRequest,
+  JobResponse,
+  Exposure,
+  ExposureListResponse,
 } from './rest.js'
 export {
   clientAuth,
   authOk,
   authError,
+  clientInvoke,
+  clientCancel,
+  clientPublish,
+  commandResult,
+  errorFrame,
   clientSubscribe,
   clientUnsubscribe,
   subscribeError,
@@ -109,6 +148,11 @@ export type {
   ClientAuth,
   AuthOk,
   AuthError,
+  ClientInvoke,
+  ClientCancel,
+  ClientPublish,
+  CommandResult,
+  ErrorFrame,
   ClientSubscribe,
   ClientUnsubscribe,
   SubscribeError,

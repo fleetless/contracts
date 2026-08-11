@@ -78,6 +78,23 @@ import {
   clientIdentity,
 } from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
+import { job, jobEvent } from '../src/jobs.js'
+import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
+import {
+  clientInvoke,
+  clientCancel,
+  clientPublish,
+  commandResult,
+  errorFrame,
+} from '../src/realtime.js'
+import {
+  cloudInvoke,
+  cloudCancel,
+  cloudPublish,
+  bridgeJobUpdate,
+  bridgeJobLost,
+} from '../src/protocol.js'
+import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 
 export const exportedSchemas = {
   'bridge-hello': bridgeHello,
@@ -143,6 +160,27 @@ export const exportedSchemas = {
   'audit-actor': auditActor,
   'audit-event': auditEvent,
   'audit-list-response': auditListResponse,
+  job: job,
+  'job-event': jobEvent,
+  'parameter-spec': parameterSpec,
+  'action-config': actionConfig,
+  'service-config': serviceConfig,
+  'publisher-config': publisherConfig,
+  'client-invoke': clientInvoke,
+  'client-cancel': clientCancel,
+  'client-publish': clientPublish,
+  'command-result': commandResult,
+  'error-frame': errorFrame,
+  'cloud-invoke': cloudInvoke,
+  'cloud-cancel': cloudCancel,
+  'cloud-publish': cloudPublish,
+  'bridge-job-update': bridgeJobUpdate,
+  'bridge-job-lost': bridgeJobLost,
+  'invoke-request': invokeRequest,
+  'invoke-response': invokeResponse,
+  'publish-request': publishRequest,
+  'job-response': jobResponse,
+  'exposure-list-response': exposureListResponse,
 } as const
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
