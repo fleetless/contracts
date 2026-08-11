@@ -22,6 +22,26 @@ export const bridgeHello = z.object({
   protocol_version: z.number().int().positive(),
   token: z.string().min(1),
   bridge_version: z.string().min(1),
+  /**
+   * Every job this bridge still knows about, right now (spec §6.1, W4).
+   *
+   * A reconnect and a restart look **identical** on the wire otherwise: same
+   * token, same version, same frame. But they must end differently — after a
+   * dropped connection the running jobs are still running, after a restart
+   * their results are gone forever. Asking the bridge to enumerate what it
+   * still has settles it without either side guessing: the cloud marks every
+   * job it believes is running on this robot and that is *not* named here as
+   * `lost`.
+   *
+   * This deliberately needs no persistence at the bridge. A live process
+   * lists its live jobs; a process that just started lists none, because it
+   * has none — which is exactly the truth the cloud needs. A breadcrumb file
+   * would only add a window in which the crash beat the write.
+   *
+   * Defaulted so pre-W4 bridges still parse; they had no jobs, so the empty
+   * list is also the correct answer for them.
+   */
+  active_job_ids: z.array(z.uuid()).max(500).default([]),
 })
 export type BridgeHello = z.infer<typeof bridgeHello>
 
@@ -144,10 +164,14 @@ export const bridgeJobUpdate = z.object({
 export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
 
 /**
- * What a restarted bridge says about jobs it can no longer account for
- * (§6.1). Job state lives only in bridge memory; after a crash or update
- * mid-disconnect the honest answer is "I lost this", and the cloud must
- * publish that rather than leaving the job reading "running".
+ * Jobs the bridge can no longer account for **while connected** (§6.1) — a
+ * tracker dropped, an action server that vanished mid-goal, anything where
+ * the honest answer is "I lost this" rather than a state.
+ *
+ * The restart case is not this frame's job: a restarted bridge has nothing
+ * left to enumerate, so it is `hello.active_job_ids` that closes that gap.
+ * Both paths end in the same place — the cloud publishes `lost` rather than
+ * leaving a job reading "running" because nobody contradicted it.
  */
 export const bridgeJobLost = z.object({
   type: z.literal('job_lost'),

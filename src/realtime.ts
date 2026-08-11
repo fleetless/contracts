@@ -95,7 +95,17 @@ export const commandResult = z.object({
   type: z.literal('command_result'),
   request_id: z.string().min(1).max(64),
   ok: z.boolean(),
-  /** Present when a command started or addressed a job. */
+  /**
+   * The job this reply is *about* — which is not always the caller's own.
+   *
+   * - `ok:true` on an invoke or a call: the job that was just created.
+   * - `ok:true` on a cancel: the job the cancel was sent to.
+   * - `ok:false, code:'busy'`: **the job that is already running** — the
+   *   caller has none. This is the §11.3 "inkl. Information, was läuft", and
+   *   it is the whole reason a busy refusal is useful: the caller learns
+   *   whether to wait or to give up (see `busyDetails`).
+   * - any other refusal: `null`.
+   */
   job: job.nullable(),
   code: z.string().nullable(),
   message: z.string().nullable(),

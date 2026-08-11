@@ -13,6 +13,7 @@ import {
   commandResult,
   errorFrame,
   cloudInvoke,
+  bridgeHello,
   bridgeJobUpdate,
   bridgeJobLost,
   exposureListResponse,
@@ -129,7 +130,25 @@ describe('W4 bridge protocol', () => {
     expect(cloudInvoke.safeParse({ type: 'invoke', slug: 'drive-to', params: {} }).success).toBe(false)
   })
 
-  it('lets a restarted bridge admit what it lost', () => {
+  it('tells a reconnect from a restart, which look identical otherwise', () => {
+    // Same token, same version, same frame — the only thing that differs is
+    // what the bridge still has. So it says so, and the cloud reconciles:
+    // a running job not named here is lost.
+    const hello = { type: 'hello', protocol_version: 1, token: 'frt_x', bridge_version: '0.4.0' }
+    const live = bridgeHello.parse({ ...hello, active_job_ids: [UUID] })
+    expect(live.active_job_ids).toEqual([UUID])
+
+    // A bridge that just restarted has no jobs to name — and that empty list
+    // is precisely the fact the cloud needs, not a missing field.
+    expect(bridgeHello.parse({ ...hello, active_job_ids: [] }).active_job_ids).toEqual([])
+
+    // A pre-W4 bridge omits it entirely; it had no jobs, so empty is correct
+    // for it too, and the default direction is the safe one (lost, not
+    // "still running because nobody said otherwise").
+    expect(bridgeHello.parse(hello).active_job_ids).toEqual([])
+  })
+
+  it('lets a connected bridge admit a job it lost mid-session', () => {
     expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [UUID] }).success).toBe(true)
     expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [] }).success).toBe(true)
     expect(
