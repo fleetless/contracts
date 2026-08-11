@@ -68,6 +68,7 @@ export {
   credentialRef,
   cameraSource,
 } from './config.js'
+export type { CameraSource } from './config.js'
 export type {
   ParameterSpec,
   ActionConfig,
@@ -129,7 +130,6 @@ export {
   credentialWriteRequest,
 } from './rest.js'
 export type {
-  CameraSource,
   HistoryQuery,
   HistorySamplesResponse,
   HistoryBucketsResponse,
