@@ -131,7 +131,7 @@ describe('W6 retention and history', () => {
   it('keeps samples and buckets distinguishable by type, not by inspection', () => {
     const samples = historySamplesResponse.parse({
       slug: 'battery', kind: 'samples',
-      samples: [{ timestamp_ms: 1786453230705, value: 0.91 }], truncated: false,
+      samples: [{ timestamp_ms: 1786453230705, value: 0.91 }], truncated: false, truncated_by: null,
     })
     const buckets = historyBucketsResponse.parse({
       slug: 'battery', kind: 'buckets', window_ms: 10_000, agg: 'avg',
@@ -158,7 +158,15 @@ describe('W6 retention and history', () => {
   })
 
   it('says when it truncated, rather than looking like a quiet period', () => {
-    expect(historySamplesResponse.parse({ slug: 'battery', kind: 'samples', samples: [], truncated: true }).truncated).toBe(true)
+    expect(historySamplesResponse.parse({ slug: 'battery', kind: 'samples', samples: [], truncated: true, truncated_by: 'limit' }).truncated).toBe(true)
+
+    // The two causes have different remedies, so a boolean alone sends a
+    // caller who hit the byte budget to raise a limit that will not help.
+    const byBytes = historySamplesResponse.parse(
+      { slug: 'battery', kind: 'samples', samples: [], truncated: true, truncated_by: 'bytes' })
+    expect(byBytes.truncated_by).toBe('bytes')
+    expect(historySamplesResponse.safeParse(
+      { slug: 'battery', kind: 'samples', samples: [], truncated: true }).success).toBe(false)
   })
 
   it('names the codes a history caller must be able to branch on', () => {

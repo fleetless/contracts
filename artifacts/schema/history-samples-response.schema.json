@@ -33,13 +33,28 @@
     },
     "truncated": {
       "type": "boolean"
+    },
+    "truncated_by": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "limit",
+            "bytes"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
     "slug",
     "kind",
     "samples",
-    "truncated"
+    "truncated",
+    "truncated_by"
   ],
   "additionalProperties": false
 }

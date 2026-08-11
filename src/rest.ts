@@ -417,15 +417,34 @@ export type HistoryQuery = z.infer<typeof historyQuery>
  * same instant the live value carried, so a recorded point and a live one can
  * be placed on one axis without apology.
  *
- * `truncated` says the limit was hit. A short array that does not admit it is
- * indistinguishable from a quiet period, and the two lead a developer to
- * opposite conclusions.
+ * `truncated` says the response was cut short. A short array that does not
+ * admit it is indistinguishable from a quiet period, and the two lead a
+ * developer to opposite conclusions.
  */
 export const historySamplesResponse = z.object({
   slug,
   kind: z.literal('samples'),
   samples: z.array(z.object({ timestamp_ms: z.number().int().nonnegative(), value: z.unknown() })),
   truncated: z.boolean(),
+  /**
+   * Why it was cut, `null` when it was not — because the two causes have
+   * **different remedies** and a single boolean cannot tell them apart:
+   *
+   *   `'limit'`  too many rows. Raise `limit` (up to 10 000).
+   *   `'bytes'`  the rows are large. Raising `limit` will not help — narrow
+   *              the range, or name a numeric `field` so whole messages are
+   *              not carried.
+   *
+   * A caller cannot derive this: comparing `samples.length` against `limit`
+   * only works if they sent one, and the server's default is not in the
+   * response. So without this field, "raise the limit" is the natural next
+   * move in both cases, and in the second it changes nothing.
+   *
+   * Nullable rather than optional on purpose: `.default()` publishes as
+   * `required` in the JSON Schema artifacts, which is the contradiction this
+   * project has now hit five times.
+   */
+  truncated_by: z.enum(['limit', 'bytes']).nullable(),
 })
 export type HistorySamplesResponse = z.infer<typeof historySamplesResponse>
 
