@@ -58,6 +58,12 @@ describe('W4 config: three new kinds', () => {
       unit: null, scale: null, offset: null, range: null, buffer: { enabled: true, max_values: 500 } }
     expect(datapointConfig.safeParse(dp).success).toBe(true)
     expect(datapointConfig.safeParse({ ...dp, buffer: { enabled: true, max_values: 0 } }).success).toBe(false)
+    // A schema whose own default fails its own validation is a trap: the
+    // cloud parses a stored document, writes the result back, and the second
+    // read refuses it. Caught by running the CLOUD's suite against this pin,
+    // not by any test written here.
+    const roundTripped = robotConfigDoc.parse({ datapoints: [{ ...dp, buffer: undefined }] })
+    expect(robotConfigDoc.safeParse(roundTripped).success).toBe(true)
   })
 
   it('makes a publisher carry both timeouts — they are different promises', () => {

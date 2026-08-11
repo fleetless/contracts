@@ -96,7 +96,16 @@ export const datapointConfig = z.object({
   buffer: z
     .object({
       enabled: z.boolean(),
-      max_values: z.number().int().positive().max(100_000),
+      /**
+       * Zero is legal and means "no depth" — it is what a disabled buffer
+       * carries. The invariant that matters is stated below: *enabled*
+       * implies a depth greater than zero.
+       */
+      max_values: z.number().int().nonnegative().max(100_000),
+    })
+    .refine((b) => !b.enabled || b.max_values > 0, {
+      message: 'an enabled buffer needs max_values > 0',
+      path: ['max_values'],
     })
     .default({ enabled: false, max_values: 0 }),
 })
