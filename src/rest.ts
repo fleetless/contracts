@@ -401,7 +401,14 @@ export const historyQuery = z.object({
   agg: z.enum(['min', 'max', 'avg']).optional(),
   /** A numeric field inside an object value, e.g. `pose.x` (§4.4 paths). */
   field: z.string().min(1).max(128).optional(),
-  limit: z.number().int().positive().max(10_000).optional(),
+  /**
+   * `z.coerce` because this schema describes a **query string**, where every
+   * value arrives as text. A bare `z.number()` would make each route coerce
+   * `limit` by hand before parsing — Nimbus had to, and flagged that the next
+   * query-taking route would have to as well. A schema that does not match
+   * the wire it describes exports its problem to every consumer.
+   */
+  limit: z.coerce.number().int().positive().max(10_000).optional(),
 })
 export type HistoryQuery = z.infer<typeof historyQuery>
 
