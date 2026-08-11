@@ -90,6 +90,27 @@ export type ClientPublish = z.infer<typeof clientPublish>
  * The reply to exactly one command. `ok:false` carries the stable code —
  * `busy`, `robot_offline`, `parameter_invalid`, `forbidden` — so a caller
  * branches without parsing prose.
+ *
+ * **`request_id` is the only correlation, and the order these arrive in is
+ * not promised.** Commands sent on one socket reach the robot in the order
+ * they were sent — that ordering is guaranteed and is the point of the
+ * command chain — but their *replies* may arrive in any order, and a client
+ * that pairs them up by arrival order will attribute an outcome to the wrong
+ * command.
+ *
+ * This is not theoretical and not jitter. The ordering chain is released once
+ * a command has reached the bridge, deliberately, so that the next command —
+ * a stop, say — is never held up behind bookkeeping. Work that follows the
+ * send therefore runs unordered: a publish that *acquires* a slug writes an
+ * audit record before answering, while an immediately following publish by
+ * the now-current holder has nothing to write and answers at once. Its reply
+ * overtakes. Measured in W5: exactly one reversal in fifty-six zero-gap
+ * bursts, which is the signature of that cause — it can happen only once per
+ * identity and slug — and not of a race.
+ *
+ * Serialising the replies would mean putting that bookkeeping in front of
+ * every following command, including the stop. The ordering that matters is
+ * the one on the wire to the robot, and it is kept.
  */
 export const commandResult = z.object({
   type: z.literal('command_result'),
