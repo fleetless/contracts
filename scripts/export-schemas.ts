@@ -240,8 +240,29 @@ if (isMain) {
     // runtime agrees with the promise, not the artifact. Fourth time
     // `.default()` has been mistaken for optionality in this project.
     //
-    // `z.toJSONSchema(schema, { io: 'input' })` fixes it — verified: the
-    // config doc's `required` drops from all five kinds to `['datapoints']`.
+    // `z.toJSONSchema(schema, { io: 'input' })` fixes THIS class — verified:
+    // the config doc's `required` drops from all five kinds to `['datapoints']`.
+    //
+    // It does NOT fix every artifact/source disagreement, and an earlier
+    // version of this comment implied it did. Measured (W6, Momus 10):
+    // `historyQuery.limit` is `z.coerce.number()`, and both modes render it
+    // identically as `{"type":"integer", ...}` —
+    //
+    //     output: {"type":"integer","exclusiveMinimum":0,"maximum":10000}
+    //     input : {"type":"integer","exclusiveMinimum":0,"maximum":10000}
+    //
+    // — because zod renders a coercion's *result* type in either direction.
+    // So the published artifact describes a shape a query string can never
+    // carry, and anyone validating a real request against it rejects every
+    // one that sets `limit`. Coercion needs a different fix from optionality:
+    // an explicit `z.union([...]).pipe(...)` whose input branch IS the wire.
+    // Left alone deliberately at the W6 boundary — nothing validates against
+    // this artifact today, and the change alters parsing semantics and forces
+    // a re-pin across four repos. Registered in DEFERRALS.md, W7.
+    //
+    // Same file, same class, smaller: the artifact publishes
+    // `"additionalProperties": false` while the route accepts and strips
+    // unknown query params (`?from=now-1m&bogus=1` → 200).
     // It is NOT applied yet because applying it here applies it to every
     // schema, including responses, where output mode is the correct
     // description: a response schema states what the server will send, and
