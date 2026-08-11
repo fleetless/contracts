@@ -55,5 +55,11 @@ export const ERROR_CODES = [
   'identifier_taken',
   'weak_password',
   'not_a_member',
+  /**
+   * The account itself is blocked — distinct from `forbidden` on purpose: it
+   * tells the account holder something about *their own* account, and reveals
+   * nothing about any other principal or about what exists.
+   */
+  'account_blocked',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
