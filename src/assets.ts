@@ -98,6 +98,21 @@ export const assetListResponse = z.object({
    * Verfügbarkeit"). `null` when no bridge is connected — distinct from
    * `false`, because "no robot is online to ask" and "the robot has no URDF"
    * send a developer to two different places.
+   *
+   * **`false` is currently unreachable once `true` has been reported, and that
+   * is a known gap rather than a property of this shape.** The bridge reports
+   * availability from a subscription callback, which fires only when a
+   * publisher *sends* something — so it can notice presence and never absence.
+   * A robot that had a URDF and then lost it (source reconfigured,
+   * `robot_state_publisher` stopped, topic republished empty) leaves the cloud
+   * holding the last thing it heard, forever.
+   *
+   * Establishing absence needs an **active** graph query, which nothing
+   * currently performs for this topic, so closing it is a design decision and
+   * not a missing call. Registered rather than papered over, and stated here
+   * because a consumer reading this field is entitled to know that `true` is
+   * sticky. Found by Rosie-W7 checking her own work against the camera-health
+   * row that has the identical shape.
    */
   urdf_available: z.boolean().nullable(),
 })
