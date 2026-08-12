@@ -495,6 +495,71 @@ export const cloudCameraStart = z.object({
 export type CloudCameraStart = z.infer<typeof cloudCameraStart>
 
 /** Cloud → bridge: the last viewer left; stop publishing (§10 refcount). */
+/**
+ * Assets (spec §4.6, W7): the bridge **reports availability and transfers
+ * nothing** until asked.
+ *
+ * **The bytes never travel on this socket.** `server.ts` caps a frame at
+ * 2 MiB, a single mesh exceeds that routinely, and raising the cap is already
+ * tied to W8's rate limiting in the deferral register because it amplifies an
+ * unauthenticated path. So the socket carries the *conversation* — what exists,
+ * transfer this, here is how far I got — and the bytes go over HTTP with the
+ * robot's own credential.
+ *
+ * That split is the whole design: a 40 MB mesh cannot stall the frames that
+ * keep a robot answerable, and a failed upload cannot take the control channel
+ * down with it.
+ */
+export const bridgeAssetsAvailable = z.object({
+  type: z.literal('assets_available'),
+  /** Whether `/robot_description` (or the configured source) yielded a URDF. */
+  urdf: z.boolean(),
+  /**
+   * Every `package://` URI the URDF references, verbatim and unresolved —
+   * including the ones this bridge cannot find in its workspace. Reporting
+   * only the resolvable ones would make an incomplete workspace look like a
+   * complete robot, and the cloud would have nothing to show as missing.
+   */
+  meshes: z.array(z.string().min(1)),
+})
+export type BridgeAssetsAvailable = z.infer<typeof bridgeAssetsAvailable>
+
+/**
+ * The explicit request §4.6 requires — nothing moves without it.
+ *
+ * The upload credential is minted per sync and travels here rather than being
+ * derived from the robot token: it is scoped to one robot's assets and one
+ * sync, so a bridge cannot be talked into uploading somewhere else, and an
+ * expired one fails a sync instead of failing a robot.
+ */
+export const cloudAssetRequest = z.object({
+  type: z.literal('asset_request'),
+  sync_id: z.uuid(),
+  upload_url: z.url(),
+  token: z.string().min(1),
+  /** Which URIs to send. Empty means the URDF only. */
+  meshes: z.array(z.string().min(1)),
+})
+export type CloudAssetRequest = z.infer<typeof cloudAssetRequest>
+
+/**
+ * How far a sync got, and — required, not optional — what it could not do.
+ *
+ * `failed` carries the URIs that did not resolve. A sync that quietly drops
+ * three meshes and reports success moves the failure into somebody else's
+ * renderer, where it appears as a robot with missing limbs and no cause.
+ */
+export const bridgeAssetProgress = z.object({
+  type: z.literal('asset_progress'),
+  sync_id: z.uuid(),
+  done: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  failed: z.array(z.string().min(1)),
+  /** Set once, when the bridge will send no further progress for this sync. */
+  finished: z.boolean(),
+})
+export type BridgeAssetProgress = z.infer<typeof bridgeAssetProgress>
+
 export const cloudCameraStop = z.object({
   type: z.literal('camera_stop'),
   slug,

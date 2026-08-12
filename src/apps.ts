@@ -108,9 +108,25 @@ export const rolePermissions = z.object({
       slugs: z.array(slug),
     }),
   ),
+  /**
+   * App-wide abilities a role grants, as opposed to per-slug grants above.
+   *
+   * **A capability here is a promise, and two of them have not been kept.**
+   * `action_history` and `presence` have been gated by this object since W4
+   * and are implemented nowhere — no route, no SDK method, no realtime frame
+   * (register row 8). A console can therefore switch them on and nothing
+   * changes, which is worse than their absence: the developer believes they
+   * granted something.
+   *
+   * `assets` (W7) must not become the third. It gates §4.6's asset store,
+   * which is not covered by `grants` because **assets are not slugs** — and it
+   * is its own decision rather than a side effect of reaching the robot,
+   * because a mesh set gives away the machine's build.
+   */
   capabilities: z.object({
     action_history: z.boolean(),
     presence: z.boolean(),
+    assets: z.boolean(),
   }),
 })
 export type RolePermissions = z.infer<typeof rolePermissions>

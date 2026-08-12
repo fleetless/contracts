@@ -25,6 +25,10 @@ export {
   bridgeCameraState,
   SNAPSHOT_MAX_BYTES,
   CLOSE_ROBOT_DELETED,
+  // W7 — assets.
+  bridgeAssetsAvailable,
+  cloudAssetRequest,
+  bridgeAssetProgress,
   // W6b — addressing.
   activeJob,
   DEFAULT_PATIENCE_MS,
@@ -55,6 +59,9 @@ export type {
   CloudCameraStop,
   BridgeCameraState,
   ActiveJob,
+  BridgeAssetsAvailable,
+  CloudAssetRequest,
+  BridgeAssetProgress,
 } from './protocol.js'
 export { jobState, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
 export type {
@@ -329,6 +336,28 @@ export type {
   ClientLogoutRequest,
   ClientIdentity,
 } from './client-auth.js'
+export {
+  assetKind,
+  asset,
+  urdfCompleteness,
+  assetListResponse,
+  assetSyncRequest,
+  assetSyncResponse,
+  assetSyncState,
+  assetSyncStatus,
+  assetTooLargeDetails,
+} from './assets.js'
+export type {
+  AssetKind,
+  Asset,
+  UrdfCompleteness,
+  AssetListResponse,
+  AssetSyncRequest,
+  AssetSyncResponse,
+  AssetSyncState,
+  AssetSyncStatus,
+  AssetTooLargeDetails,
+} from './assets.js'
 export { auditActor, auditEvent, auditListResponse } from './audit.js'
 export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
 export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'

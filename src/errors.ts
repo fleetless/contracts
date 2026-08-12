@@ -260,5 +260,23 @@ export const ERROR_CODES = [
    * ask for a new link.
    */
   'token_spent',
+  // W7 — the asset store.
+  /**
+   * A URDF references a mesh the store does not have. Distinct from
+   * `not_found` on the URDF itself: the URDF is present and readable, and the
+   * thing to fix is a sync that came back incomplete, not a missing robot.
+   *
+   * It exists because the alternative is a renderer drawing a robot with
+   * missing limbs and no explanation — a failure that surfaces far from its
+   * cause, in somebody else's application.
+   */
+  'asset_missing',
+  /**
+   * The asset exceeds the per-file ceiling. Carries `assetTooLargeDetails`
+   * with both numbers, for the reason `job_queue_full` carries both: the limit
+   * alone does not tell the caller how far over they are, and the size alone
+   * cannot be read without the limit.
+   */
+  'asset_too_large',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

@@ -42,11 +42,15 @@
         },
         "presence": {
           "type": "boolean"
+        },
+        "assets": {
+          "type": "boolean"
         }
       },
       "required": [
         "action_history",
-        "presence"
+        "presence",
+        "assets"
       ],
       "additionalProperties": false
     }

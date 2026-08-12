@@ -142,7 +142,7 @@ describe('W3 apps, keys and roles', () => {
       rolePermissions.safeParse({
         role_id: UUID,
         grants: [{ robot_id: UUID2, slugs: ['battery-percentage', 'bridge-state'] }],
-        capabilities: { action_history: false, presence: true },
+        capabilities: { action_history: false, presence: true, assets: false },
       }).success,
     ).toBe(true)
     // A role granting nothing is legal and meaningful: it is how you hide a
@@ -151,14 +151,14 @@ describe('W3 apps, keys and roles', () => {
       rolePermissions.safeParse({
         role_id: UUID,
         grants: [],
-        capabilities: { action_history: false, presence: false },
+        capabilities: { action_history: false, presence: false, assets: false },
       }).success,
     ).toBe(true)
     expect(
       rolePermissions.safeParse({
         role_id: UUID,
         grants: [{ robot_id: UUID2, slugs: ['Not A Slug'] }],
-        capabilities: { action_history: false, presence: false },
+        capabilities: { action_history: false, presence: false, assets: false },
       }).success,
     ).toBe(false)
   })

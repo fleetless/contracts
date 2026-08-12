@@ -493,6 +493,36 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | end-user self-registration | `{console}/app/{app_identifier}/confirm-registration/{token}` |
  * | end-user invitation        | `{console}/invite/{token}` — unchanged, W3 |
  *
+ * ## W7 — the asset store (§4.6)
+ *
+ * | route | tier | role capability |
+ * |---|---|---|
+ * | `GET /api/robots/{id}/assets` | developer | `assets` |
+ * | `GET /api/robots/{id}/assets/{assetId}` | developer | `assets` |
+ * | `GET /api/robots/{id}/urdf` | developer | `assets` |
+ * | `POST /api/robots/{id}/assets/sync` | **Owner** | — |
+ * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | `assets` |
+ * | `DELETE /api/robots/{id}/assets/{assetId}` | **Owner** | — |
+ * | `POST /api/bridge/assets` | robot token | — |
+ *
+ * Reading is a role capability; **changing the store is Owner-tier**, matching
+ * W6c's reading of §3.1 — a sync spends the org's asset quota and a deletion
+ * breaks every app rendering that robot, so neither is a Member's to do.
+ *
+ * `GET .../assets/{assetId}` answers **bytes**, not JSON, with
+ * `Cache-Control: private, immutable` and never `public`: a shared cache must
+ * not be invited to store a response to an authorized request. It is the one
+ * route in this API whose body is not an `apiError` on failure — a client
+ * fetching bytes must still be able to branch, so failures answer the normal
+ * envelope with `content-type: application/json`.
+ *
+ * `POST /api/bridge/assets` is the **first route authenticated by the robot
+ * credential over HTTP**. Everything the bridge does today goes over the
+ * WebSocket, so this is new surface, not a variation of something existing —
+ * and it accepts bodies far larger than any other route on the platform. It is
+ * where a rate limit and a size ceiling matter most, and where W6c's own rule
+ * applies: the refusal must precede the work, not follow it.
+ *
  * The end-user links carry `app_identifier` because the page cannot act
  * without it: `clientPasswordResetRequest` requires it, and an end user is
  * identified by **app and address**, never address alone. The token alone is

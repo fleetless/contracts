@@ -105,7 +105,11 @@ import {
   cloudPublish,
   bridgeJobUpdate,
   bridgeJobLost,
+  bridgeAssetsAvailable,
+  cloudAssetRequest,
+  bridgeAssetProgress,
 } from '../src/protocol.js'
+import { asset, assetListResponse, assetSyncStatus } from '../src/assets.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import {
   historyQuery,
@@ -123,6 +127,16 @@ import {
 } from '../src/rest.js'
 
 export const exportedSchemas = {
+  // W7 — assets. The three bridge<->cloud frames belong here for the reason
+  // stated below: the bridge validates against these files, so a frame absent
+  // from this map is a frame it cannot check. The bytes themselves never ride
+  // the socket — these describe the conversation, not the payload.
+  'bridge-assets-available': bridgeAssetsAvailable,
+  'cloud-asset-request': cloudAssetRequest,
+  'bridge-asset-progress': bridgeAssetProgress,
+  asset: asset,
+  'asset-list-response': assetListResponse,
+  'asset-sync-status': assetSyncStatus,
   // W5 — cameras. Every bridge<->cloud frame is validated against its
   // generated schema in both directions, so a frame missing from this map is
   // a frame the bridge cannot check.
