@@ -513,7 +513,7 @@ export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
  * |---|---|---|
  * | `DELETE /api/robots/:id` | — | `204`. `?force=true` to proceed while a live session is open; without it, `409 robot_in_use` |
  * | `GET /api/robots/:id/deletion-preview` | — | `robotDeletionSummary` — the same shape the audit event carries |
- * | `GET /api/robots/:id/health` | — | `resourceHealthListResponse` |
+ * | `GET /api/org/health` | — | `resourceHealthListResponse`; `?robot_id=` narrows it to one robot |
  *
  * Plus `resourceHealthEvent`, pushed on the **developer** realtime socket
  * and scoped to the org — not to a subscription, because its job is to reach
@@ -529,11 +529,21 @@ export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
  * warning and the receipt then agree by construction, and a disagreement
  * between them is a real finding rather than two estimates drifting.
  *
- * **The snapshot is per-robot while the event is per-org**, deliberately.
- * They answer different questions: "what is the state of this robot now?"
- * for a page that just opened it, and "something you are not looking at has
- * broken" for a developer who is elsewhere. Giving both the same scope would
- * cost one of the two its reason to exist.
+ * **The snapshot and the event share the org's scope**, and the snapshot
+ * takes an optional `robot_id` filter rather than living at a per-robot
+ * path.
+ *
+ * The first version of this table said the opposite, with a justification
+ * that sounded right and was incomplete: it reasoned only from a page that
+ * has just opened one robot. But the console shows health on the **robot
+ * list** too, and a per-robot path makes that N requests to render one
+ * screen — while the event that must keep it fresh arrives org-wide anyway.
+ * A snapshot and a channel that disagree about scope are not two halves of
+ * one thing; they are two things that have to be reconciled by every
+ * consumer, separately, forever.
+ *
+ * So: same scope, one route, and `?robot_id=` for the narrow question. The
+ * cloud owner proposed this while unblocking the console, and was right.
  *
  * This table was missing from the first W6a delta, and a teammate had to ask
  * three separate people for the paths — which is how a route becomes a fact
