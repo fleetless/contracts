@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { RESOURCE_HEALTH_STATES } from './rest.js'
-import { MAX_PATIENCE_MS } from './protocol.js'
+import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
@@ -80,7 +80,7 @@ export const clientInvoke = z.object({
    * methods no SDK caller could invoke; this is the same defect caught before
    * it shipped, by the SDK owner rather than by a reviewer.
    */
-  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS).optional(),
+  patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS).optional(),
 })
 export type ClientInvoke = z.infer<typeof clientInvoke>
 

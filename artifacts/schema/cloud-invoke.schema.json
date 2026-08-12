@@ -26,7 +26,7 @@
     },
     "patience_ms": {
       "type": "integer",
-      "exclusiveMinimum": 0,
+      "minimum": 1000,
       "maximum": 120000
     }
   },

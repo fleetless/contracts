@@ -22,6 +22,7 @@ import {
   bridgeCameraState,
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
+  MIN_PATIENCE_MS,
 } from '../src/protocol.js'
 import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery, robotJobsResponse } from '../src/rest.js'
 import { clientCancel, clientInvoke } from '../src/realtime.js'
@@ -181,12 +182,17 @@ describe('W6b — naming how long a caller will wait', () => {
     }).success).toBe(false)
   })
 
-  it('refuses zero and negative patience, which are not "no opinion"', () => {
-    // Omitting the field is how a caller says nothing. A zero would be a
-    // caller demanding an answer before the request could reach the robot.
-    for (const bad of [0, -1, 1.5]) {
+  it('refuses a patience below the floor, because impatience reaches the robot', () => {
+    // Omitting the field is how a caller says nothing. A number too small to
+    // be satisfiable is different: measured in review, `patience_ms: 1` on an
+    // action makes the bridge report `goal_timeout` and then issue a
+    // CORRECTIVE CANCEL against a goal the server accepts a moment later — so
+    // an unreachable deadline does not merely produce an error, it stops a
+    // machine. Repeatable, with no rate limiting until W8.
+    for (const bad of [0, -1, 1.5, 1, 999]) {
       expect(invokeRequest.safeParse({ params: {}, patience_ms: bad }).success).toBe(false)
     }
+    expect(invokeRequest.safeParse({ params: {}, patience_ms: MIN_PATIENCE_MS }).success).toBe(true)
   })
 })
 

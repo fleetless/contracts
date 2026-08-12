@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { bridgeState, MAX_PATIENCE_MS } from './protocol.js'
+import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName } from './common.js'
 import { configState, datapointRange, datapointRate, robotConfigDoc, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
@@ -245,7 +245,7 @@ export const invokeRequest = z.object({
    * *acceptance* — once a goal is accepted the job runs as long as it runs,
    * and is observed, not awaited.
    */
-  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS).optional(),
+  patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS).optional(),
 })
 export type InvokeRequest = z.infer<typeof invokeRequest>
 

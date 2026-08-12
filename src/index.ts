@@ -29,6 +29,7 @@ export {
   activeJob,
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
+  MIN_PATIENCE_MS,
 } from './protocol.js'
 export type {
   BridgeHello,

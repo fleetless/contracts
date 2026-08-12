@@ -56,6 +56,24 @@ export const DEFAULT_PATIENCE_MS = 15_000
  */
 export const MAX_PATIENCE_MS = 120_000
 
+/**
+ * The shortest patience a caller may ask for.
+ *
+ * A floor exists because **impatience reaches the robot**. Measured in W6b's
+ * review: `patience_ms: 1` on an action makes the bridge report `goal_timeout`
+ * and then issue a *corrective cancel* against a goal the action server
+ * accepts a moment later — so a caller who asks for an unreachable deadline
+ * does not merely get an error, they cause a cancellation on the machine.
+ * Repeatable, and on a platform with no rate limiting until W8.
+ *
+ * One second, because it has to be longer than a goal-acceptance round trip on
+ * a healthy robot and shorter than any wait a human would call patient. It is
+ * a guard against a number that cannot be satisfied, not a policy about how
+ * long work takes — `MAX_PATIENCE_MS` is the end that bounds the platform,
+ * this end bounds what the caller can do to the robot.
+ */
+export const MIN_PATIENCE_MS = 1_000
+
 /** Re-exported so consumers keep importing wire names from one place. */
 export { slug } from './common.js'
 
@@ -256,7 +274,7 @@ export const cloudInvoke = z.object({
    * 15.0 s, agreeing only by accident, with no way to tell whose deadline a
    * caller had actually hit.
    */
-  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS),
+  patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS),
 })
 export type CloudInvoke = z.infer<typeof cloudInvoke>
 
