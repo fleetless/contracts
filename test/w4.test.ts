@@ -86,7 +86,8 @@ describe('W4 config: three new kinds', () => {
 })
 
 describe('W4 jobs', () => {
-  const J = { id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running', started_at: NOW, updated_at: NOW, result: null, error: null }
+  const J = { id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running', started_at: NOW, updated_at: NOW,
+    seq: 1, result: null, error: null }
 
   it('knows lost as a real outcome, not an absence of news', () => {
     for (const state of ['running', 'succeeded', 'failed', 'cancelled', 'lost']) {

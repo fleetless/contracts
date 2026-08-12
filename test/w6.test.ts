@@ -198,7 +198,7 @@ describe('W6 quotas', () => {
     const quotas = {
       max_robots: 50, max_apps: 10, max_end_users: 1000,
       max_retention_bytes: 10_000_000_000, max_retention_writes_per_minute: 60_000,
-      max_realtime_connections: 500,
+      max_realtime_connections: 500, max_asset_storage_bytes: 5_000_000_000,
     }
     const parsed = orgQuotaUsage.parse({ quotas, usage: { max_robots: 3, max_retention_bytes: 12_345 } })
     expect(parsed.usage.max_robots).toBe(3)

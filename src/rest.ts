@@ -495,14 +495,36 @@ export type JobResponse = z.infer<typeof jobResponse>
  *
  * ## W7 — the asset store (§4.6)
  *
- * | route | tier | role capability |
+ * | route | who | role capability |
  * |---|---|---|
- * | `GET /api/robots/{id}/assets` | developer | `assets` |
- * | `GET /api/robots/{id}/assets/{assetId}` | developer | `assets` |
- * | `GET /api/robots/{id}/urdf` | developer | `assets` |
- * | `POST /api/robots/{id}/assets/sync` | **Owner** | — |
- * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | `assets` |
- * | `POST /api/bridge/assets` | robot token | — |
+ * | `GET /api/robots/{id}/assets` | developer **or** end user | `assets`, end users only |
+ * | `GET /api/robots/{id}/assets/{assetId}` | developer **or** end user | `assets`, end users only |
+ * | `GET /api/robots/{id}/urdf` | developer **or** end user | `assets`, end users only |
+ * | `POST /api/robots/{id}/assets/sync` | developer, **Owner** tier | — |
+ * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | — |
+ * | `POST /api/bridge/assets` | robot token, per sync | — |
+ *
+ * **The read routes are dual-mode, and the first version of this table said
+ * `developer` for all three — contradicting the sentence that followed it.**
+ * `assets` is an *app-role* capability (§3.3), and developers are not in any
+ * app's role system at all (§3.1/§3.4: two identity spaces, and a credential
+ * from one never authenticates the other). Enforced literally, an end user
+ * could never fetch a URDF — which is §4.6's entire "Clients: `GET .../urdf`"
+ * story, and the audience the asset store exists for.
+ *
+ * So: a developer reaches the robot because it belongs to their org; an end
+ * user reaches it when their role grants `assets`. Caught by Threepio-W7
+ * reading §3.3 against this table before anything was built on it — the second
+ * time in two waves that this one check has caught a delta placing a feature
+ * in the wrong identity space.
+ *
+ * **The rewritten mesh URIs in a served URDF are absolute, not
+ * root-relative.** A relative URL resolves against *the consumer's* origin,
+ * and the consumers here are apps on other domains — so `/api/robots/…` would
+ * 404 against the customer's own site. This is the same mistake as W5's
+ * `LIVEKIT_URL=localhost`, which was handed to a viewer's browser and cost an
+ * afternoon: **a URL we hand to somebody else's browser must never be relative
+ * to ours.** Raised by Data-W7 asking which it was rather than assuming.
  *
  * **There is no per-asset `DELETE`, and its absence is the design.** The first
  * version of this table had one, for symmetry — which is not a reason. Assets
@@ -1047,6 +1069,17 @@ export const orgQuotas = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().positive(),
+  /**
+   * Asset storage (§4.6, W7) — **its own dial, not part of
+   * `max_retention_bytes`.** A sync grows storage in jumps and time series
+   * grow steadily; one dial would let the first crowd out the second, and the
+   * org that hit its limit would be told to look at the wrong thing.
+   *
+   * Counted **per stored blob, not per asset row**: two robots sharing a mesh
+   * cost one copy, so a dedup hit costs zero quota. Anything else charges an
+   * org twice for a fleet of identical robots, which is the normal case.
+   */
+  max_asset_storage_bytes: z.number().int().nonnegative(),
 })
 export type OrgQuotas = z.infer<typeof orgQuotas>
 
@@ -1071,6 +1104,7 @@ export const orgQuotaUsageCounts = z.object({
   max_apps: z.number().int().nonnegative(),
   max_end_users: z.number().int().nonnegative(),
   max_retention_bytes: z.number().int().nonnegative(),
+  max_asset_storage_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().nonnegative(),
 }).partial()

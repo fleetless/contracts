@@ -34,6 +34,11 @@
           "type": "integer",
           "exclusiveMinimum": 0,
           "maximum": 9007199254740991
+        },
+        "max_asset_storage_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
         }
       },
       "required": [
@@ -42,7 +47,8 @@
         "max_end_users",
         "max_retention_bytes",
         "max_retention_writes_per_minute",
-        "max_realtime_connections"
+        "max_realtime_connections",
+        "max_asset_storage_bytes"
       ],
       "additionalProperties": false
     },
@@ -65,6 +71,11 @@
           "maximum": 9007199254740991
         },
         "max_retention_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "max_asset_storage_bytes": {
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991

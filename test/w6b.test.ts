@@ -139,7 +139,8 @@ describe('W6b — asking what a robot is doing without knowing what to ask', () 
     // change removed.
     const j = {
       id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running' as const,
-      started_at: NOW, updated_at: NOW, result: null, error: null,
+      started_at: NOW, updated_at: NOW,
+    seq: 1, result: null, error: null,
     }
     expect(robotJobsResponse.parse({ jobs: [j] }).jobs).toHaveLength(1)
   })
@@ -344,7 +345,8 @@ describe('W6b — bounding a queue, and ordering a log', () => {
     // nothing produced, and its test built that shape by hand.
     const withDetails = {
       id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'failed' as const,
-      started_at: NOW, updated_at: NOW, result: null,
+      started_at: NOW, updated_at: NOW,
+    seq: 1, result: null,
       error: { code: 'job_queue_full', message: '200 jobs are already queued', details: { limit: 200, queued: 200 } },
     }
     const parsed = job.parse(withDetails)

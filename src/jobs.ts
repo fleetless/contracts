@@ -28,6 +28,23 @@ export const job = z.object({
   state: jobState,
   started_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
+  /**
+   * A monotonic counter, ascending in mint order (W7), and the **named**
+   * tiebreaker for any listing that claims an order.
+   *
+   * `started_at` is not a total order: two jobs minted in the same millisecond
+   * sort against each other arbitrarily, and arbitrarily means *differently on
+   * each query* — so `GET /api/robots/:id/jobs`, which documents "newest
+   * first", can show one twice and the other not at all. Exactly the defect
+   * `auditEvent.seq` was added for in W6b, in a route the same wave shipped.
+   *
+   * **Scoped honestly: per cloud process, per run.** Job state lives in memory
+   * (§6.1 — that is why `lost` exists at all), so this counter restarts when
+   * the cloud does, alongside the jobs it orders. Sound, because it only ever
+   * orders jobs that coexist in one registry — and stated, because a reader
+   * who assumed `auditEvent.seq`'s durable semantics would be wrong.
+   */
+  seq: z.number().int().positive(),
   /** Present once the job succeeded; shape is the ROS result's. */
   result: z.unknown().nullable(),
   /**
