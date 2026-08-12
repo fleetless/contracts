@@ -232,6 +232,22 @@ describe('W6b — the same thing over both transports', () => {
     }).success).toBe(false)
   })
 
+  it('refuses a misspelled field instead of silently widening the request', () => {
+    // Both shapes strip unknown keys by default, and stripping fails UNSAFE
+    // here: the id disappears and what is left is the slug-wide cancel or the
+    // identity-wide release — the most destructive reading of a request the
+    // caller did not make. Measured in review: `{jobId: ...}` answered 200 and
+    // stopped the job that was actually running; `?sessionid=` released both
+    // holds and stranded the other tab.
+    expect(cancelRequest.safeParse({ jobId: UUID }).success).toBe(false)
+    expect(releaseLiveQuery.safeParse({ sessionid: UUID }).success).toBe(false)
+    // The correct spellings still parse, and so does an empty body/query.
+    expect(cancelRequest.safeParse({ job_id: UUID }).success).toBe(true)
+    expect(cancelRequest.safeParse({}).success).toBe(true)
+    expect(releaseLiveQuery.safeParse({ session_id: UUID }).success).toBe(true)
+    expect(releaseLiveQuery.safeParse({}).success).toBe(true)
+  })
+
   it('carries the session id in the query, where a closing tab can still send it', () => {
     // A query parameter, following `?force=true` on robot deletion — the
     // precedent for "a DELETE that needs one more fact". A body on a DELETE is

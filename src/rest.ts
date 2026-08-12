@@ -265,6 +265,16 @@ export type InvokeRequest = z.infer<typeof invokeRequest>
  * schema that demands a body would reintroduce it on the one verb that stops
  * a machine.
  *
+ * **`.strict()`, and that is the whole point of the shape.** A plain object
+ * strips unknown keys, so a caller who *means* to name a job and misspells the
+ * field — `jobId` for `job_id` — has their id silently removed and gets the
+ * **slug-wide** cancel instead: the most destructive reading of a request they
+ * did not make. Measured in W6b's review: `{"jobId": "<some other job>"}`
+ * answered `200` and stopped the job that was actually running, which nobody
+ * had named. The `?force=true` precedent this route's design borrowed from
+ * fails *safe* on a typo — a misspelled `force` simply does not force.
+ * Stripping here fails unsafe, so unknown keys are refused instead.
+ *
  * `job_id` absent and `job_id: null` mean the **same** thing here, and that is
  * deliberate: over REST an absent body is how every caller written before this
  * wave says "cancel whatever is running". On the socket, `clientCancel.job_id`
@@ -274,7 +284,7 @@ export type InvokeRequest = z.infer<typeof invokeRequest>
  */
 export const cancelRequest = z.object({
   job_id: z.uuid().nullable().optional(),
-})
+}).strict()
 export type CancelRequest = z.infer<typeof cancelRequest>
 
 /**
@@ -285,6 +295,12 @@ export type CancelRequest = z.infer<typeof cancelRequest>
  * more fact". A body on a DELETE is carried inconsistently by proxies and by
  * `fetch` itself, and this call runs from a browser tab that is often closing.
  *
+ * **`.strict()`, for the reason `cancelRequest` is** — `?sessionid=` instead of
+ * `?session_id=` was measured releasing **both** of an identity's holds and
+ * stranding the other tab, which is precisely the defect this field was added
+ * to remove. A refused typo costs a round trip; a stripped one stops a robot
+ * somebody else is watching.
+ *
  * Absent means today's meaning: release **all** of this identity's holds on
  * this camera. A client that has lost its id, or is going away entirely, still
  * needs a way to let go — it is the blunt form, and it is the one that strands
@@ -292,7 +308,7 @@ export type CancelRequest = z.infer<typeof cancelRequest>
  */
 export const releaseLiveQuery = z.object({
   session_id: z.uuid().optional(),
-})
+}).strict()
 export type ReleaseLiveQuery = z.infer<typeof releaseLiveQuery>
 
 export const invokeResponse = z.object({
