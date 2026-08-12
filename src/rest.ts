@@ -472,6 +472,36 @@ export type JobResponse = z.infer<typeof jobResponse>
  * indistinguishable from the change having failed — the exact outcome the
  * promise exists to prevent (Nimbus-W6c).
  *
+ * **Every link this wave mails must carry what the page needs to act on it.**
+ * Three things were mailed to pages that could not handle them — a reset link
+ * to the *request* page, a developer accept link to a `404`, a register
+ * confirmation to a redirect (Kassandra-W6c). Fixing the paths alone would
+ * have left the defect underneath: **both identity spaces mailed the identical
+ * reset URL**, and the console's confirm page posts to the developer route, so
+ * an end user's token sent there answers `token_spent` forever. A URL that
+ * does not say which space minted it cannot be routed correctly by anything.
+ *
+ * So the link shapes are fixed here rather than in whichever repo builds them:
+ *
+ * | purpose | URL |
+ * |---|---|
+ * | developer password reset   | `{console}/reset-password/{token}` |
+ * | developer invitation       | `{console}/accept-developer-invite/{token}` |
+ * | end-user password reset    | `{console}/app/{app_identifier}/reset-password/{token}` |
+ * | end-user self-registration | `{console}/app/{app_identifier}/confirm-registration/{token}` |
+ * | end-user invitation        | `{console}/invite/{token}` — unchanged, W3 |
+ *
+ * The end-user links carry `app_identifier` because the page cannot act
+ * without it: `clientPasswordResetRequest` requires it, and an end user is
+ * identified by **app and address**, never address alone. The token alone is
+ * not enough, and a page that guesses the app is a page that guesses wrong.
+ *
+ * **This is a stopgap and should be named as one.** An app's users landing on
+ * *our console* to reset a password is wrong — the page belongs to the app,
+ * and an app has no configured base URL to send them to. Registered for W7;
+ * until then the console hosts both, and the URL carries the app so that
+ * moving it later is a redirect rather than a redesign.
+ *
  * **`DELETE /api/org/members/:id` is not a row deletion.** Gate step 3 takes a
  * token minted before the removal and uses it; if it still works, the feature
  * is not built. `revokeSessionsForSubject` is already wired.
