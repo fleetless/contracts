@@ -647,6 +647,31 @@ export const SNAPSHOT_HEADERS = {
   height: 'x-fleetless-height',
 } as const
 
+/**
+ * The metadata an asset upload carries beside its raw body (W7).
+ *
+ * Here rather than as a convention documented on both sides, and the reason is
+ * a scar. W5 shipped `x-fleetless-*` headers the CORS policy did not expose,
+ * so `age_ms` was `null` in **every** browser while the SDK documented `null`
+ * as "nothing captured yet" — a fresh frame reporting as no snapshot at all,
+ * invisible to three test suites because none of them was a browser. And W6b
+ * found the general form: three repos agreeing with each other about a payload
+ * none of them exchanged, each right in its own tests.
+ *
+ * **A string shared by two repos and defined in both is a string that drifts.**
+ * A zod schema cannot validate a header, which is an argument for writing the
+ * names down once, not an argument for writing them down twice.
+ *
+ * `name` is the `package://` URI verbatim for a mesh — the same string
+ * `asset.name` stores, and the same one `urdfCompleteness.missing` reports, so
+ * a failed upload and a missing mesh can be matched by eye.
+ */
+export const ASSET_UPLOAD_HEADERS = {
+  kind: 'x-fleetless-asset-kind',
+  name: 'x-fleetless-asset-name',
+  syncId: 'x-fleetless-sync-id',
+} as const
+
 export const cameraDescriptor = z.object({
   slug,
   width: z.number().int().positive(),

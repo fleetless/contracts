@@ -142,6 +142,7 @@ export {
   exposure,
   exposureListResponse,
   SNAPSHOT_HEADERS,
+  ASSET_UPLOAD_HEADERS,
   cameraDescriptor,
   cameraListResponse,
   liveSessionResponse,
