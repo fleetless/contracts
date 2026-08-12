@@ -153,7 +153,15 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
 /**
  * What a client can read on this robot: the built-ins plus everything the
  * published configuration exposes. This is the seed of the generated
- * per-robot API (§11.2, whose OpenAPI rendering arrives in W4).
+ * per-robot API (§11.2).
+ *
+ * **The OpenAPI rendering does not exist.** This comment said it "arrives in
+ * W4" from W2 until W6c — wrong once when W4 closed without it, and wrong a
+ * second way ever since, because a promise with an expired date reads as a
+ * plan rather than as a gap. It was deferred W2→W4, deferred again W4→W6, and
+ * never entered `DEFERRALS.md` at all, so the register built to catch exactly
+ * this could not (Threepio-W6c). It is registered now; this comment states
+ * the fact instead of a schedule.
  */
 export const datapointDescriptor = z.object({
   slug,
