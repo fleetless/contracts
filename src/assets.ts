@@ -164,6 +164,26 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * rather than optional: a sync that drops three meshes and reports success is
  * worse than one that fails outright, because the failure surfaces later, in a
  * renderer, as a robot with missing limbs and no explanation.
+ *
+ * **`failed` is URIs and nothing else, and `reason` exists because it was
+ * not.** Three different kinds of string were reaching it: unresolvable
+ * `package://` URIs (the documented meaning), the literal `robot_description`
+ * when a URDF *upload* failed, and English sentences written by the cloud —
+ * "the robot disconnected mid-sync". The console prints the array under
+ * *"these meshes could not be resolved"*, so a developer whose robot dropped
+ * was told to go find a mesh named *the robot disconnected mid-sync*
+ * (Momus-W7, M7).
+ *
+ * So anything that is not a URI goes in `reason`: one human-readable sentence
+ * about why the sync ended as it did, `null` when the outcome speaks for
+ * itself. It also carries the distinction `bridgeAssetProgress.state` makes
+ * and this shape could not — a sync **refused** because another was in flight
+ * is not a sync that tried and failed.
+ *
+ * **`assetSyncState` was deliberately not widened to carry that.** Consumers
+ * switch on it, a new member silently changes what every existing switch
+ * covers, and "refused" is a *reason* for a terminal outcome rather than a
+ * different one. Adding a field is additive; adding an enum member is not.
  */
 export const assetSyncState = z.enum(['running', 'succeeded', 'failed'])
 export type AssetSyncState = z.infer<typeof assetSyncState>
@@ -175,6 +195,8 @@ export const assetSyncStatus = z.object({
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   failed: z.array(z.string().min(1)),
+  /** Why the sync ended as it did, when that is not a per-URI fact. */
+  reason: z.string().min(1).nullable(),
   started_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
 })

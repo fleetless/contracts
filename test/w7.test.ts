@@ -129,6 +129,7 @@ describe('a sync cannot report success while having dropped something', () => {
       state: 'succeeded',
       done: 5,
       total: 5,
+      reason: null,
       started_at: NOW,
       updated_at: NOW,
     }
@@ -160,5 +161,25 @@ describe('the wave declares its codes', () => {
   it('carries asset_missing and asset_too_large', () => {
     expect(ERROR_CODES).toContain('asset_missing')
     expect(ERROR_CODES).toContain('asset_too_large')
+  })
+})
+
+describe('a sync reason is not a mesh URI', () => {
+  it('keeps non-URI explanations out of `failed`', () => {
+    // Three kinds of string were reaching `failed`: unresolvable package://
+    // URIs, the literal `robot_description` from a failed URDF upload, and
+    // English sentences from the cloud. The console prints that array under
+    // "these meshes could not be resolved", so a developer whose robot dropped
+    // mid-sync was told to find a mesh named "the robot disconnected
+    // mid-sync". `reason` is where anything that is not a URI goes.
+    const base = {
+      sync_id: UUID, robot_id: UUID, state: 'failed', done: 0, total: 3,
+      failed: [], started_at: NOW, updated_at: NOW,
+    }
+    expect(assetSyncStatus.safeParse(base).success).toBe(false)
+    expect(assetSyncStatus.safeParse({ ...base, reason: null }).success).toBe(true)
+    expect(assetSyncStatus.safeParse({ ...base, reason: 'another sync was already running' }).success).toBe(true)
+    // Empty string is not a reason — an explanation nobody wrote is `null`.
+    expect(assetSyncStatus.safeParse({ ...base, reason: '' }).success).toBe(false)
   })
 })
