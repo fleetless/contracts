@@ -31,17 +31,26 @@ export type AssetKind = z.infer<typeof assetKind>
  * The `name` a URDF asset carries.
  *
  * A mesh names itself — its `package://` URI is the only string anyone can
- * match against a workspace. A URDF has no such natural name, so the bridge
- * and the cloud agreed on one in conversation: `robot_description`, after the
- * topic it comes from. **An agreement in conversation is exactly the thing
- * that drifts**, and this project has now written down two other shared
- * strings for the same reason (`ASSET_UPLOAD_HEADERS`, the mailed-link paths)
- * after being bitten each time. So it is pinned here rather than living in two
- * repos and a message.
+ * match against a workspace. A URDF has no such natural name, so producers
+ * agree on one: `robot_description`, after the topic it comes from.
  *
- * Consumers should not match on it: `kind === 'urdf'` is the reliable test,
- * and this constant exists so the producer and the store agree, not so readers
- * compare strings.
+ * **Its job changed once the store stopped overwriting it.** It was pinned
+ * because the bridge and the cloud had settled on a value in conversation, and
+ * conversations drift — then the gate found the cloud renaming every URDF to
+ * `robot.urdf` regardless of what arrived, so the pinned value was decorative
+ * and the contract looked authoritative while being ignored. The store now
+ * keeps `asset.name` verbatim, which is what `asset.name`'s own comment
+ * already promised.
+ *
+ * So this is now a **convention among producers**, not an agreement the store
+ * enforces: it exists so two different bridges do not name the same thing two
+ * ways and leave a developer looking at an inconsistent fleet. Nothing
+ * validates it, and that is deliberate — the store's job is to record what it
+ * was told.
+ *
+ * Consumers must not match on it. `kind === 'urdf'` is the reliable test; the
+ * cloud identifies a robot's URDF row by kind alone, so a producer that sends
+ * a different string updates the same singleton rather than orphaning a second.
  */
 export const URDF_ASSET_NAME = 'robot_description'
 
