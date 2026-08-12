@@ -105,9 +105,21 @@ describe('completeness distinguishes three different unhappy answers', () => {
 
 describe('a sync cannot report success while having dropped something', () => {
   it('requires `failed` on every progress frame', () => {
-    const frame = { type: 'asset_progress', sync_id: UUID, done: 3, total: 5, finished: false }
+    const frame = { type: 'asset_progress', sync_id: UUID, done: 3, total: 5, state: 'running' }
     expect(bridgeAssetProgress.safeParse(frame).success).toBe(false)
     expect(bridgeAssetProgress.safeParse({ ...frame, failed: [] }).success).toBe(true)
+  })
+
+  it('keeps "never started" out of `failed` by giving a refusal its own state', () => {
+    // The alternative on the table was to report every requested URI in
+    // `failed` when a sync is refused for being concurrent — which would make
+    // that field mean "could not be resolved" and "was never attempted" at
+    // once. Same key, two questions: the defect this project has split five
+    // times already.
+    const refused = { type: 'asset_progress', sync_id: UUID, done: 0, total: 4, failed: [], state: 'refused_busy' }
+    expect(bridgeAssetProgress.safeParse(refused).success).toBe(true)
+    expect(bridgeAssetProgress.safeParse({ ...refused, state: 'finished' }).success).toBe(true)
+    expect(bridgeAssetProgress.safeParse({ ...refused, state: 'done' }).success).toBe(false)
   })
 
   it('requires `failed` on the stored status too', () => {

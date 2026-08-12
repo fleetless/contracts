@@ -260,6 +260,21 @@ export const ERROR_CODES = [
    * ask for a new link.
    */
   'token_spent',
+  // W7 — the command path, still.
+  /**
+   * A **service call** was dispatched and never returned. Distinct from
+   * `goal_timeout`, which means an action goal was never *accepted* — nothing
+   * tried there; here the robot was asked and stopped answering.
+   *
+   * It exists because the bridge previously bounded a hung service with
+   * nothing at all: `_invoke_service` took no patience, so the caller got
+   * `bridge_timeout` from the cloud while the job stayed `running` forever on
+   * both sides and the slug was busy for good (register row 2n, and 2e for the
+   * cloud half). Rosie-W7 established that rclpy's
+   * `Client.remove_pending_request` can abandon the future cheaply, so unlike
+   * the action path this one can guarantee the callback never fires late.
+   */
+  'service_timeout',
   // W7 — the asset store.
   /**
    * A URDF references a mesh the store does not have. Distinct from

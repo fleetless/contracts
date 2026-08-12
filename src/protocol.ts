@@ -555,8 +555,28 @@ export const bridgeAssetProgress = z.object({
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   failed: z.array(z.string().min(1)),
-  /** Set once, when the bridge will send no further progress for this sync. */
-  finished: z.boolean(),
+  /**
+   * Three values, because a boolean `finished` had nowhere to put a refusal.
+   *
+   * A second `asset_request` arriving while one is in flight has to be
+   * answered with something. The bridge's guard is a backstop — the cloud owns
+   * sync lifecycle and refuses a concurrent one first — but a backstop that
+   * answers with silence is a backstop nobody can debug, and the alternative
+   * on the table was to report every requested URI in `failed`. That would
+   * have made `failed` mean two different things at once — *could not be
+   * resolved* and *was never attempted* — which is the one-field-two-facts
+   * defect this project has now split five times (`set`/`readable`,
+   * `truncated`/`truncated_by`, `value`/`sample_count`, `publishing`/`cause`,
+   * and camera health's own).
+   *
+   * So: `running` while work is happening, `finished` when the bridge will
+   * send no more for this sync, `refused_busy` when it never started because
+   * another sync was in flight. `failed` keeps its single meaning.
+   *
+   * Raised by Rosie-W7, who found the gap by asking what a second request
+   * should do rather than picking the silent option.
+   */
+  state: z.enum(['running', 'finished', 'refused_busy']),
 })
 export type BridgeAssetProgress = z.infer<typeof bridgeAssetProgress>
 

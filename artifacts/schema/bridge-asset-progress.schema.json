@@ -28,8 +28,13 @@
         "minLength": 1
       }
     },
-    "finished": {
-      "type": "boolean"
+    "state": {
+      "type": "string",
+      "enum": [
+        "running",
+        "finished",
+        "refused_busy"
+      ]
     }
   },
   "required": [
@@ -38,7 +43,7 @@
     "done",
     "total",
     "failed",
-    "finished"
+    "state"
   ],
   "additionalProperties": false
 }
