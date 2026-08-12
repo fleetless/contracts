@@ -185,6 +185,38 @@ export const developerInvitation = z.object({
 })
 export type DeveloperInvitation = z.infer<typeof developerInvitation>
 
+/**
+ * A pending invitation as an Owner sees it in the list — **without its
+ * `accept_url`**, and that omission is the point.
+ *
+ * The list exists so an Owner can see what is outstanding and revoke it. Neither
+ * of those needs the token, and a list that carries it turns every screenshot,
+ * every log line and every browser history entry of that page into live
+ * credentials for somebody else's account. It is the same rule
+ * `auditEvent.details` already states — *never credentials, never tokens* —
+ * applied to a read surface rather than a write one.
+ *
+ * There is no escalation either way: an Owner can already create an invitation
+ * for any address. The reason to withhold it is not what an Owner could do with
+ * it, but that a page nobody thinks of as sensitive stops being sensitive.
+ *
+ * `mail` is omitted for a duller reason: it described what happened at creation
+ * time, and re-serving it in a list invites a reader to take it as current.
+ */
+export const pendingDeveloperInvitation = z.object({
+  id: z.uuid(),
+  email: z.email(),
+  role: orgMemberRole,
+  expires_at: z.iso.datetime(),
+})
+export type PendingDeveloperInvitation = z.infer<typeof pendingDeveloperInvitation>
+
+export const developerInvitationListResponse = z.object({
+  /** Pending only. An accepted invitation is history, not something to revoke. */
+  invitations: z.array(pendingDeveloperInvitation),
+})
+export type DeveloperInvitationListResponse = z.infer<typeof developerInvitationListResponse>
+
 /** Accepting it: the token proves the invitation, the password creates the login. */
 export const acceptDeveloperInvitationRequest = z.object({
   token: z.string().min(1),

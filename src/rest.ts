@@ -404,7 +404,9 @@ export type JobResponse = z.infer<typeof jobResponse>
  * |---|---|---|
  * | `GET    /api/org/members`               | —                                  | `{ members: OrgMember[] }` |
  * | `DELETE /api/org/members/:id`           | —                                  | 204 — **and every session of that member ends** |
- * | `POST   /api/org/invitations`           | `createDeveloperInvitationRequest` | `developerInvitation` |
+ * | `POST   /api/org/invitations`           | `createDeveloperInvitationRequest` | `developerInvitation` — **Owner** |
+ * | `GET    /api/org/invitations`           | —                                  | `developerInvitationListResponse` — **Owner**, pending only, **no tokens** |
+ * | `DELETE /api/org/invitations/:id`       | —                                  | 204 — **Owner** |
  * | `POST   /api/org/invitations/accept`    | `acceptDeveloperInvitationRequest` | `sessionTokens` — unauthenticated |
  * | `GET    /api/apps/:id/self-registration` | —                                 | `selfRegistration` |
  * | `PUT    /api/apps/:id/self-registration` | `selfRegistration`                | `selfRegistration` |
