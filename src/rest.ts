@@ -502,8 +502,20 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `GET /api/robots/{id}/urdf` | developer | `assets` |
  * | `POST /api/robots/{id}/assets/sync` | **Owner** | — |
  * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | `assets` |
- * | `DELETE /api/robots/{id}/assets/{assetId}` | **Owner** | — |
  * | `POST /api/bridge/assets` | robot token | — |
+ *
+ * **There is no per-asset `DELETE`, and its absence is the design.** The first
+ * version of this table had one, for symmetry — which is not a reason. Assets
+ * are immutable and content-addressed, and the operation a developer actually
+ * performs is *the URDF changed, sync again*: a **re-sync reconciles**, so
+ * assets the new URDF no longer references stop belonging to that robot. One
+ * mechanism instead of two. Robot deletion is already covered by W6a's
+ * cascade.
+ *
+ * Left in, it would have been a route with no console, no SDK method and no
+ * gate step — register row 8's third instance, in the wave whose own contracts
+ * file warns about the first two by name. Caught by Eve-W7 asking why it was
+ * in her mission's route table but in neither her mission nor the gate.
  *
  * Reading is a role capability; **changing the store is Owner-tier**, matching
  * W6c's reading of §3.1 — a sync spends the org's asset quota and a deletion

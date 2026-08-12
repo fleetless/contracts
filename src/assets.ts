@@ -88,9 +88,25 @@ export type AssetListResponse = z.infer<typeof assetListResponse>
 /**
  * A sync is long-running and is therefore answered with something to watch,
  * never with a status that was true at the moment of asking.
+ *
+ * **`source` has one value, and that is deliberate.** §4.6 also names a manual
+ * zip upload, and the first version of this shape had `'upload'` in the enum —
+ * with **no body defined for the bytes**. An enum value with no producer and
+ * no payload invites every consumer to guess a shape, and each guesses
+ * differently; that is the exact defect Nimbus-W6c refused to introduce in
+ * W6c, when the lead asked twice for an error code whose payload had moved.
+ * The zip path is in `DEFERRALS.md` with a condition instead of sitting in the
+ * wire as a promise.
+ *
+ * A single-member enum rather than dropping the field: the second source is a
+ * question of when, not whether, and a caller that already names its source
+ * does not change shape when the second one arrives.
+ *
+ * Caught by Eve-W7 asking what body `'upload'` takes, rather than building
+ * against a guess.
  */
 export const assetSyncRequest = z.object({
-  source: z.enum(['bridge', 'upload']),
+  source: z.enum(['bridge']),
 })
 export type AssetSyncRequest = z.infer<typeof assetSyncRequest>
 
