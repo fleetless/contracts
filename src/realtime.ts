@@ -278,6 +278,8 @@ export const resourceHealthEvent = z.object({
     'unreadable_credential',
     'stopped_by_config_change',
     'publish_failed',
+    /** See `resourceHealthState.state` — the honest fallback for an unmapped code. */
+    'unknown',
   ]),
   reason: z.string().max(200).nullable(),
   changed_at_ms: z.number().int().nonnegative(),

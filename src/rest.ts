@@ -624,6 +624,23 @@ export const resourceHealthState = z.object({
     'stopped_by_config_change',
     /** Publishing failed after the session was already granted. */
     'publish_failed',
+    /**
+     * Something is wrong and this platform cannot say what (W6a).
+     *
+     * It exists because the alternative was worse. The bridge's error codes
+     * and these states are mapped by a table, and a code the table does not
+     * know had two possible fallbacks: report it as `ok`, which hides a real
+     * failure, or fold it into `unreachable`, which **asserts a cause nobody
+     * established** — sending a developer to check a network when the actual
+     * problem may be a password. That second failure is the one this project
+     * has fixed four times in two waves.
+     *
+     * So the map falls back here, and the unmapped code is logged loudly
+     * server-side. A console showing "something is wrong, and we cannot
+     * classify it" is telling the truth; it is also visibly a gap in the
+     * table, which is what gets it fixed.
+     */
+    'unknown',
   ]),
   /** A short human-readable reason, or `null`. Never an exception message. */
   reason: z.string().max(200).nullable(),

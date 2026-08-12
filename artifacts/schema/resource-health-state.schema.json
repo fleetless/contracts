@@ -27,7 +27,8 @@
         "auth_failed",
         "unreadable_credential",
         "stopped_by_config_change",
-        "publish_failed"
+        "publish_failed",
+        "unknown"
       ]
     },
     "reason": {
