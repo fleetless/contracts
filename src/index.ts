@@ -23,6 +23,8 @@ export {
   cloudCameraStart,
   cloudCameraStop,
   bridgeCameraState,
+  SNAPSHOT_MAX_BYTES,
+  CLOSE_ROBOT_DELETED,
 } from './protocol.js'
 export type {
   BridgeHello,
@@ -129,6 +131,9 @@ export {
   credentialSummary,
   credentialListResponse,
   credentialWriteRequest,
+  robotDeletionSummary,
+  resourceHealthState,
+  resourceHealthListResponse,
 } from './rest.js'
 export type {
   HistoryQuery,
@@ -140,6 +145,9 @@ export type {
   CredentialSummary,
   CredentialListResponse,
   CredentialWriteRequest,
+  RobotDeletionSummary,
+  ResourceHealthState,
+  ResourceHealthListResponse,
 } from './rest.js'
 export type {
   Robot,
@@ -187,6 +195,7 @@ export {
   clientUnsubscribe,
   subscribeError,
   datapointEvent,
+  resourceHealthEvent,
 } from './realtime.js'
 export type {
   ClientAuth,
@@ -201,6 +210,7 @@ export type {
   ClientUnsubscribe,
   SubscribeError,
   DatapointEvent,
+  ResourceHealthEvent,
 } from './realtime.js'
 export {
   password,
