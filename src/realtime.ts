@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RESOURCE_HEALTH_STATES } from './rest.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
@@ -271,16 +272,7 @@ export const resourceHealthEvent = z.object({
   robot_id: z.uuid(),
   kind: z.enum(['camera', 'credential']),
   ref: z.string().min(1).max(64),
-  state: z.enum([
-    'ok',
-    'unreachable',
-    'auth_failed',
-    'unreadable_credential',
-    'stopped_by_config_change',
-    'publish_failed',
-    /** See `resourceHealthState.state` — the honest fallback for an unmapped code. */
-    'unknown',
-  ]),
+  state: z.enum(RESOURCE_HEALTH_STATES),
   reason: z.string().max(200).nullable(),
   changed_at_ms: z.number().int().nonnegative(),
 })

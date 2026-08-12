@@ -180,5 +180,17 @@ export const ERROR_CODES = [
    * deciding for them.
    */
   'robot_in_use',
+  /**
+   * A deletion destroyed some of a robot and then failed. The robot still
+   * exists and is **not intact**; retrying the delete is the way out.
+   *
+   * It exists because the alternative was a generic `internal_error`, which
+   * says "nothing happened" — and a caller who reads that goes looking for a
+   * transient glitch. W6a's review measured the state it hides: configuration,
+   * drafts, types and 300 000 rows gone, the robot still listed, and no audit
+   * event. A failure that cannot be told apart from a no-op is how that state
+   * stayed invisible.
+   */
+  'robot_deletion_partial',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

@@ -132,6 +132,7 @@ export {
   credentialListResponse,
   credentialWriteRequest,
   robotDeletionSummary,
+  RESOURCE_HEALTH_STATES,
   resourceHealthState,
   resourceHealthListResponse,
 } from './rest.js'

@@ -585,6 +585,44 @@ export const robotDeletionSummary = z.object({
 export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 
 /**
+ * The seven health states, declared **once** (W6a review).
+ *
+ * `resourceHealthState` and `resourceHealthEvent` are the snapshot and the
+ * push of the same thing, and they had the same seven values written out
+ * twice, linked by nothing — the artifacts published two independent copies
+ * with no `$ref`. They agreed only because whoever added `unknown` remembered
+ * to add it in both places, on the wave's last contract commit.
+ *
+ * One concept rendering as two artifacts that nothing keeps in step is its
+ * own class of artifact-versus-source defect, distinct from `.default()`
+ * publishing as `required` and from `z.coerce`'s unrepresentable input.
+ */
+export const RESOURCE_HEALTH_STATES = [
+  'ok',
+  /** The host did not answer. Not the same as refusing the password. */
+  'unreachable',
+  /** The host answered and rejected the credentials. */
+  'auth_failed',
+  /** The stored password cannot be decrypted — see `credentialSummary.readable`. */
+  'unreadable_credential',
+  /** A configuration change stopped this stream, deliberately. */
+  'stopped_by_config_change',
+  /** Publishing failed after the session was already granted. */
+  'publish_failed',
+  /**
+   * Something is wrong and this platform cannot say what.
+   *
+   * The alternative was worse. A bridge error code the mapping table does not
+   * know had two possible fallbacks: report `ok`, which hides a real failure,
+   * or fold it into `unreachable`, which **asserts a cause nobody
+   * established** — sending a developer to check a network when the problem
+   * may be a password. The map falls back here and logs the unmapped code
+   * loudly, so the gap in the table is visible instead of confident.
+   */
+  'unknown',
+] as const
+
+/**
  * The health of one thing a developer configured, as the platform currently
  * sees it (W6a).
  *
@@ -612,36 +650,7 @@ export const resourceHealthState = z.object({
   kind: z.enum(['camera', 'credential']),
   /** The camera slug, or the credential name. */
   ref: z.string().min(1).max(64),
-  state: z.enum([
-    'ok',
-    /** The host did not answer. Not the same as refusing the password. */
-    'unreachable',
-    /** The host answered and rejected the credentials. */
-    'auth_failed',
-    /** The stored password cannot be decrypted — see `credentialSummary.readable`. */
-    'unreadable_credential',
-    /** A configuration change stopped this stream, deliberately. */
-    'stopped_by_config_change',
-    /** Publishing failed after the session was already granted. */
-    'publish_failed',
-    /**
-     * Something is wrong and this platform cannot say what (W6a).
-     *
-     * It exists because the alternative was worse. The bridge's error codes
-     * and these states are mapped by a table, and a code the table does not
-     * know had two possible fallbacks: report it as `ok`, which hides a real
-     * failure, or fold it into `unreachable`, which **asserts a cause nobody
-     * established** — sending a developer to check a network when the actual
-     * problem may be a password. That second failure is the one this project
-     * has fixed four times in two waves.
-     *
-     * So the map falls back here, and the unmapped code is logged loudly
-     * server-side. A console showing "something is wrong, and we cannot
-     * classify it" is telling the truth; it is also visibly a gap in the
-     * table, which is what gets it fixed.
-     */
-    'unknown',
-  ]),
+  state: z.enum(RESOURCE_HEALTH_STATES),
   /** A short human-readable reason, or `null`. Never an exception message. */
   reason: z.string().max(200).nullable(),
   /**
@@ -654,7 +663,14 @@ export const resourceHealthState = z.object({
 export type ResourceHealthState = z.infer<typeof resourceHealthState>
 
 /**
- * The current state of everything on one robot.
+ * The current state of everything in the **org**.
+ *
+ * This doc said "on one robot" until the W6a review found it: the route moved
+ * to org scope in `2bb67c5` and the route table forty lines above spends a
+ * paragraph explaining why the per-robot reading was wrong — while the schema
+ * it describes still said the old thing. Cloud, console and SDK all implement
+ * org-wide correctly; contracts was the only place still saying otherwise,
+ * and it is the first place a fourth consumer reads.
  *
  * A channel with no snapshot cannot answer "what is the state now?" for a
  * page that just loaded — it can only report the next change, which may be
