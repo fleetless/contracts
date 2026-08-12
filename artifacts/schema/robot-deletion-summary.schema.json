@@ -26,6 +26,16 @@
         "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
       }
     },
+    "asset_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "asset_bytes_freed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
     "had_live_session": {
       "type": "boolean"
     },
@@ -38,6 +48,8 @@
     "sample_rows",
     "bytes_freed",
     "cameras",
+    "asset_count",
+    "asset_bytes_freed",
     "had_live_session",
     "had_unpublished_draft"
   ],

@@ -51,7 +51,9 @@ describe('W6a deletion', () => {
   it('makes a deletion record say what it destroyed, not merely that it did', () => {
     const summary = {
       slug_count: 4, sample_rows: 182_000, bytes_freed: 59_000_000,
-      cameras: ['front', 'yard'], had_live_session: false, had_unpublished_draft: true,
+      cameras: ['front', 'yard'], asset_count: 0,
+    asset_bytes_freed: 0,
+    had_live_session: false, had_unpublished_draft: true,
     }
     expect(robotDeletionSummary.parse(summary)).toEqual(summary)
   })
@@ -62,7 +64,9 @@ describe('W6a deletion', () => {
     for (const drop of ['slug_count', 'sample_rows', 'bytes_freed', 'cameras', 'had_live_session', 'had_unpublished_draft']) {
       const partial: Record<string, unknown> = {
         slug_count: 0, sample_rows: 0, bytes_freed: 0, cameras: [],
-        had_live_session: false, had_unpublished_draft: false,
+        asset_count: 0,
+    asset_bytes_freed: 0,
+    had_live_session: false, had_unpublished_draft: false,
       }
       delete partial[drop]
       expect(robotDeletionSummary.safeParse(partial).success).toBe(false)
@@ -74,7 +78,9 @@ describe('W6a deletion', () => {
     // never published, where every count is legitimately zero.
     const neverPublished = robotDeletionSummary.parse({
       slug_count: 0, sample_rows: 0, bytes_freed: 0, cameras: [],
-      had_live_session: false, had_unpublished_draft: true,
+      asset_count: 0,
+    asset_bytes_freed: 0,
+    had_live_session: false, had_unpublished_draft: true,
     })
     expect(neverPublished.had_unpublished_draft).toBe(true)
   })
