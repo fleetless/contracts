@@ -254,3 +254,32 @@ export const datapointEvent = z.object({
   timestamp_ms: z.number().int().nonnegative(),
 })
 export type DatapointEvent = z.infer<typeof datapointEvent>
+
+/**
+ * A change in the health of something the developer configured (W6a).
+ *
+ * The push half of `resourceHealthState`; the REST list is the snapshot half,
+ * and neither is useful alone — a page that loads after the change would see
+ * nothing, and a page that never reloads would never learn.
+ *
+ * Delivered on the **developer** socket and scoped to the org, not to a
+ * subscription: the whole point is to reach somebody who is *not* currently
+ * looking at the thing that broke.
+ */
+export const resourceHealthEvent = z.object({
+  type: z.literal('resource_health'),
+  robot_id: z.uuid(),
+  kind: z.enum(['camera', 'credential']),
+  ref: z.string().min(1).max(64),
+  state: z.enum([
+    'ok',
+    'unreachable',
+    'auth_failed',
+    'unreadable_credential',
+    'stopped_by_config_change',
+    'publish_failed',
+  ]),
+  reason: z.string().max(200).nullable(),
+  changed_at_ms: z.number().int().nonnegative(),
+})
+export type ResourceHealthEvent = z.infer<typeof resourceHealthEvent>

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "robot_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "camera",
+        "credential"
+      ]
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "unreachable",
+        "auth_failed",
+        "unreadable_credential",
+        "stopped_by_config_change",
+        "publish_failed"
+      ]
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "changed_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "robot_id",
+    "kind",
+    "ref",
+    "state",
+    "reason",
+    "changed_at_ms"
+  ],
+  "additionalProperties": false
+}

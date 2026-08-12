@@ -170,5 +170,15 @@ export const ERROR_CODES = [
    * a machine as busy doing something it never started.
    */
   'goal_timeout',
+  // W6a — deletion.
+  /**
+   * A robot cannot be deleted while a live session is open. Refusing beats
+   * deleting for the same reason `credential_in_use` does: the session
+   * belongs to somebody who is watching right now, and taking it away
+   * without a word is indistinguishable from a crash. `?force=true` says
+   * "yes, I know" — the caller has to say it, rather than the platform
+   * deciding for them.
+   */
+  'robot_in_use',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

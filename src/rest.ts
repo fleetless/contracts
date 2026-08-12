@@ -507,6 +507,89 @@ export const historyBucketsResponse = z.object({
 export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
 
 /**
+ * What a `robot.deleted` audit event carries (W6a).
+ *
+ * A deletion record that says only *that* something was destroyed is a
+ * receipt for an unknown amount. This names it: how many configured slugs,
+ * how many stored samples, how many bytes that freed against the retention
+ * quota, which cameras existed, and whether somebody was watching at the
+ * time. Those are the questions asked afterwards, and afterwards is the one
+ * moment the data cannot be consulted.
+ */
+export const robotDeletionSummary = z.object({
+  slug_count: z.number().int().nonnegative(),
+  sample_rows: z.number().int().nonnegative(),
+  bytes_freed: z.number().int().nonnegative(),
+  cameras: z.array(slug),
+  had_live_session: z.boolean(),
+})
+export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
+
+/**
+ * The health of one thing a developer configured, as the platform currently
+ * sees it (W6a).
+ *
+ * This exists because four separate findings turned out to be one absence:
+ * nothing carried the state of a camera, a source or a credential to a
+ * developer who was not, at that exact moment, pressing a button. A publish
+ * failure after the `201` never reached the viewer holding the token; a
+ * source whose password was wrong failed at config-apply time with nobody
+ * watching and stayed silent until someone pressed "Go live" days later; a
+ * viewer could not learn *why* a stream ended, so the console had to offer
+ * two possibilities and rank neither; and an undecryptable credential
+ * reported as healthy.
+ *
+ * One shape, because four patches against four symptoms is how W5 nearly
+ * wrote a failure report into `publishState` — a field the cloud writes and
+ * reads in exactly one place, which would have been a dead end.
+ *
+ * `reason` is for a human and is **never** built from an exception message:
+ * W6 found a camera password in a log through `log.exception`, and again in
+ * `LiveStartError`'s message, which travels to the cloud on this very path.
+ * Type names and fixed strings only.
+ */
+export const resourceHealthState = z.object({
+  robot_id: z.uuid(),
+  kind: z.enum(['camera', 'credential']),
+  /** The camera slug, or the credential name. */
+  ref: z.string().min(1).max(64),
+  state: z.enum([
+    'ok',
+    /** The host did not answer. Not the same as refusing the password. */
+    'unreachable',
+    /** The host answered and rejected the credentials. */
+    'auth_failed',
+    /** The stored password cannot be decrypted — see `credentialSummary.readable`. */
+    'unreadable_credential',
+    /** A configuration change stopped this stream, deliberately. */
+    'stopped_by_config_change',
+    /** Publishing failed after the session was already granted. */
+    'publish_failed',
+  ]),
+  /** A short human-readable reason, or `null`. Never an exception message. */
+  reason: z.string().max(200).nullable(),
+  /**
+   * When this state was entered — not when it was sent. A page that loads
+   * late must be able to tell a failure from a minute ago from one from
+   * yesterday, and a state with only a send time cannot.
+   */
+  changed_at_ms: z.number().int().nonnegative(),
+})
+export type ResourceHealthState = z.infer<typeof resourceHealthState>
+
+/**
+ * The current state of everything on one robot.
+ *
+ * A channel with no snapshot cannot answer "what is the state now?" for a
+ * page that just loaded — it can only report the next change, which may be
+ * hours away. Both halves or neither.
+ */
+export const resourceHealthListResponse = z.object({
+  resources: z.array(resourceHealthState),
+})
+export type ResourceHealthListResponse = z.infer<typeof resourceHealthListResponse>
+
+/**
  * Org protection quotas (§12.4) — generous, server-side adjustable, visible
  * in Settings. Protection against runaway use, not a business model; a later
  * one docks onto the same dials.
@@ -566,7 +649,26 @@ export type OrgQuotaUsage = z.infer<typeof orgQuotaUsage>
 export const credentialSummary = z.object({
   name: z.string().min(1).max(64),
   username: z.string().nullable(),
+  /** Whether a password has ever been stored for this name. */
   set: z.boolean(),
+  /**
+   * Whether that password can still be **decrypted** — a different fact from
+   * `set`, and deliberately a second field rather than a tri-state on the
+   * first (W6a).
+   *
+   * They come apart when `CAMERA_CREDENTIALS_KEY` is rotated, unset or wrong,
+   * or when a row is corrupt. W6 made that survivable: one unreadable
+   * credential costs the cameras that reference it instead of taking the
+   * robot offline. But the surviving failure was **invisible** — this route
+   * answered `set: true` with `used_by` naming the dependent camera, for a
+   * credential that ships as `credentials: {}` on every config frame, and the
+   * only evidence was a server log no developer can read.
+   *
+   * `set: true, readable: false` is therefore the shape that says "a password
+   * is stored and this platform can no longer use it" — which is a thing to
+   * act on, and nothing else in the API could say it.
+   */
+  readable: z.boolean(),
   used_by: z.array(z.object({ robot_id: z.uuid(), slug })),
 })
 export type CredentialSummary = z.infer<typeof credentialSummary>

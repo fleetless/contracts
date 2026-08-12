@@ -13,6 +13,18 @@ import { rosTypeName } from './common.js'
  */
 export const PROTOCOL_VERSION = 1
 
+/**
+ * The bridge socket close code for "this robot no longer exists" (W6a).
+ *
+ * Deliberately distinct from the auth failures: a deleted robot must **stop**,
+ * and a token that was valid a second ago is indistinguishable from one that
+ * was revoked unless the cloud says which. Without its own code the bridge
+ * reconnects forever against a robot that will never come back — a permanent
+ * load on the cloud, and a robot on someone's shelf whose logs say nothing
+ * more informative than "connection closed".
+ */
+export const CLOSE_ROBOT_DELETED = 4004
+
 /** Re-exported so consumers keep importing wire names from one place. */
 export { slug } from './common.js'
 

@@ -59,6 +59,7 @@ import {
   clientUnsubscribe,
   subscribeError,
   datapointEvent,
+  resourceHealthEvent,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 import {
@@ -116,6 +117,9 @@ import {
   credentialSummary,
   credentialListResponse,
   credentialWriteRequest,
+  robotDeletionSummary,
+  resourceHealthState,
+  resourceHealthListResponse,
 } from '../src/rest.js'
 
 export const exportedSchemas = {
@@ -140,6 +144,11 @@ export const exportedSchemas = {
   'credential-summary': credentialSummary,
   'credential-list-response': credentialListResponse,
   'credential-write-request': credentialWriteRequest,
+  // W6a — deletion and the resource-health channel.
+  'robot-deletion-summary': robotDeletionSummary,
+  'resource-health-state': resourceHealthState,
+  'resource-health-list-response': resourceHealthListResponse,
+  'resource-health-event': resourceHealthEvent,
   'bridge-hello': bridgeHello,
   'cloud-hello-ok': cloudHelloOk,
   'cloud-hello-error': cloudHelloError,
