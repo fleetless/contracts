@@ -590,6 +590,28 @@ export const rateLimitDetails = z.object({
 })
 export type RateLimitDetails = z.infer<typeof rateLimitDetails>
 
+/**
+ * Every job this robot's registry currently holds, **ordered newest first by
+ * `started_at`, with `seq` as the tiebreaker** (W7, register rows 2j and 2l).
+ *
+ * The field is named because the previous version of this comment claimed an
+ * order without saying what produced it, and the answer turned out to matter
+ * twice over:
+ *
+ * 1. **`started_at` alone is not a total order.** Two jobs minted in the same
+ *    millisecond sorted against each other arbitrarily — differently on each
+ *    query — so a reader could see one twice and the other not at all. `seq`
+ *    is monotonic in mint order and settles it. Note its scope, which is in
+ *    `job.seq`'s own comment: per cloud process, per run, because job state
+ *    lives in memory and the counter restarts with the registry it orders.
+ * 2. **For an adopted job, `started_at` is adoption time, not the real
+ *    start.** The cloud learns of it at `hello`, having never minted it, and
+ *    has no other honest value to put there. So this list is newest-*known*
+ *    first, and a job the robot has been running for an hour can sit above one
+ *    started a minute ago. Stated rather than smoothed over: the console's own
+ *    "Known running since" wording exists for the same reason, and a contract
+ *    that quietly implies otherwise would send somebody to debug the sort.
+ */
 export const robotJobsResponse = z.object({
   jobs: z.array(job),
 })
