@@ -354,6 +354,21 @@ export type JobResponse = z.infer<typeof jobResponse>
  * nothing answers `{ jobs: [] }`. "Nothing is running" and "we did not look"
  * are different facts, and a nullable list would merge them — the same
  * distinction `robotDeletionSummary` was made all-required for.
+ *
+ * **At most one entry per slug: the current job there, exactly what
+ * `jobResponse` would answer for that slug.** This is not a history endpoint
+ * and must not become one. The first implementation returned every job the
+ * registry still held — six rows and four complete Fibonacci results after a
+ * few minutes of gate traffic, and unbounded in both count and payload for a
+ * robot that has been working all day. The list would have grown until a
+ * console page carried a robot's entire past, and the one thing it exists to
+ * answer — *what is this robot doing* — would have been the first line of a
+ * scroll.
+ *
+ * A settled job stays visible as its slug's current entry until something
+ * else runs there, which is what makes a job that just failed still findable.
+ * Read `state` to tell a live one from a finished one, exactly as with
+ * `jobResponse`.
  */
 export const robotJobsResponse = z.object({
   jobs: z.array(job),
