@@ -381,5 +381,35 @@ export const bridgeCameraState = z.object({
   slug,
   publishing: z.boolean(),
   error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+  /**
+   * Why this frame was sent (W6a).
+   *
+   * Without it, `{publishing: false, error: null}` is sent for **three
+   * different things** — an answer to `camera_stop`, a stream stopped by a
+   * configuration change, and a source that recovered — and the cloud can
+   * only tell them apart by remembering what it saw before. Deriving a cause
+   * from remembered state is precisely the inference this project keeps
+   * finding to be wrong, and W6a exists because four failures had been
+   * sharing one silence.
+   *
+   * `'command'`       this frame answers a `camera_start` / `camera_stop`.
+   * `'source'`        unsolicited: the source's own health changed, whether or
+   *                   not anybody is watching. This is the frame that makes a
+   *                   wrong password visible without a viewer.
+   * `'config_change'` a configuration change stopped this stream. Not a
+   *                   failure, and it must not be logged as one.
+   * `'live_lost'`     publishing ended unexpectedly after it had started.
+   *
+   * Note it does **not** answer "which attempt is this?" — `camera_state`
+   * still has no request id, and that remains a named deferral in cluster C.
+   * `cause` says what kind of event this is; correlation is a separate fact
+   * and giving one field both jobs would be the same mistake again.
+   *
+   * Required, not optional: an absent cause would default to the reading
+   * somebody happens to assume, and every frame's sender knows its own
+   * reason. Old bridges fail validation on this frame — acceptable while
+   * nothing is deployed, and W8 is the first deployment.
+   */
+  cause: z.enum(['command', 'source', 'config_change', 'live_lost']),
 })
 export type BridgeCameraState = z.infer<typeof bridgeCameraState>

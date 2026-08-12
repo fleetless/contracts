@@ -39,13 +39,23 @@
           "type": "null"
         }
       ]
+    },
+    "cause": {
+      "type": "string",
+      "enum": [
+        "command",
+        "source",
+        "config_change",
+        "live_lost"
+      ]
     }
   },
   "required": [
     "type",
     "slug",
     "publishing",
-    "error"
+    "error",
+    "cause"
   ],
   "additionalProperties": false
 }

@@ -65,9 +65,26 @@ describe('W5 cameras', () => {
 
   it('makes a camera that cannot start say so', () => {
     expect(bridgeCameraState.safeParse({
-      type: 'camera_state', slug: 'front', publishing: false,
+      type: 'camera_state', slug: 'front', publishing: false, cause: 'command',
       error: { code: 'camera_offline', message: 'no frames on /image_raw' },
     }).success).toBe(true)
+  })
+
+  it('says WHY it is not publishing, because three different things looked identical', () => {
+    // W6a. `{publishing: false, error: null}` was sent for an answer to
+    // camera_stop, for a stream a config change stopped, and for a source
+    // that recovered — and the cloud could only tell them apart by
+    // remembering what it saw before. A config-change stop is not a failure
+    // and must not be logged as one.
+    const of = (cause: string) => bridgeCameraState.safeParse(
+      { type: 'camera_state', slug: 'front', publishing: false, error: null, cause })
+    for (const c of ['command', 'source', 'config_change', 'live_lost']) {
+      expect(of(c).success).toBe(true)
+    }
+    // Absent is not a valid reading: it would default to whichever meaning
+    // the reader happens to assume, and every sender knows its own reason.
+    expect(bridgeCameraState.safeParse(
+      { type: 'camera_state', slug: 'front', publishing: false, error: null }).success).toBe(false)
   })
 
   it('bounds a live hold in time, because a client can die without releasing', () => {
