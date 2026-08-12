@@ -89,3 +89,19 @@ export const publisherBusyDetails = z.object({
   retry_after_ms: z.number().int().nonnegative(),
 })
 export type PublisherBusyDetails = z.infer<typeof publisherBusyDetails>
+
+/**
+ * What a `job_queue_full` refusal tells the caller (W6b).
+ *
+ * Both numbers, not just the limit: `limit` alone says how big the queue is
+ * and nothing about whether waiting will help, and `queued` alone cannot be
+ * read without knowing the bound. Together they are the only two facts a
+ * caller needs to decide between retrying and giving up.
+ */
+export const jobQueueFullDetails = z.object({
+  /** The bridge's bound on queued jobs. */
+  limit: z.number().int().positive(),
+  /** How many are queued right now — `>= limit` when this refusal is sent. */
+  queued: z.number().int().nonnegative(),
+})
+export type JobQueueFullDetails = z.infer<typeof jobQueueFullDetails>

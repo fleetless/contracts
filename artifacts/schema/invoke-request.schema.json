@@ -8,6 +8,11 @@
         "type": "string"
       },
       "additionalProperties": {}
+    },
+    "patience_ms": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 120000
     }
   },
   "required": [

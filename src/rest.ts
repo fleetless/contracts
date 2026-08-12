@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { bridgeState } from './protocol.js'
+import { bridgeState, MAX_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName } from './common.js'
 import { configState, datapointRange, datapointRate, robotConfigDoc, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
@@ -219,6 +219,33 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  */
 export const invokeRequest = z.object({
   params: z.record(z.string(), z.unknown()),
+  /**
+   * How long **this call** is worth waiting for, in milliseconds (W6b).
+   *
+   * **Absent means `DEFAULT_PATIENCE_MS`** — today's behaviour, unchanged, for
+   * every caller who does not care. It is optional because most callers have
+   * no opinion, and forcing one on them would mean every SDK example carries a
+   * number its author guessed.
+   *
+   * It exists because patience was a **server constant** and could therefore
+   * only ever be wrong in one of two directions at a time: long enough for a
+   * planner meant a dead service also took that long to report, and short
+   * enough for a snappy lookup meant a legitimate slow job was reported as
+   * `bridge_timeout` — a healthy robot, described as broken, with nothing the
+   * caller could do about it.
+   *
+   * The number travels with the call to the bridge (`cloudInvoke.patience_ms`)
+   * so that **one** deadline governs both sides. Capped at
+   * `MAX_PATIENCE_MS`; above that the call is refused with
+   * `validation_error` rather than silently clamped, because a caller who
+   * asked for ten minutes and was quietly given two would read the timeout as
+   * the robot's failure.
+   *
+   * For a service call this is the whole wait. For an action it bounds goal
+   * *acceptance* — once a goal is accepted the job runs as long as it runs,
+   * and is observed, not awaited.
+   */
+  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS).optional(),
 })
 export type InvokeRequest = z.infer<typeof invokeRequest>
 
@@ -347,6 +374,24 @@ export type CameraListResponse = z.infer<typeof cameraListResponse>
  * have skipped cleanup on purpose.
  */
 export const liveSessionResponse = z.object({
+  /**
+   * This viewer's hold, and the **only** thing `DELETE` should be given
+   * (W6b).
+   *
+   * A hold was addressed by `{identity, robot, slug}` and nothing else, so
+   * two tabs of one logged-in user were one hold as far as the refcount could
+   * see. Closing either tab released it: the second tab kept its LiveKit
+   * connection — the token is checked at join and never again — and went on
+   * rendering a video that the robot had already stopped producing. The
+   * viewer sees a frozen picture, not an ended session, which is the failure
+   * this project rejects everywhere else.
+   *
+   * `DELETE` without a session id keeps today's meaning — *release my holds
+   * on this camera* — because an SDK that has lost its id, or a client that
+   * is going away entirely, still needs a way to let go. It is the blunt
+   * form, and it is the one that strands other tabs; new callers pass the id.
+   */
+  session_id: z.uuid(),
   url: z.string().min(1),
   room: z.string().min(1),
   token: z.string().min(1),

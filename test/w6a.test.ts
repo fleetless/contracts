@@ -128,10 +128,13 @@ describe('W6a health', () => {
     // `cause` existed; the receiver could only tell them apart by remembering.
     for (const cause of ['command', 'source', 'config_change', 'live_lost']) {
       expect(bridgeCameraState.safeParse(
-        { type: 'camera_state', slug: 'front', publishing: false, error: null, cause , observed_at_ms: 1786522606705 }).success).toBe(true)
+        { type: 'camera_state', slug: 'front', publishing: false, error: null, cause,
+          observed_at_ms: 1786522606705,
+          // W6b: `command` frames answer an attempt, the rest answer nothing.
+          request_id: cause === 'command' ? 'cs-1' : null }).success).toBe(true)
     }
     expect(bridgeCameraState.safeParse(
-      { type: 'camera_state', slug: 'front', publishing: false, error: null , observed_at_ms: 1786522606705 }).success).toBe(false)
+      { type: 'camera_state', slug: 'front', publishing: false, error: null, observed_at_ms: 1786522606705, request_id: null }).success).toBe(false)
   })
 
   it('keeps "a password is stored" apart from "we can still decrypt it"', () => {

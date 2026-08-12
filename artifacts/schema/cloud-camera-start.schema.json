@@ -23,6 +23,11 @@
     "token": {
       "type": "string",
       "minLength": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
     }
   },
   "required": [
@@ -30,7 +35,8 @@
     "slug",
     "url",
     "room",
-    "token"
+    "token",
+    "request_id"
   ],
   "additionalProperties": false
 }

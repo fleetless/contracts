@@ -59,6 +59,7 @@ describe('W5 cameras', () => {
     // a robot can end up publishing into a room nobody is watching.
     expect(cloudCameraStart.safeParse({
       type: 'camera_start', slug: 'front', url: 'ws://localhost:7880', room: 'r-1', token: 't',
+      request_id: 'cs-1',
     }).success).toBe(true)
     expect(cloudCameraStart.safeParse({ type: 'camera_start', slug: 'front', url: 'x', room: 'r' }).success).toBe(false)
   })
@@ -66,7 +67,7 @@ describe('W5 cameras', () => {
   it('makes a camera that cannot start say so', () => {
     expect(bridgeCameraState.safeParse({
       type: 'camera_state', slug: 'front', publishing: false, cause: 'command',
-      observed_at_ms: 1786522606705,
+      observed_at_ms: 1786522606705, request_id: 'cs-1',
       error: { code: 'camera_offline', message: 'no frames on /image_raw' },
     }).success).toBe(true)
   })
@@ -78,18 +79,20 @@ describe('W5 cameras', () => {
     // remembering what it saw before. A config-change stop is not a failure
     // and must not be logged as one.
     const of = (cause: string) => bridgeCameraState.safeParse(
-      { type: 'camera_state', slug: 'front', publishing: false, error: null, cause , observed_at_ms: 1786522606705 })
+      { type: 'camera_state', slug: 'front', publishing: false, error: null, cause,
+        observed_at_ms: 1786522606705, request_id: cause === 'command' ? 'cs-1' : null })
     for (const c of ['command', 'source', 'config_change', 'live_lost']) {
       expect(of(c).success).toBe(true)
     }
     // Absent is not a valid reading: it would default to whichever meaning
     // the reader happens to assume, and every sender knows its own reason.
     expect(bridgeCameraState.safeParse(
-      { type: 'camera_state', slug: 'front', publishing: false, error: null , observed_at_ms: 1786522606705 }).success).toBe(false)
+      { type: 'camera_state', slug: 'front', publishing: false, error: null, observed_at_ms: 1786522606705, request_id: null }).success).toBe(false)
   })
 
   it('bounds a live hold in time, because a client can die without releasing', () => {
     expect(liveSessionResponse.safeParse({
+      session_id: '9c3f0f6a-6a1e-4f0f-9d2b-2f6a1e4f0f9d',
       url: 'ws://localhost:7880', room: 'r-1', token: 't', expires_at: '2026-08-11T12:00:00.000Z',
     }).success).toBe(true)
   })

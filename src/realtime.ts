@@ -73,8 +73,24 @@ export const clientCancel = z.object({
   type: z.literal('cancel'),
   request_id: z.string().min(1).max(64),
   robot_id: z.uuid(),
-  /** Cancel is addressed by slug (§11.3), not by job id. */
+  /** Which slug — required, and the only address a cancel had until W6b. */
   slug,
+  /**
+   * Which job on that slug (W6b), or `null` for *whatever is running there*.
+   *
+   * The two are different requests and both are legitimate. An operator
+   * hitting a stop button means the second: stop the machine, whatever it is
+   * doing. A client cancelling the job it started means the first — and until
+   * this field existed it could not say so, so a cancel that arrived just
+   * after its own job ended stopped the next caller's job instead. Same slug,
+   * same wire frame, entirely different machine behaviour, and nothing in the
+   * protocol able to tell them apart.
+   *
+   * A named id that is not running answers `not_found` rather than falling
+   * back to the slug. Falling back would be the platform deciding that the
+   * caller did not really mean the id they typed.
+   */
+  job_id: z.uuid().nullable(),
 })
 export type ClientCancel = z.infer<typeof clientCancel>
 

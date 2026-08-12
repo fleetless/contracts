@@ -117,7 +117,7 @@ describe('W4 command parity', () => {
   it('correlates every command with its reply', () => {
     expect(clientInvoke.safeParse({ type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', params: { speed: 0.5 } }).success).toBe(true)
     expect(clientInvoke.safeParse({ type: 'invoke', robot_id: UUID2, slug: 'drive-to', params: {} }).success).toBe(false)
-    expect(clientCancel.safeParse({ type: 'cancel', request_id: 'r2', robot_id: UUID2, slug: 'drive-to' }).success).toBe(true)
+    expect(clientCancel.safeParse({ type: 'cancel', request_id: 'r2', robot_id: UUID2, slug: 'drive-to', job_id: null }).success).toBe(true)
     expect(
       commandResult.safeParse({ type: 'command_result', request_id: 'r1', ok: false, job: null, kind: 'action', code: 'busy', message: 'already running' }).success,
     ).toBe(true)
@@ -146,26 +146,31 @@ describe('W4 command parity', () => {
 describe('W4 bridge protocol', () => {
   it('has the cloud mint the job id before the bridge is asked', () => {
     // A job that exists only once the bridge answers cannot be reported lost.
-    expect(cloudInvoke.safeParse({ type: 'invoke', job_id: UUID, slug: 'drive-to', params: { speed: 1 } }).success).toBe(true)
-    expect(cloudInvoke.safeParse({ type: 'invoke', slug: 'drive-to', params: {} }).success).toBe(false)
+    expect(cloudInvoke.safeParse({ type: 'invoke', job_id: UUID, slug: 'drive-to', params: { speed: 1 }, patience_ms: 15_000 }).success).toBe(true)
+    expect(cloudInvoke.safeParse({ type: 'invoke', slug: 'drive-to', params: {}, patience_ms: 15_000 }).success).toBe(false)
   })
 
   it('tells a reconnect from a restart, which look identical otherwise', () => {
     // Same token, same version, same frame — the only thing that differs is
     // what the bridge still has. So it says so, and the cloud reconciles:
     // a running job not named here is lost.
+    //
+    // W6b widened the entries from bare uuids to `{job_id, slug, state}` and
+    // renamed the field with them. The old name is gone rather than kept as
+    // an alias — see `bridgeHello.active_jobs`.
     const hello = { type: 'hello', protocol_version: 1, token: 'frt_x', bridge_version: '0.4.0' }
-    const live = bridgeHello.parse({ ...hello, active_job_ids: [UUID] })
-    expect(live.active_job_ids).toEqual([UUID])
+    const entry = { job_id: UUID, slug: 'drive-to', state: 'running' }
+    const live = bridgeHello.parse({ ...hello, active_jobs: [entry] })
+    expect(live.active_jobs).toEqual([entry])
 
     // A bridge that just restarted has no jobs to name — and that empty list
     // is precisely the fact the cloud needs, not a missing field.
-    expect(bridgeHello.parse({ ...hello, active_job_ids: [] }).active_job_ids).toEqual([])
+    expect(bridgeHello.parse({ ...hello, active_jobs: [] }).active_jobs).toEqual([])
 
     // A pre-W4 bridge omits it entirely; it had no jobs, so empty is correct
     // for it too, and the default direction is the safe one (lost, not
     // "still running because nobody said otherwise").
-    expect(bridgeHello.parse(hello).active_job_ids).toEqual([])
+    expect(bridgeHello.parse(hello).active_jobs).toEqual([])
   })
 
   it('lets a connected bridge admit a job it lost mid-session', () => {

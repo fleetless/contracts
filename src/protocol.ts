@@ -25,8 +25,62 @@ export const PROTOCOL_VERSION = 1
  */
 export const CLOSE_ROBOT_DELETED = 4004
 
+/**
+ * How long a command waits for its answer when the caller names no patience
+ * of its own (W6b).
+ *
+ * 15 s, which is what both halves already used independently: the cloud's
+ * `commandTimeoutMs` and the bridge's `GOAL_ACCEPT_TIMEOUT_S`. That they
+ * agreed was a coincidence of two separate decisions, and neither side could
+ * be told otherwise for a single call. Naming the number once, here, is what
+ * makes it one number rather than two that happen to match.
+ *
+ * A caller who knows their robot's work takes longer says so per call. A
+ * caller who says nothing gets exactly today's behaviour — which is the point
+ * of picking today's number as the default rather than a nicer one.
+ */
+export const DEFAULT_PATIENCE_MS = 15_000
+
+/**
+ * The longest patience a caller may ask for.
+ *
+ * A waiting REST request is a held-open connection, and there is **no rate
+ * limiting** on this platform until W8 — so an unbounded `patience_ms` is an
+ * unauthenticated way to pin the cloud's sockets open. Two minutes is long
+ * enough for the robot work anybody has described (a planner, a docking
+ * manoeuvre, an arm trajectory) and short enough that a thousand of them is
+ * still a bounded amount of cloud.
+ *
+ * Raising it is a W8 conversation, after rate limiting exists — not a
+ * one-line change here.
+ */
+export const MAX_PATIENCE_MS = 120_000
+
 /** Re-exported so consumers keep importing wire names from one place. */
 export { slug } from './common.js'
+
+/**
+ * One job the bridge still has, as reported in the handshake (W6b).
+ *
+ * It carries the **slug and the state**, not only the id, because the cloud's
+ * reconciliation needs both and had neither. Reading `active_job_ids` as bare
+ * uuids, a restarted cloud could answer exactly one question — "is this job
+ * still alive?" — for jobs it already knew about. It could not name what the
+ * robot is doing, could not tell a job that is still `running` from one that
+ * finished while the cloud was down, and had nothing at all to say about a
+ * job it never recorded because it crashed between minting the id and writing
+ * the row.
+ *
+ * `state` is the bridge's own current answer, not a history. A bridge that
+ * has a terminal result still in hand reports it here and the cloud writes it
+ * down, instead of publishing `lost` over a job that in fact succeeded.
+ */
+export const activeJob = z.object({
+  job_id: z.uuid(),
+  slug,
+  state: jobState,
+})
+export type ActiveJob = z.infer<typeof activeJob>
 
 /** First frame a bridge sends after the socket opens. */
 export const bridgeHello = z.object({
@@ -52,8 +106,16 @@ export const bridgeHello = z.object({
    *
    * Defaulted so pre-W4 bridges still parse; they had no jobs, so the empty
    * list is also the correct answer for them.
+   *
+   * **Renamed from `active_job_ids` in W6b**, when the entries stopped being
+   * ids. A field called `_ids` holding objects is the shape this project has
+   * repeatedly been caught by — a name that describes what the field used to
+   * carry, kept because renaming looked like churn. Nothing is deployed yet
+   * (W8 is the first deployment), so the old name is gone rather than
+   * accepted alongside the new one: two accepted spellings would have to be
+   * supported and reconciled forever, and nobody is asking for that.
    */
-  active_job_ids: z.array(z.uuid()).max(500).default([]),
+  active_jobs: z.array(activeJob).max(500).default([]),
 })
 export type BridgeHello = z.infer<typeof bridgeHello>
 
@@ -180,13 +242,48 @@ export const cloudInvoke = z.object({
    * on the way into the ROS goal or request.
    */
   params: z.record(z.string(), z.unknown()),
+  /**
+   * How long this one call is worth waiting for (W6b), already resolved by
+   * the cloud — the caller's `invokeRequest.patience_ms`, or
+   * `DEFAULT_PATIENCE_MS` when they named none.
+   *
+   * **Required here, optional at REST**, deliberately. At the REST edge an
+   * absent value is a caller who did not care and gets the default. By the
+   * time the frame is on this socket somebody has decided, and the bridge
+   * must never be in the position of picking a number the cloud is already
+   * counting against — which is what two independent 15 s constants meant in
+   * practice: a bridge that gave up at 15.0 s and a cloud that gave up at
+   * 15.0 s, agreeing only by accident, with no way to tell whose deadline a
+   * caller had actually hit.
+   */
+  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS),
 })
 export type CloudInvoke = z.infer<typeof cloudInvoke>
 
-/** Cancel by slug — the bridge must issue a real ROS goal cancel (§11.3). */
+/**
+ * Cancel — the bridge must issue a real ROS goal cancel (§11.3).
+ *
+ * `slug` stays, and stays required: it is how the bridge finds the tracker,
+ * and it is what a cancel with no id means.
+ *
+ * `job_id` is what W6b adds, and what makes a cancel say *which* job. Without
+ * it a cancel arriving a moment after one job ended and another began on the
+ * same slug stops the **new** one — the caller asked to stop something that
+ * had already finished and stopped a machine that had just started moving.
+ * That is not a race anybody had to lose: the caller knew the id, and the
+ * wire had nowhere to put it.
+ *
+ * `null` keeps today's meaning and must be read as exactly that: *cancel
+ * whatever is running on this slug*. It is a real request — an operator
+ * hitting stop wants the robot stopped, not a lecture about job identity —
+ * and it stays available for that. A bridge given an id that does not match
+ * what is running cancels **nothing** and says so; it must not fall back to
+ * the slug, because a caller who named an id has ruled that out.
+ */
 export const cloudCancel = z.object({
   type: z.literal('cancel'),
   slug,
+  job_id: z.uuid().nullable(),
 })
 export type CloudCancel = z.infer<typeof cloudCancel>
 
@@ -361,6 +458,18 @@ export const cloudCameraStart = z.object({
   url: z.string().min(1),
   room: z.string().min(1),
   token: z.string().min(1),
+  /**
+   * Names **this attempt** (W6b), and is echoed in the `camera_state` that
+   * answers it.
+   *
+   * W6a gave `camera_state` a `cause` and said in the same comment that a
+   * cause is not a correlation. This is the other half. Start a camera, have
+   * it fail slowly, start it again: the first attempt's failure arrives while
+   * the second is in flight, matches on slug, and resolves the attempt it
+   * knows nothing about. The viewer is then told the running stream failed,
+   * for a reason belonging to an attempt that is already over.
+   */
+  request_id: z.string().min(1).max(64),
 })
 export type CloudCameraStart = z.infer<typeof cloudCameraStart>
 
@@ -368,6 +477,8 @@ export type CloudCameraStart = z.infer<typeof cloudCameraStart>
 export const cloudCameraStop = z.object({
   type: z.literal('camera_stop'),
   slug,
+  /** Names this stop, echoed by the `camera_state` that answers it — see `cloudCameraStart.request_id`. */
+  request_id: z.string().min(1).max(64),
 })
 export type CloudCameraStop = z.infer<typeof cloudCameraStop>
 
@@ -429,5 +540,31 @@ export const bridgeCameraState = z.object({
    * an hour says so.
    */
   observed_at_ms: z.number().int().nonnegative(),
+  /**
+   * Which request this frame answers (W6b), or `null` when it answers none.
+   *
+   * `null` is not a gap and must not be treated as one: a `cause: 'source'`
+   * frame — the unsolicited health report that makes a wrong password visible
+   * with nobody watching — answers no request by definition, and so does a
+   * `config_change` stop. Those are the majority of frames on a healthy
+   * system.
+   *
+   * A frame with `cause: 'command'` carries the `request_id` of the
+   * `camera_start` or `camera_stop` it answers. **The cloud resolves a
+   * pending attempt only on a matching id**, and drops a `command` frame
+   * whose id it no longer recognises rather than applying it to whatever is
+   * pending — a late answer to a cancelled attempt is stale, not current.
+   *
+   * **The pairing rule is not in this schema, deliberately.** "Non-null iff
+   * `cause === 'command'`" is a cross-field constraint; a zod `.refine()`
+   * would express it at runtime and then **disappear** from the generated
+   * JSON Schema, which is what the bridge vendors. The cloud would reject
+   * frames the bridge had validated as correct — the same artifact/runtime
+   * divergence that `.default()` publishing as `required` has produced four
+   * times in this project, only pointing the other way. The rule is enforced
+   * where the correlation is used, in the cloud's bridge frame handler, and
+   * stated here so nobody has to derive it from that code.
+   */
+  request_id: z.string().min(1).max(64).nullable(),
 })
 export type BridgeCameraState = z.infer<typeof bridgeCameraState>

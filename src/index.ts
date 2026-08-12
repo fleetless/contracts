@@ -25,6 +25,10 @@ export {
   bridgeCameraState,
   SNAPSHOT_MAX_BYTES,
   CLOSE_ROBOT_DELETED,
+  // W6b — addressing.
+  activeJob,
+  DEFAULT_PATIENCE_MS,
+  MAX_PATIENCE_MS,
 } from './protocol.js'
 export type {
   BridgeHello,
@@ -49,9 +53,17 @@ export type {
   CloudCameraStart,
   CloudCameraStop,
   BridgeCameraState,
+  ActiveJob,
 } from './protocol.js'
-export { jobState, job, jobEvent, busyDetails, publisherBusyDetails } from './jobs.js'
-export type { JobState, Job, JobEvent, BusyDetails, PublisherBusyDetails } from './jobs.js'
+export { jobState, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
+export type {
+  JobState,
+  Job,
+  JobEvent,
+  BusyDetails,
+  PublisherBusyDetails,
+  JobQueueFullDetails,
+} from './jobs.js'
 export {
   RESERVED_SLUGS,
   parameterSpec,

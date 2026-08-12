@@ -26,6 +26,26 @@ export const auditEvent = z.object({
   id: z.uuid(),
   org_id: z.uuid(),
   at: z.iso.datetime(),
+  /**
+   * A monotonic counter, ascending in write order, unique across the log
+   * (W6b).
+   *
+   * `at` is not a total order. Two events written in the same millisecond —
+   * a login and the config publish it enables, a cascade writing several
+   * rows — sort against each other arbitrarily, and "arbitrarily" means
+   * *differently on each query*. A reader paging through "newest first" can
+   * therefore see one of them twice and the other not at all, which is the
+   * one failure mode an audit log may not have: a record that is present and
+   * invisible.
+   *
+   * So it is also the pagination cursor. Paging by timestamp cannot be made
+   * correct here for the same reason — a cursor that is not unique either
+   * skips or repeats at every boundary.
+   *
+   * Required, not optional: an event without a sequence cannot be ordered
+   * against one that has it, and a log with two orderings has none.
+   */
+  seq: z.number().int().positive(),
   actor: auditActor,
   /** Stable dotted name, e.g. `end_user.invited`, `config.published`. */
   action: z.string().min(1).max(80),

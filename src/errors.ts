@@ -192,5 +192,30 @@ export const ERROR_CODES = [
    * stayed invisible.
    */
   'robot_deletion_partial',
+  // W6b — addressing.
+  /**
+   * The bridge will not queue another job: its queue is full.
+   *
+   * The queue was **unbounded**, which is not the same as generous — it is a
+   * robot that accepts a thousand goals it will never reach, reports every
+   * one of them as queued, and runs out of memory rather than saying no. A
+   * bound turns that into an answer the caller can act on, which is the whole
+   * of the difference.
+   *
+   * The details carry `limit` and `queued`, for the reason `publisher_busy`
+   * carries `retry_after_ms`: a refusal that names a state and no action
+   * leaves the caller to busy-loop, on a platform with no rate limiting.
+   */
+  'job_queue_full',
+  /**
+   * An id in the path or body is not a uuid at all.
+   *
+   * Distinct from `not_found`, which was the answer for both and made a
+   * **typo indistinguishable from a deletion**. A developer whose client
+   * concatenated a template variable wrong got a clean `404` and went looking
+   * for a robot they had never lost. It says nothing about existence — it is
+   * refused before any lookup — so it leaks nothing that `not_found` did not.
+   */
+  'invalid_uuid',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

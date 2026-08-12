@@ -53,6 +53,18 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -61,7 +73,8 @@
     "publishing",
     "error",
     "cause",
-    "observed_at_ms"
+    "observed_at_ms",
+    "request_id"
   ],
   "additionalProperties": false
 }
