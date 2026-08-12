@@ -334,6 +334,33 @@ export const jobResponse = z.object({ job: job.nullable() })
 export type JobResponse = z.infer<typeof jobResponse>
 
 /**
+ * Every job the platform currently believes this robot has — `GET
+ * /api/robots/:id/jobs` (W6b).
+ *
+ * `jobResponse` answers "what is on this slug", which requires knowing the
+ * slug first. That was enough while a job could only exist on a slug the
+ * published configuration named. W6b breaks that assumption twice: a
+ * reconnecting bridge can name a job the cloud has **no row for** and the
+ * cloud adopts it, and a configuration change can leave a job on a slug the
+ * document no longer contains. Both are jobs nobody can ask about, because
+ * asking requires already knowing what to ask for.
+ *
+ * So this route exists to answer the question the per-slug route cannot: not
+ * "is something running here", but "what is this robot doing". A restarted
+ * cloud that has just reconciled a robot's `hello.active_jobs` has exactly
+ * this list and, until now, no way to say it out loud.
+ *
+ * The array is ordered newest first and is **never null**: a robot doing
+ * nothing answers `{ jobs: [] }`. "Nothing is running" and "we did not look"
+ * are different facts, and a nullable list would merge them — the same
+ * distinction `robotDeletionSummary` was made all-required for.
+ */
+export const robotJobsResponse = z.object({
+  jobs: z.array(job),
+})
+export type RobotJobsResponse = z.infer<typeof robotJobsResponse>
+
+/**
  * Every slug of a robot that a role can be granted, **with its kind**.
  *
  * The roles matrix was built in W3 against the datapoint list, which was the

@@ -23,7 +23,7 @@ import {
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
 } from '../src/protocol.js'
-import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery } from '../src/rest.js'
+import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery, robotJobsResponse } from '../src/rest.js'
 import { clientCancel, clientInvoke } from '../src/realtime.js'
 import { jobQueueFullDetails } from '../src/jobs.js'
 import { auditEvent } from '../src/audit.js'
@@ -127,6 +127,27 @@ describe('W6b — naming what a robot is still doing', () => {
     const parsed = bridgeHello.parse({ ...hello, active_job_ids: [UUID] })
     expect(parsed.active_jobs).toEqual([])
     expect('active_job_ids' in parsed).toBe(false)
+  })
+})
+
+describe('W6b — asking what a robot is doing without knowing what to ask', () => {
+  it('lists the jobs a robot has, including ones no slug would find', () => {
+    // The per-slug route needs the slug first, and W6b creates two kinds of
+    // job nobody can name in advance: one adopted from a reconnecting bridge
+    // that the cloud has no row for, and one left on a slug a configuration
+    // change removed.
+    const j = {
+      id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running' as const,
+      started_at: NOW, updated_at: NOW, result: null, error: null,
+    }
+    expect(robotJobsResponse.parse({ jobs: [j] }).jobs).toHaveLength(1)
+  })
+
+  it('answers an empty list for an idle robot, and refuses a null one', () => {
+    // "Nothing is running" and "we did not look" are different facts.
+    expect(robotJobsResponse.parse({ jobs: [] }).jobs).toEqual([])
+    expect(robotJobsResponse.safeParse({ jobs: null }).success).toBe(false)
+    expect(robotJobsResponse.safeParse({}).success).toBe(false)
   })
 })
 
