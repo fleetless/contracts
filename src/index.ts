@@ -123,6 +123,9 @@ export {
   putRobotDetailsRequest,
   invokeRequest,
   invokeResponse,
+  // W6b — addressing.
+  cancelRequest,
+  releaseLiveQuery,
   serviceCallResponse,
   publishRequest,
   jobResponse,
@@ -185,6 +188,8 @@ export type {
   PutRobotDetailsRequest,
   InvokeRequest,
   InvokeResponse,
+  CancelRequest,
+  ReleaseLiveQuery,
   ServiceCallResponse,
   PublishRequest,
   JobResponse,

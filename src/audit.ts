@@ -38,9 +38,13 @@ export const auditEvent = z.object({
    * one failure mode an audit log may not have: a record that is present and
    * invisible.
    *
-   * So it is also the pagination cursor. Paging by timestamp cannot be made
-   * correct here for the same reason — a cursor that is not unique either
-   * skips or repeats at every boundary.
+   * It is also the only correct **cursor** for paging this log, for the same
+   * reason: a cursor that is not unique either skips rows or repeats them at
+   * every page boundary. No cursor parameter exists on `GET /api/audit` yet —
+   * the route returns the whole log — and that is stated here rather than
+   * implied, because a contract that describes a capability the API does not
+   * have is the defect this project keeps finding. When paging is added it
+   * uses this field; nothing else in this shape can carry it.
    *
    * Required, not optional: an event without a sequence cannot be ordered
    * against one that has it, and a log with two orderings has none.

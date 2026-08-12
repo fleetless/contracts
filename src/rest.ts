@@ -193,7 +193,7 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  * |---|---|---|
  * | `POST /api/robots/:id/jobs/:slug`        | `invokeRequest` | `invokeResponse` (action) or `serviceCallResponse` (service) |
  * | `GET /api/robots/:id/jobs/:slug`         | —               | `jobResponse` (the current job, or null) |
- * | `POST /api/robots/:id/jobs/:slug/cancel` | —               | `jobResponse` |
+ * | `POST /api/robots/:id/jobs/:slug/cancel` | `cancelRequest` | `jobResponse` |
  * | `POST /api/robots/:id/publishers/:slug`  | `publishRequest`| 204 |
  * | `GET /api/robots/:id/exposures`          | —               | `exposureListResponse` |
  *
@@ -253,6 +253,48 @@ export type InvokeRequest = z.infer<typeof invokeRequest>
  * The answer to an invoke. The job id is informative (§11.3): state is
  * observed by slug afterwards, over polling or a subscription.
  */
+/**
+ * The body of a cancel (W6b). **Every field optional, and the body itself may
+ * be absent** — `POST .../cancel` was bodyless before this wave and every
+ * existing caller still sends nothing.
+ *
+ * That is not politeness, it is the W5 defect: a bodyless `POST` carrying
+ * `content-type: application/json` was rejected outright, which made
+ * `cameras.live()` unreachable through the SDK and took `cancel`, publish,
+ * restore, key rotation and member removal with it — unnoticed since W4. A
+ * schema that demands a body would reintroduce it on the one verb that stops
+ * a machine.
+ *
+ * `job_id` absent and `job_id: null` mean the **same** thing here, and that is
+ * deliberate: over REST an absent body is how every caller written before this
+ * wave says "cancel whatever is running". On the socket, `clientCancel.job_id`
+ * is required-and-nullable instead, because a frame is assembled fresh by a
+ * client that has already been updated — there, `null` is a decision and an
+ * omission is a bug.
+ */
+export const cancelRequest = z.object({
+  job_id: z.uuid().nullable().optional(),
+})
+export type CancelRequest = z.infer<typeof cancelRequest>
+
+/**
+ * The query of a live release (W6b): `DELETE .../live?session_id=<uuid>`.
+ *
+ * A query parameter rather than a body, following `?force=true` on robot
+ * deletion — the precedent this repo already set for "a DELETE that needs one
+ * more fact". A body on a DELETE is carried inconsistently by proxies and by
+ * `fetch` itself, and this call runs from a browser tab that is often closing.
+ *
+ * Absent means today's meaning: release **all** of this identity's holds on
+ * this camera. A client that has lost its id, or is going away entirely, still
+ * needs a way to let go — it is the blunt form, and it is the one that strands
+ * the identity's other tabs.
+ */
+export const releaseLiveQuery = z.object({
+  session_id: z.uuid().optional(),
+})
+export type ReleaseLiveQuery = z.infer<typeof releaseLiveQuery>
+
 export const invokeResponse = z.object({
   job,
   /** The slug's kind — see `commandResult.kind` for why the caller needs it. */
@@ -319,7 +361,7 @@ export type ExposureListResponse = z.infer<typeof exposureListResponse>
  * | `GET /api/robots/:id/cameras/:slug/snapshot`     | the image bytes, plus the headers below |
  * | `GET /api/robots/:id/cameras/:slug/snapshot/meta`| `snapshotMetaResponse` — age without the bytes |
  * | `POST /api/robots/:id/cameras/:slug/live`        | `liveSessionResponse` — takes a refcount hold |
- * | `DELETE /api/robots/:id/cameras/:slug/live`      | 204 — releases this viewer's hold |
+ * | `DELETE /api/robots/:id/cameras/:slug/live?session_id=` | 204 — releases **that** hold; without the parameter, all of this identity's holds on the camera |
  */
 
 /**

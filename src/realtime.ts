@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { RESOURCE_HEALTH_STATES } from './rest.js'
+import { MAX_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
@@ -66,6 +67,20 @@ export const clientInvoke = z.object({
   slug,
   /** Parameters by field path, validated against the config's rules (§4.4). */
   params: z.record(z.string(), z.unknown()),
+  /**
+   * How long this one call is worth waiting for (W6b) — the same field,
+   * meaning and cap as `invokeRequest.patience_ms`; absent means
+   * `DEFAULT_PATIENCE_MS`.
+   *
+   * It is here because **§11.1 parity is a rule, not a preference**: what REST
+   * can do travels over this socket. The first version of this delta gave
+   * `patience_ms` to the REST body only — and the SDK invokes exclusively over
+   * the realtime channel, so the field would have been unreachable for every
+   * SDK caller while appearing in the documentation. W6a shipped four SDK
+   * methods no SDK caller could invoke; this is the same defect caught before
+   * it shipped, by the SDK owner rather than by a reviewer.
+   */
+  patience_ms: z.number().int().positive().max(MAX_PATIENCE_MS).optional(),
 })
 export type ClientInvoke = z.infer<typeof clientInvoke>
 

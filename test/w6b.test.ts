@@ -23,8 +23,8 @@ import {
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
 } from '../src/protocol.js'
-import { invokeRequest, liveSessionResponse } from '../src/rest.js'
-import { clientCancel } from '../src/realtime.js'
+import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery } from '../src/rest.js'
+import { clientCancel, clientInvoke } from '../src/realtime.js'
 import { jobQueueFullDetails } from '../src/jobs.js'
 import { auditEvent } from '../src/audit.js'
 import { ERROR_CODES } from '../src/errors.js'
@@ -166,6 +166,58 @@ describe('W6b — naming how long a caller will wait', () => {
     for (const bad of [0, -1, 1.5]) {
       expect(invokeRequest.safeParse({ params: {}, patience_ms: bad }).success).toBe(false)
     }
+  })
+})
+
+describe('W6b — the same thing over both transports', () => {
+  it('lets a REST cancel carry an id, and lets it carry nothing at all', () => {
+    // The body is fully optional because `POST .../cancel` was bodyless before
+    // this wave and every existing caller still sends nothing. W5's worst bug
+    // was a bodyless POST being rejected outright, which took cancel, publish,
+    // restore, key rotation and member removal down with it.
+    expect(cancelRequest.parse({}).job_id).toBeUndefined()
+    expect(cancelRequest.parse({ job_id: null }).job_id).toBeNull()
+    expect(cancelRequest.parse({ job_id: UUID }).job_id).toBe(UUID)
+    expect(cancelRequest.safeParse({ job_id: 'nope' }).success).toBe(false)
+  })
+
+  it('makes absent and null differ by transport, deliberately', () => {
+    // Over REST an absent body IS how a pre-W6b caller says "cancel whatever
+    // is running", so absent and null must mean the same thing. On the socket
+    // the frame is assembled fresh by a client that has already been updated,
+    // so `null` is a decision and an omission is a bug.
+    expect(cancelRequest.safeParse({}).success).toBe(true)
+    expect(clientCancel.safeParse({
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+    }).success).toBe(false)
+  })
+
+  it('lets a socket caller state a patience, because parity is a rule', () => {
+    // §11.1: what REST can do travels over this socket. The first version of
+    // this delta gave `patience_ms` to the REST body only — and this project's
+    // own SDK invokes exclusively over the realtime channel, so the field
+    // would have been documented and unreachable for every SDK caller. W6a
+    // shipped four such methods; this one was caught before it shipped.
+    expect(clientInvoke.safeParse({
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      params: {}, patience_ms: 2000,
+    }).success).toBe(true)
+    expect(clientInvoke.parse({
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', params: {},
+    }).patience_ms).toBeUndefined()
+    expect(clientInvoke.safeParse({
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      params: {}, patience_ms: MAX_PATIENCE_MS + 1,
+    }).success).toBe(false)
+  })
+
+  it('carries the session id in the query, where a closing tab can still send it', () => {
+    // A query parameter, following `?force=true` on robot deletion — the
+    // precedent for "a DELETE that needs one more fact". A body on a DELETE is
+    // carried inconsistently, and this call runs from a tab that is closing.
+    expect(releaseLiveQuery.parse({ session_id: UUID }).session_id).toBe(UUID)
+    expect(releaseLiveQuery.parse({}).session_id).toBeUndefined()
+    expect(releaseLiveQuery.safeParse({ session_id: 'nope' }).success).toBe(false)
   })
 })
 
