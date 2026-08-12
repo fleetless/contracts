@@ -507,6 +507,40 @@ export const historyBucketsResponse = z.object({
 export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
 
 /**
+ * W6a — deletion, and the one channel that reports health.
+ *
+ * | Route | Body | Answer |
+ * |---|---|---|
+ * | `DELETE /api/robots/:id` | — | `204`. `?force=true` to proceed while a live session is open; without it, `409 robot_in_use` |
+ * | `GET /api/robots/:id/deletion-preview` | — | `robotDeletionSummary` — the same shape the audit event carries |
+ * | `GET /api/robots/:id/health` | — | `resourceHealthListResponse` |
+ *
+ * Plus `resourceHealthEvent`, pushed on the **developer** realtime socket
+ * and scoped to the org — not to a subscription, because its job is to reach
+ * somebody who is *not* looking at the thing that broke.
+ *
+ * Two of these paths are worth stating rather than inferring:
+ *
+ * **The preview exists because a confirmation must be able to name what it
+ * destroys.** `DELETE` answers `204` with no body, so the counts only ever
+ * appear on the audit event — written *after* the irreversible click. A
+ * dialog built on that can say nothing better than "are you sure?". The
+ * preview returns the *same shape* as the audit record on purpose: the
+ * warning and the receipt then agree by construction, and a disagreement
+ * between them is a real finding rather than two estimates drifting.
+ *
+ * **The snapshot is per-robot while the event is per-org**, deliberately.
+ * They answer different questions: "what is the state of this robot now?"
+ * for a page that just opened it, and "something you are not looking at has
+ * broken" for a developer who is elsewhere. Giving both the same scope would
+ * cost one of the two its reason to exist.
+ *
+ * This table was missing from the first W6a delta, and a teammate had to ask
+ * three separate people for the paths — which is how a route becomes a fact
+ * that lives only in an inbox.
+ */
+
+/**
  * What a `robot.deleted` audit event carries (W6a).
  *
  * A deletion record that says only *that* something was destroyed is a
