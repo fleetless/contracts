@@ -562,9 +562,20 @@ export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
  */
 export const robotDeletionSummary = z.object({
   /**
-   * Slugs and cameras describe the **published** configuration — what the
-   * robot was actually running. A draft is destroyed too, and describing
-   * both in one count would make the number mean neither.
+   * Datapoints, actions, services and publishers in the **published**
+   * configuration — what the robot was actually running. **Cameras are not
+   * counted here**; they are the `cameras` array below.
+   *
+   * The split has to be stated because the summary carries both, and the
+   * console renders them in one sentence: *"this deletes N published slugs …
+   * and M cameras"*. With cameras inside `slug_count` that sentence counts
+   * them twice, on the one screen whose whole justification is naming what an
+   * irreversible click destroys (Momus, W6a review — the cloud summed all
+   * five and the console then added the cameras again).
+   *
+   * A draft is destroyed too and is described by `had_unpublished_draft`
+   * rather than by either of these: describing three things with two numbers
+   * would make each of them mean something else.
    */
   slug_count: z.number().int().nonnegative(),
   sample_rows: z.number().int().nonnegative(),
@@ -757,7 +768,20 @@ export type OrgQuotaUsage = z.infer<typeof orgQuotaUsage>
 export const credentialSummary = z.object({
   name: z.string().min(1).max(64),
   username: z.string().nullable(),
-  /** Whether a password has ever been stored for this name. */
+  /**
+   * Whether a password has ever been stored for this name.
+   *
+   * **Always `true` today**, and stated so rather than left to be inferred:
+   * `credentialWriteRequest` requires a non-empty password, so no row can
+   * exist without one, and both write paths set this literally. A consumer
+   * branching on `set === false` is writing dead code — the SDK README
+   * currently teaches exactly that (Momus, W6a review).
+   *
+   * The field is kept because the fact it names is the one `readable`
+   * qualifies, and because a username-only credential is a plausible future
+   * shape. If that never arrives, this should be removed rather than left as
+   * a permanent constant wearing the costume of a question.
+   */
   set: z.boolean(),
   /**
    * Whether that password can still be **decrypted** — a different fact from
