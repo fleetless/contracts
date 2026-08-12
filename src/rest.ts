@@ -400,7 +400,8 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `POST   /api/org/invitations/accept`    | `acceptDeveloperInvitationRequest` | `sessionTokens` — unauthenticated |
  * | `GET    /api/apps/:id/self-registration` | —                                 | `selfRegistration` |
  * | `PUT    /api/apps/:id/self-registration` | `selfRegistration`                | `selfRegistration` |
- * | `POST   /api/client/register`            | `clientRegisterRequest`           | `sessionTokens` — unauthenticated, **end user** |
+ * | `POST   /api/client/register`            | `clientRegisterRequest`           | `clientRegisterResponse` — 202, **no session** |
+ * | `POST   /api/client/register/confirm`    | `clientRegisterConfirm`           | `sessionTokens` — unauthenticated, **end user** |
  * | `POST   /api/auth/password/change`      | `passwordChangeRequest`            | 204 — authenticated |
  * | `POST   /api/auth/password/reset`       | `passwordResetRequest`             | 202 — unauthenticated, **always the same answer** |
  * | `POST   /api/auth/password/reset/confirm` | `passwordResetConfirm`           | 204 — unauthenticated |
@@ -424,6 +425,15 @@ export type JobResponse = z.infer<typeof jobResponse>
  * already ships, and issues client tokens. The role is not the caller's to
  * choose: the app's `selfRegistration.role_id` decides it, because §3.2 also
  * says a pool member has exactly one role per app.
+ *
+ * **And registering mints no session — the address is confirmed first.** A
+ * domain filter gates which domains may register, never whether the caller
+ * owns the address, so a direct mint let anybody who knew the pattern register
+ * as somebody else at a permitted domain and receive a pool identity carrying
+ * the app's chosen role. On this platform a role can mean permission to move a
+ * robot. `POST /api/client/register` answers 202 and mails a link; the link is
+ * spent at `/register/confirm`, which is what returns tokens. Both routes
+ * answer identically for an address that already has an account.
  *
  * **`POST /api/auth/password/reset` answers `202` for every well-formed
  * address**, known or not. It is the one route where §3.3's silence about

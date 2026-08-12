@@ -20,6 +20,8 @@ import {
   tierRequiredDetails,
   selfRegistration,
   clientRegisterRequest,
+  clientRegisterResponse,
+  clientRegisterConfirm,
   passwordChangeRequest,
   passwordResetRequest,
   passwordResetConfirm,
@@ -175,6 +177,25 @@ describe('W6c — self-registration belongs to an app, not an org', () => {
       delete partial[drop]
       expect(selfRegistration.safeParse(partial).success).toBe(false)
     }
+  })
+
+  it('mints no session when registering — the address is confirmed first', () => {
+    // A domain filter gates WHICH domains may register, never whether the
+    // caller owns the address. Answering `sessionTokens` directly let anybody
+    // who knew the pattern register as somebody else at a permitted domain and
+    // receive a pool identity carrying the app's chosen role — which on this
+    // platform can mean permission to move a robot.
+    expect(clientRegisterResponse.parse({ mail: 'sent' }).mail).toBe('sent')
+    // Nothing in the response distinguishes a new address from one that
+    // already has an account: that would be an enumeration oracle on an
+    // unauthenticated route.
+    expect(Object.keys(clientRegisterResponse.parse({ mail: 'sent', created: true }))).toEqual(['mail'])
+    expect(clientRegisterResponse.safeParse({}).success).toBe(false)
+    // The session comes from spending the link, and from nothing else.
+    expect(clientRegisterConfirm.safeParse({ token: 't' }).success).toBe(true)
+    expect(clientRegisterConfirm.safeParse({ token: '' }).success).toBe(false)
+    // The password was set when registering; confirming does not re-set it.
+    expect(Object.keys(clientRegisterConfirm.parse({ token: 't', new_password: 'x' }))).toEqual(['token'])
   })
 
   it('registers an END USER against an app, never a developer against an org', () => {

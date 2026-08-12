@@ -255,6 +255,23 @@ export type SelfRegistration = z.infer<typeof selfRegistration>
  * Registering yourself into an app's pool (spec §3.2) — an **end user**, so it
  * answers on the client-auth surface and never mints a developer session.
  *
+ * **It does not mint any session either.** The first version of this shape
+ * answered `sessionTokens` directly, and that is an impersonation path: a
+ * domain filter gates *which domains* may register, never *whether the caller
+ * owns the address*. With self-registration enabled for `example.com`, anybody
+ * who knows the pattern could have registered as `ceo@example.com` and
+ * received a pool identity carrying whatever role the app assigns — which in
+ * this platform can mean permission to move a robot.
+ *
+ * So registering creates a **pending** member and sends a confirmation link;
+ * `clientRegisterConfirm` spends it and returns the session. Same single-use,
+ * expiring token machinery as the password reset, and the same `token_spent`
+ * for used-or-expired. The spec is silent on verification (checked: it says
+ * nothing about it anywhere), so this is a decision the contracts make rather
+ * than one they inherit — found by Threepio-W6c reading §3.2 against the delta
+ * a second time, after the first reading had already moved it into the right
+ * identity space.
+ *
  * `app_identifier` rather than an app uuid, matching `clientLoginRequest`: it
  * is the value an app already ships, and it reveals nothing a caller of that
  * app does not have.
@@ -265,6 +282,35 @@ export const clientRegisterRequest = z.object({
   password,
 })
 export type ClientRegisterRequest = z.infer<typeof clientRegisterRequest>
+
+/**
+ * What registering answers — deliberately **the same for an address that is
+ * new and one that already has an account**.
+ *
+ * Anything else is an account-enumeration oracle on an unauthenticated route,
+ * the same reasoning `passwordResetRequest` carries. An address that already
+ * exists still gets a mail, saying so; the caller cannot tell which mail was
+ * sent, and there is nothing in this response to tell them.
+ *
+ * `mail` is safe to return because it describes **the server's configuration**,
+ * not the address: `not_configured` means this deployment has no SMTP, which
+ * is true regardless of who registered. Note that a deployment with no mail
+ * server cannot complete a self-registration at all — the link is the only way
+ * through, unlike an invitation, where a developer can hand it over directly.
+ */
+export const clientRegisterResponse = z.object({
+  mail: mailStatus,
+})
+export type ClientRegisterResponse = z.infer<typeof clientRegisterResponse>
+
+/**
+ * Spending the confirmation link. The password was set when registering; this
+ * proves the address and returns the session.
+ */
+export const clientRegisterConfirm = z.object({
+  token: z.string().min(1),
+})
+export type ClientRegisterConfirm = z.infer<typeof clientRegisterConfirm>
 
 /**
  * Changing your own password while logged in.
@@ -287,9 +333,9 @@ export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
  * **The response never says whether the address exists.** It is unauthenticated
  * and would otherwise be an account-enumeration oracle — the one place where
  * §3.3's "reveal nothing about what exists" is not a preference but the whole
- * point. So this answers the same way for a known and an unknown address, and
- * any consumer that renders "no such account" from it has reintroduced the
- * oracle.
+ * point. So this answers the same way for a known and an unknown address, in
+ * status, body **and timing**, and any consumer that renders "no such account"
+ * from it has reintroduced the oracle.
  */
 export const passwordResetRequest = z.object({
   email: z.email(),
@@ -299,7 +345,9 @@ export type PasswordResetRequest = z.infer<typeof passwordResetRequest>
 /**
  * Using the link. The token is **single-use and expires**; spending it revokes
  * every session of that subject, because a forgotten password is one of the
- * two states where somebody else may be holding one.
+ * two states where somebody else may be holding one. `token_spent` covers used
+ * and expired alike — telling them apart tells a stranger whether a token ever
+ * existed.
  */
 export const passwordResetConfirm = z.object({
   token: z.string().min(1),
