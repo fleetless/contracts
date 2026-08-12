@@ -605,6 +605,22 @@ export const RESOURCE_HEALTH_STATES = [
   'auth_failed',
   /** The stored password cannot be decrypted — see `credentialSummary.readable`. */
   'unreadable_credential',
+  /**
+   * A camera names a credential that **does not exist** in this org — deleted,
+   * mistyped, or belonging to somebody else (W6a review).
+   *
+   * Separate from `unreadable_credential` because that one asserts a
+   * decryption that was attempted and failed, and here nothing was ever
+   * encrypted: the developer is sent to a page where the credential is not
+   * listed at all, to rotate something that is not there. And separate from
+   * `unknown`, which means "the robot reported a failure we cannot classify"
+   * — a different fact with a different fix.
+   *
+   * It is reachable by a typo: `cloud-config-frame.ts` deliberately tolerates
+   * an unresolved `credentials_ref` at publish time, so this is an ordinary
+   * developer mistake rather than an edge case.
+   */
+  'credential_missing',
   /** A configuration change stopped this stream, deliberately. */
   'stopped_by_config_change',
   /** Publishing failed after the session was already granted. */

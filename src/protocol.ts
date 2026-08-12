@@ -411,5 +411,23 @@ export const bridgeCameraState = z.object({
    * nothing is deployed, and W8 is the first deployment.
    */
   cause: z.enum(['command', 'source', 'config_change', 'live_lost']),
+  /**
+   * When the **robot** observed this state — bridge capture time, never
+   * receive time, the same discipline `timestamp_ms` follows for samples
+   * (spec §6.3).
+   *
+   * It exists because the cloud stamped `resourceHealthState.changed_at_ms`
+   * with its own `Date.now()`, and a **restatement** is by definition an old
+   * state re-sent into an empty map. So after a cloud restart every failure —
+   * including one from yesterday — was dated to the restart, in the one
+   * scenario `changed_at_ms`'s own doc comment was written for: *"a page that
+   * loads late must be able to tell a failure from a minute ago from one from
+   * yesterday"*.
+   *
+   * On a restatement this carries **when the state was first observed**, not
+   * when the frame was sent. A bridge that re-states a failure it has held for
+   * an hour says so.
+   */
+  observed_at_ms: z.number().int().nonnegative(),
 })
 export type BridgeCameraState = z.infer<typeof bridgeCameraState>

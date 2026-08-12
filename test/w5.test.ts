@@ -66,6 +66,7 @@ describe('W5 cameras', () => {
   it('makes a camera that cannot start say so', () => {
     expect(bridgeCameraState.safeParse({
       type: 'camera_state', slug: 'front', publishing: false, cause: 'command',
+      observed_at_ms: 1786522606705,
       error: { code: 'camera_offline', message: 'no frames on /image_raw' },
     }).success).toBe(true)
   })
@@ -77,14 +78,14 @@ describe('W5 cameras', () => {
     // remembering what it saw before. A config-change stop is not a failure
     // and must not be logged as one.
     const of = (cause: string) => bridgeCameraState.safeParse(
-      { type: 'camera_state', slug: 'front', publishing: false, error: null, cause })
+      { type: 'camera_state', slug: 'front', publishing: false, error: null, cause , observed_at_ms: 1786522606705 })
     for (const c of ['command', 'source', 'config_change', 'live_lost']) {
       expect(of(c).success).toBe(true)
     }
     // Absent is not a valid reading: it would default to whichever meaning
     // the reader happens to assume, and every sender knows its own reason.
     expect(bridgeCameraState.safeParse(
-      { type: 'camera_state', slug: 'front', publishing: false, error: null }).success).toBe(false)
+      { type: 'camera_state', slug: 'front', publishing: false, error: null , observed_at_ms: 1786522606705 }).success).toBe(false)
   })
 
   it('bounds a live hold in time, because a client can die without releasing', () => {

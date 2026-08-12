@@ -48,6 +48,11 @@
         "config_change",
         "live_lost"
       ]
+    },
+    "observed_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
     }
   },
   "required": [
@@ -55,7 +60,8 @@
     "slug",
     "publishing",
     "error",
-    "cause"
+    "cause",
+    "observed_at_ms"
   ],
   "additionalProperties": false
 }

@@ -30,6 +30,7 @@
         "unreachable",
         "auth_failed",
         "unreadable_credential",
+        "credential_missing",
         "stopped_by_config_change",
         "publish_failed",
         "unknown"
