@@ -517,11 +517,26 @@ export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
  * moment the data cannot be consulted.
  */
 export const robotDeletionSummary = z.object({
+  /**
+   * Slugs and cameras describe the **published** configuration — what the
+   * robot was actually running. A draft is destroyed too, and describing
+   * both in one count would make the number mean neither.
+   */
   slug_count: z.number().int().nonnegative(),
   sample_rows: z.number().int().nonnegative(),
   bytes_freed: z.number().int().nonnegative(),
   cameras: z.array(slug),
   had_live_session: z.boolean(),
+  /**
+   * Whether an unpublished draft went with it — separately, because the
+   * counts above deliberately do not include it and a record that silently
+   * omitted the draft would be a receipt for less than was destroyed.
+   *
+   * `true` also covers the robot that was configured but never published:
+   * there the counts are zero and this is the only field saying anything
+   * was there at all.
+   */
+  had_unpublished_draft: z.boolean(),
 })
 export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 

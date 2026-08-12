@@ -28,6 +28,9 @@
     },
     "had_live_session": {
       "type": "boolean"
+    },
+    "had_unpublished_draft": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -35,7 +38,8 @@
     "sample_rows",
     "bytes_freed",
     "cameras",
-    "had_live_session"
+    "had_live_session",
+    "had_unpublished_draft"
   ],
   "additionalProperties": false
 }
