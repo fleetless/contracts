@@ -402,9 +402,12 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `PUT    /api/apps/:id/self-registration` | `selfRegistration`                | `selfRegistration` |
  * | `POST   /api/client/register`            | `clientRegisterRequest`           | `clientRegisterResponse` — 202, **no session** |
  * | `POST   /api/client/register/confirm`    | `clientRegisterConfirm`           | `sessionTokens` — unauthenticated, **end user** |
- * | `POST   /api/auth/password/change`      | `passwordChangeRequest`            | 204 — authenticated |
+ * | `POST   /api/auth/password/change`      | `passwordChangeRequest`            | `sessionTokens` — authenticated, **developer** |
  * | `POST   /api/auth/password/reset`       | `passwordResetRequest`             | 202 — unauthenticated, **always the same answer** |
  * | `POST   /api/auth/password/reset/confirm` | `passwordResetConfirm`           | 204 — unauthenticated |
+ * | `POST   /api/client/password/change`    | `passwordChangeRequest`            | `sessionTokens` — authenticated, **end user** |
+ * | `POST   /api/client/password/reset`     | `passwordResetRequest`             | 202 — unauthenticated |
+ * | `POST   /api/client/password/reset/confirm` | `passwordResetConfirm`         | 204 — unauthenticated |
  *
  * **Developer invitations live under `/api/org/`, end-user ones under
  * `/api/end-users/`.** That separation is not cosmetic: the two identity
@@ -441,6 +444,25 @@ export type JobResponse = z.infer<typeof jobResponse>
  * timing difference between the two cases is an account-enumeration oracle.
  * Note *timing* — a route that only sends mail for a real address must not
  * become measurably faster for an unknown one.
+ *
+ * **Both identity spaces get the password routes, mirrored.** Cluster D names
+ * the end user explicitly — *"an end user cannot change their own password, and
+ * there is no reset path"* — and a developer needs the same thing; the first
+ * version of this table gave the routes only the developer prefix, which would
+ * have shipped the wave's named item for the wrong principal. The shapes are
+ * shared because the operation is identical; the **prefix** is what keeps the
+ * spaces apart, exactly as it does for `login` (Nimbus-W6c, asking rather than
+ * building against the reading he thought was wrong).
+ *
+ * **A password change answers with fresh `sessionTokens`, not `204`.** The
+ * promise is that the session which made the change survives while every other
+ * one dies — and `passwordChangeRequest` carries nothing that identifies the
+ * caller's refresh family, so a route given only that shape cannot spare one.
+ * Re-issuing is the honest way to keep the promise: revoke everything, hand the
+ * caller a new pair. Anything else means the caller keeps working until their
+ * access token expires and is then silently logged out, which is
+ * indistinguishable from the change having failed — the exact outcome the
+ * promise exists to prevent (Nimbus-W6c).
  *
  * **`DELETE /api/org/members/:id` is not a row deletion.** Gate step 3 takes a
  * token minted before the removal and uses it; if it still works, the feature
