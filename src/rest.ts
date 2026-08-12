@@ -386,6 +386,57 @@ export type JobResponse = z.infer<typeof jobResponse>
  * Read `state` to tell a live one from a finished one, exactly as with
  * `jobResponse`.
  */
+/* ------------------------------------------------------------------ W6c --
+ * Identity (spec §3), and the limit that has to exist before it. Written down
+ * here for the same reason the W4 command routes were: **a body schema does
+ * not imply a path**, and three consumers were about to derive nine paths
+ * independently from one implementation.
+ *
+ * | route | body | answers |
+ * |---|---|---|
+ * | `GET    /api/org/members`               | —                                  | `{ members: OrgMember[] }` |
+ * | `DELETE /api/org/members/:id`           | —                                  | 204 — **and every session of that member ends** |
+ * | `POST   /api/org/invitations`           | `createDeveloperInvitationRequest` | `developerInvitation` |
+ * | `POST   /api/org/invitations/accept`    | `acceptDeveloperInvitationRequest` | `sessionTokens` — unauthenticated |
+ * | `GET    /api/apps/:id/self-registration` | —                                 | `selfRegistration` |
+ * | `PUT    /api/apps/:id/self-registration` | `selfRegistration`                | `selfRegistration` |
+ * | `POST   /api/client/register`            | `clientRegisterRequest`           | `sessionTokens` — unauthenticated, **end user** |
+ * | `POST   /api/auth/password/change`      | `passwordChangeRequest`            | 204 — authenticated |
+ * | `POST   /api/auth/password/reset`       | `passwordResetRequest`             | 202 — unauthenticated, **always the same answer** |
+ * | `POST   /api/auth/password/reset/confirm` | `passwordResetConfirm`           | 204 — unauthenticated |
+ *
+ * **Developer invitations live under `/api/org/`, end-user ones under
+ * `/api/end-users/`.** That separation is not cosmetic: the two identity
+ * spaces must never authenticate each other (§3.1, §3.4), and a shared path
+ * prefix is the first step towards a shared handler. The accept routes are
+ * separate for the same reason — `/api/invitations/accept` is the end user's
+ * and stays that way.
+ *
+ * **Self-registration belongs to an app and creates an end user** (§3.2:
+ * *"Selbstregistrierung über eine App — pro App aktivierbar"*). The first
+ * version of this table had `POST /api/auth/self-register` minting a
+ * **developer** session against an org resolved by email domain — a feature
+ * the spec does not contain, opening a path into the org that owns the robots
+ * rather than into an app's pool. Caught by Threepio-W6c reading §3.2 against
+ * the delta before anything was built on it.
+ *
+ * So it answers on the client-auth surface, takes the `app_identifier` an app
+ * already ships, and issues client tokens. The role is not the caller's to
+ * choose: the app's `selfRegistration.role_id` decides it, because §3.2 also
+ * says a pool member has exactly one role per app.
+ *
+ * **`POST /api/auth/password/reset` answers `202` for every well-formed
+ * address**, known or not. It is the one route where §3.3's silence about
+ * existence is not a preference but the entire point: any status, body or
+ * timing difference between the two cases is an account-enumeration oracle.
+ * Note *timing* — a route that only sends mail for a real address must not
+ * become measurably faster for an unknown one.
+ *
+ * **`DELETE /api/org/members/:id` is not a row deletion.** Gate step 3 takes a
+ * token minted before the removal and uses it; if it still works, the feature
+ * is not built. `revokeSessionsForSubject` is already wired.
+ */
+
 /**
  * What a `rate_limited` refusal tells the caller (W6c).
  *

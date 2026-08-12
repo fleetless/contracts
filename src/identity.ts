@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { appIdentifier } from './apps.js'
 
 /**
  * Identity (spec §3). Two spaces that never mix: **developers**, who own an
@@ -209,23 +210,61 @@ export const tierRequiredDetails = z.object({
 export type TierRequiredDetails = z.infer<typeof tierRequiredDetails>
 
 /**
- * Whether strangers may register themselves into this org, and who counts as
- * a stranger (spec §3.2).
+ * Whether strangers may register themselves into **an app's end-user pool**,
+ * and who counts as a stranger (spec §3.2).
+ *
+ * **This hangs off an app, not an org, and it creates an end user, not a
+ * developer.** §3.2 is explicit and the first version of this shape got it
+ * backwards: *"Wege in den Pool: Einladung über die Console, oder
+ * Selbstregistrierung über eine App — pro App aktivierbar, wahlweise für alle
+ * E-Mail-Domains oder eine definierte Auswahl."* Self-registration is a way
+ * into the **pool**. There is no self-registration for developers anywhere in
+ * the spec, and inventing one would have opened a path into the org that owns
+ * the robots — the opposite identity space from the one §3.2 describes
+ * (Threepio-W6c, before anything was built on it).
+ *
+ * `role_id` is required because §3.2's neighbouring sentence is equally
+ * explicit: *"pro App erhält er genau eine Rolle."* A pool member with no role
+ * is not a state this platform has, so the app must say which role a
+ * self-registered user gets — and an app owner choosing that deliberately is
+ * the whole security decision here.
  *
  * **`domains: []` with `enabled: true` means nobody may self-register**, not
  * everybody — the empty list is a filter that matches nothing, and reading it
- * the other way turns a half-finished configuration into an open door. Stated
- * here because that is exactly the reading somebody will make at 2 a.m.
- *
- * Absent from a response means the org has never configured it, which is the
- * same as `enabled: false`.
+ * the other way turns a half-finished configuration into an open door on a
+ * public endpoint. Stated because that is exactly the reading somebody will
+ * make at 2 a.m. §3.2's "wahlweise für alle E-Mail-Domains" is expressed by
+ * `all_domains: true`, not by an empty list.
  */
 export const selfRegistration = z.object({
   enabled: z.boolean(),
-  /** Lower-case bare domains, no `@`: `['dehne-robotik.de']`. */
+  /**
+   * Accept any address. Deliberately its own flag rather than a magic value
+   * in `domains`, so "open to everyone" is something an app owner has to say,
+   * not something that falls out of leaving a list empty.
+   */
+  all_domains: z.boolean(),
+  /** Lower-case bare domains, no `@`: `['dehne-robotik.de']`. Ignored when `all_domains`. */
   domains: z.array(z.string().min(1).max(253)),
+  /** The role every self-registered member of this pool receives (§3.2: exactly one per app). */
+  role_id: z.uuid(),
 })
 export type SelfRegistration = z.infer<typeof selfRegistration>
+
+/**
+ * Registering yourself into an app's pool (spec §3.2) — an **end user**, so it
+ * answers on the client-auth surface and never mints a developer session.
+ *
+ * `app_identifier` rather than an app uuid, matching `clientLoginRequest`: it
+ * is the value an app already ships, and it reveals nothing a caller of that
+ * app does not have.
+ */
+export const clientRegisterRequest = z.object({
+  app_identifier: appIdentifier,
+  email: z.email(),
+  password,
+})
+export type ClientRegisterRequest = z.infer<typeof clientRegisterRequest>
 
 /**
  * Changing your own password while logged in.

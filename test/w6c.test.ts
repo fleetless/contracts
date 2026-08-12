@@ -19,6 +19,7 @@ import {
   createInvitationRequest,
   tierRequiredDetails,
   selfRegistration,
+  clientRegisterRequest,
   passwordChangeRequest,
   passwordResetRequest,
   passwordResetConfirm,
@@ -145,21 +146,57 @@ describe('W6c — tiers', () => {
   })
 })
 
-describe('W6c — self-registration', () => {
-  it('treats an empty domain list as "nobody", never as "everybody"', () => {
-    // The dangerous reading, written down because somebody will make it: a
-    // filter that matches nothing is not a filter that matches everything, and
-    // reading it the other way turns a half-finished configuration into an
-    // open door.
-    const closed = selfRegistration.parse({ enabled: true, domains: [] })
-    expect(closed.domains).toEqual([])
-    expect(closed.enabled).toBe(true)
+describe('W6c — self-registration belongs to an app, not an org', () => {
+  const base = { enabled: true, all_domains: false, domains: ['dehne-robotik.de'], role_id: UUID }
+
+  it('says "open to everyone" with a flag, never with an empty list', () => {
+    // The dangerous reading, written down because somebody will make it at
+    // 2 a.m. on a public endpoint: a filter that matches nothing is not a
+    // filter that matches everything. §3.2's "wahlweise für alle E-Mail-
+    // Domains" is `all_domains: true` — something an app owner has to SAY,
+    // not something that falls out of leaving a list empty.
+    const nobody = selfRegistration.parse({ ...base, all_domains: false, domains: [] })
+    expect([nobody.enabled, nobody.all_domains, nobody.domains]).toEqual([true, false, []])
+    expect(selfRegistration.parse({ ...base, all_domains: true, domains: [] }).all_domains).toBe(true)
   })
 
-  it('requires both fields, so "not configured" cannot masquerade as "open"', () => {
-    expect(selfRegistration.safeParse({ enabled: true }).success).toBe(false)
-    expect(selfRegistration.safeParse({ domains: ['dehne-robotik.de'] }).success).toBe(false)
-    expect(selfRegistration.parse({ enabled: false, domains: ['dehne-robotik.de'] }).enabled).toBe(false)
+  it('requires a role, because a pool member with no role is not a state', () => {
+    // §3.2: "pro App erhält er genau eine Rolle." An app that enables
+    // self-registration has to decide which one, and that IS the security
+    // decision here.
+    const { role_id: _dropped, ...noRole } = base
+    expect(selfRegistration.safeParse(noRole).success).toBe(false)
+    expect(selfRegistration.safeParse({ ...base, role_id: 'not-a-uuid' }).success).toBe(false)
+  })
+
+  it('requires every field, so "not configured" cannot masquerade as "open"', () => {
+    for (const drop of ['enabled', 'all_domains', 'domains', 'role_id']) {
+      const partial = { ...base }
+      delete partial[drop]
+      expect(selfRegistration.safeParse(partial).success).toBe(false)
+    }
+  })
+
+  it('registers an END USER against an app, never a developer against an org', () => {
+    // The first version of this delta had self-registration minting a
+    // DEVELOPER session against an org resolved by email domain — a feature
+    // §3.2 does not contain, and a path into the org that owns the robots
+    // rather than into an app's pool.
+    expect(clientRegisterRequest.safeParse({
+      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
+    }).success).toBe(true)
+    // No org_name, no role: the caller chooses neither.
+    expect(clientRegisterRequest.safeParse({
+      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
+      role_id: UUID, org_name: 'Sneaky',
+    }).success).toBe(true)
+    expect(Object.keys(clientRegisterRequest.parse({
+      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
+      role_id: UUID,
+    }))).toEqual(['app_identifier', 'email', 'password'])
+    expect(clientRegisterRequest.safeParse({
+      email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
+    }).success).toBe(false)
   })
 })
 
