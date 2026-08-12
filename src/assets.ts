@@ -27,6 +27,24 @@ import { z } from 'zod'
 export const assetKind = z.enum(['urdf', 'mesh', 'other'])
 export type AssetKind = z.infer<typeof assetKind>
 
+/**
+ * The `name` a URDF asset carries.
+ *
+ * A mesh names itself — its `package://` URI is the only string anyone can
+ * match against a workspace. A URDF has no such natural name, so the bridge
+ * and the cloud agreed on one in conversation: `robot_description`, after the
+ * topic it comes from. **An agreement in conversation is exactly the thing
+ * that drifts**, and this project has now written down two other shared
+ * strings for the same reason (`ASSET_UPLOAD_HEADERS`, the mailed-link paths)
+ * after being bitten each time. So it is pinned here rather than living in two
+ * repos and a message.
+ *
+ * Consumers should not match on it: `kind === 'urdf'` is the reliable test,
+ * and this constant exists so the producer and the store agree, not so readers
+ * compare strings.
+ */
+export const URDF_ASSET_NAME = 'robot_description'
+
 export const asset = z.object({
   id: z.uuid(),
   robot_id: z.uuid(),

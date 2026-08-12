@@ -339,6 +339,7 @@ export type {
 } from './client-auth.js'
 export {
   assetKind,
+  URDF_ASSET_NAME,
   asset,
   urdfCompleteness,
   assetListResponse,
