@@ -414,7 +414,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `POST   /api/auth/password/reset`       | `passwordResetRequest`             | 202 — unauthenticated, **always the same answer** |
  * | `POST   /api/auth/password/reset/confirm` | `passwordResetConfirm`           | 204 — unauthenticated |
  * | `POST   /api/client/password/change`    | `passwordChangeRequest`            | `sessionTokens` — authenticated, **end user** |
- * | `POST   /api/client/password/reset`     | `passwordResetRequest`             | 202 — unauthenticated |
+ * | `POST   /api/client/password/reset`     | `clientPasswordResetRequest`       | 202 — unauthenticated, **carries the app** |
  * | `POST   /api/client/password/reset/confirm` | `passwordResetConfirm`         | 204 — unauthenticated |
  *
  * **Developer invitations live under `/api/org/`, end-user ones under

@@ -261,6 +261,7 @@ export {
   clientRegisterConfirm,
   passwordChangeRequest,
   passwordResetRequest,
+  clientPasswordResetRequest,
   passwordResetConfirm,
 } from './identity.js'
 export type {
@@ -287,6 +288,7 @@ export type {
   ClientRegisterConfirm,
   PasswordChangeRequest,
   PasswordResetRequest,
+  ClientPasswordResetRequest,
   PasswordResetConfirm,
 } from './identity.js'
 export {

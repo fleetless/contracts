@@ -343,6 +343,33 @@ export const passwordResetRequest = z.object({
 export type PasswordResetRequest = z.infer<typeof passwordResetRequest>
 
 /**
+ * Asking for a reset link **as an end user**.
+ *
+ * Same act, different shape, because the two identity spaces identify a person
+ * differently. A developer's address is globally unique on `org_members`, so
+ * `{ email }` resolves to exactly one account. An end user's is unique only per
+ * `(org_id, email)` — the same address can be a pool member of several orgs'
+ * apps — so a bare email has nothing to scope the lookup to, and the route
+ * would have to guess which account the caller meant (Nimbus-W6c, building it).
+ *
+ * `app_identifier` is what every other client-auth shape already carries
+ * (`clientLoginRequest`, `clientRegisterRequest`) for exactly this reason: on
+ * this surface a person is identified by **app and address**, never by address
+ * alone. Sharing one shape across both spaces was the lead's convenience, not
+ * a principle, and it did not survive the first route that had to resolve an
+ * end user by it.
+ *
+ * The response is still identical for a known and an unknown pair, and now
+ * also for an app that does not exist — otherwise this becomes the enumeration
+ * oracle the developer route was carefully built not to be.
+ */
+export const clientPasswordResetRequest = z.object({
+  app_identifier: appIdentifier,
+  email: z.email(),
+})
+export type ClientPasswordResetRequest = z.infer<typeof clientPasswordResetRequest>
+
+/**
  * Using the link. The token is **single-use and expires**; spending it revokes
  * every session of that subject, because a forgotten password is one of the
  * two states where somebody else may be holding one. `token_spent` covers used
