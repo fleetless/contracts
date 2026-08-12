@@ -31,8 +31,13 @@
       "type": "string",
       "format": "uri"
     },
-    "mail_sent": {
-      "type": "boolean"
+    "mail": {
+      "type": "string",
+      "enum": [
+        "sent",
+        "not_configured",
+        "failed"
+      ]
     }
   },
   "required": [
@@ -42,7 +47,7 @@
     "role_id",
     "expires_at",
     "accept_url",
-    "mail_sent"
+    "mail"
   ],
   "additionalProperties": false
 }

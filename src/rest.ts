@@ -386,6 +386,23 @@ export type JobResponse = z.infer<typeof jobResponse>
  * Read `state` to tell a live one from a finished one, exactly as with
  * `jobResponse`.
  */
+/**
+ * What a `rate_limited` refusal tells the caller (W6c).
+ *
+ * One number, and it is the only one that matters: **when to come back.** A
+ * limit that says "too many" without saying "in 800 ms" produces a client that
+ * retries immediately, which is the behaviour the limit exists to stop — so
+ * omitting it would make the refusal part of the attack.
+ *
+ * Deliberately **not** carrying the limit, the window, or how many attempts
+ * remain: those describe the defence to whoever is probing it, and none of
+ * them changes what an honest caller does.
+ */
+export const rateLimitDetails = z.object({
+  retry_after_ms: z.number().int().nonnegative(),
+})
+export type RateLimitDetails = z.infer<typeof rateLimitDetails>
+
 export const robotJobsResponse = z.object({
   jobs: z.array(job),
 })

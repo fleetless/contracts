@@ -230,5 +230,35 @@ export const ERROR_CODES = [
    * refused before any lookup — so it leaks nothing that `not_found` did not.
    */
   'invalid_uuid',
+  // W6c — identity, and the limit that has to exist before it.
+  /**
+   * Too many attempts. The details carry `retry_after_ms`, for the reason
+   * `publisher_busy` carries it: a refusal that names a state and no action
+   * leaves the caller to busy-loop, which on *this* code is the attack.
+   *
+   * It must be answerable **before** any password verification. A limiter that
+   * refuses after argon2 has run has not removed the denial of service, it has
+   * only added a message to it — and that is invisible to every test that
+   * checks the status code, which is why the gate measures the *cost* of a
+   * refusal and not merely its shape.
+   */
+  'rate_limited',
+  /**
+   * The caller's **tier** is insufficient — an org Member reaching for what
+   * only an Owner may do. Distinct from `forbidden`, which stays deliberately
+   * silent about existence (§3.3): this one says nothing about the target
+   * either, only about the caller's own role, which they can already read.
+   *
+   * Without it, "ask an owner to do this" and "you have the wrong id" are the
+   * same answer, and only one of them is worth acting on.
+   */
+  'tier_required',
+  /**
+   * A password reset or invitation token has been spent, or has expired.
+   * Deliberately one code for both: distinguishing them tells a stranger
+   * whether a token ever existed, and the recovery is identical either way —
+   * ask for a new link.
+   */
+  'token_spent',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

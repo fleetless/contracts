@@ -131,6 +131,7 @@ export {
   publishRequest,
   jobResponse,
   robotJobsResponse,
+  rateLimitDetails,
   exposure,
   exposureListResponse,
   SNAPSHOT_HEADERS,
@@ -196,6 +197,7 @@ export type {
   PublishRequest,
   JobResponse,
   RobotJobsResponse,
+  RateLimitDetails,
   Exposure,
   ExposureListResponse,
   CameraDescriptor,
@@ -247,6 +249,16 @@ export {
   invitation,
   createInvitationRequest,
   acceptInvitationRequest,
+  // W6c — identity.
+  mailStatus,
+  createDeveloperInvitationRequest,
+  developerInvitation,
+  acceptDeveloperInvitationRequest,
+  tierRequiredDetails,
+  selfRegistration,
+  passwordChangeRequest,
+  passwordResetRequest,
+  passwordResetConfirm,
 } from './identity.js'
 export type {
   OrgMemberRole,
@@ -261,6 +273,15 @@ export type {
   Invitation,
   CreateInvitationRequest,
   AcceptInvitationRequest,
+  MailStatus,
+  CreateDeveloperInvitationRequest,
+  DeveloperInvitation,
+  AcceptDeveloperInvitationRequest,
+  TierRequiredDetails,
+  SelfRegistration,
+  PasswordChangeRequest,
+  PasswordResetRequest,
+  PasswordResetConfirm,
 } from './identity.js'
 export {
   appIdentifier,

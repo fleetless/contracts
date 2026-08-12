@@ -82,7 +82,7 @@ describe('W3 identity', () => {
     expect(endUser.safeParse({ ...base, status: 'deleted' }).success).toBe(false)
   })
 
-  it('carries the accept link and says whether mail went out', () => {
+  it('carries the accept link and says what happened to the mail', () => {
     const invite = {
       id: UUID,
       email: 'user@example.com',
@@ -90,11 +90,14 @@ describe('W3 identity', () => {
       role_id: UUID,
       expires_at: NOW,
       accept_url: 'https://console.fleetless.dev/invite/abc',
-      mail_sent: false,
+      // W6c: `mail_sent: false` became `mail: 'not_configured' | 'failed' | 'sent'`.
+      // The boolean could not tell "we have no SMTP" from "the server refused",
+      // so the console had to guess a cause — and guessed the reassuring one.
+      mail: 'not_configured',
     }
     expect(invitation.safeParse(invite).success).toBe(true)
-    // mail_sent:false is a normal outcome, not an error — the link is the
-    // primary path and a cloud without SMTP still invites.
+    // `not_configured` is a normal outcome, not an error — the link is the
+    // primary path and a cloud without SMTP still invites. `failed` is not.
     expect(invitation.safeParse({ ...invite, accept_url: 'not-a-url' }).success).toBe(false)
     expect(
       createInvitationRequest.safeParse({ email: 'u@e.de', app_id: UUID, role_id: UUID2, send_mail: true }).success,
