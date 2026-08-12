@@ -202,13 +202,26 @@ export const ERROR_CODES = [
    * bound turns that into an answer the caller can act on, which is the whole
    * of the difference.
    *
-   * The details carry `limit` and `queued`, for the reason `publisher_busy`
-   * carries `retry_after_ms`: a refusal that names a state and no action
-   * leaves the caller to busy-loop, on a platform with no rate limiting.
+   * It rides on **`job.error.details`** as `jobQueueFullDetails`, not on an
+   * `apiError` envelope — and that distinction is load-bearing. A full queue
+   * is discovered by the *bridge*, after the cloud has already answered the
+   * invoke with a minted job, so it can never be the refusal of the call. It
+   * reaches the caller as the job's terminal failure.
+   *
+   * The numbers ride with it for the reason `publisher_busy` carries
+   * `retry_after_ms`: a refusal that names a state and no action leaves the
+   * caller to busy-loop, on a platform with no rate limiting until W8.
    */
   'job_queue_full',
   /**
    * An id in the path or body is not a uuid at all.
+   *
+   * **Path and query only.** A malformed uuid in a *body* is caught by the
+   * body schema first and answers `validation_error` — the same mistake under
+   * two codes, split by where the id sat. Stated here rather than promised
+   * away: a consumer branching on `invalid_uuid` must not expect it for a
+   * body field (Momus, W6b review). Unifying them is a W7 question, because
+   * it means refusing before schema validation on every route that takes one.
    *
    * Distinct from `not_found`, which was the answer for both and made a
    * **typo indistinguishable from a deletion**. A developer whose client

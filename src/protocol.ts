@@ -332,7 +332,10 @@ export const bridgeJobUpdate = z.object({
   feedback: z.unknown().nullable(),
   progress: z.number().min(0).max(1).nullable(),
   result: z.unknown().nullable(),
-  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+  /** Same shape as `job.error`, `details` included — see `jobs.ts`. */
+  error: z
+    .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
+    .nullable(),
   timestamp_ms: z.number().int().nonnegative(),
 })
 export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>

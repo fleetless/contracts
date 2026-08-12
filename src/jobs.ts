@@ -30,9 +30,29 @@ export const job = z.object({
   updated_at: z.iso.datetime(),
   /** Present once the job succeeded; shape is the ROS result's. */
   result: z.unknown().nullable(),
-  /** Present on `failed`; a human message, plus a code where one exists. */
+  /**
+   * Present on `failed`; a human message, plus a code where one exists.
+   *
+   * `details` exists because a refusal that carries only prose forces every
+   * consumer to parse it. W6b shipped `job_queue_full` with a documented
+   * `{limit, queued}` payload and **nowhere to put it**: the bridge reports a
+   * full queue as a job error, this shape had no `details`, and so the numbers
+   * were formatted into the message and lost. The console then rendered a
+   * "wait for one of N to finish" alert from a shape nothing in the system
+   * produced, and its test built that shape by hand — three repos agreeing
+   * with each other about a payload none of them exchanged (Momus, W6b
+   * review).
+   *
+   * Optional, because most job errors have nothing structured to add. Where a
+   * code has a documented payload — `job_queue_full` has
+   * `jobQueueFullDetails` — it belongs here, not in the sentence.
+   */
   error: z
-    .object({ code: z.string().min(1), message: z.string().min(1) })
+    .object({
+      code: z.string().min(1),
+      message: z.string().min(1),
+      details: z.unknown().optional(),
+    })
     .nullable(),
 })
 export type Job = z.infer<typeof job>

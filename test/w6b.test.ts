@@ -26,7 +26,7 @@ import {
 } from '../src/protocol.js'
 import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery, robotJobsResponse } from '../src/rest.js'
 import { clientCancel, clientInvoke } from '../src/realtime.js'
-import { jobQueueFullDetails } from '../src/jobs.js'
+import { jobQueueFullDetails, job } from '../src/jobs.js'
 import { auditEvent } from '../src/audit.js'
 import { ERROR_CODES } from '../src/errors.js'
 
@@ -336,6 +336,23 @@ describe('W6b — naming a publish attempt', () => {
 })
 
 describe('W6b — bounding a queue, and ordering a log', () => {
+  it('gives a full-queue refusal somewhere to actually put its numbers', () => {
+    // It shipped with a documented {limit, queued} payload and nowhere to put
+    // it: the bridge reports a full queue as a JOB error, and `job.error` was
+    // {code, message} with no details — so the numbers were formatted into the
+    // sentence and lost. The console then rendered an alert from a shape
+    // nothing produced, and its test built that shape by hand.
+    const withDetails = {
+      id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'failed' as const,
+      started_at: NOW, updated_at: NOW, result: null,
+      error: { code: 'job_queue_full', message: '200 jobs are already queued', details: { limit: 200, queued: 200 } },
+    }
+    const parsed = job.parse(withDetails)
+    expect(jobQueueFullDetails.parse(parsed.error?.details)).toEqual({ limit: 200, queued: 200 })
+    // Optional: most job errors have nothing structured to add.
+    expect(job.safeParse({ ...withDetails, error: { code: 'failed', message: 'nope' } }).success).toBe(true)
+  })
+
   it('makes a full-queue refusal say whether waiting would help', () => {
     // `limit` alone says how big the queue is and nothing about now; `queued`
     // alone cannot be read without the bound.
