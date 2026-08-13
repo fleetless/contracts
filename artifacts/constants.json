@@ -1,0 +1,14 @@
+{
+  "ASSET_UPLOAD_HEADERS": {
+    "kind": "x-fleetless-asset-kind",
+    "name": "x-fleetless-asset-name",
+    "syncId": "x-fleetless-sync-id"
+  },
+  "SNAPSHOT_HEADERS": {
+    "ageMs": "x-fleetless-age-ms",
+    "timestampMs": "x-fleetless-timestamp-ms",
+    "width": "x-fleetless-width",
+    "height": "x-fleetless-height"
+  },
+  "URDF_ASSET_NAME": "robot_description"
+}

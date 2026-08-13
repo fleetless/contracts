@@ -22,6 +22,7 @@
             "enum": [
               "urdf",
               "mesh",
+              "texture",
               "other"
             ]
           },

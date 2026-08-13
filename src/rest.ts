@@ -499,6 +499,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * |---|---|---|
  * | `GET /api/robots/{id}/assets` | developer **or** end user | `assets`, end users only |
  * | `GET /api/robots/{id}/assets/{assetId}` | developer **or** end user | `assets`, end users only |
+ * | `GET /api/robots/{id}/assets/missing?name=` | developer **or** end user | `assets`, end users only |
  * | `GET /api/robots/{id}/urdf` | developer **or** end user | `assets`, end users only |
  * | `POST /api/robots/{id}/assets/sync` | developer, **Owner** tier | — |
  * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | — |
@@ -542,6 +543,25 @@ export type JobResponse = z.infer<typeof jobResponse>
  * Reading is a role capability; **changing the store is Owner-tier**, matching
  * W6c's reading of §3.1 — a sync spends the org's asset quota and a deletion
  * breaks every app rendering that robot, so neither is a Member's to do.
+ *
+ * **`GET .../assets/missing` shipped undocumented for a whole wave and is the
+ * sole producer of `asset_missing` (W7a, Momus-W7 M5).** It never succeeds,
+ * and that is what it is for: when the served URDF is rewritten, a reference
+ * the store cannot answer has to be rewritten into *something*, and a URL that
+ * 404s `asset_missing` naming the reference is the only option that leaves the
+ * renderer's own error legible. The alternatives are worse — leaving the
+ * `package://` URI in place hands a browser a scheme it cannot fetch, and
+ * dropping the element silently deletes a limb.
+ *
+ * `?name=` is that reference, verbatim and URL-encoded: the same string
+ * `asset.name` stores and `urdfCompleteness.missing` reports, so what a
+ * developer sees in a failed network request matches what the completeness
+ * list told them to go fix. `asset_missing` is deliberately not `not_found`:
+ * "this robot does not exist" and "this mesh was never synced" send a
+ * developer to two different places.
+ *
+ * A route with a producer, a consumer and no entry in this table is how an
+ * error code ends up with no documented way to provoke it.
  *
  * `GET .../assets/{assetId}` answers **bytes**, not JSON, with
  * `Cache-Control: private, immutable` and never `public`: a shared cache must
@@ -1139,9 +1159,25 @@ export const orgQuotas = z.object({
    * grow steadily; one dial would let the first crowd out the second, and the
    * org that hit its limit would be told to look at the wrong thing.
    *
-   * Counted **per stored blob, not per asset row**: two robots sharing a mesh
-   * cost one copy, so a dedup hit costs zero quota. Anything else charges an
-   * org twice for a fleet of identical robots, which is the normal case.
+   * **Counted per distinct blob *this org references* — not per asset row, and
+   * not per object the platform stores on its behalf (W7a, D1).** The two
+   * readings are indistinguishable from the number alone and a customer is
+   * entitled to know which one they are being charged for.
+   *
+   * Within an org, sharing is free: two robots referencing the same mesh cost
+   * one copy, which is what dedup means to a customer, and anything else
+   * charges an org twice for a fleet of identical robots — the normal case.
+   *
+   * **Across orgs, sharing is not free, and W7 shipped the opposite.** Storage
+   * stays globally content-addressed (one object per sha256; that efficiency
+   * is real), but accounting is per-org: an org is charged for each distinct
+   * blob it references and credited when its own last reference goes, whether
+   * or not the blob survives for somebody else. Global refcounting made the
+   * first org to sync a blob pay for it forever while every later org stored
+   * it free — so the quota was evadable by anyone whose mesh someone else had
+   * already uploaded, and an org's own number depended on who got there first,
+   * which nobody can predict. Measured before the change: 342 bytes held by an
+   * org owning no assets, with no operation able to free them.
    */
   max_asset_storage_bytes: z.number().int().nonnegative(),
 })

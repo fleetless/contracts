@@ -109,7 +109,8 @@ import {
   cloudAssetRequest,
   bridgeAssetProgress,
 } from '../src/protocol.js'
-import { asset, assetListResponse, assetSyncStatus } from '../src/assets.js'
+import { asset, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
+import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import {
   historyQuery,
@@ -249,6 +250,29 @@ export const exportedSchemas = {
   'exposure-list-response': exposureListResponse,
 } as const
 
+/**
+ * Wire constants that are **not schemas**, exported so a non-TypeScript
+ * consumer can vendor them instead of re-typing them (W7a).
+ *
+ * The bridge is the consumer. It cannot import this package, so through W7 it
+ * carried `x-fleetless-asset-kind`, `x-fleetless-asset-name`,
+ * `x-fleetless-sync-id` and `robot_description` as Python string literals
+ * under a comment naming the TypeScript constant they were copied from — the
+ * exact drift those constants exist to prevent, in the one repo that cannot
+ * prevent it. A `zod` schema cannot describe a header name or a convention,
+ * which is an argument for emitting the values once, not for writing them
+ * down twice.
+ *
+ * Kept flat and JSON-only on purpose: this file is read by `json.load` and
+ * indexed by these keys, so a value here is part of the wire contract and
+ * renaming a key breaks a consumer exactly as renaming a schema field would.
+ */
+export const exportedConstants = {
+  ASSET_UPLOAD_HEADERS,
+  SNAPSHOT_HEADERS,
+  URDF_ASSET_NAME,
+} as const
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
 if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
@@ -300,4 +324,7 @@ if (isMain) {
     writeFileSync(join(dir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema), null, 2) + '\n')
     console.log(`wrote ${name}.schema.json`)
   }
+  const constantsPath = join(import.meta.dirname, '..', 'artifacts', 'constants.json')
+  writeFileSync(constantsPath, JSON.stringify(exportedConstants, null, 2) + '\n')
+  console.log('wrote constants.json')
 }

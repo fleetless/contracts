@@ -23,8 +23,24 @@ import { z } from 'zod'
  * promise something that does not happen. Signed URLs stay **additive** later —
  * a second endpoint, not a migration — precisely because assets are immutable
  * and uuid-addressed.
+ *
+ * ---
+ *
+ * **`texture` is its own member of `assetKind` and not `other` (W7a, D2).**
+ *
+ * Filing textures under `other` would be the catch-all this project has
+ * already split five times, and it costs a real capability: a client that
+ * renders a robot must know, from the asset list alone and before fetching
+ * anything, which bytes it has to pre-fetch. Every load in the browser goes
+ * through the SDK with the bearer token — there is no lazy second fetch a
+ * renderer can make on its own account — so "what must be in memory before
+ * anything renders" is a question the list has to be able to answer.
+ *
+ * A `texture` is an image referenced by the URDF's own `<material><texture>`
+ * **or** by a mesh file internally (a `.dae`'s `<init_from>`). Both are
+ * surfaces; neither is geometry; both must be resolvable by name.
  */
-export const assetKind = z.enum(['urdf', 'mesh', 'other'])
+export const assetKind = z.enum(['urdf', 'mesh', 'texture', 'other'])
 export type AssetKind = z.infer<typeof assetKind>
 
 /**
@@ -63,6 +79,34 @@ export const asset = z.object({
    * references, verbatim. That is the only string a developer can match
    * against their own workspace, and matching is the whole job when a sync
    * comes back incomplete.
+   *
+   * **The naming rule for a file nothing in the URDF names (W7a, D2).** A
+   * `.dae` carries its own image references — `<init_from>textures/skin.png`
+   * — resolved by the renderer against *the `.dae`'s own directory*, and no
+   * `package://` URI for them appears anywhere in the URDF. The rule is:
+   *
+   *     name = the .dae's package:// URI, directory part,
+   *            joined with the internal reference, normalized.
+   *
+   * So `package://rx1_description/meshes/arm.dae` referencing
+   * `textures/skin.png` uploads as
+   * `package://rx1_description/meshes/textures/skin.png`.
+   *
+   * **This is the design's single point of failure and it is stated before
+   * anything is built against it.** three.js resolves that internal reference
+   * relative to wherever it loaded the `.dae` from and asks the loading
+   * manager for the result; the client can only answer if the asset's name
+   * still carries the same **relative tail** (`textures/skin.png`) that the
+   * `.dae` asked for. Normalizing into a `package://` URI preserves that tail
+   * exactly, keeps every name in one namespace a developer already reads, and
+   * keeps `urdfCompleteness.missing` meaningful for files the URDF never
+   * mentioned.
+   *
+   * A reference that escapes its package (`../../etc/passwd`) is **not**
+   * renamed into something harmless — it is refused at the producer, by the
+   * same containment check W7's K2 fix applied to `package://` resolution.
+   * Two identical rules, one of which is enforced and one of which is
+   * documented, is how W7's traversal happened in the first place.
    */
   name: z.string().min(1).max(500),
   media_type: z.string().min(1).max(120),
@@ -84,10 +128,25 @@ export type Asset = z.infer<typeof asset>
  * Whether a URDF can actually be rendered, which is not the same as whether it
  * was uploaded.
  *
- * `missing` carries the `package://` URIs the bridge could not resolve in the
- * workspace. The spec's example is "2 Meshes fehlen" and that number alone is
- * a dead end: it tells a developer to go looking through a workspace by hand.
- * The URIs are what they can act on, so the URIs travel.
+ * `missing` carries **the reference, verbatim, that no asset answers** — for
+ * a `package://` mesh the URI the bridge could not resolve in the workspace,
+ * and since W7's security fix also the absolute paths and bare relative paths
+ * a URDF may carry, which the extractor sees and the sync deliberately never
+ * offers. The sentence used to say "the `package://` URIs" and the field
+ * carried three kinds of string (Momus-W7); it is widened here rather than
+ * narrowed, because a developer whose URDF names `/opt/meshes/arm.stl` is
+ * entitled to be told that nothing will ever fetch it.
+ *
+ * The spec's example is "2 Meshes fehlen" and that number alone is a dead
+ * end: it tells a developer to go looking through a workspace by hand. The
+ * references are what they can act on, so the references travel.
+ *
+ * **Every entry must be actionable, and that is a constraint on the
+ * producers, not on this field (W7a).** An entry a developer cannot make
+ * disappear by fixing what it names is a defect in whoever put it there: for
+ * a whole wave `<texture>` references were listed here and no sync would ever
+ * offer them, so the honest instruction behind the list was "fix this, it
+ * will not help".
  */
 export const urdfCompleteness = z.object({
   /** Whether a URDF has been synced at all. Availability is a different question. */
@@ -149,7 +208,21 @@ export type AssetListResponse = z.infer<typeof assetListResponse>
  */
 export const assetSyncRequest = z.object({
   source: z.enum(['bridge']),
-})
+}).strict()
+/**
+ * **And the route must read it (W7a).** Through W7 it did not: `{source:
+ * 'bridge'}`, `{source:'upload'}`, `{nonsense:1}` and `{}` all behaved
+ * identically, so the argument above — that a caller naming its source does
+ * not change shape when the second one arrives — was true of the document and
+ * false of the system. A shape with no consumer is not a contract; it is a
+ * comment with a type.
+ *
+ * The decision is to keep the shape and **validate it, `.strict()`**, rather
+ * than delete it. Deleting removes the record of why the enum has one member,
+ * and the zip path is a question of when. Validation is what makes the single
+ * member mean something: a caller who sends `'upload'` today learns that it
+ * does not exist yet, instead of silently getting a bridge sync.
+ */
 export type AssetSyncRequest = z.infer<typeof assetSyncRequest>
 
 export const assetSyncResponse = z.object({
