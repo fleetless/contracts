@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assetKind, assetSyncRequest, ASSET_UPLOAD_HEADERS, URDF_ASSET_NAME } from '../src/index.js'
+import { assetKind, assetSyncRequest, createAppRequest, ASSET_UPLOAD_HEADERS, URDF_ASSET_NAME } from '../src/index.js'
+
+const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 import { exportedConstants } from '../scripts/export-schemas.js'
 
 /**
@@ -50,5 +52,21 @@ describe('constants the bridge cannot import', () => {
     expect(ASSET_UPLOAD_HEADERS.name).toBe('x-fleetless-asset-name')
     expect(ASSET_UPLOAD_HEADERS.syncId).toBe('x-fleetless-sync-id')
     expect(URDF_ASSET_NAME).toBe('robot_description')
+  })
+})
+
+describe('creating an app with robots', () => {
+  it('accepts `robot_ids` instead of dropping it in silence', () => {
+    const base = { name: 'Ops', identifier: 'ops' }
+    expect(createAppRequest.safeParse(base).success).toBe(true)
+    const withRobots = createAppRequest.safeParse({ ...base, robot_ids: [UUID] })
+    expect(withRobots.success).toBe(true)
+    // The point of the change: the value survives parsing. Through W7 this
+    // read `undefined` and the caller got a 201 with an empty app.
+    expect(withRobots.success && withRobots.data.robot_ids).toEqual([UUID])
+  })
+
+  it('refuses a key nobody defined rather than stripping it', () => {
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', robotIds: [UUID] }).success).toBe(false)
   })
 })

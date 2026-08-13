@@ -33,10 +33,30 @@ export const app = z.object({
 })
 export type App = z.infer<typeof app>
 
+/**
+ * **`robot_ids` is accepted here, and `.strict()` catches everything else
+ * (W7a).** Through W7 this shape carried `name` and `identifier` only, robots
+ * attached through `updateAppRequest`, and zod stripped the extra key — so a
+ * caller creating an app *with* robots got a `201` and an app with none.
+ * **Two people fell into it independently on the same day**, which is the
+ * definition of a shape that reads as though it does something it does not.
+ *
+ * Both halves matter and neither alone is enough. Accepting `robot_ids` is
+ * right because attaching robots at creation is the obvious operation and the
+ * store already does the work for `PATCH`; refusing unknown keys is right
+ * because the next field somebody assumes into existence should produce a
+ * `400` naming it rather than a silence. Same reasoning as `cancelRequest`
+ * and `releaseLiveQuery`: a request shape that strips is a request shape that
+ * lies quietly.
+ *
+ * Optional rather than required — an app with no robots is a normal thing to
+ * create, and a required empty array would be ceremony.
+ */
 export const createAppRequest = z.object({
   name: z.string().min(1).max(120),
   identifier: appIdentifier,
-})
+  robot_ids: z.array(z.uuid()).optional(),
+}).strict()
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
 export const updateAppRequest = z.object({
