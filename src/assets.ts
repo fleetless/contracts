@@ -272,7 +272,30 @@ export const assetSyncStatus = z.object({
   state: assetSyncState,
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
-  failed: z.array(z.string().min(1)),
+  /**
+   * **Bounded, and the bound is a rule this file already wrote down one field
+   * over** (Kassandra-W7a, W7a review). `asset.name` is `max(500)`; the same
+   * names travelling here had no per-entry cap and no array cap at all.
+   *
+   * Why it matters became reachable in W7a. Before R6 an unresolvable
+   * reference was silently dropped, so this array could only grow with files
+   * that existed and failed to upload — bounded by the workspace. Once a
+   * `.dae`'s internal references are reported, **one mesh reference expands
+   * into a list bounded only by that file's own text.** Measured: a
+   * 2,120,745-byte `.dae` with 17,331 unresolvable `<init_from>` refs produces
+   * a terminal frame of 2,097,184 bytes — **32 bytes over
+   * `MAX_WS_PAYLOAD_BYTES`** — and `ws` enforces `maxPayload` before the frame
+   * is delivered, so the outcome is not a dropped frame but **the robot's
+   * socket closed, mid-sync, by a file in its own workspace.**
+   *
+   * A producer that hits its own ceiling reports **one** entry saying so
+   * rather than growing the list — the discipline gate step 5 already demands
+   * of the upload rate limit: *fail naming the limit, rather than silently
+   * reporting resolvable meshes as missing.*
+   *
+   * 1000 x 500 bytes is ~0.5 MiB of names, comfortably inside a 2 MiB frame.
+   */
+  failed: z.array(z.string().min(1).max(500)).max(1000),
   /** Why the sync ended as it did, when that is not a per-URI fact. */
   reason: z.string().min(1).nullable(),
   started_at: z.iso.datetime(),
