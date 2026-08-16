@@ -109,7 +109,7 @@ import {
   cloudAssetRequest,
   bridgeAssetProgress,
 } from '../src/protocol.js'
-import { asset, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
+import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import {
@@ -271,6 +271,19 @@ export const exportedConstants = {
   ASSET_UPLOAD_HEADERS,
   SNAPSHOT_HEADERS,
   URDF_ASSET_NAME,
+  /**
+   * **The `assetKind` *values*, because the bridge sends them and nothing
+   * guarded them** (Momus-W7a, W7a review, answering this file's own question
+   * about what else crosses the TypeScript/Python line).
+   *
+   * `assetKind` generates no standalone artifact, `asset.schema.json` is not
+   * among the schemas the bridge vendors, and none of the vendored schemas
+   * constrains `kind` — so `"urdf"`, `"mesh"`, `"texture"` lived as Python
+   * string literals with nothing to check them against. Same wire, same enum,
+   * same wave in which one line refusing an unknown kind killed a three-repo
+   * chain and was found by the console owner in a repo that was not hers.
+   */
+  ASSET_KINDS: assetKind.options,
 } as const
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]

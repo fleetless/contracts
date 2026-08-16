@@ -167,20 +167,25 @@ export const assetListResponse = z.object({
    * `false`, because "no robot is online to ask" and "the robot has no URDF"
    * send a developer to two different places.
    *
-   * **`false` is currently unreachable once `true` has been reported, and that
-   * is a known gap rather than a property of this shape.** The bridge reports
-   * availability from a subscription callback, which fires only when a
-   * publisher *sends* something — so it can notice presence and never absence.
-   * A robot that had a URDF and then lost it (source reconfigured,
-   * `robot_state_publisher` stopped, topic republished empty) leaves the cloud
-   * holding the last thing it heard, forever.
+   * **All three states are reachable as of W7a (R7).** They were not: the bridge
+   * used to report availability from a subscription callback, which fires only
+   * when a publisher *sends* something, so it could notice presence and never
+   * absence — a robot that lost its URDF left the cloud holding the last thing
+   * it heard, forever, and `true` was sticky. The fix is an **active**
+   * `count_publishers` query on the bridge's own timer.
    *
-   * Establishing absence needs an **active** graph query, which nothing
-   * currently performs for this topic, so closing it is a design decision and
-   * not a missing call. Registered rather than papered over, and stated here
-   * because a consumer reading this field is entitled to know that `true` is
-   * sticky. Found by Rosie-W7 checking her own work against the camera-health
-   * row that has the identical shape.
+   * **What a consumer still needs to know is the clock, not the gap.** An
+   * ungraceful loss — the publisher process killed rather than shut down — is
+   * noticed on **DDS's liveliness timeout**, not on the bridge's check
+   * interval. Measured against a real bridge: ~1.6 s when the publisher calls
+   * `destroy_node()`, **~19 s when it is `SIGKILL`ed**. So `true` can outlive
+   * the truth by some seconds after a crash, and no amount of polling on our
+   * side shortens it.
+   *
+   * The sticky-`true` gap was found by Rosie-W7 checking her own work against
+   * the camera-health row of identical shape; the DDS clock was measured by
+   * Rosie-W7a closing it, and this comment was still describing the gap a wave
+   * after it was fixed (Momus-W7a, W7a review).
    */
   urdf_available: z.boolean().nullable(),
 })

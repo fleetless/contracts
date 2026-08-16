@@ -10,5 +10,11 @@
     "width": "x-fleetless-width",
     "height": "x-fleetless-height"
   },
-  "URDF_ASSET_NAME": "robot_description"
+  "URDF_ASSET_NAME": "robot_description",
+  "ASSET_KINDS": [
+    "urdf",
+    "mesh",
+    "texture",
+    "other"
+  ]
 }
