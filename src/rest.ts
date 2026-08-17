@@ -708,6 +708,26 @@ export const SNAPSHOT_HEADERS = {
  * `asset.name` stores, and the same one `urdfCompleteness.missing` reports, so
  * a failed upload and a missing mesh can be matched by eye.
  */
+/**
+ * **`name` travels percent-encoded, and that is a fix rather than a
+ * convention** (W7a review, André's decision to fix rather than defer).
+ *
+ * HTTP header values are latin-1 (`http.client` in Python, and the same is
+ * true on the other side). So a texture called `textures/日本語.png` raised a
+ * `UnicodeEncodeError` **inside `urllib`** — a `ValueError`, caught by neither
+ * `HTTPError` nor `URLError` — which propagated to the sync's broad handler
+ * and marked **everything still remaining** as failed. One non-ASCII filename
+ * cost a developer every mesh after it in that sync, with no cause on the
+ * wire. R6 made it ordinary rather than exotic: `.dae` internal names come
+ * from 3D-authoring tools, where non-ASCII is Tuesday.
+ *
+ * The encoding is not invented here. **`GET .../assets/missing?name=` already
+ * carries this exact string percent-encoded**, because a query parameter is
+ * percent-encoded by definition — same value, same wire, question already
+ * answered. Producers `encodeURIComponent` the name; the store decodes it
+ * before anything is stored or compared, so `asset.name` and
+ * `urdfCompleteness.missing` keep holding the developer's own string.
+ */
 export const ASSET_UPLOAD_HEADERS = {
   kind: 'x-fleetless-asset-kind',
   name: 'x-fleetless-asset-name',

@@ -263,6 +263,43 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * covers, and "refused" is a *reason* for a terminal outcome rather than a
  * different one. Adding a field is additive; adding an enum member is not.
  */
+/**
+ * Why one reference did not make it into the store.
+ *
+ * Three kinds because three things were already happening and only one word
+ * was available for them:
+ *
+ * - **`unresolvable`** — the reference names nothing the producer can find, or
+ *   nothing it is allowed to read (a `package://` URI absent from the
+ *   workspace, an absolute path, a `.dae`-internal reference escaping its own
+ *   package). **Permanent.** No retry changes it, and it is the only kind a
+ *   reconciliation may treat as gone.
+ * - **`upload_failed`** — the bytes exist and the transfer did not succeed.
+ *   **Transient.** The asset is still wanted; a later sync will carry it.
+ * - **`refused`** — never attempted, because a producer-side ceiling was hit
+ *   (R9: a `.dae` with more internal references than one file or one sync will
+ *   report). **Transient in the same sense**: nothing is known to be missing,
+ *   only unexamined.
+ *
+ * A consumer that cannot act on the distinction may still print `reference`
+ * alone and lose nothing it had before.
+ */
+export const assetFailureKind = z.enum(['unresolvable', 'upload_failed', 'refused'])
+export type AssetFailureKind = z.infer<typeof assetFailureKind>
+
+export const assetFailure = z.object({
+  /**
+   * What could not be provided, verbatim — the same string `asset.name` would
+   * have stored and `urdfCompleteness.missing` reports, so a developer can
+   * match it against their own workspace by eye. For a URDF upload failure it
+   * is `URDF_ASSET_NAME`, which is **not** a mesh URI: a consumer rendering
+   * this list must not assume every entry is one.
+   */
+  reference: z.string().min(1).max(500),
+  kind: assetFailureKind,
+})
+export type AssetFailure = z.infer<typeof assetFailure>
+
 export const assetSyncState = z.enum(['running', 'succeeded', 'failed'])
 export type AssetSyncState = z.infer<typeof assetSyncState>
 
@@ -273,6 +310,27 @@ export const assetSyncStatus = z.object({
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
   /**
+   * **Every entry says *why*, because reconciliation could not work without
+   * it and a developer could not read it without it** (W7a review, André's
+   * decision to fix rather than defer).
+   *
+   * It was a flat `string[]`, and **six producers wrote three different facts
+   * into it indistinguishably**: a reference that resolves to nothing in the
+   * workspace, a file that exists and whose transfer failed, and — since R9's
+   * ceiling — one that was never attempted at all. The cost was paid twice
+   * over. Reconciliation cannot tell *"no longer referenced"* from
+   * *"referenced and not delivered"*, so N14 had to decline reconciling **any**
+   * partial sync, leaving legitimately-removed assets stored and charged until
+   * the next clean one. And the console prints the whole array under *"these
+   * meshes could not be resolved"*, so a URDF upload failure — which arrives
+   * as the literal `robot_description` — is shown to a developer as a mesh
+   * they should go and find.
+   *
+   * `unresolvable` is the only kind reconciliation may drop: it is the only
+   * one that means *this will not come back*. `upload_failed` and `refused`
+   * both mean *we meant to provide this and did not*, which is the distinction
+   * the union needs and the field could not carry.
+   *
    * **Bounded, and the bound is a rule this file already wrote down one field
    * over** (Kassandra-W7a, W7a review). `asset.name` is `max(500)`; the same
    * names travelling here had no per-entry cap and no array cap at all.
@@ -295,7 +353,7 @@ export const assetSyncStatus = z.object({
    *
    * 1000 x 500 bytes is ~0.5 MiB of names, comfortably inside a 2 MiB frame.
    */
-  failed: z.array(z.string().min(1).max(500)).max(1000),
+  failed: z.array(assetFailure).max(1000),
   /** Why the sync ended as it did, when that is not a per-URI fact. */
   reason: z.string().min(1).nullable(),
   started_at: z.iso.datetime(),

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { assetFailure } from './assets.js'
 import { slug } from './common.js'
 import { credentialRef, robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
@@ -554,7 +555,16 @@ export const bridgeAssetProgress = z.object({
   sync_id: z.uuid(),
   done: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
-  failed: z.array(z.string().min(1)),
+  /**
+   * **Each entry says why** — see `assetFailure` in `assets.ts` for the three
+   * kinds and why one word was not enough. The bound is `assets.ts`'s too: a
+   * `.dae` with 17,331 unresolvable internal references produced a frame 32
+   * bytes over `MAX_WS_PAYLOAD_BYTES`, and `ws` enforces that **before**
+   * delivery — so the outcome was the robot's own socket closed, mid-sync, by
+   * a file in its workspace (Kassandra-W7a). A producer at its own ceiling
+   * reports **one** `refused` entry naming the file, not one per reference.
+   */
+  failed: z.array(assetFailure).max(1000),
   /**
    * Three values, because a boolean `finished` had nowhere to put a refusal.
    *

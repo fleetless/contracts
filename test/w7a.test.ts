@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assetKind, assetSyncRequest, createAppRequest, ASSET_UPLOAD_HEADERS, URDF_ASSET_NAME } from '../src/index.js'
+import { assetKind, assetSyncRequest, assetSyncStatus, createAppRequest, ASSET_UPLOAD_HEADERS, URDF_ASSET_NAME } from '../src/index.js'
 
 const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
+const NOW = '2026-08-17T00:00:00.000Z'
 import { exportedConstants } from '../scripts/export-schemas.js'
 
 /**
@@ -68,5 +69,41 @@ describe('creating an app with robots', () => {
 
   it('refuses a key nobody defined rather than stripping it', () => {
     expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', robotIds: [UUID] }).success).toBe(false)
+  })
+})
+
+describe('failed says why, not just what', () => {
+  const base = {
+    sync_id: UUID, robot_id: UUID, state: 'failed' as const,
+    done: 0, total: 2, reason: null, started_at: NOW, updated_at: NOW,
+  }
+
+  it('refuses the bare string it used to carry', () => {
+    // Six producers wrote three different facts into a flat string[]; the
+    // console printed all of them under "these meshes could not be resolved",
+    // and reconciliation could not tell "no longer referenced" from
+    // "referenced and not delivered" — so N14 had to decline reconciling any
+    // partial sync at all.
+    expect(assetSyncStatus.safeParse({ ...base, failed: ['package://p/m.stl'] }).success).toBe(false)
+  })
+
+  it('carries the distinction reconciliation needs', () => {
+    const ok = assetSyncStatus.safeParse({
+      ...base,
+      failed: [
+        { reference: 'package://p/gone.stl', kind: 'unresolvable' },
+        { reference: 'package://p/here.stl', kind: 'upload_failed' },
+      ],
+    })
+    expect(ok.success).toBe(true)
+    // `unresolvable` is the ONLY kind a reconciliation may drop — the other
+    // two both mean "we meant to provide this and did not".
+    expect(ok.success && ok.data.failed.filter((f) => f.kind !== 'unresolvable')).toHaveLength(1)
+  })
+
+  it('refuses a kind nobody defined, and still bounds the list', () => {
+    expect(assetSyncStatus.safeParse({ ...base, failed: [{ reference: 'x', kind: 'dunno' }] }).success).toBe(false)
+    const tooMany = Array.from({ length: 1001 }, () => ({ reference: 'package://p/m.stl', kind: 'unresolvable' }))
+    expect(assetSyncStatus.safeParse({ ...base, failed: tooMany }).success).toBe(false)
   })
 })
