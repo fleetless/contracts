@@ -243,16 +243,28 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * worse than one that fails outright, because the failure surfaces later, in a
  * renderer, as a robot with missing limbs and no explanation.
  *
- * **`failed` is URIs and nothing else, and `reason` exists because it was
- * not.** Three different kinds of string were reaching it: unresolvable
- * `package://` URIs (the documented meaning), the literal `robot_description`
- * when a URDF *upload* failed, and English sentences written by the cloud —
- * "the robot disconnected mid-sync". The console prints the array under
- * *"these meshes could not be resolved"*, so a developer whose robot dropped
- * was told to go find a mesh named *the robot disconnected mid-sync*
- * (Momus-W7, M7).
+ * **`failed` carries per-reference facts and `reason` carries the sync's own,
+ * and that split is what M7 bought.** Three different kinds of string used to
+ * reach `failed`: unresolvable `package://` URIs (the documented meaning), the
+ * literal `robot_description` when a URDF *upload* failed, and English
+ * sentences written by the cloud — "the robot disconnected mid-sync". The
+ * console printed the array under *"these meshes could not be resolved"*, so a
+ * developer whose robot dropped was told to go find a mesh named *the robot
+ * disconnected mid-sync* (Momus-W7, M7).
  *
- * So anything that is not a URI goes in `reason`: one human-readable sentence
+ * **Two of those three were defects and the third was not, which this
+ * paragraph used to get wrong** (Argus-W7a, W7a review, reading the file top to
+ * bottom). The cloud's English sentences do not belong here — that is what
+ * `reason` is for. But `robot_description` is a **legitimate** entry: the URDF
+ * is an asset that can fail to upload like any other, and W7a made that
+ * explicit rather than removing it — see `assetFailure.reference`, which says
+ * in as many words that not every entry is a mesh URI and a consumer must not
+ * assume one. Read together with the old sentence *"`failed` is URIs and
+ * nothing else"*, this file told a consumer the same value was both a defect
+ * and a documented case.
+ *
+ * So the rule is: **anything that is not about one specific reference goes in
+ * `reason`** — one human-readable sentence
  * about why the sync ended as it did, `null` when the outcome speaks for
  * itself. It also carries the distinction `bridgeAssetProgress.state` makes
  * and this shape could not — a sync **refused** because another was in flight
