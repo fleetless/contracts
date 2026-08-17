@@ -724,13 +724,34 @@ export const SNAPSHOT_HEADERS = {
  * The encoding is not invented here. **`GET .../assets/missing?name=` already
  * carries this exact string percent-encoded**, because a query parameter is
  * percent-encoded by definition — same value, same wire, question already
- * answered. Producers `encodeURIComponent` the name; the store decodes it
- * before anything is stored or compared, so `asset.name` and
- * `urdfCompleteness.missing` keep holding the developer's own string.
+ * answered.
+ *
+ * **It is a SECOND header, and that is the whole design rather than a
+ * detail.** The first version overloaded `name` itself: the producer would
+ * encode, the store would `decodeURIComponent`. That decodes identically for
+ * every name without a `%`, so an **older bridge and a newer cloud agree by
+ * luck** — right up until a name contains `%2f`, which the store would then
+ * silently turn into a `/`. A wire change whose breakage is invisible in the
+ * common case and silent in the uncommon one is the worst of both (Argus-W7a,
+ * reading the contract rather than the code).
+ *
+ * So `name` keeps meaning exactly what it always meant, and `nameEncoded`
+ * carries the percent-encoded UTF-8 form. **The store prefers `nameEncoded`
+ * when present and uses `name` otherwise**, so:
+ *
+ * - an older bridge sends only `name` and behaves exactly as before;
+ * - a newer bridge sends both, and a name it cannot express in latin-1 travels
+ *   intact for the first time;
+ * - no value is ever ambiguous about which encoding it is in.
+ *
+ * A producer that can send `nameEncoded` should send both, so a store older
+ * than this contract keeps working too. Agreement by construction, not by the
+ * absence of a `%`.
  */
 export const ASSET_UPLOAD_HEADERS = {
   kind: 'x-fleetless-asset-kind',
   name: 'x-fleetless-asset-name',
+  nameEncoded: 'x-fleetless-asset-name-encoded',
   syncId: 'x-fleetless-sync-id',
 } as const
 

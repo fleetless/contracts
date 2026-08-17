@@ -2,6 +2,7 @@
   "ASSET_UPLOAD_HEADERS": {
     "kind": "x-fleetless-asset-kind",
     "name": "x-fleetless-asset-name",
+    "nameEncoded": "x-fleetless-asset-name-encoded",
     "syncId": "x-fleetless-sync-id"
   },
   "SNAPSHOT_HEADERS": {
