@@ -26,25 +26,42 @@
  */
 import { describe, it, expect } from 'vitest'
 import * as barrel from '../src/index.js'
-import * as common from '../src/common.js'
-import * as protocol from '../src/protocol.js'
-import * as rest from '../src/rest.js'
-import * as realtime from '../src/realtime.js'
-import * as config from '../src/config.js'
-import * as errors from '../src/errors.js'
-import * as identity from '../src/identity.js'
-import * as apps from '../src/apps.js'
-import * as audit from '../src/audit.js'
-import * as jobs from '../src/jobs.js'
-import * as introspection from '../src/introspection.js'
-import * as clientAuth from '../src/client-auth.js'
-
-const MODULES: Record<string, object> = {
-  common, protocol, rest, realtime, config, errors,
-  identity, apps, audit, jobs, introspection, 'client-auth': clientAuth,
-}
+/**
+ * **The module list enumerates itself, and that is the second lesson this
+ * file has had to learn.**
+ *
+ * It was a hand-written `MODULES` record — and `assets.ts`, the entire W7
+ * asset store, was never added to it. So the check written to catch a missing
+ * barrel export was **blind to a whole module** from the moment that module
+ * arrived, and stayed blind through W7 and W7a until a teammate hit
+ * `AssetFailure` missing from the barrel and asked why nothing had caught it
+ * (Nimbus-W7a).
+ *
+ * The original defect was *"every new symbol has to be written twice and
+ * nothing checks the second one"*. The fix introduced a third place to
+ * remember — this list — and the same failure moved into it. A check that
+ * must be told about a new module is a check that will one day not be told.
+ *
+ * `import.meta.glob` reads the directory, so a new `src/*.ts` is covered the
+ * moment it exists. Nothing to remember, and the previous version's own
+ * caveat about `export type` still stands below.
+ */
+const MODULES: Record<string, object> = Object.fromEntries(
+  Object.entries(import.meta.glob('../src/*.ts', { eager: true }))
+    .filter(([path]) => !path.endsWith('/index.ts'))
+    .map(([path, mod]) => [path.replace('../src/', '').replace('.ts', ''), mod as object]),
+)
 
 describe('the barrel', () => {
+  it('actually found the source modules', () => {
+    // **A `MODULES` that silently came back empty would make the check below
+    // pass vacuously** — the fifth failure mode in this project's own list,
+    // and the obvious way for a glob to go wrong. `assets` is named because
+    // its absence is what this rewrite exists to stop happening again.
+    expect(Object.keys(MODULES).length).toBeGreaterThan(10)
+    expect(Object.keys(MODULES)).toContain('assets')
+  })
+
   it('re-exports every value the source modules export', () => {
     const exported = new Set(Object.keys(barrel))
     const missing: string[] = []

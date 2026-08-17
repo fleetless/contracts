@@ -347,6 +347,8 @@ export {
   assetSyncResponse,
   assetSyncState,
   assetSyncStatus,
+  assetFailure,
+  assetFailureKind,
   assetTooLargeDetails,
 } from './assets.js'
 export type {
@@ -358,6 +360,8 @@ export type {
   AssetSyncResponse,
   AssetSyncState,
   AssetSyncStatus,
+  AssetFailure,
+  AssetFailureKind,
   AssetTooLargeDetails,
 } from './assets.js'
 export { auditActor, auditEvent, auditListResponse } from './audit.js'
