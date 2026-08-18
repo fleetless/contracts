@@ -457,6 +457,19 @@ export const OAUTH_PATHS = {
   authorize: '/oauth/authorize',
   token: '/oauth/token',
   register: '/oauth/register',
+  /**
+   * **One path, both verbs** — `GET` serves the consent page, `POST` accepts a
+   * `consentDecision`. Decided 2026-08-18 rather than left to be inferred:
+   * Eve-W7b asked whether the page's own GET route was this path or another,
+   * which is the right question and had no answer anywhere.
+   *
+   * One entry means the console and the cloud cannot drift apart on it, which
+   * is the failure W7a paid for when five hand-written copies of `assetKind`
+   * and a header name crossed the TypeScript/Python line. Note that the two
+   * verbs answer differently: the page is HTML, and a failed `POST` answers
+   * `apiError` — see the dialect note at the top of this file, which names
+   * this path as the exception the prefix will mislead you about.
+   */
   consent: '/oauth/consent',
   /** The console-built page the cloud serves from its own origin (see §3.4). */
   login: '/login',
