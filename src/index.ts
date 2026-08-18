@@ -274,6 +274,7 @@ export {
   clientPasswordResetRequest,
   passwordResetConfirm,
   idpClaimMapping,
+  idpIssuer,
   idpConfig,
   idpConfigRequest,
 } from './identity.js'
@@ -305,6 +306,7 @@ export type {
   PasswordResetRequest,
   ClientPasswordResetRequest,
   PasswordResetConfirm,
+  IdpIssuer,
   IdpConfig,
   IdpConfigRequest,
 } from './identity.js'

@@ -430,6 +430,54 @@ export const idpClaimMapping = z.object({
 })
 
 /**
+ * An IdP issuer URL — **an attacker-supplied string that decides where the
+ * *server* connects.**
+ *
+ * `redirectUri` in `oauth.ts` got a parsed scheme check and an explicit
+ * loopback allow-list, with the reasoning written down, because it decides
+ * where a *credential* goes. This field got `z.url()` — in the same file, in
+ * the same wave. Argus-W7b found it and stored `file:///etc/passwd`,
+ * `http://169.254.169.254/latest/meta-data` and `http://infra-postgres-1:5432`
+ * through `PUT /api/apps/:id/idp`, then caught the outbound discovery fetch on
+ * a listener he stood up. **That is this project's own question — which rules
+ * have we already written down, and where else do they apply — answered
+ * badly, one field over.**
+ *
+ * **What this shape can decide, it now decides:** http(s) only (so no `file:`,
+ * `gopher:`, `data:`), no credentials in the URL, no fragment, no query. RFC
+ * 8414 §3 builds the discovery URL from the issuer's path, so a query string
+ * there is meaningless and a `@` is a redirect trick.
+ *
+ * **What it cannot decide, stated rather than implied:** it cannot tell
+ * `http://localhost:8081/realms/fleetless-test` — the dev IdP this project
+ * ships — from `http://127.0.0.1:5432`. Both are loopback http. So **this is
+ * not the SSRF defence and must not be mistaken for one.** The defence belongs
+ * at the fetch, in the cloud: refuse loopback, link-local and private ranges
+ * unless something explicitly opts in for development. A schema that quietly
+ * looked sufficient here would be worse than one that says where the real
+ * check has to live.
+ */
+export const idpIssuer = z
+  .url()
+  .max(500)
+  .refine(
+    (v) => {
+      let url: URL
+      try {
+        url = new URL(v)
+      } catch {
+        return false
+      }
+      if (!['http:', 'https:'].includes(url.protocol)) return false
+      if (url.username !== '' || url.password !== '') return false
+      if (url.hash !== '' || url.search !== '') return false
+      return url.hostname.length > 0
+    },
+    { message: 'issuer must be an http(s) URL with no credentials, query or fragment' },
+  )
+export type IdpIssuer = z.infer<typeof idpIssuer>
+
+/**
  * **The linking rule, decided with André on 2026-08-18, and it needs both
  * conditions.**
  *
@@ -449,7 +497,7 @@ export const idpClaimMapping = z.object({
  */
 export const idpConfig = z.object({
   app_id: z.uuid(),
-  issuer: z.url(),
+  issuer: idpIssuer,
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
   claims: idpClaimMapping,
@@ -494,7 +542,7 @@ export type IdpConfig = z.infer<typeof idpConfig>
  */
 export const idpConfigRequest = z
   .object({
-    issuer: z.url(),
+    issuer: idpIssuer,
     client_id: z.string().min(1).max(200),
     client_secret: z.string().min(1).max(500).optional(),
     scopes: z.array(z.string().min(1).max(60)).min(1).max(20),

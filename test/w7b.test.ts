@@ -6,6 +6,7 @@ import {
   dynamicClientRegistrationRequest,
   ERROR_CODES,
   idpConfig,
+  idpIssuer,
   OAUTH_PATHS,
   oauthClient,
   oauthClientRegistration,
@@ -402,5 +403,32 @@ describe('oauthConsentResponse', () => {
     // enough, which is why this exists.
     expect(oauthConsentResponse.safeParse({ redirect_to: 'https://app.example.com/cb?code=x' }).success).toBe(true)
     expect(oauthConsentResponse.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('idpIssuer', () => {
+  it('refuses every scheme that is not http(s)', () => {
+    // Argus-W7b stored all of these through PUT /api/apps/:id/idp and then
+    // caught the outbound discovery fetch on a listener he stood up.
+    for (const bad of ['file:///etc/passwd', 'gopher://x/', 'data:text/plain,x', 'ftp://idp.test/']) {
+      expect(idpIssuer.safeParse(bad).success, bad).toBe(false)
+    }
+  })
+
+  it('refuses credentials, a query and a fragment', () => {
+    // RFC 8414 §3 builds the discovery URL from the issuer's path, so a query
+    // there is meaningless — and a `@` is a redirect trick, not a username.
+    expect(idpIssuer.safeParse('https://user:pw@idp.test/').success).toBe(false)
+    expect(idpIssuer.safeParse('https://idp.test/?x=1').success).toBe(false)
+    expect(idpIssuer.safeParse('https://idp.test/#x').success).toBe(false)
+  })
+
+  it('still accepts the dev IdP, which is the point of the limit below', () => {
+    // This schema CANNOT tell the dev Keycloak from postgres — both are
+    // loopback http. It is not the SSRF defence and the doc comment says so;
+    // this test pins the fact that it deliberately lets this through.
+    expect(idpIssuer.safeParse('http://localhost:8081/realms/fleetless-test').success).toBe(true)
+    expect(idpIssuer.safeParse('http://127.0.0.1:5432').success).toBe(true)
+    expect(idpIssuer.safeParse('https://login.microsoftonline.com/tenant/v2.0').success).toBe(true)
   })
 })
