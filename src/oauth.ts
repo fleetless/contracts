@@ -37,6 +37,12 @@ import { z } from 'zod'
  * because the natural instinct on finding two error formats in one server is
  * to unify them, and doing so silently removes the reason the standard one is
  * there.
+ *
+ * **The split is by audience and the path prefix will mislead you.**
+ * `/oauth/consent` sits under `/oauth/` and is nevertheless an `apiError`
+ * endpoint: it is not in RFC 6749's or RFC 7591's endpoint set, and its only
+ * caller is our own login page. Whoever later sorts these by prefix will move
+ * it, and be wrong. Ask who parses the response, not where it lives.
  */
 export const oauthErrorCode = z.enum([
   'invalid_request',

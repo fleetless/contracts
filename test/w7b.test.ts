@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  app,
   brandingConfig,
   codeChallengeMethod,
   dynamicClientRegistrationRequest,
@@ -9,6 +10,7 @@ import {
   oauthClient,
   oauthClientRegistration,
   redirectUri,
+  updateAppRequest,
 } from '../src/index.js'
 
 /**
@@ -176,5 +178,37 @@ describe('OAUTH_PATHS', () => {
     for (const v of values) expect(v.startsWith('/'), v).toBe(true)
     // Non-vacuity: this test is worthless if the object is ever emptied.
     expect(values.length).toBeGreaterThan(5)
+  })
+})
+
+describe('accepts_dynamic_clients', () => {
+  const base = {
+    id: '00000000-0000-4000-8000-000000000001',
+    org_id: '00000000-0000-4000-8000-000000000002',
+    name: 'Some App',
+    identifier: 'some-app',
+    robot_ids: [],
+    created_at: '2026-08-18T00:00:00.000Z',
+  }
+
+  it('is required on `app` — an unauthenticated write endpoint is not gated by an optional field', () => {
+    // Optional here would mean `undefined` at every reader, and `undefined` is
+    // not `false` until somebody remembers to make it so. The gate is a fact
+    // about the app, so every app states it.
+    expect(app.safeParse(base).success).toBe(false)
+    expect(app.safeParse({ ...base, accepts_dynamic_clients: false }).success).toBe(true)
+  })
+
+  it('can be turned on and off through an update', () => {
+    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: true }).success).toBe(true)
+    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: false }).success).toBe(true)
+    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: 'yes' }).success).toBe(false)
+  })
+
+  it('keeps branding off the app shape', () => {
+    // A logo is up to 256 KiB. If it ever lands on `app`, every app list pays
+    // for it — so this test is the tripwire for that refactor.
+    expect('branding' in app.shape).toBe(false)
+    expect('logo_data_uri' in app.shape).toBe(false)
   })
 })

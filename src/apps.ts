@@ -29,6 +29,22 @@ export const app = z.object({
   identifier: appIdentifier,
   /** Robots are referenced individually; tags never grant rights (§12.2). */
   robot_ids: z.array(z.uuid()),
+  /**
+   * Whether this app accepts **self-registering** OAuth clients (RFC 7591).
+   *
+   * Off by default and per app, because a normal app has no reason to accept
+   * them: its own client is registered by the developer with known redirect
+   * URIs. An MCP app does, because the end user *"trägt nur die URL ein"*
+   * (§17) and the client registers itself — nobody vetted it, and
+   * `POST /oauth/register` is therefore an **unauthenticated write endpoint**
+   * standing in front of tools that move a physical robot.
+   *
+   * The flag is app state rather than a deployment setting so that turning it
+   * on is a decision somebody made about one app, visible in the console and
+   * in the audit log. It is also the precursor of W7c's MCP-App kind — the
+   * model grows here rather than being retrofitted around it.
+   */
+  accepts_dynamic_clients: z.boolean(),
   created_at: z.iso.datetime(),
 })
 export type App = z.infer<typeof app>
@@ -56,12 +72,15 @@ export const createAppRequest = z.object({
   name: z.string().min(1).max(120),
   identifier: appIdentifier,
   robot_ids: z.array(z.uuid()).optional(),
+  /** Optional, defaulting to `false` — same reasoning as `robot_ids` above: setting it at creation is the obvious operation, and refusing it here would make a `.strict()` request reject the field the caller can plainly see on `app`. */
+  accepts_dynamic_clients: z.boolean().optional(),
 }).strict()
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
+  accepts_dynamic_clients: z.boolean().optional(),
 })
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 
@@ -179,6 +198,17 @@ export type AppMembership = z.infer<typeof appMembership>
  * one inside the login page would put developer-supplied script next to a
  * password field. Raster only until somebody sanitises, and sanitising an SVG
  * properly is its own project.
+ */
+/**
+ * Per-app branding for the hosted login page (§3.4). Neutral Fleetless when
+ * absent, which is the default for every app that never configures one.
+ *
+ * **Deliberately not a field on `app`.** A logo is up to 256 KiB, and putting
+ * it on the app shape means every list of apps carries every logo — a cost
+ * nobody asked for, paid on the request that least needs it. It is a
+ * sub-resource of an app, fetched when the login page is served and when the
+ * branding editor opens, and nowhere else. `idpConfig` is separate for the
+ * stronger version of the same reason: it carries secret state.
  */
 export const brandingConfig = z.object({
   /** `#rrggbb`, lowercase — one canonical spelling so two configs that look identical are identical. */
