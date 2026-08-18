@@ -336,6 +336,13 @@ export const ERROR_CODES = [
    */
   'identity_conflict',
   /**
+   * A federated identity arrived that matches no existing end user, and the
+   * app's IdP config has no `default_role_id` — so federation is configured as
+   * a login mechanism, not a signup path. Distinct from `identity_conflict`,
+   * which is the opposite case: the email IS known and linking was declined.
+   */
+  'identity_not_provisioned',
+  /**
    * The developer's IdP could not be reached or its discovery document could
    * not be read. Distinct from `server_error` on purpose — the fault is in a
    * system Fleetless does not run, and the developer is the only one who can

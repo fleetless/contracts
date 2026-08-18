@@ -153,6 +153,7 @@ describe('idpConfig', () => {
       scopes: ['openid', 'email'],
       claims: { subject_claim: 'sub', email_claim: 'email' },
       link_verified_emails: true,
+      default_role_id: null,
       has_client_secret: true,
       updated_at: '2026-08-18T00:00:00.000Z',
     })
@@ -332,5 +333,35 @@ describe('oauthError.fleetless_code', () => {
 
   it('is optional, so an ordinary RFC error needs nothing extra', () => {
     expect(oauthError.safeParse({ error: 'invalid_request' }).success).toBe(true)
+  })
+})
+
+describe('idpConfig.default_role_id', () => {
+  const base = {
+    app_id: '00000000-0000-4000-8000-000000000002',
+    issuer: 'https://idp.example.com',
+    client_id: 'fleetless',
+    scopes: ['openid', 'email'],
+    claims: { subject_claim: 'sub', email_claim: 'email' },
+    link_verified_emails: false,
+    has_client_secret: false,
+    updated_at: '2026-08-18T00:00:00.000Z',
+  }
+
+  it('must be stated, and `null` is a real answer rather than an absent one', () => {
+    // Omitting it would make "federation does not provision" indistinguishable
+    // from "nobody decided yet", and this one governs who gets an account.
+    expect(idpConfig.safeParse(base).success).toBe(false)
+    expect(idpConfig.safeParse({ ...base, default_role_id: null }).success).toBe(true)
+    expect(idpConfig.safeParse({ ...base, default_role_id: '00000000-0000-4000-8000-000000000009' }).success).toBe(true)
+  })
+
+  it('is independent of link_verified_emails — neither implies the other', () => {
+    // One governs an email already known, the other an email that is not.
+    for (const link of [true, false]) {
+      for (const role of [null, '00000000-0000-4000-8000-000000000009']) {
+        expect(idpConfig.safeParse({ ...base, link_verified_emails: link, default_role_id: role }).success).toBe(true)
+      }
+    }
   })
 })

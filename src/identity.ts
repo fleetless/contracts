@@ -454,6 +454,33 @@ export const idpConfig = z.object({
   scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
   claims: idpClaimMapping,
   link_verified_emails: z.boolean(),
+  /**
+   * **Which role a federated identity gets when no account exists yet — and
+   * `null` means federation does not create one.**
+   *
+   * Asked by Nimbus-W7b before building the callback, correctly: `idpConfig`
+   * had no role while `appSelfRegistration` has an explicit one, so a
+   * first-time federated user had no defined rights. Two answers were on the
+   * table — add a role and auto-provision, or make federation a login-only
+   * mechanism for people the developer already invited. **This field is both**,
+   * because forcing the platform to pick one would be a field that cannot
+   * express a distinction, and this wave has already paid for one of those.
+   *
+   * **The default is login-only, and the reason is a back door.** §3.4 calls
+   * federation *Authentifizierung*, not registration; self-registration is a
+   * separate feature with its own enabled flag and domain allow-list, built in
+   * W6c. If federation provisioned unconditionally, a developer who had
+   * deliberately turned self-registration **off** would still be handing out
+   * accounts — through a door they never opened, governed by none of the rules
+   * they set. So provisioning is opt-in: set a role and federation may create
+   * users with it; leave it `null` and an unknown federated identity is
+   * refused with `identity_not_provisioned`.
+   *
+   * Note this is the *other* half of `link_verified_emails`. That one governs
+   * what happens when the email **is** already known; this one governs what
+   * happens when it is not. Neither implies the other.
+   */
+  default_role_id: z.uuid().nullable(),
   /** Never the secret itself — see `idpConfigRequest`. */
   has_client_secret: z.boolean(),
   updated_at: z.iso.datetime(),
