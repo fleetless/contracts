@@ -369,13 +369,26 @@ export const ERROR_CODES = [
   // W7c — the MCP server, and a THIRD dialect on the same process.
   //
   // The correction above is about two dialects; there are now three, and the
-  // MCP endpoint speaks the one that is neither. `/mcp/<app>` answers
-  // **JSON-RPC errors** inside the protocol, and RFC 6750's
-  // `WWW-Authenticate` challenge outside it when a token is missing, wrong or
-  // carries the wrong audience — never `apiError`, never `oauthError`. That
-  // is not an accident of layering: an MCP client is a general-purpose
-  // implementation of somebody else's specification, and a body it cannot
-  // parse is indistinguishable from a broken server.
+  // MCP endpoint speaks the one that is neither. **Inside the protocol** —
+  // once a request is a JSON-RPC message — `/mcp/<app>` answers **JSON-RPC
+  // errors**, never `apiError` and never `oauthError`. An MCP client is a
+  // general-purpose implementation of somebody else's specification, and a
+  // body it cannot parse is indistinguishable from a broken server.
+  //
+  // **This claim was wider than the code in W7c's first version, and Momus-W7c
+  // caught it in the same comment block whose opening sentence is about a
+  // previous comment here misleading somebody.** The five refusals that happen
+  // *before* a bearer token is read — unknown app or MCP off (`404`), no or
+  // bad token (`401`), foreign `Origin` (`403`), `GET`/`DELETE` (`405`),
+  // malformed body (`400`) — are plain HTTP and answer `apiError`, exactly as
+  // every other route does. That is deliberate and it is safe: what a
+  // conforming MCP client reads at that layer is the RFC 6750
+  // `WWW-Authenticate` **header**, which is correct and present, not the body.
+  //
+  // So the rule is about the JSON-RPC layer, and the transport layer below it
+  // is ordinary Fastify. Stating it as "never `apiError` anywhere" was the
+  // kind of tidy sentence that is easier to remember than the truth — and
+  // this file has now produced two of those about itself.
   //
   // So the two codes below appear at the **management** routes only — the
   // console asking about an app or a role. Nothing in `/mcp/<app>` produces

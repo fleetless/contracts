@@ -137,7 +137,24 @@ export const mcpToolPreview = z.object({
   name: z.string().min(1).max(MCP_TOOL_NAME_MAX).regex(mcpToolNamePattern),
   /** The human-readable label — where the robot's actual name goes. */
   title: z.string().min(1).max(200),
-  description: z.string().min(1).max(2000),
+  /**
+   * **Four thousand, not two thousand, and the difference is the point.**
+   *
+   * `serviceDescription` bounds what a *developer writes* at 2000. This bounds
+   * what the *generator produces*, which is that text **plus** what it folds
+   * in — a datapoint's `Unit:` and `Plausible range:`, a camera's fixed
+   * sentence about snapshots. Measured by Kassandra-W7c and Momus-W7c
+   * independently: a maximal description came back at 2036–2068 characters
+   * against a 2000 bound, so the cloud served a document its own contract
+   * rejected — silently, because the route returns a typed literal without
+   * parsing it.
+   *
+   * **Do not "tidy" these two numbers into agreement.** They describe
+   * different things, and making them equal reintroduces the defect: either
+   * the generator truncates a developer's own words, or the response
+   * overflows again. The gap is the room the generator needs.
+   */
+  description: z.string().min(1).max(4000),
   robot_id: z.uuid(),
   slug,
   kind: mcpToolKind,

@@ -19,6 +19,7 @@ import {
   mcpToolPreviewResponse,
   parameterSpec,
   publisherConfig,
+  serviceDescription,
   robotConfigDoc,
   serviceConfig,
   updateAppRequest,
@@ -244,6 +245,39 @@ describe('W7c — the console preview', () => {
   it('every omission reason is a non-empty known string', () => {
     expect(MCP_OMISSION_REASONS.length).toBeGreaterThan(0)
     for (const r of MCP_OMISSION_REASONS) expect(r).toMatch(/^[a-z_]+$/)
+  })
+})
+
+/**
+ * **The two description bounds are related, and the relationship is the
+ * invariant — not either number.** `serviceDescription` bounds what a human
+ * writes; `mcpToolPreview.description` bounds what the generator produces from
+ * it, which is that text plus folded-in unit, range and camera prose. Both
+ * reviewers measured the overflow independently (2036–2068 against a 2000
+ * bound), and the route returns its body without parsing, so the cloud served
+ * a document its own contract rejected and nothing said a word.
+ *
+ * This test exists so the next person who notices "two different maxima, that
+ * looks untidy" finds out why before making them equal.
+ */
+describe('W7c — the generated description has room to be generated in', () => {
+  const humanMax = 2000
+  const generated = mcpToolPreview.shape.description
+
+  it('accepts a maximal human description plus what the generator appends', () => {
+    const appended = ' Unit: %. Plausible range: 0 to 100.'
+    expect(generated.safeParse('x'.repeat(humanMax) + appended).success).toBe(true)
+  })
+
+  it('still refuses something no generator could produce', () => {
+    expect(generated.safeParse('x'.repeat(8000)).success).toBe(false)
+  })
+
+  /** The claim `serviceDescription` itself makes, re-derived rather than read. */
+  it('the human bound really is the smaller of the two', () => {
+    expect(serviceDescription.safeParse('x'.repeat(humanMax)).success).toBe(true)
+    expect(serviceDescription.safeParse('x'.repeat(humanMax + 1)).success).toBe(false)
+    expect(generated.safeParse('x'.repeat(humanMax + 1)).success).toBe(true)
   })
 })
 
