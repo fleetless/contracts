@@ -432,10 +432,26 @@ export type OauthLoginRequest = z.infer<typeof oauthLoginRequest>
  * cannot carry a field-level credential error back to a form, and a flow that
  * answers errors by navigating loses the state the user typed.
  */
-export const oauthLoginResponse = z.object({
+export const oauthRedirectResponse = z.object({
   redirect_to: z.string().min(1).max(2000),
 })
-export type OauthLoginResponse = z.infer<typeof oauthLoginResponse>
+export type OauthRedirectResponse = z.infer<typeof oauthRedirectResponse>
+
+/**
+ * **Two names, one schema, and the duplication is deliberate.** `POST /login`
+ * and `POST /oauth/consent` answer the identical question — *where does the
+ * page go next* — so they are one type; but a consumer reading
+ * `oauthConsentResponse` at a consent call site is reading the endpoint it is
+ * talking to, which is worth more than the saving of one identifier.
+ *
+ * Eve-W7b validated the consent answer against a local schema because no
+ * exported one existed, and **said so** rather than importing something near
+ * enough. That is the gap this closes.
+ */
+export const oauthLoginResponse = oauthRedirectResponse
+export type OauthLoginResponse = OauthRedirectResponse
+export const oauthConsentResponse = oauthRedirectResponse
+export type OauthConsentResponse = OauthRedirectResponse
 
 export const consentDecision = z.object({
   /** The opaque handle the authorize step handed the consent screen. */

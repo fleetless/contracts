@@ -13,6 +13,7 @@ import {
   oauthError,
   idpConfigRequest,
   oauthLoginRequest,
+  oauthConsentResponse,
   oauthTokenRequest,
   oauthTokenResponse,
   redirectUri,
@@ -386,5 +387,15 @@ describe('idpConfigRequest', () => {
     const ok = { ...base, default_role_id: null }
     expect(idpConfigRequest.safeParse({ ...ok, client_secret: 'hunter2' }).success).toBe(true)
     expect(idpConfigRequest.safeParse({ ...ok, has_client_secret: true }).success).toBe(false)
+  })
+})
+
+describe('oauthConsentResponse', () => {
+  it('exists and is the same shape the login page already handles', () => {
+    // A consumer forced to hand-write a schema for a documented response is a
+    // consumer guessing. Eve-W7b said so instead of importing something near
+    // enough, which is why this exists.
+    expect(oauthConsentResponse.safeParse({ redirect_to: 'https://app.example.com/cb?code=x' }).success).toBe(true)
+    expect(oauthConsentResponse.safeParse({}).success).toBe(false)
   })
 })
