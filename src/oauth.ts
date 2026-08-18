@@ -337,6 +337,88 @@ export const consentGrant = z.object({
 })
 export type ConsentGrant = z.infer<typeof consentGrant>
 
+/**
+ * **What the hosted page is told about the request it is serving.**
+ *
+ * `/oauth/authorize` validates the request, stores it server-side and hands
+ * the page an opaque `interaction_id`. Nothing else about the pending request
+ * travels through the browser — not the redirect URI, not the code challenge,
+ * not the client's identity beyond what is displayed. A page that carried
+ * those would let a caller edit them between the two halves of the flow.
+ *
+ * **Injected into the page server-side, exactly like branding, and for the
+ * same reason.** Fetching it would mean a second unauthenticated endpoint that
+ * answers "does this app exist?" for any id somebody tries, and it would
+ * render an empty form for one frame before it knew what it was serving.
+ *
+ * `idp` is `null` when the app has no federation configured. It carries a
+ * label and nothing else: which issuer an app federates to is the developer's
+ * business, not a fact the login page publishes to anyone who opens it.
+ */
+export const oauthInteraction = z.object({
+  interaction_id: z.string().min(1).max(200),
+  app_name: z.string().min(1).max(120),
+  idp: z.object({ button_label: z.string().min(1).max(60) }).nullable(),
+})
+export type OauthInteraction = z.infer<typeof oauthInteraction>
+
+/**
+ * The consent screen's version of the same thing. **Every noun the user is
+ * asked to approve is here**, because `consentGrant` binds all four and a
+ * screen that names fewer than it binds is asking about something other than
+ * what it records.
+ */
+export const oauthConsentInteraction = z.object({
+  interaction_id: z.string().min(1).max(200),
+  app_name: z.string().min(1).max(120),
+  client_name: z.string().min(1).max(200),
+  registration: oauthClientRegistration,
+  role_name: z.string().min(1).max(120),
+  scope: z.string().max(500),
+})
+export type OauthConsentInteraction = z.infer<typeof oauthConsentInteraction>
+
+/**
+ * The credential submission from the hosted page.
+ *
+ * **`interaction_id` instead of `app_identifier`** — the difference from
+ * `clientLoginRequest` is the whole point. The app is a property of the
+ * pending authorization request the server already holds, not something the
+ * page asserts. If the page named the app, a caller could authenticate
+ * against one app and be issued a code for another.
+ *
+ * `.strict()`: a credential endpoint that silently strips is a credential
+ * endpoint that accepts a parameter somebody believes is being honoured.
+ */
+export const oauthLoginRequest = z
+  .object({
+    interaction_id: z.string().min(1).max(200),
+    email: z.email(),
+    password: z.string().min(1),
+  })
+  .strict()
+export type OauthLoginRequest = z.infer<typeof oauthLoginRequest>
+
+/**
+ * Where the page goes next, and this shape is a **redirect the server chose**,
+ * never one the page may be talked into.
+ *
+ * The server emits exactly two kinds of value here: its own consent path, or a
+ * redirect URI already registered for this client with the code appended.
+ * A page must navigate to it and nothing else — in particular it must not fall
+ * back to any URL that arrived in its own query string if this field is
+ * missing, which is how an open redirect gets built by accident on the way to
+ * handling an error.
+ *
+ * JSON rather than a `302` because the page is an application: a redirect
+ * cannot carry a field-level credential error back to a form, and a flow that
+ * answers errors by navigating loses the state the user typed.
+ */
+export const oauthLoginResponse = z.object({
+  redirect_to: z.string().min(1).max(2000),
+})
+export type OauthLoginResponse = z.infer<typeof oauthLoginResponse>
+
 export const consentDecision = z.object({
   /** The opaque handle the authorize step handed the consent screen. */
   interaction_id: z.string().min(1).max(200),

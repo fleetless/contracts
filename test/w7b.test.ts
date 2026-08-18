@@ -9,6 +9,8 @@ import {
   OAUTH_PATHS,
   oauthClient,
   oauthClientRegistration,
+  oauthConsentInteraction,
+  oauthLoginRequest,
   oauthTokenRequest,
   oauthTokenResponse,
   redirectUri,
@@ -284,5 +286,32 @@ describe('the token endpoint', () => {
     expect(oauthTokenResponse.safeParse({ ...ok, expires_in: -1 }).success).toBe(false)
     expect(oauthTokenResponse.safeParse({ ...ok, expires_in: 900.5 }).success).toBe(false)
     expect(oauthTokenResponse.safeParse({ ...ok, token_type: 'bearer' }).success).toBe(false)
+  })
+})
+
+describe('the hosted page handoff', () => {
+  it('does not let the page name the app it is authenticating against', () => {
+    // `clientLoginRequest` carries `app_identifier`; this one must not. The app
+    // is a property of the pending request the server holds. If the page named
+    // it, a caller could authenticate against one app and get a code for
+    // another — and the two shapes are similar enough that somebody will one
+    // day paste one into the other.
+    expect('app_identifier' in oauthLoginRequest.shape).toBe(false)
+    expect('interaction_id' in oauthLoginRequest.shape).toBe(true)
+  })
+
+  it('refuses an extra field rather than stripping it', () => {
+    const ok = { interaction_id: 'i_1', email: 'a@b.test', password: 'x' }
+    expect(oauthLoginRequest.safeParse(ok).success).toBe(true)
+    expect(oauthLoginRequest.safeParse({ ...ok, app_identifier: 'other-app' }).success).toBe(false)
+  })
+
+  it('names on the consent screen every noun the grant binds', () => {
+    // `consentGrant` binds client, app, role and scope. A screen that shows
+    // fewer is asking about something other than what it records.
+    const shown = new Set(Object.keys(oauthConsentInteraction.shape))
+    for (const noun of ['app_name', 'client_name', 'role_name', 'scope']) {
+      expect(shown.has(noun), noun).toBe(true)
+    }
   })
 })
