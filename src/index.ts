@@ -273,6 +273,9 @@ export {
   passwordResetRequest,
   clientPasswordResetRequest,
   passwordResetConfirm,
+  idpClaimMapping,
+  idpConfig,
+  idpConfigRequest,
 } from './identity.js'
 export type {
   OrgMemberRole,
@@ -302,6 +305,8 @@ export type {
   PasswordResetRequest,
   ClientPasswordResetRequest,
   PasswordResetConfirm,
+  IdpConfig,
+  IdpConfigRequest,
 } from './identity.js'
 export {
   appIdentifier,
@@ -314,6 +319,7 @@ export {
   role,
   rolePermissions,
   appMembership,
+  brandingConfig,
 } from './apps.js'
 export type {
   App,
@@ -324,6 +330,7 @@ export type {
   Role,
   RolePermissions,
   AppMembership,
+  BrandingConfig,
 } from './apps.js'
 export {
   clientLoginRequest,
@@ -368,3 +375,31 @@ export { auditActor, auditEvent, auditListResponse } from './audit.js'
 export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
 export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'
 export type { ApiError, ParameterViolation, ParameterInvalidDetails, ErrorCode } from './errors.js'
+export {
+  oauthErrorCode,
+  oauthError,
+  oauthClientRegistration,
+  redirectUri,
+  codeChallengeMethod,
+  oauthClient,
+  dynamicClientRegistrationRequest,
+  dynamicClientRegistrationResponse,
+  authorizationServerMetadata,
+  protectedResourceMetadata,
+  consentGrant,
+  consentDecision,
+  OAUTH_PATHS,
+} from './oauth.js'
+export type {
+  OauthErrorCode,
+  OauthError,
+  OauthClientRegistration,
+  RedirectUri,
+  OauthClient,
+  DynamicClientRegistrationRequest,
+  DynamicClientRegistrationResponse,
+  AuthorizationServerMetadata,
+  ProtectedResourceMetadata,
+  ConsentGrant,
+  ConsentDecision,
+} from './oauth.js'

@@ -413,3 +413,66 @@ export const passwordResetConfirm = z.object({
   new_password: password,
 })
 export type PasswordResetConfirm = z.infer<typeof passwordResetConfirm>
+
+/**
+ * A developer's own OIDC identity provider, configured per app (§3.4:
+ * *"Der Entwickler kann pro App eigene Identity Provider anbinden."*).
+ *
+ * Fleetless is the **relying party** here — the opposite direction from
+ * `oauth.ts`, where it is the authorization server. Both live in the same
+ * end-user identity space and §3.4 requires both to converge: *"Beide Wege
+ * enden im selben Fleetless-Token."*
+ */
+export const idpClaimMapping = z.object({
+  /** Which claim is the stable identity. `sub` unless the developer knows better. */
+  subject_claim: z.string().min(1).max(100).default('sub'),
+  email_claim: z.string().min(1).max(100).default('email'),
+})
+
+/**
+ * **The linking rule, decided with André on 2026-08-18, and it needs both
+ * conditions.**
+ *
+ * When a federated login asserts an email that already belongs to an
+ * integrated user of the same app, the accounts are joined **only if** the IdP
+ * says `email_verified` **and** the developer set this flag. Otherwise a
+ * separate identity is created.
+ *
+ * Either condition alone is account takeover. Without `email_verified`, an IdP
+ * that lets anyone type any address into a profile hands over every existing
+ * account with a matching one. Without the flag, a developer who connects an
+ * IdP for a *subset* of their users silently merges strangers.
+ *
+ * **The three outcomes must stay distinguishable** — off, on-and-verified,
+ * on-and-unverified — because a rule with two conditions that produces two
+ * outcomes has stopped reading one of them.
+ */
+export const idpConfig = z.object({
+  app_id: z.uuid(),
+  issuer: z.url(),
+  client_id: z.string().min(1).max(200),
+  scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
+  claims: idpClaimMapping,
+  link_verified_emails: z.boolean(),
+  /** Never the secret itself — see `idpConfigRequest`. */
+  has_client_secret: z.boolean(),
+  updated_at: z.iso.datetime(),
+})
+export type IdpConfig = z.infer<typeof idpConfig>
+
+/**
+ * `.strict()`, and the secret is write-only: it goes in here and never comes
+ * back out of `idpConfig`. Same shape as the server key (§3.4) — a secret a
+ * response can return is a secret in every log that ever captured a response.
+ */
+export const idpConfigRequest = z
+  .object({
+    issuer: z.url(),
+    client_id: z.string().min(1).max(200),
+    client_secret: z.string().min(1).max(500).optional(),
+    scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
+    claims: idpClaimMapping.optional(),
+    link_verified_emails: z.boolean(),
+  })
+  .strict()
+export type IdpConfigRequest = z.infer<typeof idpConfigRequest>

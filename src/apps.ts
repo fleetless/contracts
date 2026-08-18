@@ -158,3 +158,41 @@ export const appMembership = z.object({
   role_id: z.uuid(),
 })
 export type AppMembership = z.infer<typeof appMembership>
+
+/**
+ * Per-app branding for the hosted login page (André, 2026-08-18).
+ *
+ * **Neutral Fleetless is the default and the absence of this object means
+ * exactly that** — there is no "unbranded" state to distinguish from "not
+ * configured", so nothing here is nullable-with-a-meaning.
+ *
+ * **Why the logo is a bounded data URI and not a URL or an asset.** Three
+ * options existed and two are worse. The asset store is robot-scoped; giving
+ * it an app scope is a subsystem nobody asked for in this wave. An external
+ * URL means the page that collects credentials makes an outbound request to a
+ * host the developer controls — a CSP hole and a beacon on every login
+ * attempt, on the most security-sensitive page the platform serves. So the
+ * bytes travel in the config, bounded.
+ *
+ * **SVG is refused, and that is not an oversight.** An SVG is a script host:
+ * it can carry `<script>`, `onload` handlers and foreign objects. Rendering
+ * one inside the login page would put developer-supplied script next to a
+ * password field. Raster only until somebody sanitises, and sanitising an SVG
+ * properly is its own project.
+ */
+export const brandingConfig = z.object({
+  /** `#rrggbb`, lowercase — one canonical spelling so two configs that look identical are identical. */
+  primary_color: z.string().regex(/^#[0-9a-f]{6}$/, 'primary_color must be lowercase #rrggbb'),
+  /**
+   * 256 KiB of raw image at most. Base64 costs 4 bytes per 3, so the encoded
+   * ceiling is stated here in encoded characters — the unit the validator can
+   * actually count, rather than one it would have to infer.
+   */
+  logo_data_uri: z
+    .string()
+    .max(349_528)
+    .regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/, 'logo must be a base64 data URI of image/png or image/jpeg')
+    .optional(),
+  footer_text: z.string().min(1).max(200).optional(),
+})
+export type BrandingConfig = z.infer<typeof brandingConfig>

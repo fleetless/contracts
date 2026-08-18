@@ -293,5 +293,43 @@ export const ERROR_CODES = [
    * cannot be read without the limit.
    */
   'asset_too_large',
+  // W7b — the hosted authorization server.
+  //
+  // These are the *management*-side codes only. The OAuth endpoints themselves
+  // answer in RFC 6749's own error shape (`oauthErrorCode` in `oauth.ts`),
+  // because that is what a standard client parses; see the note there before
+  // being tempted to unify the two.
+  //
+  // Every code below has a producer landing in this same wave. W6b's lesson:
+  // an enum value with no producer is precisely the defect that wave was
+  // cataloguing, and a teammate was right to refuse to add one.
+  /**
+   * The app has not opted in to dynamic client registration. A normal app has
+   * no reason to accept self-registering clients, so the flag is off by
+   * default and this is the answer — distinct from `forbidden`, because it
+   * tells the *developer* something actionable about their own app rather
+   * than telling a stranger what exists.
+   */
+  'dynamic_registration_disabled',
+  /**
+   * The per-app ceiling on dynamically-registered clients is reached. Carries
+   * both numbers for the same reason `asset_too_large` does.
+   */
+  'client_limit_reached',
+  /**
+   * A federated identity asserts an email that already belongs to an
+   * integrated user, and the conditions for linking them are not both met
+   * (see `idpConfig.link_verified_emails`). Deliberately not `email_taken`:
+   * that one answers a registration attempt, this one answers a *login* that
+   * cannot safely be told which account it nearly reached.
+   */
+  'identity_conflict',
+  /**
+   * The developer's IdP could not be reached or its discovery document could
+   * not be read. Distinct from `server_error` on purpose — the fault is in a
+   * system Fleetless does not run, and the developer is the only one who can
+   * fix it.
+   */
+  'idp_unavailable',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
