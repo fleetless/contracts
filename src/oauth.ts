@@ -496,6 +496,26 @@ export const OAUTH_PATHS = {
    */
   consent: '/oauth/consent',
   /**
+   * The two federation legs. **Server-owned redirect targets a client never
+   * constructs** — the same category as `authorize`, `token` and `register`,
+   * and the reason they belong here rather than as literals.
+   *
+   * Kassandra-W7b found `/oauth/idp-start` written as a literal in
+   * `cloud/src/routes/oauth-federation.ts` **and** in
+   * `console/oauth-pages/login/src/App.vue` — two repos agreeing on a string
+   * with nothing shared between them. Worse than the `/idp` versus
+   * `/idp-config` mismatch this wave already met, because the console half
+   * ships as a **committed artifact**: the drift would survive a re-pin and an
+   * install, and the symptom is a federation button that navigates to a 404,
+   * invisible to both suites.
+   *
+   * `OAUTH_PATHS` was created in this wave with a doc comment citing W7a's
+   * five hand-written copies of `assetKind`. The rule was applied to `login`
+   * and `consent` and stopped there.
+   */
+  idpStart: '/oauth/idp-start',
+  idpCallback: '/oauth/idp-callback',
+  /**
    * The console-built page the cloud serves from its own origin (see §3.4) —
    * and, like `consent` above, **one path with both verbs**: `GET` serves the
    * page, `POST` accepts an `oauthLoginRequest` and answers an
