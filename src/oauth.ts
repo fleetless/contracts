@@ -206,6 +206,79 @@ export const dynamicClientRegistrationResponse = z.object({
 })
 export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegistrationResponse>
 
+/**
+ * `POST /oauth/token`, both grants, as a discriminated union.
+ *
+ * **`resource` is on the refresh grant too, and that is the point of writing
+ * this down.** RFC 8707 binds an access token to an audience; a refresh that
+ * cannot carry the resource forward mints a successor with no `aud`, and the
+ * validating resource then refuses a token the caller obtained legitimately.
+ * The failure lands one token lifetime after a login that worked, on somebody
+ * who did nothing wrong — which is the hardest kind of report to act on. The
+ * field being present in the type is not the fix; **preserving the audience
+ * across rotation is the fix**, and the type is here so the omission has to be
+ * deliberate rather than silent.
+ *
+ * `code_verifier`'s bounds are RFC 7636 §4.1's, charset included. A verifier
+ * is compared, not parsed, so a length nobody checks is a length an attacker
+ * chooses.
+ *
+ * **These branches are deliberately not `.strict()`**, unlike
+ * `dynamicClientRegistrationRequest` above, and the difference is the caller.
+ * A registration request comes from a client we are about to trust and an
+ * unknown key there is a caller assuming a feature into existence. A token
+ * request comes from any RFC-compliant client, which may legitimately send
+ * parameters this server does not read — refusing those would be a
+ * conformance bug. The consequence is worth stating because it bit the test
+ * for this very schema: unknown keys are **stripped**, so `safeParse().success`
+ * cannot tell a present field from an absent one. Assert on the parsed value.
+ */
+export const oauthTokenRequest = z.discriminatedUnion('grant_type', [
+  z.object({
+    grant_type: z.literal('authorization_code'),
+    code: z.string().min(1).max(500),
+    redirect_uri: redirectUri,
+    client_id: z.string().min(1).max(200),
+    code_verifier: z.string().regex(/^[A-Za-z0-9\-._~]{43,128}$/, 'code_verifier must be 43-128 unreserved characters (RFC 7636 §4.1)'),
+    resource: z.url().optional(),
+  }),
+  z.object({
+    grant_type: z.literal('refresh_token'),
+    refresh_token: z.string().min(1).max(500),
+    client_id: z.string().min(1).max(200),
+    resource: z.url().optional(),
+    /** RFC 6749 §6 — a refresh may narrow scope, never widen it. */
+    scope: z.string().max(500).optional(),
+  }),
+])
+export type OauthTokenRequest = z.infer<typeof oauthTokenRequest>
+
+/**
+ * RFC 6749 §5.1's success envelope — **the second deliberate dialect, and this
+ * one is a success shape rather than an error shape.**
+ *
+ * The values inside are the same tokens `/api/client/login` mints; only the
+ * envelope differs, because an RFC-compliant client parses this one and knows
+ * nothing about Fleetless. So a consumer holding this **normalises it into
+ * `sessionTokens` and stores that** — it does not carry the envelope around.
+ * Written here rather than invented once in the cloud and once in the SDK,
+ * which is how two implementations of one wire shape start disagreeing.
+ *
+ * `token_type` is `Bearer` as a literal because it is what this server emits.
+ * RFC 6749 §5.1 makes the value case-insensitive **for a client reading it**;
+ * that leniency belongs in a parser we do not own, not in the shape we
+ * produce.
+ */
+export const oauthTokenResponse = z.object({
+  access_token: z.string().min(1),
+  token_type: z.literal('Bearer'),
+  /** Seconds, per RFC 6749 §5.1 — not a timestamp, and not milliseconds. */
+  expires_in: z.number().int().positive(),
+  refresh_token: z.string().min(1).optional(),
+  scope: z.string().max(500).optional(),
+})
+export type OauthTokenResponse = z.infer<typeof oauthTokenResponse>
+
 /** RFC 8414 §2 — the document a client reads *instead of* being told anything. */
 export const authorizationServerMetadata = z.object({
   issuer: z.url(),

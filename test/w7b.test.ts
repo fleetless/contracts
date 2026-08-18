@@ -9,6 +9,8 @@ import {
   OAUTH_PATHS,
   oauthClient,
   oauthClientRegistration,
+  oauthTokenRequest,
+  oauthTokenResponse,
   redirectUri,
   updateAppRequest,
 } from '../src/index.js'
@@ -210,5 +212,77 @@ describe('accepts_dynamic_clients', () => {
     // for it — so this test is the tripwire for that refactor.
     expect('branding' in app.shape).toBe(false)
     expect('logo_data_uri' in app.shape).toBe(false)
+  })
+})
+
+describe('the token endpoint', () => {
+  const code = {
+    grant_type: 'authorization_code' as const,
+    code: 'c_xyz',
+    redirect_uri: 'https://app.example.com/cb',
+    client_id: 'c_abc',
+    code_verifier: 'a'.repeat(43),
+  }
+
+  it('accepts both grants and refuses a third', () => {
+    expect(oauthTokenRequest.safeParse(code).success).toBe(true)
+    expect(
+      oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r', client_id: 'c_abc' }).success,
+    ).toBe(true)
+    // OAuth 2.1 removes the password grant. A union that admits it is a union
+    // that will be handed one.
+    expect(
+      oauthTokenRequest.safeParse({ grant_type: 'password', username: 'a', password: 'b', client_id: 'c_abc' }).success,
+    ).toBe(false)
+  })
+
+  it('bounds code_verifier at both ends and by charset (RFC 7636 §4.1)', () => {
+    // A verifier is compared, not parsed — an unbounded length is a length the
+    // attacker picks.
+    expect(oauthTokenRequest.safeParse({ ...code, code_verifier: 'a'.repeat(42) }).success).toBe(false)
+    expect(oauthTokenRequest.safeParse({ ...code, code_verifier: 'a'.repeat(129) }).success).toBe(false)
+    expect(oauthTokenRequest.safeParse({ ...code, code_verifier: `${'a'.repeat(42)}+` }).success).toBe(false)
+  })
+
+  it('lets both grants carry a resource, so an audience can survive rotation', () => {
+    // The refresh half is the one that matters: without it a refreshed token
+    // silently loses its `aud` and the validating resource refuses a token the
+    // caller obtained legitimately.
+    //
+    // **Asserted on the parsed value, not on `.success`.** These branches are
+    // not `.strict()` — deliberately, because RFC 6749 lets a conformant
+    // client send parameters we do not read. So an unknown key is *stripped*
+    // and the parse still succeeds: a `.success` assertion here would pass
+    // just as happily against a schema with no `resource` field at all. It
+    // did, when this test was first written, and dropping the field from the
+    // refresh branch changed nothing about the result.
+    const R = 'https://api.example.com/mcp/x'
+    const fromCode = oauthTokenRequest.parse({ ...code, resource: R })
+    expect(fromCode.resource).toBe(R)
+    const fromRefresh = oauthTokenRequest.parse({
+      grant_type: 'refresh_token',
+      refresh_token: 'r',
+      client_id: 'c_abc',
+      resource: R,
+    })
+    expect(fromRefresh.resource).toBe(R)
+  })
+
+  it('lets a refresh narrow its scope, which RFC 6749 §6 permits', () => {
+    const parsed = oauthTokenRequest.parse({
+      grant_type: 'refresh_token',
+      refresh_token: 'r',
+      client_id: 'c_abc',
+      scope: 'read',
+    })
+    expect(parsed.scope).toBe('read')
+  })
+
+  it('states expires_in in seconds and refuses a timestamp-shaped value', () => {
+    const ok = { access_token: 'a', token_type: 'Bearer', expires_in: 900 }
+    expect(oauthTokenResponse.safeParse(ok).success).toBe(true)
+    expect(oauthTokenResponse.safeParse({ ...ok, expires_in: -1 }).success).toBe(false)
+    expect(oauthTokenResponse.safeParse({ ...ok, expires_in: 900.5 }).success).toBe(false)
+    expect(oauthTokenResponse.safeParse({ ...ok, token_type: 'bearer' }).success).toBe(false)
   })
 })
