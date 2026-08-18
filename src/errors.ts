@@ -337,7 +337,7 @@ export const ERROR_CODES = [
   'identity_conflict',
   /**
    * **A federated login that got as far as an identity and found no route into
-   * this app** — and the app's IdP config has no `default_role_id`, so
+   * this app** — and the app's `selfRegistration` does not admit them, so
    * federation here is a login mechanism rather than a signup path.
    *
    * Two shapes reach it, and the name is about the outcome rather than about
@@ -346,7 +346,8 @@ export const ERROR_CODES = [
    *   1. No existing end user matches at all.
    *   2. One matches **and was approved to link** (`link_verified_emails` and
    *      `email_verified` both true) but holds no membership in *this* app,
-   *      and none may be created.
+   *      and `selfRegistration` does not admit them either — disabled, or
+   *      their address is outside the app's domain list.
    *
    * The second was found by Nimbus-W7b while giving these codes their
    * producers, and the first version of this comment did not cover it — it

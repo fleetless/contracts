@@ -7,6 +7,7 @@ import {
   ERROR_CODES,
   idpConfig,
   idpIssuer,
+  selfRegistration,
   OAUTH_PATHS,
   oauthClient,
   oauthClientRegistration,
@@ -161,7 +162,6 @@ describe('idpConfig', () => {
       scopes: ['openid', 'email'],
       claims: { subject_claim: 'sub', email_claim: 'email' },
       link_verified_emails: true,
-      default_role_id: null,
       has_client_secret: true,
       updated_at: '2026-08-18T00:00:00.000Z',
     })
@@ -344,36 +344,6 @@ describe('oauthError.fleetless_code', () => {
   })
 })
 
-describe('idpConfig.default_role_id', () => {
-  const base = {
-    app_id: '00000000-0000-4000-8000-000000000002',
-    issuer: 'https://idp.example.com',
-    client_id: 'fleetless',
-    scopes: ['openid', 'email'],
-    claims: { subject_claim: 'sub', email_claim: 'email' },
-    link_verified_emails: false,
-    has_client_secret: false,
-    updated_at: '2026-08-18T00:00:00.000Z',
-  }
-
-  it('must be stated, and `null` is a real answer rather than an absent one', () => {
-    // Omitting it would make "federation does not provision" indistinguishable
-    // from "nobody decided yet", and this one governs who gets an account.
-    expect(idpConfig.safeParse(base).success).toBe(false)
-    expect(idpConfig.safeParse({ ...base, default_role_id: null }).success).toBe(true)
-    expect(idpConfig.safeParse({ ...base, default_role_id: '00000000-0000-4000-8000-000000000009' }).success).toBe(true)
-  })
-
-  it('is independent of link_verified_emails — neither implies the other', () => {
-    // One governs an email already known, the other an email that is not.
-    for (const link of [true, false]) {
-      for (const role of [null, '00000000-0000-4000-8000-000000000009']) {
-        expect(idpConfig.safeParse({ ...base, link_verified_emails: link, default_role_id: role }).success).toBe(true)
-      }
-    }
-  })
-})
-
 describe('idpConfigRequest', () => {
   const base = {
     issuer: 'https://idp.example.com',
@@ -385,12 +355,11 @@ describe('idpConfigRequest', () => {
   it('can set every field `idpConfig` can show', () => {
     // A field a response exposes and a request cannot set is a field nobody
     // can turn on. This happened twice in one wave; the test is the guard.
-    expect(idpConfigRequest.safeParse(base).success).toBe(false)
-    expect(idpConfigRequest.safeParse({ ...base, default_role_id: null }).success).toBe(true)
+    expect(idpConfigRequest.safeParse(base).success).toBe(true)
   })
 
   it('keeps the secret write-only and refuses unknown keys', () => {
-    const ok = { ...base, default_role_id: null }
+    const ok = { ...base }
     expect(idpConfigRequest.safeParse({ ...ok, client_secret: 'hunter2' }).success).toBe(true)
     expect(idpConfigRequest.safeParse({ ...ok, has_client_secret: true }).success).toBe(false)
   })
@@ -430,5 +399,23 @@ describe('idpIssuer', () => {
     expect(idpIssuer.safeParse('http://localhost:8081/realms/fleetless-test').success).toBe(true)
     expect(idpIssuer.safeParse('http://127.0.0.1:5432').success).toBe(true)
     expect(idpIssuer.safeParse('https://login.microsoftonline.com/tenant/v2.0').success).toBe(true)
+  })
+})
+
+describe('one self-registration policy, not two', () => {
+  it('idpConfig carries no role of its own', () => {
+    // W7b briefly had `default_role_id` here — a weaker copy of
+    // `selfRegistration` that the federated path read while reading none of
+    // the app's actual policy, so a developer who had turned self-registration
+    // off still handed out accounts through the federated door. Removed
+    // 2026-08-18. This test is the tripwire for it coming back.
+    expect('default_role_id' in idpConfig.shape).toBe(false)
+    expect('default_role_id' in idpConfigRequest.shape).toBe(false)
+  })
+
+  it('selfRegistration still carries all four controls the decision needs', () => {
+    for (const field of ['enabled', 'all_domains', 'domains', 'role_id']) {
+      expect(field in selfRegistration.shape, field).toBe(true)
+    }
   })
 })

@@ -268,6 +268,30 @@ export type TierRequiredDetails = z.infer<typeof tierRequiredDetails>
  * make at 2 a.m. §3.2's "wahlweise für alle E-Mail-Domains" is expressed by
  * `all_domains: true`, not by an empty list.
  */
+/**
+ * **The app's one answer to "somebody without a membership just showed up",
+ * and it governs both login paths.**
+ *
+ * W7b briefly had a second: `idpConfig.default_role_id`, added on 2026-08-18
+ * so a first-time *federated* identity had a defined role. It was a weaker
+ * copy of this — a role and nothing else, no enabled flag beyond null-or-not,
+ * no domain rule — and the federated path read it while reading none of this.
+ * So a developer who had deliberately turned self-registration **off**, or
+ * limited it to their own domain, had neither honoured on the federated side.
+ *
+ * That is precisely the back door the same day's reasoning had argued
+ * against — *"a developer who had turned self-registration off would still be
+ * handing out accounts through a door they never opened"* — and the lead
+ * closed that door and then built a second one beside it instead of pointing
+ * the first at both paths. **Found by André asking the question that made it
+ * obvious: in which constellation does self-registration even happen, when
+ * the developer invites proactively and assigns the role?**
+ *
+ * Removed on 2026-08-18. One policy, one screen, both paths. A federated
+ * identity with no membership is admitted exactly when an integrated one
+ * would be, by the same flag, the same domain list and the same role — and
+ * refused with `identity_not_provisioned` otherwise.
+ */
 export const selfRegistration = z.object({
   enabled: z.boolean(),
   /**
@@ -502,33 +526,6 @@ export const idpConfig = z.object({
   scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
   claims: idpClaimMapping,
   link_verified_emails: z.boolean(),
-  /**
-   * **Which role a federated identity gets when no account exists yet — and
-   * `null` means federation does not create one.**
-   *
-   * Asked by Nimbus-W7b before building the callback, correctly: `idpConfig`
-   * had no role while `appSelfRegistration` has an explicit one, so a
-   * first-time federated user had no defined rights. Two answers were on the
-   * table — add a role and auto-provision, or make federation a login-only
-   * mechanism for people the developer already invited. **This field is both**,
-   * because forcing the platform to pick one would be a field that cannot
-   * express a distinction, and this wave has already paid for one of those.
-   *
-   * **The default is login-only, and the reason is a back door.** §3.4 calls
-   * federation *Authentifizierung*, not registration; self-registration is a
-   * separate feature with its own enabled flag and domain allow-list, built in
-   * W6c. If federation provisioned unconditionally, a developer who had
-   * deliberately turned self-registration **off** would still be handing out
-   * accounts — through a door they never opened, governed by none of the rules
-   * they set. So provisioning is opt-in: set a role and federation may create
-   * users with it; leave it `null` and an unknown federated identity is
-   * refused with `identity_not_provisioned`.
-   *
-   * Note this is the *other* half of `link_verified_emails`. That one governs
-   * what happens when the email **is** already known; this one governs what
-   * happens when it is not. Neither implies the other.
-   */
-  default_role_id: z.uuid().nullable(),
   /** Never the secret itself — see `idpConfigRequest`. */
   has_client_secret: z.boolean(),
   updated_at: z.iso.datetime(),
@@ -548,16 +545,6 @@ export const idpConfigRequest = z
     scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
     claims: idpClaimMapping.optional(),
     link_verified_emails: z.boolean(),
-    /**
-     * **Required on the write side too, because a field a response can show
-     * and a request cannot set is a field nobody can turn on.** `idpConfig`
-     * gained `default_role_id` and this schema did not — the same gap as
-     * `accepts_dynamic_clients` one commit earlier, found the same way, by
-     * Nimbus-W7b reading the diff before building against it rather than after.
-     * Twice in one wave is a pattern: **when a field lands on a response
-     * shape, check its request shape in the same edit.**
-     */
-    default_role_id: z.uuid().nullable(),
   })
   .strict()
 export type IdpConfigRequest = z.infer<typeof idpConfigRequest>
