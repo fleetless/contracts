@@ -336,10 +336,26 @@ export const ERROR_CODES = [
    */
   'identity_conflict',
   /**
-   * A federated identity arrived that matches no existing end user, and the
-   * app's IdP config has no `default_role_id` — so federation is configured as
-   * a login mechanism, not a signup path. Distinct from `identity_conflict`,
-   * which is the opposite case: the email IS known and linking was declined.
+   * **A federated login that got as far as an identity and found no route into
+   * this app** — and the app's IdP config has no `default_role_id`, so
+   * federation here is a login mechanism rather than a signup path.
+   *
+   * Two shapes reach it, and the name is about the outcome rather than about
+   * which one:
+   *
+   *   1. No existing end user matches at all.
+   *   2. One matches **and was approved to link** (`link_verified_emails` and
+   *      `email_verified` both true) but holds no membership in *this* app,
+   *      and none may be created.
+   *
+   * The second was found by Nimbus-W7b while giving these codes their
+   * producers, and the first version of this comment did not cover it — it
+   * described case 1 as though it were the definition. **Widened rather than
+   * given a code of its own**: to the caller both are one remedy, *ask
+   * somebody to grant you access to this app*, and a code that splits an
+   * outcome the caller cannot act on differently is a distinction paid for and
+   * never used. `identity_conflict` stays separate precisely because its
+   * remedy is different — *sign in the way you signed up*.
    */
   'identity_not_provisioned',
   /**
