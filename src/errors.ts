@@ -295,10 +295,21 @@ export const ERROR_CODES = [
   'asset_too_large',
   // W7b — the hosted authorization server.
   //
-  // These are the *management*-side codes only. The OAuth endpoints themselves
-  // answer in RFC 6749's own error shape (`oauthErrorCode` in `oauth.ts`),
-  // because that is what a standard client parses; see the note there before
-  // being tempted to unify the two.
+  // **This comment was wrong in its first form and a teammate followed it
+  // faithfully into a conformance bug.** It said these were "management-side
+  // codes only" and then listed two whose only producer is `/oauth/register`,
+  // which is an OAuth endpoint. Read literally — correctly — that instructs
+  // you to answer a *standard* client with an `apiError` body it cannot parse.
+  //
+  // The rule is unchanged and the placement of these two was the error: the
+  // OAuth endpoints answer in RFC 6749's own error shape, always, including
+  // their policy refusals. The Fleetless reason rides along in
+  // `oauthError.fleetless_code`, so `error` stays what a standard client reads
+  // and the distinction between "not opted in" and "ceiling full" survives.
+  //
+  // These codes therefore appear in BOTH places by design: as the value of
+  // `fleetless_code` inside an RFC envelope at `/oauth/register`, and as an
+  // ordinary `apiError` code at the developer-facing management routes.
   //
   // Every code below has a producer landing in this same wave. W6b's lesson:
   // an enum value with no producer is precisely the defect that wave was

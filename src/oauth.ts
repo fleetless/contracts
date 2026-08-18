@@ -64,6 +64,24 @@ export const oauthError = z.object({
   error_description: z.string().min(1).max(500).optional(),
   /** Echoed back per RFC 6749 §4.1.2.1 so a client can match the response. */
   state: z.string().min(1).max(500).optional(),
+  /**
+   * **A Fleetless reason carried inside a standard envelope, and it exists
+   * because the alternative lost a distinction.**
+   *
+   * Two policy refusals at `/oauth/register` — the app has not opted in, and
+   * the app's client ceiling is full — both map to RFC 6749's `access_denied`,
+   * which is the honest standard code for either. Answering with only that
+   * makes the two indistinguishable to the caller, and *a field that cannot
+   * express a distinction produces a workaround somewhere else*. Answering in
+   * `apiError` instead would keep the distinction and hand an RFC-compliant
+   * client a body it cannot parse — which is the conformance this wave exists
+   * to provide.
+   *
+   * So both: `error` is what a standard client reads, `fleetless_code` is what
+   * our own tooling switches on. RFC 6749 §5.2 permits additional members, and
+   * a client that ignores this one still behaves correctly.
+   */
+  fleetless_code: z.string().min(1).max(60).optional(),
 })
 export type OauthError = z.infer<typeof oauthError>
 

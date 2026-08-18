@@ -10,6 +10,7 @@ import {
   oauthClient,
   oauthClientRegistration,
   oauthConsentInteraction,
+  oauthError,
   oauthLoginRequest,
   oauthTokenRequest,
   oauthTokenResponse,
@@ -313,5 +314,23 @@ describe('the hosted page handoff', () => {
     for (const noun of ['app_name', 'client_name', 'role_name', 'scope']) {
       expect(shown.has(noun), noun).toBe(true)
     }
+  })
+})
+
+describe('oauthError.fleetless_code', () => {
+  it('keeps two policy refusals distinguishable inside one standard code', () => {
+    // Both map to `access_denied`, which is the honest RFC code for either.
+    // Without the extra member the caller cannot tell them apart — the exact
+    // shape W7a paid for with `failed` as a flat string[].
+    const disabled = oauthError.parse({
+      error: 'access_denied', fleetless_code: 'dynamic_registration_disabled',
+    })
+    const full = oauthError.parse({ error: 'access_denied', fleetless_code: 'client_limit_reached' })
+    expect(disabled.error).toBe(full.error)
+    expect(disabled.fleetless_code).not.toBe(full.fleetless_code)
+  })
+
+  it('is optional, so an ordinary RFC error needs nothing extra', () => {
+    expect(oauthError.safeParse({ error: 'invalid_request' }).success).toBe(true)
   })
 })
