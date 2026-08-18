@@ -471,6 +471,21 @@ export const OAUTH_PATHS = {
    * this path as the exception the prefix will mislead you about.
    */
   consent: '/oauth/consent',
-  /** The console-built page the cloud serves from its own origin (see §3.4). */
+  /**
+   * The console-built page the cloud serves from its own origin (see §3.4) —
+   * and, like `consent` above, **one path with both verbs**: `GET` serves the
+   * page, `POST` accepts an `oauthLoginRequest` and answers an
+   * `oauthLoginResponse`.
+   *
+   * Decided 2026-08-18. Nimbus-W7b proposed a separate `POST /oauth/login`,
+   * which would work; one path is chosen for the same reason `consent` has
+   * one — the page posts to its own URL, so there is no second string for two
+   * repos to disagree about, and this wave has already produced one live
+   * mismatch of exactly that kind (`/idp` versus `/idp-config`, caught by
+   * comparing repos rather than by either suite).
+   *
+   * A failed `POST` answers `apiError`, not `oauthError`: the caller is our own
+   * page, not a standard client. See the dialect note at the top of this file.
+   */
   login: '/login',
 } as const

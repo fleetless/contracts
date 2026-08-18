@@ -500,6 +500,16 @@ export const idpConfigRequest = z
     scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
     claims: idpClaimMapping.optional(),
     link_verified_emails: z.boolean(),
+    /**
+     * **Required on the write side too, because a field a response can show
+     * and a request cannot set is a field nobody can turn on.** `idpConfig`
+     * gained `default_role_id` and this schema did not — the same gap as
+     * `accepts_dynamic_clients` one commit earlier, found the same way, by
+     * Nimbus-W7b reading the diff before building against it rather than after.
+     * Twice in one wave is a pattern: **when a field lands on a response
+     * shape, check its request shape in the same edit.**
+     */
+    default_role_id: z.uuid().nullable(),
   })
   .strict()
 export type IdpConfigRequest = z.infer<typeof idpConfigRequest>

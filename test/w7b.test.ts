@@ -11,6 +11,7 @@ import {
   oauthClientRegistration,
   oauthConsentInteraction,
   oauthError,
+  idpConfigRequest,
   oauthLoginRequest,
   oauthTokenRequest,
   oauthTokenResponse,
@@ -363,5 +364,27 @@ describe('idpConfig.default_role_id', () => {
         expect(idpConfig.safeParse({ ...base, link_verified_emails: link, default_role_id: role }).success).toBe(true)
       }
     }
+  })
+})
+
+describe('idpConfigRequest', () => {
+  const base = {
+    issuer: 'https://idp.example.com',
+    client_id: 'fleetless',
+    scopes: ['openid', 'email'],
+    link_verified_emails: false,
+  }
+
+  it('can set every field `idpConfig` can show', () => {
+    // A field a response exposes and a request cannot set is a field nobody
+    // can turn on. This happened twice in one wave; the test is the guard.
+    expect(idpConfigRequest.safeParse(base).success).toBe(false)
+    expect(idpConfigRequest.safeParse({ ...base, default_role_id: null }).success).toBe(true)
+  })
+
+  it('keeps the secret write-only and refuses unknown keys', () => {
+    const ok = { ...base, default_role_id: null }
+    expect(idpConfigRequest.safeParse({ ...ok, client_secret: 'hunter2' }).success).toBe(true)
+    expect(idpConfigRequest.safeParse({ ...ok, has_client_secret: true }).success).toBe(false)
   })
 })
