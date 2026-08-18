@@ -150,7 +150,15 @@ export const redirectUri = z
       // Loopback http is allowed because a native app cannot hold a
       // certificate; `localhost` and the literal addresses only, never an
       // arbitrary host that merely resolves there.
-      if (url.protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(url.host.split(':')[0] ?? '')
+      //
+      // **`url.hostname`, not `url.host.split(':')[0]`.** The first version
+      // split on `:` to drop the port — which works for `127.0.0.1:8080` and
+      // yields `"["` for `[::1]:8080`, because an IPv6 literal is *made of*
+      // colons. So `[::1]` never matched the allow-list it is named in, in any
+      // spelling, while two developer-facing messages went on saying it was
+      // permitted. Found by Momus-W7b, reproduced against the live server.
+      // `hostname` already strips the port and keeps the brackets.
+      if (url.protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
       return false
     },
     { message: 'redirect_uri must be an https URL, or http on an explicit loopback address, and carry no fragment' },

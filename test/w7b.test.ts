@@ -35,6 +35,11 @@ describe('redirectUri', () => {
       'https://app.example.com/cb?x=1',
       'http://localhost:3000/cb',
       'http://127.0.0.1:8080/cb',
+      // IPv6 loopback, both spellings. These were refused by every earlier
+      // version of this validator while two developer-facing messages named
+      // them as allowed — `host.split(':')[0]` on an address made of colons.
+      'http://[::1]:8080/cb',
+      'http://[::1]/cb',
     ]) {
       expect(redirectUri.safeParse(ok).success, ok).toBe(true)
     }
