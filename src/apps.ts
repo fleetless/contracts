@@ -45,6 +45,30 @@ export const app = z.object({
    * model grows here rather than being retrofitted around it.
    */
   accepts_dynamic_clients: z.boolean(),
+  /**
+   * Whether this app serves a remote MCP server at `/mcp/<identifier>` (§17).
+   *
+   * **A switch, not an app kind.** §2 and §17 called the MCP app *"eine eigene
+   * App-Art"*; André decided on 2026-08-18 that it is a per-app switch the
+   * developer flips in the console, and §17 was reworded in the same wave
+   * rather than left contradicting this field. The model grows here — which
+   * is what the comment on `accepts_dynamic_clients` above predicted it would
+   * do, one wave before there was anything to add.
+   *
+   * The two switches are related and not the same. `accepts_dynamic_clients`
+   * decides whether a client may **register itself**; this one decides whether
+   * there is anything for it to reach. An MCP app will usually want both,
+   * because §17's end user *"trägt nur die URL ein"* and the AI tool registers
+   * itself — but a developer who registers their own MCP client by hand wants
+   * exactly this one, and coupling them would take that away.
+   *
+   * **Off means off at the metadata too.** With this false, `/mcp/<app>`
+   * answers `404` and so do its discovery documents. A resource that is
+   * advertised and not served sends a conforming client through the whole
+   * discovery chain to a door that is not there — and W7b spent a wave making
+   * that chain walkable.
+   */
+  mcp_enabled: z.boolean(),
   created_at: z.iso.datetime(),
 })
 export type App = z.infer<typeof app>
@@ -74,6 +98,17 @@ export const createAppRequest = z.object({
   robot_ids: z.array(z.uuid()).optional(),
   /** Optional, defaulting to `false` — same reasoning as `robot_ids` above: setting it at creation is the obvious operation, and refusing it here would make a `.strict()` request reject the field the caller can plainly see on `app`. */
   accepts_dynamic_clients: z.boolean().optional(),
+  /**
+   * **W7c's playbook said this field would not be accepted here, and the
+   * sentence above is why that was wrong.** The argument for refusing it was
+   * W7's `robot_ids` finding — a create shape that silently drops a field cost
+   * two people a day each. But that finding was closed by *accepting* the
+   * field, not by refusing it, and this request is `.strict()`: refusing
+   * `mcp_enabled` would make it `400` on a field the caller can plainly see on
+   * `app`, which is the exact shape the line above rejects. One rule, both
+   * switches.
+   */
+  mcp_enabled: z.boolean().optional(),
 }).strict()
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
@@ -81,6 +116,7 @@ export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
   accepts_dynamic_clients: z.boolean().optional(),
+  mcp_enabled: z.boolean().optional(),
 })
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 

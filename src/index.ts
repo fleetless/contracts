@@ -1,5 +1,27 @@
 export { slug, rosName, rosTypeName, fieldPath } from './common.js'
 export {
+  MCP_PROTOCOL_VERSION,
+  MCP_TOOL_NAME_MAX,
+  MCP_TOOL_NAME_SEPARATOR,
+  MCP_OMISSION_REASONS,
+  mcpToolNamePattern,
+  mcpEndpointPath,
+  mcpRobotKey,
+  mcpRobotKeys,
+  mcpToolName,
+  mcpToolKind,
+  mcpToolPreview,
+  mcpOmission,
+  mcpToolPreviewResponse,
+} from './mcp.js'
+export type {
+  McpToolKind,
+  McpOmissionReason,
+  McpToolPreview,
+  McpOmission,
+  McpToolPreviewResponse,
+} from './mcp.js'
+export {
   PROTOCOL_VERSION,
   bridgeHello,
   cloudHelloOk,
@@ -75,6 +97,8 @@ export type {
 export {
   RESERVED_SLUGS,
   parameterSpec,
+  serviceDescription,
+  parameterDescription,
   actionConfig,
   serviceConfig,
   publisherConfig,

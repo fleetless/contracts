@@ -366,5 +366,40 @@ export const ERROR_CODES = [
    * fix it.
    */
   'idp_unavailable',
+  // W7c — the MCP server, and a THIRD dialect on the same process.
+  //
+  // The correction above is about two dialects; there are now three, and the
+  // MCP endpoint speaks the one that is neither. `/mcp/<app>` answers
+  // **JSON-RPC errors** inside the protocol, and RFC 6750's
+  // `WWW-Authenticate` challenge outside it when a token is missing, wrong or
+  // carries the wrong audience — never `apiError`, never `oauthError`. That
+  // is not an accident of layering: an MCP client is a general-purpose
+  // implementation of somebody else's specification, and a body it cannot
+  // parse is indistinguishable from a broken server.
+  //
+  // So the two codes below appear at the **management** routes only — the
+  // console asking about an app or a role. Nothing in `/mcp/<app>` produces
+  // them, and if one ever seems to belong there, the answer is a JSON-RPC
+  // error whose message says the same thing.
+  /**
+   * The app's `mcp_enabled` switch is off. Produced by the management routes
+   * that describe MCP for an app — the tool preview in particular, which must
+   * distinguish *"this app serves no tools"* from *"this role is granted
+   * nothing"*. The endpoint itself answers `404` and says nothing further:
+   * whether an app exists but has MCP switched off is not something an
+   * unauthenticated caller gets to learn.
+   */
+  'mcp_disabled',
+  /**
+   * A slug that exists, and no tool for it — because the role does not grant
+   * it, or because it produces none (see `MCP_OMISSION_REASONS`).
+   *
+   * **Deliberately one code for both**, on the same reasoning that widened
+   * `identity_not_provisioned` in W7b: to a developer holding the console,
+   * `omitted[]` carries the distinction with its reason attached, so a second
+   * code would split an outcome nobody acts on differently. To anyone else the
+   * two must be indistinguishable anyway — §3.3.
+   */
+  'tool_not_available',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

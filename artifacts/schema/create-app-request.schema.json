@@ -23,6 +23,9 @@
     },
     "accepts_dynamic_clients": {
       "type": "boolean"
+    },
+    "mcp_enabled": {
+      "type": "boolean"
     }
   },
   "required": [

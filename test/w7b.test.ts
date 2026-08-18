@@ -202,6 +202,12 @@ describe('accepts_dynamic_clients', () => {
     name: 'Some App',
     identifier: 'some-app',
     robot_ids: [],
+    // W7c added a second required switch. It belongs in `base` and NOT in the
+    // assertion below: with it missing here too, `safeParse(base)` would fail
+    // for two reasons, and this test would go on passing if
+    // `accepts_dynamic_clients` were quietly made optional. A check that
+    // cannot fail for its own reason has stopped measuring its own claim.
+    mcp_enabled: false,
     created_at: '2026-08-18T00:00:00.000Z',
   }
 

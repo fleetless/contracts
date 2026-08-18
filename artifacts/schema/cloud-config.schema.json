@@ -152,6 +152,11 @@
                   }
                 ]
               },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
               "retention": {
                 "default": false,
                 "type": "boolean"
@@ -265,6 +270,11 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
                     }
                   },
                   "required": [
@@ -274,6 +284,11 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
               }
             },
             "required": [
@@ -355,6 +370,11 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
                     }
                   },
                   "required": [
@@ -364,6 +384,11 @@
                   ],
                   "additionalProperties": false
                 }
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
               }
             },
             "required": [
@@ -445,6 +470,11 @@
                         }
                       },
                       "additionalProperties": false
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
                     }
                   },
                   "required": [
@@ -465,6 +495,11 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 600000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
               }
             },
             "required": [
@@ -642,6 +677,11 @@
                 "type": "integer",
                 "minimum": 1000,
                 "maximum": 3600000
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
               }
             },
             "required": [

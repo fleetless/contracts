@@ -34,6 +34,9 @@
     "accepts_dynamic_clients": {
       "type": "boolean"
     },
+    "mcp_enabled": {
+      "type": "boolean"
+    },
     "created_at": {
       "type": "string",
       "format": "date-time",
@@ -47,6 +50,7 @@
     "identifier",
     "robot_ids",
     "accepts_dynamic_clients",
+    "mcp_enabled",
     "created_at"
   ],
   "additionalProperties": false

@@ -110,6 +110,7 @@ import {
   bridgeAssetProgress,
 } from '../src/protocol.js'
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
+import { mcpToolPreview, mcpToolPreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import {
@@ -128,6 +129,11 @@ import {
 } from '../src/rest.js'
 
 export const exportedSchemas = {
+  // W7c — the MCP server. REST-only shapes: the bridge has no MCP surface at
+  // all, so these are here for the same reason the other REST responses are —
+  // "every wire schema", one map, no second place to look.
+  'mcp-tool-preview': mcpToolPreview,
+  'mcp-tool-preview-response': mcpToolPreviewResponse,
   // W7 — assets. The three bridge<->cloud frames belong here for the reason
   // stated below: the bridge validates against these files, so a frame absent
   // from this map is a frame it cannot check. The bytes themselves never ride

@@ -28,6 +28,46 @@ export const valueRule = z.object({
 export type ValueRule = z.infer<typeof valueRule>
 
 /**
+ * What an exposed service *is*, in the developer's own words (§17).
+ *
+ * This is what an MCP tool description carries verbatim, so it is read by a
+ * model that has never seen this robot and cannot ask a follow-up question.
+ * `unit` and `range` already say what a number *is*; this says what it
+ * *means*.
+ *
+ * **It lives on the configuration rather than on the app, and that was a
+ * decision with a cost.** §17's own wording put the semantic descriptions in
+ * the MCP app; André moved them here on 2026-08-18 so that a description is
+ * written once per service and true for every app that reaches the robot,
+ * beside the other metadata. What is given up is real and should not be
+ * rediscovered as a bug: **two apps can no longer describe one service
+ * differently for two audiences.** §17 was reworded in the same wave rather
+ * than left contradicting this field.
+ *
+ * **`.optional()` and not `.nullable().default(null)`, deliberately.** The
+ * established shape in this file is a default — and every use of it has
+ * added an instance to a known contradiction: `.default()` publishes the
+ * field as **required** in the generated JSON Schema, because after parsing
+ * it is always present. That is recorded four times over in
+ * `scripts/export-schemas.ts`, whose fix (`io: 'input'`, applied per schema)
+ * is a judgement call across roughly sixty schemas plus a re-vendor and a
+ * re-pin in four repos. W7c's playbook said task 0 would do it; reading the
+ * measured blast radius — 90 artifacts, 436 deletions for the blanket
+ * version — said otherwise, at the start of a wave with five people blocked
+ * on this pin. So the field simply does not create a fifth instance:
+ * optional is optional in both modes, and *absent* is the single spelling of
+ * "not described". `.min(1)` keeps the empty string from becoming a second.
+ */
+export const serviceDescription = z.string().min(1).max(2000).optional()
+
+/**
+ * One parameter's prose, for the same reader as `serviceDescription` and
+ * under the same rules. Shorter, because it describes one field of one call
+ * rather than the call itself.
+ */
+export const parameterDescription = z.string().min(1).max(500).optional()
+
+/**
  * One parameter of an action, service or publisher, with the check the cloud
  * applies before anything reaches a robot (spec §4.4). `valueRule` was
  * defined in W2 and deliberately left unenforced until its subjects existed;
@@ -39,6 +79,7 @@ export const parameterSpec = z.object({
   /** The ROS type, for the console to render an input the developer recognises. */
   type: z.string().min(1).max(255),
   rule: valueRule,
+  description: parameterDescription,
 })
 export type ParameterSpec = z.infer<typeof parameterSpec>
 
@@ -80,6 +121,7 @@ export const datapointConfig = z.object({
   scale: z.number().nullable(),
   offset: z.number().nullable(),
   range: datapointRange.nullable(),
+  description: serviceDescription,
   /**
    * Record this datapoint (spec §8). Recorded values go to the time-series
    * store and are queryable through the history API; everything else is
@@ -132,6 +174,7 @@ export const actionConfig = z.object({
   ros_name: rosName,
   type: rosTypeName,
   parameters: z.array(parameterSpec).max(50),
+  description: serviceDescription,
 })
 export type ActionConfig = z.infer<typeof actionConfig>
 
@@ -141,6 +184,7 @@ export const serviceConfig = z.object({
   ros_name: rosName,
   type: rosTypeName,
   parameters: z.array(parameterSpec).max(50),
+  description: serviceDescription,
 })
 export type ServiceConfig = z.infer<typeof serviceConfig>
 
@@ -168,6 +212,7 @@ export const publisherConfig = z.object({
   /** The message the bridge publishes on timeout. Shape is the ROS type's. */
   failsafe: z.unknown(),
   quiet_timeout_ms: z.number().int().nonnegative().max(600_000),
+  description: serviceDescription,
 })
 export type PublisherConfig = z.infer<typeof publisherConfig>
 
@@ -299,6 +344,7 @@ export const cameraConfig = z.object({
    * and an interval faster than this is a live stream wearing a disguise.
    */
   snapshot_interval_ms: z.number().int().min(1000).max(3_600_000),
+  description: serviceDescription,
 })
 export type CameraConfig = z.infer<typeof cameraConfig>
 
