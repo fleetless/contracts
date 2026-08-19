@@ -117,6 +117,26 @@ export const clientLogoutResponse = z.object({
      * nobody reads.
      */
     z.object({ status: z.literal('hint_unavailable') }),
+    /**
+     * **The server does not know this session, so it can say nothing about an
+     * IdP** (W9 review, Argus-W9; André, 2026-08-19).
+     *
+     * The token was unknown, already superseded, revoked, or expired. There is
+     * nothing to end here and — this is the whole point — **nothing to claim
+     * either**. `not_federated` would be a statement about a login this server
+     * never saw.
+     *
+     * Same shape of argument that produced `hint_unavailable`: *there the cause
+     * is the IdP's, here it is ours.* Here it is neither — it is an **absence
+     * of knowledge**, and a contract whose job on this route is to keep facts
+     * apart should not spend a fact it does not have.
+     *
+     * **What a caller does with it: nothing, but not the same nothing as
+     * `not_federated`.** A first logout in the same flow may well have returned
+     * a `redirect` that is still worth following. Reading this as *"the user is
+     * fully logged out"* is exactly the mistake a second logout invites.
+     */
+    z.object({ status: z.literal('session_unknown') }),
   ]),
 })
 export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>
