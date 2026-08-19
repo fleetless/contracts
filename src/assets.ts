@@ -272,22 +272,30 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
  * ist (DEF-148).
  *
- * **Die Zahl selbst ist bewusst unverändert — und die Begründung, die hier
- * zuerst stand, war falsch.** Sie lautete: *„rx1s echte Meshes sind gemessen —
- * `base.dae` 193.886.766 Bytes, also das 2,9-fache."* Die Messung stimmte, die
- * Verallgemeinerung nicht. `base.dae` **liegt** auf rx1s Platte und wird von
- * keiner rx1-URDF referenziert; die einzigen Dokumente im System, die den Namen
- * nennen, sind ROS-Standardpakete (turtlebot3, rviz-Testmeshes).
+ * **Die Zahl ist bewusst unverändert, und die Begründung hat zwei Fassungen
+ * gebraucht — die Korrektur ist hier mehr wert als das Ergebnis.**
  *
- * Gemessen am 2026-08-19 gegen die **laufende** `robot_description`: acht
- * `package://`-Referenzen, zusammen 89.379.096 Bytes, die größte
- * `RX1.dae` mit 38.229.621 — **keine über dem Deckel.** Eine Datei auf der
- * Platte ist kein referenziertes Mesh, und ich hatte das eine für das andere
- * genommen.
+ * Zuerst stand hier: *„rx1s echte Meshes sind gemessen — `base.dae`
+ * 193.886.766 Bytes, also das 2,9-fache"*, im Präsens, als stünde das über
+ * der heute laufenden Beschreibung. Gemessen am 2026-08-19 gegen die
+ * **laufende** `robot_description`: acht `package://`-Referenzen, zusammen
+ * 89.379.096 Bytes, die größte `RX1.dae` mit 38.229.621 — **keine über dem
+ * Deckel.**
  *
- * Ob der Deckel steigen soll, bleibt eine Entscheidung über Speicher,
- * Übertragungszeit und Kontingente und liegt bei André — aber sie **blockiert
- * nichts**, und niemand sollte sie unter Berufung auf rx1 treffen.
+ * Daraus habe ich dann geschlossen, `base.dae` werde *von keiner* rx1-URDF
+ * referenziert. **Auch das war falsch, und zwar weil ich nur den aktuellen
+ * Workspace geprüft hatte.** `src.old-20260730/rx1` und `.../rx1_linac`
+ * referenzieren beide `base.dae` **und** `base.stl` und kennen `RX1.dae`
+ * nicht — das ist die Beschreibung, die rx1 am 2026-08-18 lief, als DEF-148
+ * gemessen wurde. Die Beobachtung von damals war korrekt und ihre Erklärung
+ * auch.
+ *
+ * Was heute gilt: **welche Beschreibung rx1 fährt, entscheidet, ob der Deckel
+ * reicht** — die aktuelle passt mit Abstand hinein, die vorherige um das
+ * 2,9-fache nicht. Das ist keine Vertragsfrage, sondern eine über Speicher,
+ * Übertragungszeit und Kontingente, und sie liegt bei André. Sie blockiert
+ * nichts: W9bs Gate-Schritt 6 ist gegen die heute laufende Beschreibung
+ * erreichbar, ohne dass jemand eine Zahl anfasst.
  */
 export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
 
