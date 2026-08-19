@@ -90,6 +90,28 @@ export type AuditEvent = z.infer<typeof auditEvent>
  * without them is a page with nothing to filter by — the register row says
  * exactly that, which is why the two rows are one piece of work.
  */
+/**
+ * A unix-millisecond bound a Postgres `timestamptz` can actually hold.
+ *
+ * Years 1..9999: below that Postgres has no year zero, above it year 10000
+ * needs the ISO extended-year form its bind path does not accept. Comfortably
+ * wider than any instant this platform will legitimately be asked about, so
+ * the bound costs nothing real and catches every value found to 500.
+ */
+const auditTimestampMs = z
+  .union([z.string().regex(/^\d{1,15}$/), z.number().int()])
+  .transform((v) => Number(v))
+  .pipe(
+    z
+      .number()
+      .int()
+      .nonnegative()
+      .refine((ms) => {
+        const year = new Date(ms).getUTCFullYear()
+        return Number.isFinite(year) && year >= 1 && year <= 9999
+      }, 'must fall within years 1..9999'),
+  )
+
 export const auditQuery = z.object({
   /** Only events with a smaller `seq` — the next, older page. */
   before_seq: z
@@ -110,13 +132,42 @@ export const auditQuery = z.object({
     .optional(),
   /** Exact action name, e.g. `config.published`. No prefix matching: a filter that matches more than it says is not one. */
   action: z.string().min(1).max(80).optional(),
-  /** Only events by this actor. */
-  actor_id: z.string().min(1).max(200).optional(),
+  /**
+   * Only events by this actor.
+   *
+   * **`z.uuid()`, because the column is one (Argus-W9, W9 review).** This was
+   * `z.string().min(1).max(200)`, so any non-uuid value reached Postgres as a
+   * uuid parameter and threw: `?actor_id=not-a-uuid` answered **500
+   * `internal_error`**, on the list route and the export alike.
+   *
+   * Not a SQL-injection finding — Drizzle parameterises, and `' or 1=1--`
+   * failed at the same cast. It is a **500 where a 400 belongs**, and a 500 is
+   * the answer that explains nothing.
+   *
+   * The place is the part worth keeping: **this same wave pulled
+   * `refuseIfNotUuid` through ~15 call sites** so a typo could be told from a
+   * deletion — and the brand-new filter, whose field has exactly that shape,
+   * is the one that did not get it. A rule applied to the sites in front of
+   * you is not a rule applied to the class.
+   */
+  actor_id: z.uuid().optional(),
   /** Only events about this kind of target, e.g. `robot`. */
   target_kind: z.string().min(1).max(40).optional(),
-  /** Absolute bounds in unix milliseconds, **half-open `[from, to)`** — the same rule the history shapes follow (DEF-062). */
-  from_ms: z.union([z.string().regex(/^\d{1,15}$/), z.number().int()]).transform((v) => Number(v)).pipe(z.number().int().nonnegative()).optional(),
-  to_ms: z.union([z.string().regex(/^\d{1,15}$/), z.number().int()]).transform((v) => Number(v)).pipe(z.number().int().nonnegative()).optional(),
+  /**
+   * Absolute bounds in unix milliseconds, **half-open `[from, to)`** — the
+   * same rule the history shapes follow (DEF-062).
+   *
+   * **Bounded to years 1..9999, and the bound is borrowed rather than
+   * invented.** `nonnegative()` alone let `253402300800000` (year 10000)
+   * through, where the Postgres bind path has no representation and the route
+   * answered 500 — measured either side of the edge: `253402300799000` → 200,
+   * `253402300800000` → 500 (Argus-W9). `history-query.ts`'s `parseTimeExprMs`
+   * already carries exactly this range, with M3's reasoning for why
+   * `Number.isSafeInteger` is wider than what a timestamp can be; this is that
+   * same number, not a second one that happens to agree.
+   */
+  from_ms: auditTimestampMs.optional(),
+  to_ms: auditTimestampMs.optional(),
 }).strict()
 export type AuditQuery = z.infer<typeof auditQuery>
 

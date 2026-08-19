@@ -318,6 +318,25 @@ export const exportedConstants = {
  *
  * Everything not listed here is `output`, and listing is mandatory — the
  * check under this table refuses to export when the two sets disagree.
+ *
+ * **What input mode also does, named because the first version of this comment
+ * read as if it were only about `.default()`** (Argus-W9, W9 review): it drops
+ * `additionalProperties: false` as well. Of the 24 schemas the bridge vendors,
+ * three still carry one.
+ *
+ * For an **incoming** frame that is right — the receiver strips unknown keys
+ * anyway, and a schema that refuses them describes a stricter contract than
+ * the code keeps. But the bridge also validates its **outgoing** frames
+ * against these same copies in `test/schemas.py`, and there the relaxation
+ * points the wrong way: a typo in an outgoing field name (`activejobs`) now
+ * passes the vendored check and is silently dropped by zod in the cloud —
+ * which is the very "documented absence" this file's own reasoning is about.
+ *
+ * That is a **consequence of the direction rule, not an oversight in it**: one
+ * artifact cannot be both the description a receiver must accept and the
+ * assertion a sender must meet. If the outgoing half turns out to be worth
+ * guarding, it needs its own output-mode artifact rather than a weaker
+ * classification here.
  */
 const SCHEMA_IO_INPUT: readonly string[] = [
   // --- socket frames, bridge <-> cloud -------------------------------------

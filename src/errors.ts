@@ -395,12 +395,26 @@ export const ERROR_CODES = [
   // them, and if one ever seems to belong there, the answer is a JSON-RPC
   // error whose message says the same thing.
   /**
-   * The app's `mcp_enabled` switch is off. Produced by the management routes
-   * that describe MCP for an app — the tool preview in particular, which must
-   * distinguish *"this app serves no tools"* from *"this role is granted
-   * nothing"*. The endpoint itself answers `404` and says nothing further:
-   * whether an app exists but has MCP switched off is not something an
-   * unauthenticated caller gets to learn.
+   * The app's `mcp_enabled` switch is off. The endpoint itself answers `404`
+   * and says nothing further: whether an app exists but has MCP switched off
+   * is not something an unauthenticated caller gets to learn.
+   *
+   * **Nothing produces this code today, and the sentence that used to stand
+   * here named a route that explicitly refuses to** (Momus-W9). It said
+   * *"the tool preview in particular"* — while `cloud/src/routes/apps.ts:286`
+   * says the opposite, with its reasoning: *"Does not require `mcp_enabled` …
+   * The switch only gates the live endpoint (N9), never this management-side
+   * read."* A `grep` over `cloud/src` finds `mcp_disabled` in exactly one
+   * place: a comment.
+   *
+   * Kept rather than removed, because the reserved shape is the point — but
+   * **named as unproduced instead of attributed to a route that declines it.**
+   * This is DEF-039's form (an enum member with no producer), and the variant
+   * that costs more: a wrong producer sends the next reader to read code that
+   * says the opposite of the doc, and one of the two has to be wrong.
+   *
+   * `tool_not_available` below has no producer either — `grep` finds it
+   * nowhere in `cloud/src`. Same standing, same reason for keeping it.
    */
   'mcp_disabled',
   /**

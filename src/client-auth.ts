@@ -57,12 +57,25 @@ export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
  * Nothing below can fail in a way that leaves the caller logged in here — a
  * logout that depends on reaching a third party is not a logout.
  *
- * Three outcomes, and they are deliberately not collapsed into a nullable
+ * **Four outcomes**, and they are deliberately not collapsed into a nullable
  * URL. *No IdP was involved* and *an IdP was involved and publishes no
  * `end_session_endpoint`* are different things: the first needs no action and
  * the second means a session survives that this platform cannot end. A caller
  * that renders them identically is choosing to; a contract that cannot tell
  * them apart makes the choice for everyone.
+ *
+ * **This sentence said "three" for a whole wave, directly above a four-branch
+ * union in this same file** — found by Momus-W9, along with the same number in
+ * `sdk/src/auth.ts` and `sdk/README.md`. The type is derived
+ * (`ClientLogoutResponse['idp_logout']`), so `tsc` had nothing to say, and the
+ * sweep shows the mechanism plainly: `sdk d065447` is literally titled *"logout
+ * says three separable things"* — correct when written, never carried forward
+ * when `hint_unavailable` arrived in `b417d2a`.
+ *
+ * The count is not the point. **`hint_unavailable` is precisely the case this
+ * comment warns about** — the IdP session survives — so a caller who handles
+ * the three documented branches drops it into an `else` they believe means
+ * *nothing to do*.
  */
 export const clientLogoutResponse = z.object({
   idp_logout: z.discriminatedUnion('status', [

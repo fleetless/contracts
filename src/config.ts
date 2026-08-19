@@ -133,10 +133,16 @@ export const datapointConfig = z.object({
    * than the contract accepting both, because two spellings of one fact is
    * the defect this project has spent two waves removing.
    *
-   * Defaulted so a document written before W6 still parses. Note that
-   * `.default()` publishes as `required` in the generated artifact — the
-   * fourth instance, deferred to W7 with the fix identified
-   * (`io: 'input'`, split per schema).
+   * Defaulted so a document written before W6 still parses.
+   *
+   * **The `.default()`-publishes-as-`required` trap is closed** (W9d, DEF-059,
+   * `62ede62`): artifacts are now emitted per schema in the mode their
+   * direction calls for, and `retention` no longer appears in `required` in
+   * `cloud-config.schema.json`. This comment described it as *"deferred to
+   * W7 with the fix identified"* for two waves after the fix landed — found by
+   * Momus-W9, and it is the same shape as the three comments in `bridge/` that
+   * were corrected in the same wave: **a note that names a defect as open is
+   * itself a claim, and it goes stale exactly like a register row.**
    */
   retention: z.boolean().default(false),
   /**

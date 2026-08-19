@@ -393,6 +393,24 @@ export const consentGrantSummary = z.object({
 })
 export type ConsentGrantSummary = z.infer<typeof consentGrantSummary>
 
+/**
+ * **Newest first, and the promise belongs here rather than in one client.**
+ *
+ * `sdk/src/grants.ts` documented *"most-recently-granted first"* while the
+ * store ordered `grantedAt` **ascending** — oldest first (Argus-W9). The
+ * contract said nothing, so neither side was wrong against it and both could
+ * stay that way indefinitely. Written down here so the next consumer inherits
+ * the order instead of discovering it.
+ *
+ * Newest first because this list exists to be *revoked from*: the grant a user
+ * is looking for is almost always the one they just gave, and a page whose
+ * first row is a year old makes them scroll to reach the reason they came.
+ *
+ * **The `.max(200)` is a bound on the wire and was not one in the store**, which
+ * had no `LIMIT` at all — an end user past 200 grants would receive a response
+ * this contract forbids, and a zod-checking client would refuse it. Reachable
+ * (several apps, each with its own dynamic-client ceiling) rather than likely.
+ */
 export const consentGrantListResponse = z.object({
   grants: z.array(consentGrantSummary).max(200),
 })
