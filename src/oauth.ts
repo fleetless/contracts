@@ -408,11 +408,23 @@ export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
  * response says what was actually ended, and a caller can tell *nothing
  * matched* from *matched and ended*.
  *
- * `tokens_revoked` is the count of refresh families ended, not access tokens:
- * an access token is stateless and short-lived by design, and claiming to
- * have revoked one would be the kind of sentence this project keeps having to
- * take back. Say what is true — the family is dead, so nothing can be
- * refreshed — and let the access token expire.
+ * `tokens_revoked` is the count of refresh **families** ended. It is not a
+ * count of access tokens, and deliberately so: an access token is stateless
+ * and short-lived, and a number that claimed to have revoked one would be the
+ * kind of sentence this project keeps having to take back.
+ *
+ * **What actually happens to the access token is stronger than this comment
+ * first claimed, and it was measured rather than assumed (W9c gate step 1,
+ * 2026-08-19).** The first version said *"let the access token expire"*. It
+ * does not: `requireEndUser` re-checks revocation on every call, so the same
+ * access token answers `401 token_revoked` immediately after the revoke —
+ * measured end to end through the real SDK against the real cloud.
+ *
+ * That is a better outcome than the contract promised, and it is written down
+ * here for one reason: **a caller must not build on the weaker sentence.** If
+ * this platform ever moves to stateless verification without the revocation
+ * re-check, the access token would start living out its TTL again, and
+ * anything that quietly relied on immediate death would break silently.
  */
 export const consentRevokeResponse = z.object({
   revoked: z.boolean(),
