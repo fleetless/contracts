@@ -79,6 +79,31 @@ export const clientLogoutResponse = z.object({
      * this platform cannot end it** — say so rather than implying success.
      */
     z.object({ status: z.literal('unsupported_by_idp') }),
+    /**
+     * **Federated, the IdP *can* end the session, and we cannot ask it to
+     * (W9c, Nimbus-W9c's proposal).**
+     *
+     * `id_token_hint` is missing: the stored value could not be decrypted, or
+     * the session predates the fix that started keeping one. Deliberately not
+     * folded into `unsupported_by_idp` — there the cause is **the IdP's**, here
+     * it is **ours**, and an operator reading a rise in these needs to know
+     * which of the two they are looking at.
+     *
+     * **No `url` field, and that is the whole point.** Sending somebody to a
+     * bare `end_session_endpoint` produces a page that *asks* rather than one
+     * that ends — measured against real Keycloak, which renders *"Do you want
+     * to log out?"* and leaves the session alive. An outcome that promises
+     * something it does not deliver is worse than one that admits it.
+     *
+     * **The two causes are one status on purpose.** A caller can do nothing
+     * differently between "decryption failed" and "this session is older than
+     * the fix" — both mean *the IdP session survives and you cannot end it
+     * from here*. The distinction matters to whoever runs this platform, and
+     * it belongs in the server's log, not on the wire: splitting a wire enum
+     * to carry a fact no consumer can act on is how a contract grows keys
+     * nobody reads.
+     */
+    z.object({ status: z.literal('hint_unavailable') }),
   ]),
 })
 export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>

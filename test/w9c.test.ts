@@ -92,14 +92,35 @@ describe('a grant a person can recognise, and a revocation that says what it end
   })
 })
 
-describe('logout says which of three things is true (DEF-098)', () => {
+describe('logout says which of four things is true (DEF-098)', () => {
   const parse = (idp_logout: unknown) => clientLogoutResponse.safeParse({ idp_logout })
 
-  it('accepts exactly the three outcomes, and no fourth', () => {
+  it('accepts exactly the four outcomes, and no fifth', () => {
     expect(parse({ status: 'redirect', url: 'https://idp.example.com/logout?id_token_hint=x' }).success).toBe(true)
     expect(parse({ status: 'not_federated' }).success).toBe(true)
     expect(parse({ status: 'unsupported_by_idp' }).success).toBe(true)
+    expect(parse({ status: 'hint_unavailable' }).success).toBe(true)
     expect(parse({ status: 'dunno' }).success).toBe(false)
+  })
+
+  it('strips a url from `hint_unavailable`, so no consumer can follow one', () => {
+    // **Zweite falsche Behauptung dieser Art an einem Tag** — die erste stand
+    // heute Morgen an `idpConfig`. Eine Antwortform ist absichtlich nicht
+    // `.strict()`; ein zusaetzlicher Schluessel wird ENTFERNT, nicht abgelehnt.
+    // Fuer diesen Ausgang ist das sogar das bessere Verhalten: eine Cloud, die
+    // faelschlich eine URL mitschickt, kann damit trotzdem niemanden auf eine
+    // Seite schicken, die FRAGT statt zu beenden (an echtem Keycloak gemessen:
+    // "Do you want to log out?"). Was zaehlt, ist nicht die Ablehnung, sondern
+    // dass die URL nicht ankommt.
+    const parsed = parse({ status: 'hint_unavailable', url: 'https://idp.example.com/logout' })
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && 'url' in parsed.data.idp_logout).toBe(false)
+  })
+
+  it('keeps "the IdP cannot" separable from "we cannot ask it"', () => {
+    const idp = parse({ status: 'unsupported_by_idp' })
+    const us = parse({ status: 'hint_unavailable' })
+    expect(idp.success && us.success && idp.data.idp_logout.status === us.data.idp_logout.status).toBe(false)
   })
 
   it('cannot say "redirect" without somewhere to redirect to', () => {
