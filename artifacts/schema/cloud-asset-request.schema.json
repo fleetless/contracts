@@ -33,6 +33,5 @@
     "upload_url",
     "token",
     "meshes"
-  ],
-  "additionalProperties": false
+  ]
 }

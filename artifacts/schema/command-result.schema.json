@@ -86,8 +86,7 @@
                   "required": [
                     "code",
                     "message"
-                  ],
-                  "additionalProperties": false
+                  ]
                 },
                 {
                   "type": "null"
@@ -105,8 +104,7 @@
             "seq",
             "result",
             "error"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "null"
@@ -160,6 +158,5 @@
     "kind",
     "code",
     "message"
-  ],
-  "additionalProperties": false
+  ]
 }

@@ -37,6 +37,5 @@
     "room",
     "token",
     "request_id"
-  ],
-  "additionalProperties": false
+  ]
 }

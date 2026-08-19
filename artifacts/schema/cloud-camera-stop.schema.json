@@ -22,6 +22,5 @@
     "type",
     "slug",
     "request_id"
-  ],
-  "additionalProperties": false
+  ]
 }

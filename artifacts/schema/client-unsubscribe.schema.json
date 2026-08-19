@@ -22,6 +22,5 @@
     "type",
     "robot_id",
     "slug"
-  ],
-  "additionalProperties": false
+  ]
 }

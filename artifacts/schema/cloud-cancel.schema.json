@@ -29,6 +29,5 @@
     "type",
     "slug",
     "job_id"
-  ],
-  "additionalProperties": false
+  ]
 }

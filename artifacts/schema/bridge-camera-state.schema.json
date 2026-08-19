@@ -32,8 +32,7 @@
           "required": [
             "code",
             "message"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "null"
@@ -75,6 +74,5 @@
     "cause",
     "observed_at_ms",
     "request_id"
-  ],
-  "additionalProperties": false
+  ]
 }

@@ -30,8 +30,7 @@
         "required": [
           "robot_id",
           "slugs"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "capabilities": {
@@ -51,14 +50,12 @@
         "action_history",
         "presence",
         "assets"
-      ],
-      "additionalProperties": false
+      ]
     }
   },
   "required": [
     "role_id",
     "grants",
     "capabilities"
-  ],
-  "additionalProperties": false
+  ]
 }

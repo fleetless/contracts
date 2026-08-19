@@ -87,8 +87,7 @@
               "required": [
                 "code",
                 "message"
-              ],
-              "additionalProperties": false
+              ]
             },
             {
               "type": "null"
@@ -106,8 +105,7 @@
         "seq",
         "result",
         "error"
-      ],
-      "additionalProperties": false
+      ]
     },
     "feedback": {
       "anyOf": [
@@ -143,6 +141,5 @@
     "feedback",
     "progress",
     "timestamp_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

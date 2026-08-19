@@ -23,8 +23,7 @@
         "kind",
         "topic",
         "type"
-      ],
-      "additionalProperties": false
+      ]
     },
     {
       "type": "object",
@@ -63,11 +62,8 @@
       },
       "required": [
         "kind",
-        "url",
-        "transport",
-        "credentials_ref"
-      ],
-      "additionalProperties": false
+        "url"
+      ]
     },
     {
       "type": "object",
@@ -98,10 +94,8 @@
       },
       "required": [
         "kind",
-        "url",
-        "credentials_ref"
-      ],
-      "additionalProperties": false
+        "url"
+      ]
     },
     {
       "type": "object",
@@ -120,8 +114,7 @@
       "required": [
         "kind",
         "device"
-      ],
-      "additionalProperties": false
+      ]
     }
   ]
 }

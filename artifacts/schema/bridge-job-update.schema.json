@@ -73,8 +73,7 @@
           "required": [
             "code",
             "message"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "null"
@@ -97,6 +96,5 @@
     "result",
     "error",
     "timestamp_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

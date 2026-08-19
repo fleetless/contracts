@@ -919,6 +919,16 @@ export const historyQuery = z.object({
    * A union states both truths honestly: the wire carries a numeric string,
    * a programmatic caller may pass a number, and the artifact can render the
    * input branch because there is one to render.
+   *
+   * **What the artifact no longer says, named here rather than left silent.**
+   * The `1..10000` bound lives in the `.pipe()`, which is the *output* half,
+   * so the published input schema carries only `^\d{1,5}$` and a bare integer
+   * — five digits is a weak echo of the real ceiling and the lower bound is
+   * gone entirely. This is honest about the wire (the bound is enforced after
+   * parsing, not by the shape of the text) but it is a **reduction** in what
+   * the artifact states, and an artifact that stops naming a bound reads as if
+   * there were none. Anyone generating a client from these files must take the
+   * limit from `historySamplesResponse`'s contract sentence, not from here.
    */
   limit: z
     .union([z.string().regex(/^\d{1,5}$/), z.number().int()])

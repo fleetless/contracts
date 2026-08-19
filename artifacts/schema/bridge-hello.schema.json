@@ -52,8 +52,7 @@
           "job_id",
           "slug",
           "state"
-        ],
-        "additionalProperties": false
+        ]
       }
     }
   },
@@ -61,8 +60,6 @@
     "type",
     "protocol_version",
     "token",
-    "bridge_version",
-    "active_jobs"
-  ],
-  "additionalProperties": false
+    "bridge_version"
+  ]
 }

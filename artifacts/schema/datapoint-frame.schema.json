@@ -24,6 +24,5 @@
     "slug",
     "value",
     "timestamp_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

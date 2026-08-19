@@ -26,6 +26,5 @@
     "type",
     "request_id",
     "type_names"
-  ],
-  "additionalProperties": false
+  ]
 }

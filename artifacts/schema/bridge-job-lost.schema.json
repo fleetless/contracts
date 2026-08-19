@@ -18,6 +18,5 @@
   "required": [
     "type",
     "job_ids"
-  ],
-  "additionalProperties": false
+  ]
 }

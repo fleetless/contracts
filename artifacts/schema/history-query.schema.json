@@ -31,13 +31,20 @@
       "maxLength": 128
     },
     "limit": {
-      "type": "integer",
-      "exclusiveMinimum": 0,
-      "maximum": 10000
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,5}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
     }
   },
   "required": [
     "from"
-  ],
-  "additionalProperties": false
+  ]
 }

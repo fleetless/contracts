@@ -48,8 +48,7 @@
           "required": [
             "mode",
             "hz"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "object",
@@ -61,8 +60,7 @@
           },
           "required": [
             "mode"
-          ],
-          "additionalProperties": false
+          ]
         }
       ]
     },
@@ -126,8 +124,7 @@
           "required": [
             "min",
             "max"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "null"
@@ -162,8 +159,7 @@
       "required": [
         "enabled",
         "max_values"
-      ],
-      "additionalProperties": false
+      ]
     }
   },
   "required": [
@@ -175,9 +171,6 @@
     "unit",
     "scale",
     "offset",
-    "range",
-    "retention",
-    "buffer"
-  ],
-  "additionalProperties": false
+    "range"
+  ]
 }

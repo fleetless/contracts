@@ -21,6 +21,5 @@
     "type",
     "urdf",
     "meshes"
-  ],
-  "additionalProperties": false
+  ]
 }

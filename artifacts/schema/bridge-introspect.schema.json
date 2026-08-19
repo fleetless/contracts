@@ -37,8 +37,7 @@
             "required": [
               "name",
               "types"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "services": {
@@ -64,8 +63,7 @@
             "required": [
               "name",
               "types"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "actions": {
@@ -91,8 +89,7 @@
             "required": [
               "name",
               "types"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "captured_at_ms": {
@@ -106,14 +103,12 @@
         "services",
         "actions",
         "captured_at_ms"
-      ],
-      "additionalProperties": false
+      ]
     }
   },
   "required": [
     "type",
     "request_id",
     "graph"
-  ],
-  "additionalProperties": false
+  ]
 }

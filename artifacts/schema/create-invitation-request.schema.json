@@ -26,6 +26,5 @@
     "app_id",
     "role_id",
     "send_mail"
-  ],
-  "additionalProperties": false
+  ]
 }

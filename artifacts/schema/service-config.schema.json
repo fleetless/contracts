@@ -63,8 +63,7 @@
               "required": {
                 "type": "boolean"
               }
-            },
-            "additionalProperties": false
+            }
           },
           "description": {
             "type": "string",
@@ -76,8 +75,7 @@
           "name",
           "type",
           "rule"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "description": {
@@ -91,6 +89,5 @@
     "ros_name",
     "type",
     "parameters"
-  ],
-  "additionalProperties": false
+  ]
 }

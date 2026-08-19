@@ -9,7 +9,7 @@ import {
   apiError,
   slug,
 } from '../src/index.js'
-import { exportedSchemas } from '../scripts/export-schemas.js'
+import { exportedSchemas, schemaIo } from '../scripts/export-schemas.js'
 import { z } from 'zod'
 
 describe('contracts v1', () => {
@@ -76,8 +76,13 @@ describe('schema artifacts', () => {
         .filter((f) => f.endsWith('.schema.json'))
         .map((f) => [f.replace('.schema.json', ''), JSON.parse(readFileSync(join(dir, f), 'utf8'))]),
     )
+    // **Regenerate through the same classification the export uses.** This
+    // test is the only thing stopping the artifacts going stale, and calling
+    // `toJSONSchema` with default options here would compare a fresh *output*
+    // render against files written per-schema — permanently red, and red for
+    // a reason that has nothing to do with staleness.
     const fresh = Object.fromEntries(
-      Object.entries(exportedSchemas).map(([name, schema]) => [name, z.toJSONSchema(schema)]),
+      Object.entries(exportedSchemas).map(([name, schema]) => [name, z.toJSONSchema(schema, { io: schemaIo(name) })]),
     )
     expect(onDisk).toEqual(fresh)
   })

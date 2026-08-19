@@ -40,6 +40,5 @@
     "width",
     "height",
     "timestamp_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

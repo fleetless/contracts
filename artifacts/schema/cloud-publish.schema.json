@@ -24,6 +24,5 @@
     "type",
     "slug",
     "message"
-  ],
-  "additionalProperties": false
+  ]
 }

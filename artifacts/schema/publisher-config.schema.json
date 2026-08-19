@@ -63,8 +63,7 @@
               "required": {
                 "type": "boolean"
               }
-            },
-            "additionalProperties": false
+            }
           },
           "description": {
             "type": "string",
@@ -76,8 +75,7 @@
           "name",
           "type",
           "rule"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "timeout_ms": {
@@ -105,6 +103,5 @@
     "timeout_ms",
     "failsafe",
     "quiet_timeout_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

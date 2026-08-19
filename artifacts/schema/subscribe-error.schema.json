@@ -27,6 +27,5 @@
     "slug",
     "code",
     "message"
-  ],
-  "additionalProperties": false
+  ]
 }

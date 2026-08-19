@@ -98,13 +98,11 @@
         "app_id",
         "role_id",
         "email"
-      ],
-      "additionalProperties": false
+      ]
     }
   },
   "required": [
     "type",
     "identity"
-  ],
-  "additionalProperties": false
+  ]
 }

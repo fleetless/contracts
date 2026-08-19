@@ -38,8 +38,7 @@
               "name",
               "kind",
               "fields"
-            ],
-            "additionalProperties": false
+            ]
           },
           {
             "type": "object",
@@ -71,8 +70,7 @@
               "kind",
               "request",
               "response"
-            ],
-            "additionalProperties": false
+            ]
           },
           {
             "type": "object",
@@ -111,8 +109,7 @@
               "goal",
               "result",
               "feedback"
-            ],
-            "additionalProperties": false
+            ]
           }
         ]
       }
@@ -130,7 +127,6 @@
     "definitions",
     "unresolved"
   ],
-  "additionalProperties": false,
   "$defs": {
     "__schema0": {
       "type": "object",
@@ -167,8 +163,7 @@
         "type",
         "array",
         "fields"
-      ],
-      "additionalProperties": false
+      ]
     }
   }
 }

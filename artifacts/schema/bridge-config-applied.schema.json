@@ -30,8 +30,7 @@
         "required": [
           "slug",
           "message"
-        ],
-        "additionalProperties": false
+        ]
       }
     }
   },
@@ -40,6 +39,5 @@
     "version",
     "ok",
     "errors"
-  ],
-  "additionalProperties": false
+  ]
 }

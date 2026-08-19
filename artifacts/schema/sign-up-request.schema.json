@@ -22,6 +22,5 @@
     "org_name",
     "email",
     "password"
-  ],
-  "additionalProperties": false
+  ]
 }

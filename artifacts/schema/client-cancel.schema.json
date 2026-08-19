@@ -41,6 +41,5 @@
     "robot_id",
     "slug",
     "job_id"
-  ],
-  "additionalProperties": false
+  ]
 }

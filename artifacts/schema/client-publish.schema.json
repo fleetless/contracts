@@ -36,6 +36,5 @@
     "robot_id",
     "slug",
     "message"
-  ],
-  "additionalProperties": false
+  ]
 }

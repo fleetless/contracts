@@ -20,6 +20,5 @@
   "required": [
     "online",
     "latency_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

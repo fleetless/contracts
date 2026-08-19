@@ -15,6 +15,5 @@
   "required": [
     "type",
     "request_id"
-  ],
-  "additionalProperties": false
+  ]
 }

@@ -12,6 +12,5 @@
   },
   "required": [
     "message"
-  ],
-  "additionalProperties": false
+  ]
 }

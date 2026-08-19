@@ -36,6 +36,5 @@
     "slug",
     "params",
     "patience_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

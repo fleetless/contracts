@@ -15,6 +15,5 @@
   "required": [
     "type",
     "ts_ms"
-  ],
-  "additionalProperties": false
+  ]
 }

@@ -310,55 +310,136 @@ export const exportedConstants = {
   ASSET_KINDS: assetKind.options,
 } as const
 
+/**
+ * Which zod rendering mode each artifact is published in. See the reasoning
+ * at the `writeFileSync` below; the short version is that a schema somebody
+ * validates an **incoming** document against is `input`, and a schema that
+ * describes what a server **sends** is `output`.
+ *
+ * Everything not listed here is `output`, and listing is mandatory — the
+ * check under this table refuses to export when the two sets disagree.
+ */
+const SCHEMA_IO_INPUT: readonly string[] = [
+  // --- socket frames, bridge <-> cloud -------------------------------------
+  // Both directions, because both ends validate what they receive.
+  'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong',
+  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied',
+  'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
+  'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
+  'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',
+  'cloud-invoke', 'cloud-cancel', 'cloud-publish', 'bridge-job-update', 'bridge-job-lost',
+
+  // --- socket frames, client <-> cloud -------------------------------------
+  'client-auth', 'auth-ok', 'auth-error', 'client-subscribe', 'client-unsubscribe',
+  'subscribe-error', 'datapoint-event', 'resource-health-event', 'job-event',
+  'client-invoke', 'client-cancel', 'client-publish', 'command-result', 'error-frame',
+
+  // --- REST request bodies and queries -------------------------------------
+  'create-robot-request', 'sign-up-request', 'developer-login-request',
+  'create-invitation-request', 'accept-invitation-request', 'create-app-request',
+  'client-login-request', 'client-refresh-request', 'client-logout-request',
+  'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
+  'role-permissions', 'mcp-tool-preview',
+
+  // --- shapes embedded in the above ----------------------------------------
+  // A config document travels inside BOTH a draft PUT and the `cloud-config`
+  // frame, so it is an accepted document on two surfaces and never a response
+  // shape of its own.
+  'robot-config-doc', 'datapoint-config', 'action-config', 'service-config',
+  'publisher-config', 'parameter-spec', 'camera-source', 'robot-details-doc',
+  'snapshot-header',
+]
+
+/**
+ * The other half, listed rather than inferred. Responses, and the entities
+ * that only ever appear inside one — output mode is the correct description
+ * here, because a response schema states what the server **will send**, with
+ * every default already applied.
+ */
+const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'mcp-tool-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
+  'camera-list-response', 'live-session-response', 'snapshot-meta-response',
+  'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',
+  'org-quota-usage-counts', 'credential-summary', 'credential-list-response',
+  'robot-deletion-summary', 'resource-health-state', 'resource-health-list-response',
+  'validation-issue', 'config-state', 'ros-graph', 'type-definition', 'robot',
+  'create-robot-response', 'robot-list-item', 'robot-list-response', 'datapoint-value',
+  'robot-detail-response', 'config-draft-response', 'publish-config-response',
+  'introspection-response', 'datapoint-list-response', 'api-error', 'org', 'org-member',
+  'session-tokens', 'sign-up-response', 'end-user', 'invitation', 'app', 'server-key',
+  'create-server-key-response', 'role', 'app-membership', 'client-identity', 'audit-actor',
+  'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
+  'exposure-list-response',
+]
+
+const INPUT = new Set(SCHEMA_IO_INPUT)
+export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ? 'input' : 'output')
+
+/**
+ * **Every schema must be classified, and this is why that is code and not a
+ * note.** An unlisted schema falling back to a default is exactly how this
+ * class survived four waves: the wrong mode was never *chosen* for any of
+ * them, it was inherited in silence. So both lists are checked against the
+ * export in both directions — a new schema, a renamed one, or one classified
+ * twice all stop the export rather than shipping a quietly wrong artifact.
+ */
+{
+  const known = Object.keys(exportedSchemas)
+  const classified = [...SCHEMA_IO_INPUT, ...SCHEMA_IO_OUTPUT]
+  const missing = known.filter((n) => !classified.includes(n))
+  const stale = classified.filter((n) => !known.includes(n))
+  const twice = SCHEMA_IO_INPUT.filter((n) => SCHEMA_IO_OUTPUT.includes(n))
+  const problems = [
+    missing.length ? `not classified as input or output: ${missing.join(', ')}` : '',
+    stale.length ? `classified but no longer exported: ${stale.join(', ')}` : '',
+    twice.length ? `classified as both: ${twice.join(', ')}` : '',
+  ].filter(Boolean)
+  if (problems.length) {
+    throw new Error(`SCHEMA_IO is out of step with exportedSchemas —\n  ${problems.join('\n  ')}`)
+  }
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
 if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
   mkdirSync(dir, { recursive: true })
   for (const [name, schema] of Object.entries(exportedSchemas)) {
-    // KNOWN CONTRADICTION, deferred to W6 with the fix already identified.
+    // **Per-schema `io` mode — DEF-059, closed in W9d.** For four waves this
+    // file emitted every artifact in zod's *output* mode, and recorded the
+    // resulting contradiction in a comment rather than fixing it.
     //
-    // Output mode marks a `.default()`ed field as *required*, because after
-    // parsing it is always present. So the published schema says a config
-    // frame must carry `cameras` (and the W4 kinds), while the source of
-    // truth in `robotConfigDoc` promises the opposite and the bridge's own
-    // runtime agrees with the promise, not the artifact. Fourth time
-    // `.default()` has been mistaken for optionality in this project.
+    // Output mode describes what a value looks like **after** parsing, so a
+    // `.default()`ed field is marked `required` — the artifact said a config
+    // frame must carry `cameras`, while `robotConfigDoc` promises the opposite
+    // and the bridge's runtime keeps that promise. Fifth instance by W6b, and
+    // by then it had reached the handshake itself: `bridgeHello.active_jobs`
+    // is `.default([])`, was published as `required`, and the bridge's own
+    // vendored copy therefore disagreed with the contract about a **documented
+    // absence**. Latent for this bridge, which always sends the key; real for
+    // any other implementation.
     //
-    // `z.toJSONSchema(schema, { io: 'input' })` fixes THIS class — verified:
-    // the config doc's `required` drops from all five kinds to `['datapoints']`.
+    // The blanket switch was never the fix, and measuring it is what showed
+    // why: input mode across all 113 schemas is the correct description for a
+    // frame a receiver must accept and **the wrong one for a response**, where
+    // output mode states what the server will actually send. Relaxing those
+    // would be a different lie in the other direction.
     //
-    // It does NOT fix every artifact/source disagreement, and an earlier
-    // version of this comment implied it did. Measured (W6, Momus 10):
-    // `historyQuery.limit` is `z.coerce.number()`, and both modes render it
-    // identically as `{"type":"integer", ...}` —
+    // So the mode is decided per schema, by direction, and the direction is
+    // not a judgement call — it follows from who validates the document:
     //
-    //     output: {"type":"integer","exclusiveMinimum":0,"maximum":10000}
-    //     input : {"type":"integer","exclusiveMinimum":0,"maximum":10000}
+    //   input   every socket frame, in both directions, because for each one
+    //           there is a receiver that validates it against this artifact
+    //           (which is the reason these files exist at all); every REST
+    //           request body and query; and every shape embedded in one.
+    //   output  every REST response, and every entity that only ever appears
+    //           inside one.
     //
-    // — because zod renders a coercion's *result* type in either direction.
-    // So the published artifact describes a shape a query string can never
-    // carry, and anyone validating a real request against it rejects every
-    // one that sets `limit`. Coercion needs a different fix from optionality:
-    // an explicit `z.union([...]).pipe(...)` whose input branch IS the wire.
-    // Left alone deliberately at the W6 boundary — nothing validates against
-    // this artifact today, and the change alters parsing semantics and forces
-    // a re-pin across four repos. Registered in DEFERRALS.md, W7.
-    //
-    // Same file, same class, smaller: the artifact publishes
-    // `"additionalProperties": false` while the route accepts and strips
-    // unknown query params (`?from=now-1m&bogus=1` → 200).
-    // It is NOT applied yet because applying it here applies it to every
-    // schema, including responses, where output mode is the correct
-    // description: a response schema states what the server will send, and
-    // relaxing it would be a different lie in the other direction. Measured
-    // blast radius of the blanket switch: 90 artifacts, 436 deletions.
-    // The real fix is per-schema — input mode for frames a receiver must
-    // accept, output mode for responses — which is a judgement call over
-    // ~60 schemas plus a re-vendor and a re-pin across four repos. That is
-    // not work to do at a wave boundary with blockers in flight, and nothing
-    // bites today because the cloud only ever sends a parsed document with
-    // its defaults already applied.
-    writeFileSync(join(dir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema), null, 2) + '\n')
+    // `SCHEMA_IO` below carries that decision for all 113, and the
+    // exhaustiveness check underneath makes it structural rather than a note:
+    // a schema added without a classification fails the export instead of
+    // quietly inheriting output mode, which is exactly how this class survived
+    // four waves.
+    writeFileSync(join(dir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema, { io: schemaIo(name) }), null, 2) + '\n')
     console.log(`wrote ${name}.schema.json`)
   }
   const constantsPath = join(import.meta.dirname, '..', 'artifacts', 'constants.json')

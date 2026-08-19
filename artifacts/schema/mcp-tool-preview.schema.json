@@ -49,6 +49,5 @@
     "slug",
     "kind",
     "input_schema"
-  ],
-  "additionalProperties": false
+  ]
 }

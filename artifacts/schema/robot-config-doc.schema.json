@@ -54,8 +54,7 @@
                 "required": [
                   "mode",
                   "hz"
-                ],
-                "additionalProperties": false
+                ]
               },
               {
                 "type": "object",
@@ -67,8 +66,7 @@
                 },
                 "required": [
                   "mode"
-                ],
-                "additionalProperties": false
+                ]
               }
             ]
           },
@@ -132,8 +130,7 @@
                 "required": [
                   "min",
                   "max"
-                ],
-                "additionalProperties": false
+                ]
               },
               {
                 "type": "null"
@@ -168,8 +165,7 @@
             "required": [
               "enabled",
               "max_values"
-            ],
-            "additionalProperties": false
+            ]
           }
         },
         "required": [
@@ -181,11 +177,8 @@
           "unit",
           "scale",
           "offset",
-          "range",
-          "retention",
-          "buffer"
-        ],
-        "additionalProperties": false
+          "range"
+        ]
       }
     },
     "actions": {
@@ -256,8 +249,7 @@
                     "required": {
                       "type": "boolean"
                     }
-                  },
-                  "additionalProperties": false
+                  }
                 },
                 "description": {
                   "type": "string",
@@ -269,8 +261,7 @@
                 "name",
                 "type",
                 "rule"
-              ],
-              "additionalProperties": false
+              ]
             }
           },
           "description": {
@@ -284,8 +275,7 @@
           "ros_name",
           "type",
           "parameters"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "services": {
@@ -356,8 +346,7 @@
                     "required": {
                       "type": "boolean"
                     }
-                  },
-                  "additionalProperties": false
+                  }
                 },
                 "description": {
                   "type": "string",
@@ -369,8 +358,7 @@
                 "name",
                 "type",
                 "rule"
-              ],
-              "additionalProperties": false
+              ]
             }
           },
           "description": {
@@ -384,8 +372,7 @@
           "ros_name",
           "type",
           "parameters"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "publishers": {
@@ -456,8 +443,7 @@
                     "required": {
                       "type": "boolean"
                     }
-                  },
-                  "additionalProperties": false
+                  }
                 },
                 "description": {
                   "type": "string",
@@ -469,8 +455,7 @@
                 "name",
                 "type",
                 "rule"
-              ],
-              "additionalProperties": false
+              ]
             }
           },
           "timeout_ms": {
@@ -498,8 +483,7 @@
           "timeout_ms",
           "failsafe",
           "quiet_timeout_ms"
-        ],
-        "additionalProperties": false
+        ]
       }
     },
     "cameras": {
@@ -539,8 +523,7 @@
                   "kind",
                   "topic",
                   "type"
-                ],
-                "additionalProperties": false
+                ]
               },
               {
                 "type": "object",
@@ -579,11 +562,8 @@
                 },
                 "required": [
                   "kind",
-                  "url",
-                  "transport",
-                  "credentials_ref"
-                ],
-                "additionalProperties": false
+                  "url"
+                ]
               },
               {
                 "type": "object",
@@ -614,10 +594,8 @@
                 },
                 "required": [
                   "kind",
-                  "url",
-                  "credentials_ref"
-                ],
-                "additionalProperties": false
+                  "url"
+                ]
               },
               {
                 "type": "object",
@@ -636,8 +614,7 @@
                 "required": [
                   "kind",
                   "device"
-                ],
-                "additionalProperties": false
+                ]
               }
             ]
           },
@@ -680,17 +657,11 @@
           "fps",
           "bitrate_kbps",
           "snapshot_interval_ms"
-        ],
-        "additionalProperties": false
+        ]
       }
     }
   },
   "required": [
-    "datapoints",
-    "actions",
-    "services",
-    "publishers",
-    "cameras"
-  ],
-  "additionalProperties": false
+    "datapoints"
+  ]
 }

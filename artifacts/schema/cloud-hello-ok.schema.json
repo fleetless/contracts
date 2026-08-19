@@ -15,6 +15,5 @@
   "required": [
     "type",
     "robot_id"
-  ],
-  "additionalProperties": false
+  ]
 }
