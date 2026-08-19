@@ -362,7 +362,22 @@ export const liveSessionEvent = z.object({
   session_id: z.uuid(),
   state: z.literal('ended'),
   reason: liveSessionEndReason,
-  /** The robot's own words when it has any, never an exception message. */
+  /**
+   * **Classified text the cloud produced, never text the robot sent.**
+   *
+   * An earlier draft of this comment said *"the robot's own words when it has
+   * any"*, which reads as permission to pass `bridgeCameraState.error.message`
+   * straight through. Nothing sanitises that field, and this codebase has a
+   * documented incident of a password reaching a developer surface through
+   * exactly that route — `camera-health.ts`'s fixed-string `REASON` discipline
+   * exists because of it. Nimbus-W9a stopped at the sentence and asked rather
+   * than taking the permission it appeared to give (2026-08-19).
+   *
+   * So: `null` unless the cloud itself has something classified to say. If a
+   * developer needs the robot's own diagnosis later, it arrives as a mapped
+   * code with fixed text, the way camera health already does it — not as
+   * forwarded foreign text on a channel a client reads.
+   */
   detail: z.string().max(200).nullable(),
   /** When it ended — not when this frame was sent. Same reasoning as `changed_at_ms`. */
   ended_at_ms: z.number().int().nonnegative(),
