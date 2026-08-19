@@ -272,6 +272,13 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
  * ist (DEF-148).
  *
+ * **Sie gilt je Datei, nicht je Sync**, und das steht hier, weil DEF-127 es
+ * ausdrücklich verlangt hat: acht Meshes zu je 30 MiB passen durch, eine Datei
+ * zu 65 MiB nicht. Wer sie für eine Obergrenze der Übertragung hält, rechnet
+ * mit einer Schranke, die es nicht gibt — die Summe eines Syncs bindet das
+ * Speicherkontingent der Organisation, und das ist eine andere Zahl an einer
+ * anderen Stelle.
+ *
  * **Die Zahl ist bewusst unverändert, und die Begründung hat zwei Fassungen
  * gebraucht — die Korrektur ist hier mehr wert als das Ergebnis.**
  *
