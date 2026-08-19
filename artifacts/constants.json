@@ -3,7 +3,8 @@
     "kind": "x-fleetless-asset-kind",
     "name": "x-fleetless-asset-name",
     "nameEncoded": "x-fleetless-asset-name-encoded",
-    "syncId": "x-fleetless-sync-id"
+    "syncId": "x-fleetless-sync-id",
+    "size": "x-fleetless-asset-size"
   },
   "SNAPSHOT_HEADERS": {
     "ageMs": "x-fleetless-age-ms",

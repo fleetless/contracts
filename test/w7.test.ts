@@ -89,6 +89,11 @@ describe('completeness distinguishes three different unhappy answers', () => {
     const body = {
       assets: [],
       urdf: { present: false, mesh_count: 0, missing: [] },
+      // W9b: in die FIXTURE, nicht in die Zusicherung. Die letzte Zeile dieses
+      // Tests behauptet, `body` ohne `urdf_available` werde abgelehnt — ohne
+      // `active_sync` hier würde sie aus ZWEI Gründen scheitern und damit aus
+      // dem falschen bestehen. Genau diese Form ist in W7c einmal durchgerutscht.
+      active_sync: null,
     }
     expect(assetListResponse.safeParse({ ...body, urdf_available: null }).success).toBe(true)
     expect(assetListResponse.safeParse({ ...body, urdf_available: false }).success).toBe(true)

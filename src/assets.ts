@@ -157,40 +157,6 @@ export const urdfCompleteness = z.object({
 })
 export type UrdfCompleteness = z.infer<typeof urdfCompleteness>
 
-export const assetListResponse = z.object({
-  assets: z.array(asset),
-  urdf: urdfCompleteness,
-  /**
-   * What the connected bridge says it *could* transfer, which is deliberately
-   * separate from what has been transferred (§4.6: the bridge "meldet nur
-   * Verfügbarkeit"). `null` when no bridge is connected — distinct from
-   * `false`, because "no robot is online to ask" and "the robot has no URDF"
-   * send a developer to two different places.
-   *
-   * **All three states are reachable as of W7a (R7).** They were not: the bridge
-   * used to report availability from a subscription callback, which fires only
-   * when a publisher *sends* something, so it could notice presence and never
-   * absence — a robot that lost its URDF left the cloud holding the last thing
-   * it heard, forever, and `true` was sticky. The fix is an **active**
-   * `count_publishers` query on the bridge's own timer.
-   *
-   * **What a consumer still needs to know is the clock, not the gap.** An
-   * ungraceful loss — the publisher process killed rather than shut down — is
-   * noticed on **DDS's liveliness timeout**, not on the bridge's check
-   * interval. Measured against a real bridge: ~1.6 s when the publisher calls
-   * `destroy_node()`, **~19 s when it is `SIGKILL`ed**. So `true` can outlive
-   * the truth by some seconds after a crash, and no amount of polling on our
-   * side shortens it.
-   *
-   * The sticky-`true` gap was found by Rosie-W7 checking her own work against
-   * the camera-health row of identical shape; the DDS clock was measured by
-   * Rosie-W7a closing it, and this comment was still describing the gap a wave
-   * after it was fixed (Momus-W7a, W7a review).
-   */
-  urdf_available: z.boolean().nullable(),
-})
-export type AssetListResponse = z.infer<typeof assetListResponse>
-
 /**
  * A sync is long-running and is therefore answered with something to watch,
  * never with a status that was true at the moment of asking.
@@ -373,13 +339,102 @@ export const assetSyncStatus = z.object({
 })
 export type AssetSyncStatus = z.infer<typeof assetSyncStatus>
 
+
+export const assetListResponse = z.object({
+  assets: z.array(asset),
+  /**
+   * Der gerade laufende Sync, oder `null` (W9b, DEF-147).
+   *
+   * **Der Fall, für den das hier steht, ist der Neuladen-Fall.** Die Console
+   * hielt die `sync_id` nur im Speicher; ein Reload verlor die Fortschritts-
+   * anzeige, und der Zustand war serverseitig da, über
+   * `GET .../assets/sync/<id>` abfragbar — nur erreichte ihn niemand mehr, der
+   * die id nicht aufgehoben hatte. Eine Seite, die frisch lädt, drückt keinen
+   * Knopf; sie fragt diese Liste. Also muss die Liste es sagen.
+   */
+  active_sync: assetSyncStatus.nullable(),
+  urdf: urdfCompleteness,
+  /**
+   * What the connected bridge says it *could* transfer, which is deliberately
+   * separate from what has been transferred (§4.6: the bridge "meldet nur
+   * Verfügbarkeit"). `null` when no bridge is connected — distinct from
+   * `false`, because "no robot is online to ask" and "the robot has no URDF"
+   * send a developer to two different places.
+   *
+   * **All three states are reachable as of W7a (R7).** They were not: the bridge
+   * used to report availability from a subscription callback, which fires only
+   * when a publisher *sends* something, so it could notice presence and never
+   * absence — a robot that lost its URDF left the cloud holding the last thing
+   * it heard, forever, and `true` was sticky. The fix is an **active**
+   * `count_publishers` query on the bridge's own timer.
+   *
+   * **What a consumer still needs to know is the clock, not the gap.** An
+   * ungraceful loss — the publisher process killed rather than shut down — is
+   * noticed on **DDS's liveliness timeout**, not on the bridge's check
+   * interval. Measured against a real bridge: ~1.6 s when the publisher calls
+   * `destroy_node()`, **~19 s when it is `SIGKILL`ed**. So `true` can outlive
+   * the truth by some seconds after a crash, and no amount of polling on our
+   * side shortens it.
+   *
+   * The sticky-`true` gap was found by Rosie-W7 checking her own work against
+   * the camera-health row of identical shape; the DDS clock was measured by
+   * Rosie-W7a closing it, and this comment was still describing the gap a wave
+   * after it was fixed (Momus-W7a, W7a review).
+   */
+  urdf_available: z.boolean().nullable(),
+})
+export type AssetListResponse = z.infer<typeof assetListResponse>
+
 /**
  * What an `asset_too_large` refusal tells the caller — the same discipline as
  * `publisher_busy` and `job_queue_full`: a refusal that names a state and no
  * number leaves the caller unable to decide anything.
  */
+/**
+ * **Der Deckel, den beide Seiten kennen müssen (W9b).**
+ *
+ * Bis hierher hatte die Bridge eine eigene Zahl und die Cloud eine eigene, und
+ * die Registerzeile dazu nannte die der Bridge beim Namen: *„a guess … chosen
+ * as a starting number with no measurement behind it"* (DEF-127). Eine Grenze,
+ * die der Sender rät und der Empfänger durchsetzt, ist keine Grenze — sie ist
+ * zwei Zahlen, die zufällig übereinstimmen, bis eine von beiden sich ändert.
+ *
+ * Hier steht sie einmal. Die Bridge liest sie, **bevor** sie eine Datei in den
+ * Speicher liest; die Cloud setzt sie durch. Ohne das kann die Bridge gar nicht
+ * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
+ * ist (DEF-148).
+ *
+ * **Die Zahl selbst ist bewusst unverändert.** rx1s echte Meshes sind
+ * gemessen — `base.dae` 193.886.766 Bytes, also das 2,9-fache — und ob der
+ * Deckel steigen soll, ist eine Entscheidung über Speicher, Übertragungszeit
+ * und Kontingente, nicht über einen Vertrag. Sie liegt bei André.
+ */
+export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
+
 export const assetTooLargeDetails = z.object({
   limit_bytes: z.number().int().positive(),
   size_bytes: z.number().int().positive(),
 })
 export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
+
+/**
+ * Was eine `busy`-Absage beim Asset-Sync mitgeben muss (W9b, DEF-147).
+ *
+ * Vorher antwortete die Cloud *„Robot <id> already has a sync in progress"* —
+ * eine Absage, die einen **Zustand** benennt, aber nicht das **Ding** in diesem
+ * Zustand. Der laufende Sync ist serverseitig beobachtbar und über
+ * `GET .../assets/sync/<id>` abfragbar, nur erreichte ihn niemand mehr, der die
+ * id nicht aufgehoben hatte. Genau die Form, die W6b eine ganze Welle lang
+ * ausgeräumt hat: ein Abbruch ohne Job-Id, eine Freigabe ohne Session-Id.
+ *
+ * **Das allein genügt nicht**, und deshalb steht daneben `activeSync` auf der
+ * Asset-Liste: Diese Details helfen nur dem, der den Knopf noch einmal drückt.
+ * Wer die Seite neu lädt — der Fall, den André am 2026-08-18 hatte —, drückt
+ * gar nichts und braucht den laufenden Sync im ersten `GET`.
+ */
+export const assetSyncBusyDetails = z.object({
+  sync_id: z.uuid(),
+  /** Wann er begann — damit „läuft noch" von „hängt seit einer Stunde" unterscheidbar ist. */
+  started_at_ms: z.number().int().nonnegative(),
+})
+export type AssetSyncBusyDetails = z.infer<typeof assetSyncBusyDetails>

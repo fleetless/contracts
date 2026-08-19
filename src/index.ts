@@ -389,6 +389,8 @@ export {
   assetFailure,
   assetFailureKind,
   assetTooLargeDetails,
+  assetSyncBusyDetails,
+  ASSET_UPLOAD_MAX_BYTES,
 } from './assets.js'
 export type {
   AssetKind,
@@ -402,6 +404,7 @@ export type {
   AssetFailure,
   AssetFailureKind,
   AssetTooLargeDetails,
+  AssetSyncBusyDetails,
 } from './assets.js'
 export { auditActor, auditEvent, auditListResponse } from './audit.js'
 export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'

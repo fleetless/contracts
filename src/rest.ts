@@ -753,6 +753,26 @@ export const ASSET_UPLOAD_HEADERS = {
   name: 'x-fleetless-asset-name',
   nameEncoded: 'x-fleetless-asset-name-encoded',
   syncId: 'x-fleetless-sync-id',
+  /**
+   * **Die angekündigte Größe, und sie ist der Grund, warum `asset_too_large`
+   * überhaupt entstehen kann (W9b, DEF-116).**
+   *
+   * Fastifys `bodyLimit` greift im Content-Type-Parser, also **vor** dem
+   * Handler — eine zu große Datei bekam damit ein blankes `413 bad_request`
+   * ohne `limit_bytes` und ohne `size_bytes`, und der strukturierte Fehlercode,
+   * den `assetTooLargeDetails` beschreibt, hatte schlicht keinen erreichbaren
+   * Erzeuger (Momus-W7, M1, an den echten Routenoptionen reproduziert).
+   *
+   * Mit einer angekündigten Größe im Kopf kann die Ablehnung dort entstehen,
+   * wo sie etwas sagen kann: bevor ein Byte gepuffert ist, mit beiden Zahlen.
+   * Und die Bridge erfährt ihre Grenze, ohne 194 MB zu lesen, um sie zu
+   * entdecken — was am 2026-08-18 auf rx1 genau so ausging (DEF-148).
+   *
+   * Der Kopf ist eine **Ankündigung, kein Beweis**: Ein Absender kann lügen.
+   * Der Deckel gilt weiterhin auch am Körper — dies ersetzt die Durchsetzung
+   * nicht, es macht die Absage nur beantwortbar.
+   */
+  size: 'x-fleetless-asset-size',
 } as const
 
 export const cameraDescriptor = z.object({
