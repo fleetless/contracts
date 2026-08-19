@@ -272,10 +272,22 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
  * ist (DEF-148).
  *
- * **Die Zahl selbst ist bewusst unverändert.** rx1s echte Meshes sind
- * gemessen — `base.dae` 193.886.766 Bytes, also das 2,9-fache — und ob der
- * Deckel steigen soll, ist eine Entscheidung über Speicher, Übertragungszeit
- * und Kontingente, nicht über einen Vertrag. Sie liegt bei André.
+ * **Die Zahl selbst ist bewusst unverändert — und die Begründung, die hier
+ * zuerst stand, war falsch.** Sie lautete: *„rx1s echte Meshes sind gemessen —
+ * `base.dae` 193.886.766 Bytes, also das 2,9-fache."* Die Messung stimmte, die
+ * Verallgemeinerung nicht. `base.dae` **liegt** auf rx1s Platte und wird von
+ * keiner rx1-URDF referenziert; die einzigen Dokumente im System, die den Namen
+ * nennen, sind ROS-Standardpakete (turtlebot3, rviz-Testmeshes).
+ *
+ * Gemessen am 2026-08-19 gegen die **laufende** `robot_description`: acht
+ * `package://`-Referenzen, zusammen 89.379.096 Bytes, die größte
+ * `RX1.dae` mit 38.229.621 — **keine über dem Deckel.** Eine Datei auf der
+ * Platte ist kein referenziertes Mesh, und ich hatte das eine für das andere
+ * genommen.
+ *
+ * Ob der Deckel steigen soll, bleibt eine Entscheidung über Speicher,
+ * Übertragungszeit und Kontingente und liegt bei André — aber sie **blockiert
+ * nichts**, und niemand sollte sie unter Berufung auf rx1 treffen.
  */
 export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
 
