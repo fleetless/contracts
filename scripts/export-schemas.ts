@@ -36,6 +36,7 @@ import {
   snapshotMetaResponse,
 } from '../src/rest.js'
 import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource } from '../src/config.js'
+import { AUDIT_RETENTION_DAYS } from '../src/audit.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
   robot,
@@ -275,6 +276,9 @@ export const exportedSchemas = {
  * renaming a key breaks a consumer exactly as renaming a schema field would.
  */
 export const exportedConstants = {
+  // W9d: the cloud must not derive the retention window a second time.
+  AUDIT_RETENTION_DAYS,
+
   ASSET_UPLOAD_HEADERS,
   /**
    * **Der Deckel gehört hierher, weil die Bridge ihn sonst raten muss — und

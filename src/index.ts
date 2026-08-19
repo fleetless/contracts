@@ -412,8 +412,8 @@ export type {
   AssetTooLargeDetails,
   AssetSyncBusyDetails,
 } from './assets.js'
-export { auditActor, auditEvent, auditListResponse } from './audit.js'
-export type { AuditActor, AuditEvent, AuditListResponse } from './audit.js'
+export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS } from './audit.js'
+export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse } from './audit.js'
 export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'
 export type { ApiError, ParameterViolation, ParameterInvalidDetails, ErrorCode } from './errors.js'
 export {

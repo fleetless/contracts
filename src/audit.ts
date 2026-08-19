@@ -69,7 +69,92 @@ export const auditEvent = z.object({
 })
 export type AuditEvent = z.infer<typeof auditEvent>
 
+/**
+ * **How this log is read (W9d, DEF-078 and DEF-123).**
+ *
+ * Until now `GET /api/audit` returned the **whole** log — no filters, no
+ * cursor. `auditEvent.seq`'s own comment has said so plainly since W6b rather
+ * than describing a capability the API does not have; this shape builds
+ * exactly what that comment announced.
+ *
+ * **The cursor is `seq`, and no other field can be.** `at` is not a total
+ * order: two events written in the same millisecond sort differently on every
+ * query, so a cursor on `at` either skips rows or repeats them at each page
+ * boundary — which for an audit log means an entry that is present and
+ * invisible.
+ *
+ * `before_seq` rather than `after_seq`, because this log is read **newest
+ * first**: the next page is older, not newer.
+ *
+ * **Filters are part of the same work, not a later garnish.** A console view
+ * without them is a page with nothing to filter by — the register row says
+ * exactly that, which is why the two rows are one piece of work.
+ */
+export const auditQuery = z.object({
+  /** Only events with a smaller `seq` — the next, older page. */
+  before_seq: z
+    .union([z.string().regex(/^\d{1,19}$/), z.number().int()])
+    .transform((v) => Number(v))
+    .pipe(z.number().int().positive())
+    .optional(),
+  /**
+   * Same shape as DEF-059's `historyQuery.limit`: a union whose input branch
+   * **is the wire**. A `z.coerce` cannot be published — zod renders the
+   * coercion's result in either `io` direction, so the artifact would describe
+   * a shape a query string can never carry.
+   */
+  limit: z
+    .union([z.string().regex(/^\d{1,4}$/), z.number().int()])
+    .transform((v) => Number(v))
+    .pipe(z.number().int().positive().max(500))
+    .optional(),
+  /** Exact action name, e.g. `config.published`. No prefix matching: a filter that matches more than it says is not one. */
+  action: z.string().min(1).max(80).optional(),
+  /** Only events by this actor. */
+  actor_id: z.string().min(1).max(200).optional(),
+  /** Only events about this kind of target, e.g. `robot`. */
+  target_kind: z.string().min(1).max(40).optional(),
+  /** Absolute bounds in unix milliseconds, **half-open `[from, to)`** — the same rule the history shapes follow (DEF-062). */
+  from_ms: z.union([z.string().regex(/^\d{1,15}$/), z.number().int()]).transform((v) => Number(v)).pipe(z.number().int().nonnegative()).optional(),
+  to_ms: z.union([z.string().regex(/^\d{1,15}$/), z.number().int()]).transform((v) => Number(v)).pipe(z.number().int().nonnegative()).optional(),
+}).strict()
+export type AuditQuery = z.infer<typeof auditQuery>
+
 export const auditListResponse = z.object({
   events: z.array(auditEvent),
+  /**
+    * The `seq` a caller sends as `before_seq` to keep reading — or `null` when
+    * there is nothing further.
+    *
+    * **`null` means the end, and that is a promise rather than an
+    * observation.** A caller who instead compares `events.length` against
+    * `limit` is wrong the moment a filter makes a page thin: a short page does
+    * not mean *no more* here. The same distinction `historySamples` was given
+    * `truncated` for.
+    */
+  next_cursor: z.number().int().positive().nullable(),
 })
 export type AuditListResponse = z.infer<typeof auditListResponse>
+
+/**
+ * **What a CSV export of this log looks like (DEF-123, spec §16.3).**
+ *
+ * The column order lives here because otherwise the cloud and the console
+ * would each carry their own, and nobody would notice them drifting apart
+ * until a spreadsheet at a customer had the wrong headings. One order, one
+ * place.
+ *
+ * `details` is written as JSON into a single cell. That is ugly and honest:
+ * the alternative is leaving it out, and an audit export that omits *what
+ * happened* is not an audit export.
+ */
+export const AUDIT_CSV_COLUMNS = ['seq', 'at', 'actor_kind', 'actor_id', 'action', 'target_kind', 'target_id', 'target_label', 'details'] as const
+
+/**
+ * Spec §16.3: the audit log is kept for **90 days**.
+ *
+ * A constant here so the cloud does not derive it a second time — the same
+ * reasoning as `ASSET_UPLOAD_MAX_BYTES`, and the same register row that found
+ * there is no purge touching audit rows at all.
+ */
+export const AUDIT_RETENTION_DAYS = 90

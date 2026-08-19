@@ -1,4 +1,5 @@
 {
+  "AUDIT_RETENTION_DAYS": 90,
   "ASSET_UPLOAD_HEADERS": {
     "kind": "x-fleetless-asset-kind",
     "name": "x-fleetless-asset-name",

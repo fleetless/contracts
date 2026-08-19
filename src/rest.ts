@@ -860,6 +860,28 @@ export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>
 // ---------------------------------------------------------------------------
 
 /**
+ * **Both history shapes answer the same boundary the same way: `[from, to)`
+ * (W9d, DEF-062 — decision pre-made at the W6 boundary so no wave
+ * re-litigates it).**
+ *
+ * They did not. `samples` was inclusive of `to`, `buckets` exclusive — same
+ * range, same data, opposite answers for a point landing exactly on `to`, and
+ * the buckets answer rendered as a gap tooltipped *"empty — no samples"*.
+ * `sdk/README.md` documented the inclusive notation for the half-open path,
+ * so it was wrong for one of the two whichever way you read it.
+ *
+ * Half-open wins because it is the only rule under which **adjacent windows
+ * tile without overlap**: `[0,10)` then `[10,20)` covers every instant once.
+ * With an inclusive upper bound a sample at exactly `10` belongs to both
+ * windows, and any consumer summing them counts it twice.
+ *
+ * This is a statement about behaviour, not a field — nothing in the shapes
+ * below can enforce it. It is written here because this is the one place both
+ * shapes are defined together, and the cloud's `history-store` and the SDK's
+ * README are the two places that have to agree with it.
+ */
+
+/**
  * A history query (§8). `from`/`to` accept **either** a relative expression
  * (`now-30s`, `now-5m`, `now-1h`) **or** absolute unix milliseconds, because
  * a chart asks the first way and a report asks the second, and making a
@@ -879,13 +901,30 @@ export const historyQuery = z.object({
   /** A numeric field inside an object value, e.g. `pose.x` (§4.4 paths). */
   field: z.string().min(1).max(128).optional(),
   /**
-   * `z.coerce` because this schema describes a **query string**, where every
-   * value arrives as text. A bare `z.number()` would make each route coerce
-   * `limit` by hand before parsing — Nimbus had to, and flagged that the next
-   * query-taking route would have to as well. A schema that does not match
-   * the wire it describes exports its problem to every consumer.
+   * **A union whose input branch IS the wire, not a coercion (W9d, DEF-059).**
+   *
+   * This was `z.coerce.number()`, for a good reason that stayed true: the
+   * schema describes a **query string**, where every value arrives as text,
+   * and a bare `z.number()` would make each route coerce by hand. What was
+   * measured afterwards is that a coercion cannot be *published*: zod renders
+   * a coercion's **result** in either `io` mode, so `io: 'input'` and
+   * `io: 'output'` both emit `{"type":"integer"}` — an artifact describing a
+   * shape a query string can never carry. Anyone validating a real request
+   * against it rejects every one that sets `limit`.
+   *
+   * That is a **different** defect from the `.default()` class, which
+   * `io: 'input'` genuinely does fix; `export-schemas.ts` once claimed one
+   * remedy for both and has been corrected.
+   *
+   * A union states both truths honestly: the wire carries a numeric string,
+   * a programmatic caller may pass a number, and the artifact can render the
+   * input branch because there is one to render.
    */
-  limit: z.coerce.number().int().positive().max(10_000).optional(),
+  limit: z
+    .union([z.string().regex(/^\d{1,5}$/), z.number().int()])
+    .transform((v) => Number(v))
+    .pipe(z.number().int().positive().max(10_000))
+    .optional(),
 })
 export type HistoryQuery = z.infer<typeof historyQuery>
 
