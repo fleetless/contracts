@@ -340,6 +340,8 @@ export type {
   PasswordResetConfirm,
   IdpIssuer,
   IdpConfig,
+  OrgFederationPolicy,
+  OrgFederationPolicyRequest,
   IdpConfigRequest,
 } from './identity.js'
 export {
@@ -377,6 +379,7 @@ export type {
   ClientLoginRequest,
   ClientRefreshRequest,
   ClientLogoutRequest,
+  ClientLogoutResponse,
   ClientIdentity,
 } from './client-auth.js'
 export {
@@ -458,5 +461,8 @@ export type {
   AuthorizationServerMetadata,
   ProtectedResourceMetadata,
   ConsentGrant,
+  ConsentGrantSummary,
+  ConsentGrantListResponse,
+  ConsentRevokeResponse,
   ConsentDecision,
 } from './oauth.js'

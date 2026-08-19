@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { idpConfig, idpConfigRequest, orgFederationPolicy, orgFederationPolicyRequest } from '../src/identity.js'
 import { consentGrantSummary, consentGrantListResponse, consentRevokeResponse } from '../src/oauth.js'
 import { clientLogoutResponse } from '../src/client-auth.js'
+import type {
+  ClientLogoutResponse,
+  ConsentGrantListResponse,
+  ConsentGrantSummary,
+  ConsentRevokeResponse,
+  OrgFederationPolicy,
+  OrgFederationPolicyRequest,
+} from '../src/index.js'
 
 const UUID = '00000000-0000-4000-8000-000000000000'
 const NOW = '2026-08-19T12:00:00.000Z'
@@ -103,5 +111,29 @@ describe('logout says which of three things is true (DEF-098)', () => {
     const a = parse({ status: 'not_federated' })
     const b = parse({ status: 'unsupported_by_idp' })
     expect(a.success && b.success && a.data.idp_logout.status === b.data.idp_logout.status).toBe(false)
+  })
+})
+
+describe('the barrel exports the TYPES, not only the schemas', () => {
+  // **Data-W9c hat das gefunden, bevor er darauf gebaut hat.** Mein Delta hat
+  // die Werte re-exportiert und die inferierten Typen vergessen — `tsc` sagte
+  // ihm *has no exported member named 'ClientLogoutResponse'. Did you mean
+  // 'clientLogoutResponse'?*, also die Grossschreibung als einziger
+  // Unterschied. Ein Konsument kann dann das Schema benutzen und die Form
+  // nicht benennen, was in der Praxis heisst: er schreibt sie noch einmal ab.
+  //
+  // Dieser Test ist bewusst ein TYP-Test und laeuft daher in `tsc`, nicht zur
+  // Laufzeit — ein `expect` auf einen Typ gibt es nicht.
+  it('compiles a value of each new type, taken from the barrel', () => {
+    const logout: ClientLogoutResponse = { idp_logout: { status: 'not_federated' } }
+    const summary: ConsentGrantSummary = {
+      client_id: 'c', client_name: 'C', app_id: UUID, app_name: 'A',
+      role_id: UUID, role_name: 'R', scope: '', granted_at: NOW,
+    }
+    const list: ConsentGrantListResponse = { grants: [summary] }
+    const revoke: ConsentRevokeResponse = { revoked: true, tokens_revoked: 1 }
+    const policy: OrgFederationPolicy = { link_verified_emails: true, updated_at: NOW }
+    const req: OrgFederationPolicyRequest = { link_verified_emails: false }
+    expect([logout, list, revoke, policy, req].every(Boolean)).toBe(true)
   })
 })
