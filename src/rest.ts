@@ -921,17 +921,36 @@ export const historyQuery = z.object({
    * input branch because there is one to render.
    *
    * **What the artifact no longer says, named here rather than left silent.**
-   * The `1..10000` bound lives in the `.pipe()`, which is the *output* half,
-   * so the published input schema carries only `^\d{1,5}$` and a bare integer
-   * — five digits is a weak echo of the real ceiling and the lower bound is
-   * gone entirely. This is honest about the wire (the bound is enforced after
-   * parsing, not by the shape of the text) but it is a **reduction** in what
-   * the artifact states, and an artifact that stops naming a bound reads as if
-   * there were none. Anyone generating a client from these files must take the
-   * limit from `historySamplesResponse`'s contract sentence, not from here.
+   * The `1..10000` bound lives in the `.pipe()`, which is the *output* half, so
+   * no input-mode artifact can express it as a constraint: the published shape
+   * is `^\d{1,5}$` or a bare integer, and five digits is a weak echo of the
+   * real ceiling. That is honest about the wire — the bound is enforced after
+   * parsing, not by the shape of the text — but it is a **reduction**, and an
+   * artifact that stops naming a bound reads as if there were none.
+   *
+   * So both branches carry the number in a `.describe()` (Nimbus-W9d's
+   * proposal). It is **not** a constraint and nothing validates against it; it
+   * means a generator, or a person reading only the published schema, sees the
+   * actual ceiling instead of nothing. The gap is narrowed and named rather
+   * than closed.
    */
   limit: z
-    .union([z.string().regex(/^\d{1,5}$/), z.number().int()])
+    .union([
+      z
+        .string()
+        .regex(/^\d{1,5}$/)
+        // **The description carries the number the shape cannot** (Nimbus-W9d's
+        // proposal). Five digits is the regex's bound, not the contract's; the
+        // real ceiling lives in the `.pipe()` below and therefore cannot appear
+        // in an input-mode artifact. This does not close that gap and does not
+        // claim to — it means a generator, or a person reading only the
+        // published schema, sees the actual number instead of none at all.
+        .describe('Positive integer, 1-10000. The pattern only bounds digit count; the real ceiling is enforced after parsing.'),
+      // The same sentence on the numeric branch, for the same reason and one
+      // that is arguably stronger: without it the artifact publishes the full
+      // safe-integer range, which reads as *nine quadrillion is fine*.
+      z.number().int().describe('Positive integer, 1-10000. The ceiling is enforced after parsing, not by this type.'),
+    ])
     .transform((v) => Number(v))
     .pipe(z.number().int().positive().max(10_000))
     .optional(),

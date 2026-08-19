@@ -34,12 +34,14 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^\\d{1,5}$"
+          "pattern": "^\\d{1,5}$",
+          "description": "Positive integer, 1-10000. The pattern only bounds digit count; the real ceiling is enforced after parsing."
         },
         {
           "type": "integer",
           "minimum": -9007199254740991,
-          "maximum": 9007199254740991
+          "maximum": 9007199254740991,
+          "description": "Positive integer, 1-10000. The ceiling is enforced after parsing, not by this type."
         }
       ]
     }
