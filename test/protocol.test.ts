@@ -9,7 +9,7 @@ import {
   apiError,
   slug,
 } from '../src/index.js'
-import { exportedSchemas, schemaIo } from '../scripts/export-schemas.js'
+import { exportedSchemas, schemaIo, BRIDGE_SENT_SCHEMAS } from '../scripts/export-schemas.js'
 import { z } from 'zod'
 
 describe('contracts v1', () => {
@@ -85,5 +85,37 @@ describe('schema artifacts', () => {
       Object.entries(exportedSchemas).map(([name, schema]) => [name, z.toJSONSchema(schema, { io: schemaIo(name) })]),
     )
     expect(onDisk).toEqual(fresh)
+  })
+
+  /**
+   * The same guard for the outgoing set. Without it the harness artifacts
+   * could drift silently — which is exactly the class they exist to catch,
+   * one level up.
+   */
+  it('outgoing artifacts on disk match a fresh output-mode export', () => {
+    const dir = join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing')
+    const onDisk = Object.fromEntries(
+      readdirSync(dir)
+        .filter((f) => f.endsWith('.schema.json'))
+        .map((f) => [f.replace('.schema.json', ''), JSON.parse(readFileSync(join(dir, f), 'utf8'))]),
+    )
+    const fresh = Object.fromEntries(
+      BRIDGE_SENT_SCHEMAS.map((name) => [name, z.toJSONSchema(exportedSchemas[name as keyof typeof exportedSchemas], { io: 'output' })]),
+    )
+    expect(onDisk).toEqual(fresh)
+  })
+
+  /**
+   * **The property that makes the set worth having**, asserted rather than
+   * assumed: every outgoing schema refuses unknown keys. If a future zod or a
+   * future classification quietly stopped emitting `additionalProperties`,
+   * the files would still exist, still match a fresh export, and check
+   * nothing — a guard whose success and whose no-op look identical.
+   */
+  it('every outgoing schema refuses unknown keys', () => {
+    for (const name of BRIDGE_SENT_SCHEMAS) {
+      const rendered = z.toJSONSchema(exportedSchemas[name as keyof typeof exportedSchemas], { io: 'output' }) as Record<string, unknown>
+      expect(rendered.additionalProperties, `${name} must refuse unknown keys`).toBe(false)
+    }
   })
 })

@@ -418,6 +418,61 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
   }
 }
 
+/**
+ * **The frames the bridge SENDS, published a second time in output mode.**
+ *
+ * These files are **not** a second contract. The contract is the input-mode
+ * artifact next door, and it is right: it describes what a receiver accepts,
+ * and this project's receivers strip unknown keys rather than refusing them.
+ *
+ * This set exists because the io split *removed* something (Argus-W9). Input
+ * mode drops `additionalProperties: false`, and the bridge's own test harness
+ * was using the vendored copies to check its **outgoing** frames — where a
+ * relaxed schema points the wrong way. Rosie-W9d supplied the reason it
+ * matters: every outgoing message in that repo is a hand-typed dict literal
+ *
+ *     json.dumps({"type": "hello", "protocol_version": …, "active_jobs": […]})
+ *
+ * with string keys and therefore **no static protection whatsoever** against a
+ * typo — unlike an attribute on a dataclass, which would raise. `activejobs`
+ * would pass a relaxed vendored check and then be silently dropped by zod in
+ * the cloud: exactly the "documented absence" this whole class is about, on
+ * the sending side.
+ *
+ * So: input mode for what a receiver must accept, output mode for what a
+ * sender must produce. One artifact cannot be both, which is why there are
+ * two rather than a weaker classification in `SCHEMA_IO`. Output mode also
+ * marks `.default()` fields `required` here, and for an assertion about a
+ * sender that is correct — the bridge does populate them, and this is where
+ * that is claimed.
+ *
+ * **Only the bridge vendors these, and only its harness reads them.** They
+ * never reach the wire and no consumer generates from them.
+ */
+export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
+  'bridge-hello', 'bridge-pong', 'bridge-config-applied', 'bridge-introspect',
+  'bridge-type-definitions', 'datapoint-frame', 'bridge-job-update', 'bridge-job-lost',
+  'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
+]
+
+/**
+ * The same discipline as `SCHEMA_IO`'s check, for the same reason. A name here
+ * that is not an exported socket frame classified as `input` is either a typo
+ * or a schema that changed direction — and both should stop the export rather
+ * than write a file nobody notices is wrong.
+ */
+{
+  const known = Object.keys(exportedSchemas)
+  const problems = BRIDGE_SENT_SCHEMAS.flatMap((n) =>
+    !known.includes(n) ? [`${n}: not exported at all`]
+    : schemaIo(n) !== 'input' ? [`${n}: classified as output, so it is not a frame a receiver validates`]
+    : [],
+  )
+  if (problems.length) {
+    throw new Error(`BRIDGE_SENT_SCHEMAS is out of step —\n  ${problems.join('\n  ')}`)
+  }
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
 if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
@@ -461,6 +516,13 @@ if (isMain) {
     writeFileSync(join(dir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema, { io: schemaIo(name) }), null, 2) + '\n')
     console.log(`wrote ${name}.schema.json`)
   }
+  const outgoingDir = join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing')
+  mkdirSync(outgoingDir, { recursive: true })
+  for (const name of BRIDGE_SENT_SCHEMAS) {
+    const schema = exportedSchemas[name as keyof typeof exportedSchemas]
+    writeFileSync(join(outgoingDir, `${name}.schema.json`), JSON.stringify(z.toJSONSchema(schema, { io: 'output' }), null, 2) + '\n')
+  }
+  console.log(`wrote ${BRIDGE_SENT_SCHEMAS.length} outgoing (output-mode) schemas`)
   const constantsPath = join(import.meta.dirname, '..', 'artifacts', 'constants.json')
   writeFileSync(constantsPath, JSON.stringify(exportedConstants, null, 2) + '\n')
   console.log('wrote constants.json')
