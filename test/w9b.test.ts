@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ASSET_UPLOAD_HEADERS } from '../src/rest.js'
-import { ASSET_UPLOAD_MAX_BYTES, assetListResponse, assetSyncBusyDetails, assetSyncStatus } from '../src/assets.js'
+import { ASSET_UPLOAD_MAX_BYTES, assetListResponse, assetSyncBusyDetails, assetSyncStatus, assetFailure, assetFailureKind, urdfCompleteness } from '../src/assets.js'
 
 const runningSync = {
   sync_id: '33333333-3333-4333-8333-333333333333',
@@ -60,5 +60,66 @@ describe('W9b — ein laufender Sync ist adressierbar', () => {
     // Pflichtfeld, kein Vorgabewert: ein Server, der schweigt, waere von
     // "kein Sync laeuft" nicht zu unterscheiden.
     expect(assetListResponse.safeParse(body).success).toBe(false)
+  })
+})
+
+describe('W9b — der Deckel erreicht auch die Seite, die kein npm lesen kann', () => {
+  it('steht im Artefakt, nicht nur im TypeScript-Export', async () => {
+    // **Der eigentliche Fehler des ersten Delta-Commits.** Die Konstante war
+    // fuer TS-Konsumenten da und fuer die Bridge nicht: die liest
+    // ausschliesslich artifacts/constants.json (vendoriert als
+    // fleetless_bridge/contracts_constants.json) und kann das npm-Paket nicht
+    // importieren. Der Header war angekommen, die Zahl nicht — eine Grenze,
+    // die eine Seite nicht lesen kann, ist wieder zwei Zahlen.
+    //
+    // Gefunden von Rosie-W9b, BEVOR sie darauf baute, in genau dem Commit, der
+    // das Raten abschaffen sollte.
+    const { readFileSync } = await import('node:fs')
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/constants.json', import.meta.url), 'utf8'))
+    expect(artifact.ASSET_UPLOAD_MAX_BYTES).toBe(ASSET_UPLOAD_MAX_BYTES)
+  })
+})
+
+describe('a refusal that says how big, and how big it was allowed to be (Eve-W9b)', () => {
+  const at = (kind: string, details?: unknown) => assetFailure.safeParse({ reference: 'package://p/base.dae', kind, details })
+
+  it('is its own kind, because `refused` already carries the sammel-sentinel', () => {
+    // Beides unter `refused` zu legen wäre der Fehler, den W9a eine Welle
+    // zuvor ausgeräumt hat: zwei Fakten auf einem Schlüssel.
+    expect(assetFailureKind.options).toContain('too_large')
+    expect(assetFailureKind.options).toContain('refused')
+  })
+
+  it('cannot be published without the two numbers a developer would act on', () => {
+    expect(at('too_large').success).toBe(false)
+    expect(at('too_large', null).success).toBe(false)
+    expect(at('too_large', { limit_bytes: ASSET_UPLOAD_MAX_BYTES, size_bytes: 193_886_766 }).success).toBe(true)
+  })
+
+  it('refuses size details on a kind they do not describe', () => {
+    expect(at('unresolvable', { limit_bytes: 1, size_bytes: 2 }).success).toBe(false)
+    expect(at('unresolvable').success).toBe(true)
+  })
+})
+
+describe('missing names what is missing AND of what (DEF-081)', () => {
+  const uc = (missing: unknown) => urdfCompleteness.safeParse({ present: true, mesh_count: 3, missing })
+
+  it('refuses the blanke string list the console had to guess from', () => {
+    expect(uc(['package://p/wheel.stl']).success).toBe(false)
+  })
+
+  it('carries the element the cloud already knew and threw away', () => {
+    const ok = uc([
+      { uri: 'package://p/wheel.stl', element: 'mesh' },
+      { uri: 'package://p/wheel.png', element: 'texture' },
+    ])
+    expect(ok.success).toBe(true)
+    // Die Zahl daneben zählt Meshes. Genau diese Teilmenge darf sie widerlegen.
+    expect(ok.success && ok.data.missing.filter((m) => m.element === 'mesh')).toHaveLength(1)
+  })
+
+  it('refuses an element nobody defined', () => {
+    expect(uc([{ uri: 'x', element: 'collision' }]).success).toBe(false)
   })
 })

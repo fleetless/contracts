@@ -153,7 +153,24 @@ export const urdfCompleteness = z.object({
   present: z.boolean(),
   /** How many distinct meshes the URDF references. */
   mesh_count: z.number().int().nonnegative(),
-  missing: z.array(z.string().min(1)),
+  /**
+   * **Was fehlt, und wovon (W9b, DEF-081).**
+   *
+   * Vorher ein blankes `string[]`. Die Console meldete daraufhin *„N meshes
+   * missing from the workspace"* — auch für eine fehlende **Textur**, während
+   * `mesh_count` daneben eine andere Zahl nannte: zwei Angaben über denselben
+   * Gegenstand, die einander widersprechen.
+   *
+   * Die Cloud wusste es die ganze Zeit: `extractReferencesByElement` markiert
+   * jede Referenz mit ihrem Element und `buildAssetListResponse` warf die
+   * Markierung wieder weg. **Die Antwort im Client zu raten wäre genau die
+   * „neue Kopie", die die Registerzeile ausdrücklich ablehnt** — eine zweite
+   * Herleitung derselben Tatsache, die von der ersten abweichen kann.
+   */
+  missing: z.array(z.object({
+    uri: z.string().min(1).max(500),
+    element: z.enum(['mesh', 'texture']),
+  })),
 })
 export type UrdfCompleteness = z.infer<typeof urdfCompleteness>
 
@@ -242,6 +259,33 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * different one. Adding a field is additive; adding an enum member is not.
  */
 /**
+ * **Der Deckel, den beide Seiten kennen müssen (W9b).**
+ *
+ * Bis hierher hatte die Bridge eine eigene Zahl und die Cloud eine eigene, und
+ * die Registerzeile dazu nannte die der Bridge beim Namen: *„a guess … chosen
+ * as a starting number with no measurement behind it"* (DEF-127). Eine Grenze,
+ * die der Sender rät und der Empfänger durchsetzt, ist keine Grenze — sie ist
+ * zwei Zahlen, die zufällig übereinstimmen, bis eine von beiden sich ändert.
+ *
+ * Hier steht sie einmal. Die Bridge liest sie, **bevor** sie eine Datei in den
+ * Speicher liest; die Cloud setzt sie durch. Ohne das kann die Bridge gar nicht
+ * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
+ * ist (DEF-148).
+ *
+ * **Die Zahl selbst ist bewusst unverändert.** rx1s echte Meshes sind
+ * gemessen — `base.dae` 193.886.766 Bytes, also das 2,9-fache — und ob der
+ * Deckel steigen soll, ist eine Entscheidung über Speicher, Übertragungszeit
+ * und Kontingente, nicht über einen Vertrag. Sie liegt bei André.
+ */
+export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
+
+export const assetTooLargeDetails = z.object({
+  limit_bytes: z.number().int().positive(),
+  size_bytes: z.number().int().positive(),
+})
+export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
+
+/**
  * Why one reference did not make it into the store.
  *
  * Three kinds because three things were already happening and only one word
@@ -262,7 +306,7 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * A consumer that cannot act on the distinction may still print `reference`
  * alone and lose nothing it had before.
  */
-export const assetFailureKind = z.enum(['unresolvable', 'upload_failed', 'refused'])
+export const assetFailureKind = z.enum(['unresolvable', 'upload_failed', 'refused', 'too_large'])
 export type AssetFailureKind = z.infer<typeof assetFailureKind>
 
 export const assetFailure = z.object({
@@ -275,6 +319,36 @@ export const assetFailure = z.object({
    */
   reference: z.string().min(1).max(500),
   kind: assetFailureKind,
+  /**
+   * **Die zwei Zahlen, und warum `too_large` eine eigene Art ist (W9b).**
+   *
+   * `refused` bedeutet *„nie versucht, weil eine Decke des Erzeugers erreicht
+   * wurde"* — das passt auf eine Datei, die wegen ihrer Größe gar nicht erst
+   * gelesen wurde, **und ebenso auf die Sammel-Sentinel**, mit der ein Sync
+   * aufhört, einzelne Fehler zu benennen. Beides unter eine Art zu legen wäre
+   * derselbe Fehler, den W9a eine Welle zuvor ausgeräumt hat: zwei Fakten auf
+   * einem Schlüssel, von denen jeder den anderen überschreibt.
+   *
+   * Und ein Grund ohne Zahlen ist kein Grund, mit dem jemand etwas anfangen
+   * kann. *„Zu groß"* beantwortet nicht, ob das Mesh zu verkleinern ist oder
+   * die Grenze zu heben — `limit_bytes` und `size_bytes` tun es.
+   *
+   * Abwesend für jede andere Art — ein erzwungenes `details: null` auf jedem
+   * `unresolvable` kauft nichts. Die Paarung ist unten **erzwungen**, nicht
+   * beschrieben: ein Feld, dessen Regel nur im Kommentar steht, ist eine
+   * Bitte.
+   */
+  details: assetTooLargeDetails.nullish(),
+}).superRefine((f, ctx) => {
+  // **Erzwungen, nicht beschrieben.** Eine Regel, die nur im Kommentar steht,
+  // ist eine Bitte — und dieses Projekt hat mehrfach erlebt, dass ein Feld,
+  // dessen Bedeutung nur daneben stand, mit etwas anderem gefüllt wurde.
+  if (f.kind === 'too_large' && f.details == null) {
+    ctx.addIssue({ code: 'custom', path: ['details'], message: '`too_large` without limit_bytes/size_bytes says nothing a developer can act on' })
+  }
+  if (f.kind !== 'too_large' && f.details != null) {
+    ctx.addIssue({ code: 'custom', path: ['details'], message: 'size details belong to `too_large` only' })
+  }
 })
 export type AssetFailure = z.infer<typeof assetFailure>
 
@@ -390,32 +464,6 @@ export type AssetListResponse = z.infer<typeof assetListResponse>
  * `publisher_busy` and `job_queue_full`: a refusal that names a state and no
  * number leaves the caller unable to decide anything.
  */
-/**
- * **Der Deckel, den beide Seiten kennen müssen (W9b).**
- *
- * Bis hierher hatte die Bridge eine eigene Zahl und die Cloud eine eigene, und
- * die Registerzeile dazu nannte die der Bridge beim Namen: *„a guess … chosen
- * as a starting number with no measurement behind it"* (DEF-127). Eine Grenze,
- * die der Sender rät und der Empfänger durchsetzt, ist keine Grenze — sie ist
- * zwei Zahlen, die zufällig übereinstimmen, bis eine von beiden sich ändert.
- *
- * Hier steht sie einmal. Die Bridge liest sie, **bevor** sie eine Datei in den
- * Speicher liest; die Cloud setzt sie durch. Ohne das kann die Bridge gar nicht
- * ablehnen, ohne 194 MB zu puffern — was am 2026-08-18 auf rx1 genau so passiert
- * ist (DEF-148).
- *
- * **Die Zahl selbst ist bewusst unverändert.** rx1s echte Meshes sind
- * gemessen — `base.dae` 193.886.766 Bytes, also das 2,9-fache — und ob der
- * Deckel steigen soll, ist eine Entscheidung über Speicher, Übertragungszeit
- * und Kontingente, nicht über einen Vertrag. Sie liegt bei André.
- */
-export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
-
-export const assetTooLargeDetails = z.object({
-  limit_bytes: z.number().int().positive(),
-  size_bytes: z.number().int().positive(),
-})
-export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
 
 /**
  * Was eine `busy`-Absage beim Asset-Sync mitgeben muss (W9b, DEF-147).

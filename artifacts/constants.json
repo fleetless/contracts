@@ -6,6 +6,7 @@
     "syncId": "x-fleetless-sync-id",
     "size": "x-fleetless-asset-size"
   },
+  "ASSET_UPLOAD_MAX_BYTES": 67108864,
   "SNAPSHOT_HEADERS": {
     "ageMs": "x-fleetless-age-ms",
     "timestampMs": "x-fleetless-timestamp-ms",

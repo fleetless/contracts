@@ -111,6 +111,7 @@ import {
 } from '../src/protocol.js'
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
 import { mcpToolPreview, mcpToolPreviewResponse } from '../src/mcp.js'
+import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import {
@@ -275,6 +276,19 @@ export const exportedSchemas = {
  */
 export const exportedConstants = {
   ASSET_UPLOAD_HEADERS,
+  /**
+   * **Der Deckel gehört hierher, weil die Bridge ihn sonst raten muss — und
+   * genau das war der Defekt (W9b, DEF-127).**
+   *
+   * Der Vertrag sagt „eine Zahl, die Cloud und Bridge lesen". Für einen
+   * TypeScript-Konsumenten stimmte das sofort; für die Bridge nicht, denn sie
+   * kann das npm-Paket nicht importieren und liest ausschließlich dieses
+   * Artefakt (`fleetless_bridge/contracts_constants.json`). Der Header war
+   * angekommen, die Zahl nicht — **eine Grenze, die eine Seite nicht lesen
+   * kann, ist wieder zwei Zahlen.** Gefunden von Rosie-W9b, bevor sie darauf
+   * baute, in dem Commit, der das Raten abschaffen sollte.
+   */
+  ASSET_UPLOAD_MAX_BYTES,
   SNAPSHOT_HEADERS,
   URDF_ASSET_NAME,
   /**
