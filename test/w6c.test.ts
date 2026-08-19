@@ -172,7 +172,7 @@ describe('W6c — self-registration belongs to an app, not an org', () => {
   })
 
   it('requires every field, so "not configured" cannot masquerade as "open"', () => {
-    for (const drop of ['enabled', 'all_domains', 'domains', 'role_id']) {
+    for (const drop of ['enabled', 'all_domains', 'domains', 'role_id'] as const) {
       const partial = { ...base }
       delete partial[drop]
       expect(selfRegistration.safeParse(partial).success).toBe(false)

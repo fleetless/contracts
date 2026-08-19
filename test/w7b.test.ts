@@ -295,7 +295,13 @@ describe('the token endpoint', () => {
       client_id: 'c_abc',
       scope: 'read',
     })
-    expect(parsed.scope).toBe('read')
+    // Erst den Diskriminator festhalten, dann das Feld: `oauthTokenRequest`
+    // ist eine Union, und `scope` gibt es NUR am refresh-Zweig. Vorher las der
+    // Test das Feld direkt — zur Laufzeit richtig, aber tsc sah es nie, weil
+    // `test/` in diesem Repo bis W9c gar nicht typgeprueft wurde. So geprueft
+    // beweist der Test zusaetzlich, dass der richtige Zweig entstanden ist.
+    expect(parsed.grant_type).toBe('refresh_token')
+    expect(parsed.grant_type === 'refresh_token' && parsed.scope).toBe('read')
   })
 
   it('states expires_in in seconds and refuses a timestamp-shaped value', () => {

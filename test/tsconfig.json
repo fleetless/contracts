@@ -1,0 +1,28 @@
+{
+  // **Nothing in `test/` was ever typechecked in this repo until 2026-08-19
+  // (W9c), and it took a witness that could not fail to notice.**
+  //
+  // The root tsconfig is `include: ["src"]` with `rootDir: "src"`, because
+  // `pnpm build`'s emitted `dist/` has to mirror `src/` exactly. So `tsc
+  // --noEmit` collected zero files from here — `--listFiles | grep -c test/`
+  // measured 0 — and a type-level assertion in a test compiled nowhere. The
+  // break test for one such assertion reported success with the export it
+  // depended on removed.
+  //
+  // `cloud/` and `console/` already carry this second project and `CLAUDE.md`
+  // names them both; `contracts/` did not, and it is the repo whose whole
+  // purpose is to be the one place a shape is written down.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    // Das Testprojekt braucht, was das Bauprojekt nicht braucht: Node
+    // (`node:fs`, `process`). `vite/client` waere der uebliche Weg fuer
+    // `import.meta.glob`, aber `vite` liegt hier nicht als eigenes Paket —
+    // vitest bringt es nur transitiv. Statt eine Abhaengigkeit einzufuehren,
+    // die niemand sonst braucht, deklariert `test/vite-env.d.ts` die eine
+    // Funktion, die `barrel.test.ts` tatsaechlich benutzt.
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../src/**/*.ts"]
+}
