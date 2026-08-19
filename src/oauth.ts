@@ -413,6 +413,29 @@ export type ConsentGrantSummary = z.infer<typeof consentGrantSummary>
  */
 export const consentGrantListResponse = z.object({
   grants: z.array(consentGrantSummary).max(200),
+  /**
+   * **`true` heisst: es gibt mehr, und diese Antwort zeigt sie nicht** (W9
+   * review, Argus-W9; DEF-151).
+   *
+   * Das `.max(200)` oben war eine Grenze auf dem Draht und im Store keine —
+   * ein Endnutzer ueber 200 bekam eine Antwort, die dieser Vertrag verbietet.
+   * Das Limit nachzuziehen machte die Antwort **vertragskonform statt
+   * vertragswidrig — und stumm statt vollstaendig**: wer 250 Grants hat, sah
+   * 200 und erreichte die uebrigen 50 nie.
+   *
+   * Dieselbe Unterscheidung, die `historySamplesResponse` mit `truncated_by`
+   * traegt und `auditListResponse` mit `next_cursor`: **eine kurze Seite
+   * heisst nicht, dass nichts mehr da ist.** Sie fehlte ausgerechnet auf der
+   * einen Liste, auf der ein Nutzer etwas **abstellen** will — dort ist
+   * *"ich sehe es nicht"* und *"es gibt es nicht"* der teuerste aller
+   * Unterschiede.
+   *
+   * Bewusst ein Boolean und kein Cursor: Blaettern waere eine Zusage ueber
+   * Reihenfolge und Stabilitaet, die diese Liste heute nicht macht. `true`
+   * sagt, was der Nutzer wissen muss — **hier fehlt etwas, frag jemanden** —
+   * ohne einen Mechanismus zu versprechen, den es nicht gibt.
+   */
+  truncated: z.boolean(),
 })
 export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
 

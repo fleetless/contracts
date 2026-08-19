@@ -151,7 +151,7 @@ describe('the barrel exports the TYPES, not only the schemas', () => {
       client_id: 'c', client_name: 'C', app_id: UUID, app_name: 'A',
       role_id: UUID, role_name: 'R', scope: '', granted_at: NOW,
     }
-    const list: ConsentGrantListResponse = { grants: [summary] }
+    const list: ConsentGrantListResponse = { grants: [summary], truncated: false }
     const revoke: ConsentRevokeResponse = { revoked: true, tokens_revoked: 1 }
     const policy: OrgFederationPolicy = { link_verified_emails: true, updated_at: NOW }
     const req: OrgFederationPolicyRequest = { link_verified_emails: false }
