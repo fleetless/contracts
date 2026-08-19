@@ -79,8 +79,22 @@ describe('a grant a person can recognise, and a revocation that says what it end
   })
 
   it('bounds the list', () => {
-    expect(consentGrantListResponse.safeParse({ grants: Array.from({ length: 200 }, () => grant) }).success).toBe(true)
-    expect(consentGrantListResponse.safeParse({ grants: Array.from({ length: 201 }, () => grant) }).success).toBe(false)
+    const list = (n: number) => ({ grants: Array.from({ length: n }, () => grant), truncated: n >= 200 })
+    expect(consentGrantListResponse.safeParse(list(200)).success).toBe(true)
+    expect(consentGrantListResponse.safeParse(list(201)).success).toBe(false)
+  })
+
+  /**
+   * **Die Grenze allein sagt nicht, ob etwas fehlt** (DEF-151). `truncated`
+   * ist Pflicht, damit eine Antwort ohne das Feld nicht als *"es gibt nicht
+   * mehr"* durchgeht — genau die stille Kuerzung, die diese Zeile geoeffnet
+   * hat.
+   */
+  it('requires truncated — a short page must say whether it is short', () => {
+    expect(consentGrantListResponse.safeParse({ grants: [grant] }).success).toBe(false)
+    expect(consentGrantListResponse.safeParse({ grants: [grant], truncated: false }).success).toBe(true)
+    const cut = consentGrantListResponse.safeParse({ grants: [grant], truncated: true })
+    expect(cut.success && cut.data.truncated).toBe(true)
   })
 
   it('distinguishes nothing-matched from matched-and-ended, with a count', () => {
