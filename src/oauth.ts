@@ -364,6 +364,63 @@ export const consentGrant = z.object({
 export type ConsentGrant = z.infer<typeof consentGrant>
 
 /**
+ * **What an end user sees about their own consents, and why it is not
+ * `consentGrant` (W9c, DEF-099).**
+ *
+ * `consentGrant` is the *record* — four ids and a scope string. A person
+ * deciding whether to revoke something needs to recognise it, and an id is
+ * not recognisable. So this carries the names that were on the screen when
+ * they consented: the client's, the app's, and the role's.
+ *
+ * `client_id` stays, because it is what a revocation addresses — the names
+ * are for reading, the id is for acting.
+ */
+export const consentGrantSummary = z.object({
+  client_id: z.string().min(1).max(200),
+  /**
+   * The client's own declared name. **Not trusted, and the console/page must
+   * not render it as if Fleetless vouched for it** — a self-registered client
+   * chooses this string, and W7c already measured what that buys: one called
+   * itself *"Fleetless Official Helper"*.
+   */
+  client_name: z.string().min(1).max(200),
+  app_id: z.uuid(),
+  app_name: z.string().min(1).max(120),
+  role_id: z.uuid(),
+  role_name: z.string().min(1).max(120),
+  scope: z.string().max(500),
+  granted_at: z.iso.datetime(),
+})
+export type ConsentGrantSummary = z.infer<typeof consentGrantSummary>
+
+export const consentGrantListResponse = z.object({
+  grants: z.array(consentGrantSummary).max(200),
+})
+export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
+
+/**
+ * **Revoking one grant must end the access it authorised, not merely forget
+ * that it happened (W9c, DEF-099).**
+ *
+ * The register row is about a user who wants a specific client to stop, and
+ * the failure mode to avoid is a revocation that deletes the consent row
+ * while every already-issued token keeps working until it expires. So the
+ * response says what was actually ended, and a caller can tell *nothing
+ * matched* from *matched and ended*.
+ *
+ * `tokens_revoked` is the count of refresh families ended, not access tokens:
+ * an access token is stateless and short-lived by design, and claiming to
+ * have revoked one would be the kind of sentence this project keeps having to
+ * take back. Say what is true — the family is dead, so nothing can be
+ * refreshed — and let the access token expire.
+ */
+export const consentRevokeResponse = z.object({
+  revoked: z.boolean(),
+  tokens_revoked: z.number().int().nonnegative(),
+})
+export type ConsentRevokeResponse = z.infer<typeof consentRevokeResponse>
+
+/**
  * **What the hosted page is told about the request it is serving.**
  *
  * `/oauth/authorize` validates the request, stores it server-side and hands

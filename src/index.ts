@@ -306,6 +306,8 @@ export {
   idpClaimMapping,
   idpIssuer,
   idpConfig,
+  orgFederationPolicy,
+  orgFederationPolicyRequest,
   idpConfigRequest,
 } from './identity.js'
 export type {
@@ -368,6 +370,7 @@ export {
   clientLoginRequest,
   clientRefreshRequest,
   clientLogoutRequest,
+  clientLogoutResponse,
   clientIdentity,
 } from './client-auth.js'
 export type {
@@ -430,6 +433,9 @@ export {
   authorizationServerMetadata,
   protectedResourceMetadata,
   consentGrant,
+  consentGrantSummary,
+  consentGrantListResponse,
+  consentRevokeResponse,
   consentDecision,
   OAUTH_PATHS,
 } from './oauth.js'

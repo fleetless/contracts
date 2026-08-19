@@ -503,7 +503,8 @@ export type IdpIssuer = z.infer<typeof idpIssuer>
 
 /**
  * **The linking rule, decided with André on 2026-08-18, and it needs both
- * conditions.**
+ * conditions — but the flag itself moved off this object on 2026-08-19
+ * (W9c, DEF-094). See `orgFederationPolicy` below.**
  *
  * When a federated login asserts an email that already belongs to an
  * integrated user of the same app, the accounts are joined **only if** the IdP
@@ -525,7 +526,6 @@ export const idpConfig = z.object({
   client_id: z.string().min(1).max(200),
   scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
   claims: idpClaimMapping,
-  link_verified_emails: z.boolean(),
   /** Never the secret itself — see `idpConfigRequest`. */
   has_client_secret: z.boolean(),
   updated_at: z.iso.datetime(),
@@ -544,7 +544,54 @@ export const idpConfigRequest = z
     client_secret: z.string().min(1).max(500).optional(),
     scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
     claims: idpClaimMapping.optional(),
-    link_verified_emails: z.boolean(),
   })
   .strict()
 export type IdpConfigRequest = z.infer<typeof idpConfigRequest>
+
+/**
+ * **Whether a federated login may join an existing account — one answer per
+ * org, because there is one account (W9c, DEF-094, André 2026-08-19).**
+ *
+ * This flag used to live on `idpConfig`, which is per app. The object it
+ * decides about is not: §3.2 says end users *"werden zentral pro Org
+ * verwaltet"* and `end_users` is unique on `(org_id, email)`. So one real
+ * person with one address had **two** policies claiming authority over their
+ * account, and the register row measured what that produces: opt-in on for app
+ * A, off for app B. Their first federated login through A links. A later one
+ * through B — same person, same address — gets `identity_conflict`
+ * **forever**, because B's config says do not link and the row now exists.
+ * Nothing the user or either developer can do resolves it.
+ *
+ * **What stayed per app, deliberately:** which IdP, which client, which
+ * scopes, which claim names. Those are statements about a *login route*, and
+ * §3.4 wants them per app — one org may serve two customers with two IdPs.
+ * Only the sentence about *identity* moved, because identity is org-scoped.
+ *
+ * This is the same shape W7b already resolved once and wrote down: *two
+ * policies for one decision, and the newer one is always the weaker.* There,
+ * `idpConfig.default_role_id` was removed because `selfRegistration` had
+ * governed exactly that since W6c. The lesson did not generalise on its own;
+ * the second instance sat one field away in the same object.
+ *
+ * **Absence is the safe answer.** No row means `false` — do not link — which
+ * is what W7b chose deliberately: relaxing later is additive, admitting
+ * duplicates now and tightening afterwards is not.
+ */
+export const orgFederationPolicy = z.object({
+  /**
+   * Joins a federated login to an existing integrated account **only if** the
+   * IdP also asserts `email_verified`. Either condition alone is account
+   * takeover: without `email_verified`, an IdP that lets anyone type any
+   * address into a profile hands over every matching account; without this
+   * flag, a developer who connects an IdP for a *subset* of their users
+   * silently merges strangers.
+   */
+  link_verified_emails: z.boolean(),
+  updated_at: z.iso.datetime(),
+})
+export type OrgFederationPolicy = z.infer<typeof orgFederationPolicy>
+
+export const orgFederationPolicyRequest = z.object({
+  link_verified_emails: z.boolean(),
+}).strict()
+export type OrgFederationPolicyRequest = z.infer<typeof orgFederationPolicyRequest>

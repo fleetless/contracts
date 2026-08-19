@@ -161,7 +161,9 @@ describe('idpConfig', () => {
       client_secret: 'hunter2',
       scopes: ['openid', 'email'],
       claims: { subject_claim: 'sub', email_claim: 'email' },
-      link_verified_emails: true,
+      // `link_verified_emails` ist in W9c auf die Org gewandert (DEF-094) —
+      // es entschied ueber eine org-weite Identitaet und sass auf einem
+      // App-Objekt. Der Paritaets-Waechter unten gilt unveraendert weiter.
       has_client_secret: true,
       updated_at: '2026-08-18T00:00:00.000Z',
     })
@@ -355,7 +357,6 @@ describe('idpConfigRequest', () => {
     issuer: 'https://idp.example.com',
     client_id: 'fleetless',
     scopes: ['openid', 'email'],
-    link_verified_emails: false,
   }
 
   it('can set every field `idpConfig` can show', () => {

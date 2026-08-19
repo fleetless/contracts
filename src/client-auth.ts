@@ -43,6 +43,47 @@ export const clientLogoutRequest = z.object({
 export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
 
 /**
+ * **What logout can and cannot end, said in three separable facts (W9c,
+ * DEF-098).**
+ *
+ * Until now this route answered `204`: the Fleetless session was over and the
+ * response had nothing to say about the *other* session. For a federated user
+ * that is the larger half — they clicked "log out", the IdP's cookie survived,
+ * and the next login goes straight through without a password. The register
+ * row calls that an expectation gap, and it is: the word on the button is
+ * "log out", not "log out of this app".
+ *
+ * **The Fleetless session is ended before this is computed, unconditionally.**
+ * Nothing below can fail in a way that leaves the caller logged in here — a
+ * logout that depends on reaching a third party is not a logout.
+ *
+ * Three outcomes, and they are deliberately not collapsed into a nullable
+ * URL. *No IdP was involved* and *an IdP was involved and publishes no
+ * `end_session_endpoint`* are different things: the first needs no action and
+ * the second means a session survives that this platform cannot end. A caller
+ * that renders them identically is choosing to; a contract that cannot tell
+ * them apart makes the choice for everyone.
+ */
+export const clientLogoutResponse = z.object({
+  idp_logout: z.discriminatedUnion('status', [
+    z.object({
+      status: z.literal('redirect'),
+      /** Send the browser here. Built from the IdP's own `end_session_endpoint`. */
+      url: z.url().max(2000),
+    }),
+    /** This session did not come from an IdP — there is nothing else to end. */
+    z.object({ status: z.literal('not_federated') }),
+    /**
+     * It did, and the IdP's discovery document names no `end_session_endpoint`
+     * (RP-initiated logout is optional in OIDC). **The IdP session survives and
+     * this platform cannot end it** — say so rather than implying success.
+     */
+    z.object({ status: z.literal('unsupported_by_idp') }),
+  ]),
+})
+export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>
+
+/**
  * Who the caller turned out to be. Returned by the "who am I" endpoint and by
  * the realtime `auth_ok` frame, so a client can render a session without
  * decoding a token itself — decoding a JWT in the client is how apps end up
