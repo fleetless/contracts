@@ -414,11 +414,24 @@ export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
  * kind of sentence this project keeps having to take back.
  *
  * **What actually happens to the access token is stronger than this comment
- * first claimed, and it was measured rather than assumed (W9c gate step 1,
- * 2026-08-19).** The first version said *"let the access token expire"*. It
- * does not: `requireEndUser` re-checks revocation on every call, so the same
- * access token answers `401 token_revoked` immediately after the revoke —
- * measured end to end through the real SDK against the real cloud.
+ * first claimed, and narrower than its correction (W9c, 2026-08-19).** The
+ * first version said *"let the access token expire"*. It does not. The
+ * correction then said *"the same access token dies"*, which is true and
+ * under-specified — Data-W9c read `resolveAnyToken` instead of copying the
+ * sentence and found what the check is actually bound to:
+ *
+ *   `if (claims.client_id) { ...consent-grant lookup... }`
+ *
+ * So the immediate death is scoped to **`client_id`, not to a session and not
+ * to the end user.** Every currently-valid token issued through *this
+ * client's* OAuth flow for this end user dies at once — including a second
+ * tab holding a different token from the same client. A plain `auth.login()`
+ * session is untouched, because it carries no `client_id` for the check to
+ * read, and a token bound to a *different* client is untouched too.
+ *
+ * That distinction is the whole point of revoking one grant rather than
+ * logging somebody out: *"without touching any other client's access"* is
+ * what this route promises, and the check is what makes it true.
  *
  * That is a better outcome than the contract promised, and it is written down
  * here for one reason: **a caller must not build on the weaker sentence.** If
