@@ -251,6 +251,9 @@ export {
   subscribeError,
   datapointEvent,
   resourceHealthEvent,
+  resourceHealthCleared,
+  liveSessionEndReason,
+  liveSessionEvent,
 } from './realtime.js'
 export type {
   ClientAuth,
@@ -266,6 +269,9 @@ export type {
   SubscribeError,
   DatapointEvent,
   ResourceHealthEvent,
+  ResourceHealthCleared,
+  LiveSessionEndReason,
+  LiveSessionEvent,
 } from './realtime.js'
 export {
   password,

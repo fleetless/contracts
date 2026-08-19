@@ -1151,6 +1151,25 @@ export const resourceHealthState = z.object({
   kind: z.enum(['camera', 'credential']),
   /** The camera slug, or the credential name. */
   ref: z.string().min(1).max(64),
+  /**
+   * **Which of two questions this entry answers (W9a, DEF-072).**
+   *
+   * `'source'`  — can the source be read at all? (`unreachable`, `auth_failed`,
+   *               `unreadable_credential`, `missing_credential`, `ok`, …)
+   * `'publish'` — given a readable source, did publishing to LiveKit work?
+   *
+   * Before this, both went into one entry keyed `${robot} ${kind} ${ref}` with
+   * one flat `state`, in which `publish_failed` answered *"can we publish"*
+   * and every other value answered *"can the source be read"* — **same key,
+   * same field, two questions**, so each overwrote the other. The conflation
+   * was once an occasional race; W6a's reconnect restatement made it
+   * guaranteed, on every reconnect, for any camera with an active viewer.
+   *
+   * The facet is part of the entry's identity: a camera can perfectly well be
+   * readable and unpublishable at the same moment, and that pair is exactly
+   * what a developer needs to see rather than whichever fact arrived last.
+   */
+  facet: z.enum(['source', 'publish']),
   state: z.enum(RESOURCE_HEALTH_STATES),
   /** A short human-readable reason, or `null`. Never an exception message. */
   reason: z.string().max(200).nullable(),

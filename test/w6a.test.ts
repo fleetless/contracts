@@ -30,6 +30,10 @@ const health = {
   robot_id: '11111111-1111-4111-8111-111111111111',
   kind: 'camera' as const,
   ref: 'front',
+  // W9a: part of the entry's identity, so it belongs in the shared fixture
+  // rather than in the assertions — those are about the STATE enum, and a
+  // field added where the assertion lives would quietly change their subject.
+  facet: 'source' as const,
   state: 'auth_failed' as const,
   reason: 'the camera source refused the configured credentials',
   changed_at_ms: 1786522606705,

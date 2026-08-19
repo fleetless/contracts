@@ -24,6 +24,13 @@
             "minLength": 1,
             "maxLength": 64
           },
+          "facet": {
+            "type": "string",
+            "enum": [
+              "source",
+              "publish"
+            ]
+          },
           "state": {
             "type": "string",
             "enum": [
@@ -58,6 +65,7 @@
           "robot_id",
           "kind",
           "ref",
+          "facet",
           "state",
           "reason",
           "changed_at_ms"

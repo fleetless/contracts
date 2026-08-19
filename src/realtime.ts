@@ -298,11 +298,111 @@ export type DatapointEvent = z.infer<typeof datapointEvent>
  * subscription: the whole point is to reach somebody who is *not* currently
  * looking at the thing that broke.
  */
+/**
+ * Why a live camera session ended (W9a).
+ *
+ * **The reason travels WITH the ending, and that is the whole point of this
+ * enum existing rather than a state somebody reads afterwards.** W6a put a
+ * `cause` on the wire, the console named the real reason, and the lead
+ * observed the gate step and closed it — and the review then found it still
+ * could not tell, for a different reason: `stopped_by_config_change` is
+ * **sticky**, nothing moves a camera out of it, and `LiveCameraRow` read that
+ * *current* state at the moment a stream ended. A config change at 10:00 and
+ * an unrelated release at 10:30 therefore reported the same cause (DEF-070).
+ *
+ * A state read after the fact answers "what is true now". A viewer needs
+ * "what happened to my session", and only an event carries that.
+ */
+export const liveSessionEndReason = z.enum([
+  /** Another holder of this camera released it — another tab, or another client. */
+  'released_by_peer',
+  /** The robot's configuration was published and this camera changed with it. */
+  'config_changed',
+  /** The robot said it could not publish. `detail` carries its own words. */
+  'publish_failed',
+  /** The bridge stopped answering. */
+  'robot_offline',
+  /** The grant this session was minted under was withdrawn. */
+  'revoked',
+  /** The session's own lifetime ran out. */
+  'expired',
+  /** The robot was deleted out from under the session. */
+  'robot_deleted',
+  /**
+   * The cloud ended it and cannot say which of the above applied. **Kept
+   * deliberately**: a channel that cannot say "I do not know" will say
+   * something false instead, and this project has paid for that four times in
+   * the camera path alone.
+   */
+  'unknown',
+])
+export type LiveSessionEndReason = z.infer<typeof liveSessionEndReason>
+
+/**
+ * A live camera session ended, told to the **client that holds it** (W9a).
+ *
+ * This is the channel `DEF-051`, `DEF-052`, `DEF-053` and `DEF-070` each
+ * described from a different direction across four waves. Until now the only
+ * vehicle was `camera_state`, which the cloud stores in `publishState` and
+ * reads in exactly one place — refusing a *later* joiner — so reporting a
+ * failure would have written to a dead end.
+ *
+ * Unlike `resourceHealthEvent`, which is developer-only and org-scoped, this
+ * one is addressed to the **holder of the session**: it names `session_id`
+ * (W6b gave `liveSessionResponse` one precisely so a session could be
+ * addressed) and is delivered only to the identity that session was minted
+ * for. A developer watching the same robot learns about the *resource* health;
+ * the viewer learns about *their own session*. Two questions, two channels,
+ * on purpose.
+ */
+export const liveSessionEvent = z.object({
+  type: z.literal('live_session'),
+  robot_id: z.uuid(),
+  slug,
+  session_id: z.uuid(),
+  state: z.literal('ended'),
+  reason: liveSessionEndReason,
+  /** The robot's own words when it has any, never an exception message. */
+  detail: z.string().max(200).nullable(),
+  /** When it ended — not when this frame was sent. Same reasoning as `changed_at_ms`. */
+  ended_at_ms: z.number().int().nonnegative(),
+})
+export type LiveSessionEvent = z.infer<typeof liveSessionEvent>
+
+/**
+ * A resource's health entry was **withdrawn** (W9a, DEF-071).
+ *
+ * The store's `invalidate()` deliberately emitted nothing, reasoning that
+ * "withdrawing a claim nobody can currently stand behind is not new
+ * information — the next `GET` already reflects it." That holds for a page
+ * that loads later. **It is false for a page that is already open, because
+ * there is no next `GET`:** `ensureSnapshot()` runs on `acquire` and nowhere
+ * else, there is no interval, and the event handler only ever *writes* keys.
+ * A camera retargeted to a source that never reports — which is the case the
+ * clearing exists for — leaves an open tab showing the old value indefinitely.
+ *
+ * **A separate event type rather than a nullable `state` on the existing
+ * one**, so a consumer's `switch` has to name it. A nullable field invites
+ * `if (state)` and fails silently when somebody forgets; an unhandled variant
+ * fails `tsc`, which is the difference between a rule and a mechanism.
+ */
+export const resourceHealthCleared = z.object({
+  type: z.literal('resource_health_cleared'),
+  robot_id: z.uuid(),
+  kind: z.enum(['camera', 'credential']),
+  ref: z.string().min(1).max(64),
+  facet: z.enum(['source', 'publish']),
+  cleared_at_ms: z.number().int().nonnegative(),
+})
+export type ResourceHealthCleared = z.infer<typeof resourceHealthCleared>
+
 export const resourceHealthEvent = z.object({
   type: z.literal('resource_health'),
   robot_id: z.uuid(),
   kind: z.enum(['camera', 'credential']),
   ref: z.string().min(1).max(64),
+  /** Which of the two questions this entry answers — see `resourceHealthState.facet`. */
+  facet: z.enum(['source', 'publish']),
   state: z.enum(RESOURCE_HEALTH_STATES),
   reason: z.string().max(200).nullable(),
   changed_at_ms: z.number().int().nonnegative(),
