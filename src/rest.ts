@@ -1099,9 +1099,10 @@ export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
  * A deletion record that says only *that* something was destroyed is a
  * receipt for an unknown amount. This names it: how many configured slugs,
  * how many stored samples, how many bytes that freed against the retention
- * quota, which cameras existed, and whether somebody was watching at the
- * time. Those are the questions asked afterwards, and afterwards is the one
- * moment the data cannot be consulted.
+ * quota, which cameras existed, how much attributed run history went with
+ * it, and whether somebody was watching at the time. Those are the questions
+ * asked afterwards, and afterwards is the one moment the data cannot be
+ * consulted.
  */
 export const robotDeletionSummary = z.object({
   /**
@@ -1141,6 +1142,37 @@ export const robotDeletionSummary = z.object({
    */
   asset_count: z.number().int().nonnegative(),
   asset_bytes_freed: z.number().int().nonnegative(),
+  /**
+   * How many rows of run history go with the robot — every recorded
+   * invocation of one of its actions or services, up to
+   * `JOB_RUN_RETENTION_DAYS`.
+   *
+   * Its own number, never folded into `slug_count`, for the same reason
+   * `cameras` is not: `slug_count` counts *configuration* — what the robot
+   * was set up to do — and this counts *what was actually done*, over as
+   * much as 90 days. One robot with four slugs can carry forty thousand
+   * runs, and a sentence that added them would describe two unrelated
+   * magnitudes with one number on the one screen whose entire justification
+   * is naming what an irreversible click destroys.
+   *
+   * It is also the only field here that names *people*: a run row carries
+   * the `jobActor` who invoked it — a developer's or end user's email,
+   * snapshotted at invoke time. So this deletion destroys attributed history
+   * of who asked the machine to do what, which is a different kind of loss
+   * from a count of sample rows and deserves to be said out loud rather than
+   * inferred.
+   *
+   * **Bridge latency buckets are deliberately not counted here, and this is
+   * the note saying so** rather than leaving the asymmetry to be
+   * rediscovered as an omission. They are platform telemetry with a seven-day
+   * life (`BRIDGE_LATENCY_RETENTION_DAYS`), produced by the cloud's own
+   * pinging rather than by anything the developer did, counted against no
+   * retention quota, and worth nothing to anybody after the robot is gone.
+   * This summary is read aloud to a human deciding whether to click, and its
+   * value comes from naming what the *developer* loses; a number for
+   * telemetry they never asked for and cannot use would dilute exactly that.
+   */
+  job_run_count: z.number().int().nonnegative(),
   had_live_session: z.boolean(),
   /**
    * Whether an unpublished draft went with it — separately, because the

@@ -36,6 +36,11 @@
       "minimum": 0,
       "maximum": 9007199254740991
     },
+    "job_run_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
     "had_live_session": {
       "type": "boolean"
     },
@@ -50,6 +55,7 @@
     "cameras",
     "asset_count",
     "asset_bytes_freed",
+    "job_run_count",
     "had_live_session",
     "had_unpublished_draft"
   ],
