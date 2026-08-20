@@ -159,9 +159,9 @@ export type Role = z.infer<typeof role>
 
 /**
  * The rights matrix of one role: which slugs of which robot it may use, plus
- * the two capabilities roles also govern (§3.3). Both capabilities are
- * defined here and enforced in W4, when the action history and presence they
- * gate come into existence.
+ * the capabilities roles also govern (§3.3). `capabilities`' own doc comment
+ * below says which of them are enforced today and which is still a switch
+ * that changes nothing.
  */
 export const rolePermissions = z.object({
   role_id: z.uuid(),
@@ -186,17 +186,36 @@ export const rolePermissions = z.object({
   /**
    * App-wide abilities a role grants, as opposed to per-slug grants above.
    *
-   * **A capability here is a promise, and two of them have not been kept.**
-   * `action_history` and `presence` have been gated by this object since W4
-   * and are implemented nowhere — no route, no SDK method, no realtime frame
-   * (register row 8). A console can therefore switch them on and nothing
-   * changes, which is worse than their absence: the developer believes they
-   * granted something.
+   * **A capability here is a promise, and one of them is still not kept.**
+   * `action_history` and `presence` were both gated by this object from W4
+   * and implemented nowhere — no route, no SDK method, no realtime frame
+   * (register row 8). A console could therefore switch them on and nothing
+   * changed, which is worse than their absence: the developer believes they
+   * granted something. **This paragraph stays** whatever the current tally
+   * is: it is the only place that says a switch in the console may change
+   * nothing, and it is how the next unkept capability gets caught.
    *
-   * `assets` (W7) must not become the third. It gates §4.6's asset store,
+   * `assets` (W7) was the first one redeemed. It gates §4.6's asset store,
    * which is not covered by `grants` because **assets are not slugs** — and it
    * is its own decision rather than a side effect of reaching the robot,
    * because a mesh set gives away the machine's build.
+   *
+   * **`action_history` is kept as of the run-history delta.** It gates
+   * `GET /api/robots/:id/jobs/history` — an end user whose role lacks it is
+   * refused `403 capability_required`, naming the capability so the developer
+   * knows which switch is off. It was unkeepable while nothing durable
+   * recorded what had run; `jobRun` and `job_runs` are that record.
+   *
+   * **What granting it discloses.** A `jobRun` names the actor who invoked
+   * it, and `jobActor.label` is an email — so an end user holding this
+   * capability learns which *other* people have been driving that robot.
+   * That is inherent in "may read the history" rather than an oversight, and
+   * it is written down here because the switch lives in the console while its
+   * consequence does not.
+   *
+   * **`presence` is still not implemented.** Nothing in the cloud, the SDK or
+   * the realtime protocol consults it. It remains exactly what the first
+   * paragraph describes.
    */
   capabilities: z.object({
     action_history: z.boolean(),

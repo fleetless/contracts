@@ -1468,14 +1468,16 @@ export const LATENCY_BUCKET_MS = 60_000
 export const BRIDGE_LATENCY_RETENTION_DAYS = 7
 
 /**
- * The three org-wide reads of the durable run history and the latency
- * buckets — the fleet overview's whole data supply.
+ * Every read of the durable run history and the latency buckets: the three
+ * org-wide ones the fleet overview is built on, and the one robot-scoped door
+ * a client app has into the same table.
  *
  * | Route | Query | Answer |
  * |---|---|---|
  * | `GET /api/org/jobs` | `jobRunQuery` | `jobRunListResponse` — newest first, cursor-paged over the durable `seq` |
  * | `GET /api/org/jobs/summary` | `jobRunSummaryQuery` | `jobRunSummary` — three numbers over the window the caller named |
  * | `GET /api/org/latency` | `orgLatencyQuery` | `orgLatencyResponse` — one series per robot, truncation named |
+ * | `GET /api/robots/:id/jobs/history` | `jobRunQuery` | `jobRunListResponse` — the same read, robot-scoped, developers **and** clients |
  *
  * **Written down here because the last time a delta shipped shapes without
  * their paths, a teammate had to ask three separate people** — see
@@ -1485,17 +1487,40 @@ export const BRIDGE_LATENCY_RETENTION_DAYS = 7
  *
  * Three things about them are worth stating rather than inferring:
  *
- * **All three are org-wide, and `?robot_id=` narrows them** — the same choice
- * `GET /api/org/health` already made, for the same reason: the overview
- * screen shows every robot at once, and a per-robot path would make one
- * screen N requests.
+ * **The three `/api/org/…` reads are org-wide, and `?robot_id=` narrows
+ * them** — the same choice `GET /api/org/health` already made, for the same
+ * reason: the overview screen shows every robot at once, and a per-robot path
+ * would make one screen N requests.
  *
- * **All three are developer-only, and there is no client-facing
- * equivalent.** A `jobRun` names the actor who invoked it — `jobActor`
- * carries an email — so an end-user-facing version of `GET /api/org/jobs`
- * would tell one end user which other end users have been driving the
- * machine. What an end user may see is what `GET /api/robots/:id/jobs/:slug`
- * already answers, scoped to a slug they hold a role for.
+ * **Those three are developer-only, and that is a property of their scope,
+ * not of the data.** An org-wide read has no client meaning: an end user is
+ * scoped to the robots their app assigns, never to an org.
+ *
+ * **The client-facing read of the same table is
+ * `GET /api/robots/:id/jobs/history`** — robot-scoped, one route for
+ * developers and clients like every other robot-scoped read (`.../jobs`,
+ * `.../assets`, `.../datapoints`), never a parallel `/api/client/…` twin. An
+ * end user reaches it only when their role's `capabilities.action_history`
+ * says so — otherwise `403 capability_required`, naming the capability — and
+ * sees only runs on slugs their role grants. On this route `?robot_id=` is
+ * not a filter: the path already names the robot, and a query naming a
+ * different one is refused rather than quietly answered about the path's.
+ *
+ * **It discloses the actor, and that is what a developer weighs before
+ * granting the capability.** A `jobRun` names who invoked it — `jobActor`
+ * carries an email — so an end user reading a robot's history learns which
+ * other people have been driving that machine. Robot scope plus a role
+ * capability is what makes that a decision a developer takes per role,
+ * instead of something every session gets: an end-user-facing
+ * `GET /api/org/jobs` would have handed over the whole org's actors with no
+ * such decision anywhere, which is why there is none.
+ *
+ * **A page can be shorter than `limit` while `next_cursor` is non-null**, on
+ * the robot-scoped route specifically: the slug filter is applied to the
+ * page the store returned, so a role granting one slug in ten sees thin — and
+ * sometimes empty — pages. That is what `jobRunListResponse.next_cursor`'s
+ * own doc comment means by a promise rather than an observation; a client
+ * keeps reading until it is null.
  *
  * **Neither window is optional, and neither has a default.** A summary over
  * an unnamed window is a number nobody can reproduce; an unbounded latency
