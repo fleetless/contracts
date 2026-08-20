@@ -1,4 +1,4 @@
-export { slug, rosName, rosTypeName, fieldPath } from './common.js'
+export { slug, rosName, rosTypeName, fieldPath, wireTimestampMs } from './common.js'
 export {
   MCP_PROTOCOL_VERSION,
   MCP_TOOL_NAME_MAX,
@@ -94,6 +94,17 @@ export type {
   PublisherBusyDetails,
   JobQueueFullDetails,
 } from './jobs.js'
+export {
+  JOB_RUN_PAGE_MAX,
+  JOB_RUN_RETENTION_DAYS,
+  jobActor,
+  jobRunKind,
+  jobRun,
+  jobRunQuery,
+  jobRunListResponse,
+  jobRunSummary,
+} from './jobs.js'
+export type { JobActor, JobRunKind, JobRun, JobRunQuery, JobRunListResponse, JobRunSummary } from './jobs.js'
 export {
   RESERVED_SLUGS,
   parameterSpec,
@@ -200,6 +211,15 @@ export type {
   ResourceHealthState,
   ResourceHealthListResponse,
 } from './rest.js'
+export {
+  LATENCY_BUCKET_MS,
+  BRIDGE_LATENCY_RETENTION_DAYS,
+  MAX_LATENCY_BUCKETS_PER_RESPONSE,
+  latencyBucket,
+  robotLatencySeries,
+  orgLatencyResponse,
+} from './rest.js'
+export type { LatencyBucket, RobotLatencySeries, OrgLatencyResponse } from './rest.js'
 export type {
   Robot,
   CreateRobotRequest,

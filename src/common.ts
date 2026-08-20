@@ -52,3 +52,32 @@ export const fieldPath = z
   .string()
   .max(255)
   .regex(/^[a-z_][a-z0-9_]*(?:\[\d+\])*(?:\.[a-z_][a-z0-9_]*(?:\[\d+\])*)*$/)
+
+/**
+ * A unix-millisecond instant as a **query string** actually carries it, bounded
+ * to years 1..9999.
+ *
+ * The union's input branch **is the wire** — a `z.coerce` cannot be published,
+ * because zod renders the coercion's result in either `io` direction, so the
+ * artifact would describe a shape a query string can never carry (DEF-059).
+ *
+ * The year bound is borrowed rather than invented: `nonnegative()` alone let
+ * `253402300800000` through, where the Postgres bind path has no representation
+ * and the route answered 500 — measured either side of the edge,
+ * `253402300799000` -> 200 and `253402300800000` -> 500 (Argus-W9). This moved
+ * here from `audit.ts` when `jobRunQuery` needed the same guard; a second copy
+ * would have been a second policy for one decision.
+ */
+export const wireTimestampMs = z
+  .union([z.string().regex(/^\d{1,15}$/), z.number().int()])
+  .transform((v) => Number(v))
+  .pipe(
+    z
+      .number()
+      .int()
+      .nonnegative()
+      .refine((ms) => {
+        const year = new Date(ms).getUTCFullYear()
+        return Number.isFinite(year) && year >= 1 && year <= 9999
+      }, 'must fall within years 1..9999'),
+  )

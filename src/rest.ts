@@ -1421,3 +1421,64 @@ export const credentialWriteRequest = z.object({
   password: z.string().min(1).max(512),
 })
 export type CredentialWriteRequest = z.infer<typeof credentialWriteRequest>
+
+/** One bucket is one minute. Stated here so the cloud and any client agree without guessing. */
+export const LATENCY_BUCKET_MS = 60_000
+
+/**
+ * Latency buckets are **platform telemetry, not a customer datapoint**, and
+ * this short retention is why that distinction was worth making: the cloud
+ * pings every bridge every 2 seconds, ~43 200 measurements per robot per day,
+ * and a sparkline needs about 60 points per hour. Seven days is generous for
+ * what reads it and costs the org's retention quota nothing, because it is not
+ * counted against it.
+ */
+export const BRIDGE_LATENCY_RETENTION_DAYS = 7
+
+/** Seven days x 1440 buckets x N robots is otherwise an unbounded response. */
+export const MAX_LATENCY_BUCKETS_PER_RESPONSE = 20_000
+
+export const latencyBucket = z.object({
+  /** Truncated to the minute. */
+  bucket_at: z.iso.datetime(),
+  /**
+   * `null` exactly when `samples` is 0. A minute in which the robot was offline
+   * throughout has **no** latency; writing `0` would put the number meaning
+   * "perfectly fast" into the state meaning "not there at all".
+   */
+  min_ms: z.number().nonnegative().nullable(),
+  avg_ms: z.number().nonnegative().nullable(),
+  max_ms: z.number().nonnegative().nullable(),
+  samples: z.number().int().nonnegative(),
+  /**
+   * Milliseconds of this bucket the cloud held the robot online.
+   *
+   * A duration and **not a ratio**: a ratio needs a denominator, and here that
+   * would be expected pings per minute — `pingIntervalMs`, which is
+   * configurable and is shrunk in tests. A stored value whose meaning depends
+   * on a configuration variable is not comparable across the time it is stored
+   * for. A client divides by `LATENCY_BUCKET_MS` if it wants a fraction.
+   */
+  online_ms: z.number().int().min(0).max(LATENCY_BUCKET_MS),
+})
+export type LatencyBucket = z.infer<typeof latencyBucket>
+
+export const robotLatencySeries = z.object({
+  robot_id: z.uuid(),
+  buckets: z.array(latencyBucket),
+})
+export type RobotLatencySeries = z.infer<typeof robotLatencySeries>
+
+export const orgLatencyResponse = z.object({
+  series: z.array(robotLatencySeries),
+  from_ms: z.number().int().nonnegative(),
+  to_ms: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  /**
+   * Which ceiling cut the response short, `null` when nothing did — borrowed
+   * from `historySamplesResponse.truncated_by` rather than invented a second
+   * time, for its reason: one boolean cannot carry two different remedies.
+   */
+  truncated_by: z.enum(['limit', 'bytes']).nullable(),
+})
+export type OrgLatencyResponse = z.infer<typeof orgLatencyResponse>

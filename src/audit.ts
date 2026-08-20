@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { wireTimestampMs } from './common.js'
 
 /**
  * Audit (spec §16). Every state-changing interaction is recorded and **every
@@ -97,20 +98,10 @@ export type AuditEvent = z.infer<typeof auditEvent>
  * needs the ISO extended-year form its bind path does not accept. Comfortably
  * wider than any instant this platform will legitimately be asked about, so
  * the bound costs nothing real and catches every value found to 500.
+ *
+ * @see wireTimestampMs — moved to `common.ts` when `jobRunQuery` needed the same bound.
  */
-const auditTimestampMs = z
-  .union([z.string().regex(/^\d{1,15}$/), z.number().int()])
-  .transform((v) => Number(v))
-  .pipe(
-    z
-      .number()
-      .int()
-      .nonnegative()
-      .refine((ms) => {
-        const year = new Date(ms).getUTCFullYear()
-        return Number.isFinite(year) && year >= 1 && year <= 9999
-      }, 'must fall within years 1..9999'),
-  )
+const auditTimestampMs = wireTimestampMs
 
 export const auditQuery = z.object({
   /** Only events with a smaller `seq` — the next, older page. */

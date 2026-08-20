@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { slug } from './common.js'
+import { slug, wireTimestampMs } from './common.js'
 
 /**
  * Jobs (spec §6.1, §11.3): one running unit of work on a robot — an action
@@ -142,3 +142,129 @@ export const jobQueueFullDetails = z.object({
   queued: z.number().int().nonnegative(),
 })
 export type JobQueueFullDetails = z.infer<typeof jobQueueFullDetails>
+
+/** A page of run history is bounded; 200 is what one console screen can ever want. */
+export const JOB_RUN_PAGE_MAX = 200
+
+/**
+ * Job runs keep the audit log's retention, and that is not a coincidence:
+ * every invoke already writes an `action.invoked` audit event. A different
+ * figure here creates a window in which the audit log shows a call whose
+ * outcome has already been deleted — a state no developer can be expected to
+ * read as anything but a bug.
+ */
+export const JOB_RUN_RETENTION_DAYS = 90
+
+/**
+ * Who invoked a run.
+ *
+ * Deliberately **not** `auditActor`: that enum carries `bridge` as a fourth
+ * case, and a bridge invokes nothing. An enum that names an impossible case
+ * invites every reader to handle it.
+ */
+export const jobActor = z.object({
+  kind: z.enum(['developer', 'end_user', 'server_key']),
+  id: z.uuid(),
+  /**
+   * The email for a developer or end user, the key's `name` for a server key.
+   * A display snapshot taken at invoke time: renaming a key afterwards does not
+   * rewrite history, which is the point of storing it rather than joining.
+   */
+  label: z.string().min(1).max(200),
+})
+export type JobActor = z.infer<typeof jobActor>
+
+export const jobRunKind = z.enum(['action', 'service'])
+export type JobRunKind = z.infer<typeof jobRunKind>
+
+/**
+ * One durable record of one invocation (spec `2026-08-20-timeseries-and-run-history`,
+ * D2). One row per run, never one per event: the per-event timeline's write rate
+ * is set by the bridge, and a throttled log that cannot say it was throttled is
+ * the instrument this codebase refuses everywhere else. The live timeline is
+ * delivered in full by realtime, for as long as somebody is watching.
+ */
+export const jobRun = z.object({
+  id: z.uuid(),
+  robot_id: z.uuid(),
+  slug,
+  kind: jobRunKind,
+  state: jobState,
+  started_at: z.iso.datetime(),
+  /** `null` while `running` — a run has an end only once it has one. */
+  ended_at: z.iso.datetime().nullable(),
+  /** `null` while `running`. Not "0 so far". */
+  duration_ms: z.number().int().nonnegative().nullable(),
+  result: z.unknown().nullable(),
+  error: z
+    .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
+    .nullable(),
+  actor: jobActor,
+  /**
+   * **Durable, unlike `job.seq`.** That one is a per-process counter that
+   * restarts with the cloud; this is a postgres `bigserial` and is the cursor
+   * `before_seq` walks.
+   */
+  seq: z.number().int().positive(),
+  /**
+   * Live-only, read from the in-memory registry for rows that are still
+   * running. `null` means **"not known right now"** — after a cloud restart,
+   * before the bridge reconnects — and never "0 %". A fraction, as in
+   * `jobEvent.progress`, not a percentage.
+   */
+  progress: z.number().min(0).max(1).nullable(),
+  feedback: z.unknown().nullable(),
+})
+export type JobRun = z.infer<typeof jobRun>
+
+export const jobRunQuery = z
+  .object({
+    /** Only runs with a smaller `seq` — the next, older page. */
+    before_seq: z
+      .union([z.string().regex(/^\d{1,19}$/), z.number().int()])
+      .transform((v) => Number(v))
+      .pipe(z.number().int().positive())
+      .optional(),
+    limit: z
+      .union([z.string().regex(/^\d{1,4}$/), z.number().int()])
+      .transform((v) => Number(v))
+      .pipe(z.number().int().positive().max(JOB_RUN_PAGE_MAX))
+      .optional(),
+    robot_id: z.uuid().optional(),
+    slug: slug.optional(),
+    state: jobState.optional(),
+    kind: jobRunKind.optional(),
+    /** Half-open `[from, to)`, the same rule the history shapes follow (DEF-062). */
+    from_ms: wireTimestampMs.optional(),
+    to_ms: wireTimestampMs.optional(),
+  })
+  .strict()
+export type JobRunQuery = z.infer<typeof jobRunQuery>
+
+export const jobRunListResponse = z.object({
+  runs: z.array(jobRun),
+  /**
+   * The `seq` a caller sends as `before_seq` to keep reading — or `null` when
+   * there is nothing further. **`null` means the end, and that is a promise
+   * rather than an observation.** A caller who instead compares `runs.length`
+   * against `limit` is wrong the moment a filter makes a page thin.
+   */
+  next_cursor: z.number().int().positive().nullable(),
+})
+export type JobRunListResponse = z.infer<typeof jobRunListResponse>
+
+/**
+ * The overview tile's three numbers, over a window **the caller names**.
+ *
+ * `since_ms` rather than "today": which day that is, only the browser knows. A
+ * cloud that picks its own day boundary shows a developer in another timezone a
+ * number they cannot reproduce. Echoed back so a rendered tile can say which
+ * window it is describing.
+ */
+export const jobRunSummary = z.object({
+  running: z.number().int().nonnegative(),
+  started: z.number().int().nonnegative(),
+  failed: z.number().int().nonnegative(),
+  since_ms: z.number().int().nonnegative(),
+})
+export type JobRunSummary = z.infer<typeof jobRunSummary>
