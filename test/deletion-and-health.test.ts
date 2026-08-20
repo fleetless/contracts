@@ -1,13 +1,12 @@
 /**
- * W6a — deletion, and the one channel that reports health.
+ * Deletion, and the one channel that reports health.
  *
- * **This file exists because it did not.** Every wave from W2 to W6 carries an
- * `expect(ERROR_CODES).toContain(...)` over its own new codes, and each has
- * tests for the shapes it added. W6a shipped four new shapes — the largest of
- * the wave — with **zero** contract tests, and added `robot_deletion_partial`
- * to a route without adding it to `ERROR_CODES` at all. Five waves of
- * convention, skipped once, and the code added last fell through the gap
- * (Momus, W6a review).
+ * **This file exists because it did not.** Every other test file here carries
+ * an `expect(ERROR_CODES).toContain(...)` over the codes it introduces, and
+ * tests for the shapes it adds. Deletion and health shipped four new shapes
+ * with **zero** contract tests, and added `robot_deletion_partial` to a route
+ * without adding it to `ERROR_CODES` at all. A long-standing convention,
+ * skipped once, and the code added last fell through the gap.
  *
  * The reason it was skipped is worth keeping, because it will recur: a change
  * to an *existing* shape breaks the tests that already cover it, so the author
@@ -30,7 +29,7 @@ const health = {
   robot_id: '11111111-1111-4111-8111-111111111111',
   kind: 'camera' as const,
   ref: 'front',
-  // W9a: part of the entry's identity, so it belongs in the shared fixture
+  // Part of the entry's identity, so it belongs in the shared fixture
   // rather than in the assertions — those are about the STATE enum, and a
   // field added where the assertion lives would quietly change their subject.
   facet: 'source' as const,
@@ -39,8 +38,8 @@ const health = {
   changed_at_ms: 1786522606705,
 }
 
-describe('W6a error codes', () => {
-  it('registers every code the wave introduced', () => {
+describe('error codes', () => {
+  it('registers every code this area introduced', () => {
     // The convention this file was written to restore. `robot_in_use` was
     // added correctly and was still unasserted; `robot_deletion_partial` was
     // added later, by a different hand, and reached a route without ever
@@ -51,7 +50,7 @@ describe('W6a error codes', () => {
   })
 })
 
-describe('W6a deletion', () => {
+describe('deletion', () => {
   it('makes a deletion record say what it destroyed, not merely that it did', () => {
     const summary = {
       slug_count: 4, sample_rows: 182_000, bytes_freed: 59_000_000,
@@ -97,7 +96,7 @@ describe('W6a deletion', () => {
   })
 })
 
-describe('W6a health', () => {
+describe('health', () => {
   it('describes the snapshot and the push with ONE list of states', () => {
     // These were two literal enums linked by nothing, agreeing only because
     // whoever added `unknown` remembered both places. The artifacts published
@@ -140,7 +139,7 @@ describe('W6a health', () => {
       expect(bridgeCameraState.safeParse(
         { type: 'camera_state', slug: 'front', publishing: false, error: null, cause,
           observed_at_ms: 1786522606705,
-          // W6b: `command` frames answer an attempt, the rest answer nothing.
+          // `command` frames answer an attempt, the rest answer nothing.
           request_id: cause === 'command' ? 'cs-1' : null }).success).toBe(true)
     }
     expect(bridgeCameraState.safeParse(

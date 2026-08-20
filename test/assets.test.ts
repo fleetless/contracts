@@ -16,11 +16,11 @@ const SHA = 'a'.repeat(64)
 const NOW = '2026-08-12T20:00:00.000Z'
 
 /**
- * W7 — the asset store. These tests are mostly about **absence**: what a shape
- * refuses to leave unsaid. The wave before this one shipped three defects that
- * were all one thing — a value that could be omitted and was then guessed at
- * downstream — so the assertions here are aimed at the omissions rather than
- * at the happy shapes.
+ * The asset store. These tests are mostly about **absence**: what a shape
+ * refuses to leave unsaid. Three defects shipped just before it were all one
+ * thing — a value that could be omitted and was then guessed at downstream —
+ * so the assertions here are aimed at the omissions rather than at the happy
+ * shapes.
  */
 describe('the assets capability cannot be left unsaid', () => {
   const base = {
@@ -29,7 +29,7 @@ describe('the assets capability cannot be left unsaid', () => {
   }
 
   it('refuses a role that does not state whether it grants assets', () => {
-    // Required, not `.default(false)`. A role stored before W7 must be
+    // Required, not `.default(false)`. A role stored before assets existed must be
     // migrated deliberately — deny-by-default is the right migration, but it
     // is the cloud's decision to make once, not a shape that quietly answers
     // it every time somebody forgets the field.
@@ -89,10 +89,10 @@ describe('completeness distinguishes three different unhappy answers', () => {
     const body = {
       assets: [],
       urdf: { present: false, mesh_count: 0, missing: [] },
-      // W9b: in die FIXTURE, nicht in die Zusicherung. Die letzte Zeile dieses
+      // In die FIXTURE, nicht in die Zusicherung. Die letzte Zeile dieses
       // Tests behauptet, `body` ohne `urdf_available` werde abgelehnt — ohne
       // `active_sync` hier würde sie aus ZWEI Gründen scheitern und damit aus
-      // dem falschen bestehen. Genau diese Form ist in W7c einmal durchgerutscht.
+      // dem falschen bestehen. Genau diese Form ist hier schon durchgerutscht.
       active_sync: null,
     }
     expect(assetListResponse.safeParse({ ...body, urdf_available: null }).success).toBe(true)
@@ -162,7 +162,7 @@ describe('a size refusal carries both numbers', () => {
   })
 })
 
-describe('the wave declares its codes', () => {
+describe('the asset store declares its codes', () => {
   it('carries asset_missing and asset_too_large', () => {
     expect(ERROR_CODES).toContain('asset_missing')
     expect(ERROR_CODES).toContain('asset_too_large')

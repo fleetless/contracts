@@ -36,7 +36,7 @@ const DATAPOINT = {
   range: { min: 0, max: 100 },
 }
 
-describe('W2 exposure model', () => {
+describe('exposure model', () => {
   it('takes one field of a topic, or the whole topic', () => {
     expect(datapointConfig.safeParse(DATAPOINT).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: null }).success).toBe(true)
@@ -61,8 +61,8 @@ describe('W2 exposure model', () => {
     expect(datapointRate.safeParse({ mode: 'max_hz' }).success).toBe(false)
   })
 
-  it('W6: retention is a boolean with exactly one spelling of "not recorded"', () => {
-    // The W5 placeholder accepted `null`. It is now a boolean, and `false` is
+  it('retention is a boolean with exactly one spelling of "not recorded"', () => {
+    // An earlier placeholder accepted `null`. It is a boolean now, and `false` is
     // the only representation of "not recorded" the contract admits — the
     // cloud normalises a stored `null` on read rather than the contract
     // carrying two spellings of one fact.
@@ -118,7 +118,7 @@ describe('W2 exposure model', () => {
     ).toBe(true)
   })
 
-  it('defines the §4.4 parameter rules without enforcing them yet', () => {
+  it('defines the parameter rules without enforcing them yet', () => {
     expect(valueRule.safeParse({}).success).toBe(true)
     expect(valueRule.safeParse({ min: 0, max: 1, required: true }).success).toBe(true)
     expect(valueRule.safeParse({ enum: ['left', 'right'] }).success).toBe(true)
@@ -126,7 +126,7 @@ describe('W2 exposure model', () => {
   })
 })
 
-describe('W2 introspection', () => {
+describe('introspection', () => {
   it('lists topics, services and actions with their types', () => {
     const graph = {
       topics: [{ name: '/battery', types: ['sensor_msgs/msg/BatteryState'] }],
@@ -163,14 +163,14 @@ describe('W2 introspection', () => {
     expect(typeDefinition.safeParse(def).success).toBe(true)
   })
 
-  it('resolves messages only in W2', () => {
+  it('resolves messages only, not services or actions', () => {
     expect(
       typeDefinition.safeParse({ name: 'example/srv/AddTwoInts', kind: 'srv', fields: [] }).success,
     ).toBe(false)
   })
 })
 
-describe('W2 bridge protocol', () => {
+describe('bridge protocol', () => {
   it('pushes the published configuration, with version 0 meaning nothing published', () => {
     expect(cloudConfig.safeParse({ type: 'config', version: 1, doc: { datapoints: [DATAPOINT] } }).success).toBe(true)
     expect(cloudConfig.safeParse({ type: 'config', version: 0, doc: { datapoints: [] } }).success).toBe(true)
@@ -228,7 +228,7 @@ describe('W2 bridge protocol', () => {
   })
 })
 
-describe('W2 REST shapes', () => {
+describe('REST shapes', () => {
   const ROBOT_BASE = {
     id: '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f',
     name: 'contract-check',
@@ -321,8 +321,8 @@ describe('W2 REST shapes', () => {
   })
 })
 
-describe('W2 error vocabulary', () => {
-  it('names the refusals this wave introduces', () => {
+describe('error vocabulary', () => {
+  it('names the refusals exposure introduces', () => {
     for (const code of [
       'duplicate_slug',
       'reserved_slug',

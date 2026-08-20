@@ -18,7 +18,7 @@ const health = {
   changed_at_ms: 1786522606705,
 }
 
-describe('W9a — the two questions one health entry used to answer', () => {
+describe('the two questions one health entry used to answer', () => {
   it('accepts both facets and refuses a third', () => {
     for (const facet of ['source', 'publish'] as const) {
       expect(resourceHealthState.safeParse({ ...health, facet }).success).toBe(true)
@@ -30,14 +30,14 @@ describe('W9a — the two questions one health entry used to answer', () => {
   it('requires the facet rather than defaulting it', () => {
     // A default would let a producer stay silent and land in whichever facet
     // the contract happened to prefer — which is the conflation this field
-    // exists to end, moved one layer down. DEF-072.
+    // exists to end, moved one layer down.
     const { facet: _dropped, ...withoutFacet } = health
     expect(resourceHealthState.safeParse(withoutFacet).success).toBe(false)
   })
 
   it('lets one camera be readable and unpublishable at the same moment', () => {
-    // The pair is the point: before W9a both facts shared a key and each
-    // overwrote the other, so a developer saw whichever arrived last.
+    // The pair is the point: both facts once shared a key and each overwrote
+    // the other, so a developer saw whichever arrived last.
     const source = resourceHealthState.parse({ ...health, facet: 'source', state: 'ok' })
     const publish = resourceHealthState.parse({ ...health, facet: 'publish', state: 'publish_failed' })
     expect(source.state).toBe('ok')
@@ -46,7 +46,7 @@ describe('W9a — the two questions one health entry used to answer', () => {
   })
 })
 
-describe('W9a — a viewer learns why its own session ended', () => {
+describe('a viewer learns why its own session ended', () => {
   const ended = {
     type: 'live_session' as const,
     robot_id: '11111111-1111-4111-8111-111111111111',
@@ -59,7 +59,7 @@ describe('W9a — a viewer learns why its own session ended', () => {
   }
 
   it('names the session it is about', () => {
-    // W6b gave liveSessionResponse a session_id precisely so a session could
+    // `liveSessionResponse` carries a session_id precisely so a session can
     // be addressed; an event that ends one without naming it would send the
     // console back to guessing which tab lost what.
     expect(liveSessionEvent.safeParse(ended).success).toBe(true)
@@ -74,9 +74,10 @@ describe('W9a — a viewer learns why its own session ended', () => {
   })
 
   it('distinguishes a peer release from a config change', () => {
-    // The exact pair W6 shipped as one message because the client could not
-    // tell them apart, and W6a then reported wrongly because it read a sticky
-    // state after the fact instead of carrying the reason with the ending.
+    // These two once shipped as one message because the client could not
+    // tell them apart, and the fix then reported wrongly because it read a
+    // sticky state after the fact instead of carrying the reason with the
+    // ending.
     expect(liveSessionEndReason.options).toContain('released_by_peer')
     expect(liveSessionEndReason.options).toContain('config_changed')
   })
@@ -86,7 +87,7 @@ describe('W9a — a viewer learns why its own session ended', () => {
   })
 })
 
-describe('W9a — a withdrawn health entry is its own event', () => {
+describe('a withdrawn health entry is its own event', () => {
   it('is a distinct type rather than a nullable state', () => {
     // So a consumer's switch has to name it: an unhandled variant fails tsc,
     // where a nullable field only invites `if (state)` and fails silently.

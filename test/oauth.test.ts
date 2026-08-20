@@ -23,11 +23,11 @@ import {
 } from '../src/index.js'
 
 /**
- * W7b — the hosted authorization server.
+ * The hosted authorization server.
  *
  * Every test here names a thing that would otherwise be believed without
- * evidence. The wave's own rule: name what would make the check fail, and go
- * make it fail once.
+ * evidence. The rule this file was written to: name what would make the
+ * check fail, and go make it fail once.
  */
 
 describe('redirectUri', () => {
@@ -161,9 +161,8 @@ describe('idpConfig', () => {
       client_secret: 'hunter2',
       scopes: ['openid', 'email'],
       claims: { subject_claim: 'sub', email_claim: 'email' },
-      // `link_verified_emails` ist in W9c auf die Org gewandert (DEF-094) —
-      // es entschied ueber eine org-weite Identitaet und sass auf einem
-      // App-Objekt. Der Paritaets-Waechter unten gilt unveraendert weiter.
+      // `link_verified_emails` ist auf die Org gewandert — es entschied ueber
+      // eine org-weite Identitaet und sass auf einem App-Objekt. Der Paritaets-Waechter unten gilt unveraendert weiter.
       has_client_secret: true,
       updated_at: '2026-08-18T00:00:00.000Z',
     })
@@ -204,7 +203,7 @@ describe('accepts_dynamic_clients', () => {
     name: 'Some App',
     identifier: 'some-app',
     robot_ids: [],
-    // W7c added a second required switch. It belongs in `base` and NOT in the
+    // MCP added a second required switch. It belongs in `base` and NOT in the
     // assertion below: with it missing here too, `safeParse(base)` would fail
     // for two reasons, and this test would go on passing if
     // `accepts_dynamic_clients` were quietly made optional. A check that
@@ -298,7 +297,7 @@ describe('the token endpoint', () => {
     // Erst den Diskriminator festhalten, dann das Feld: `oauthTokenRequest`
     // ist eine Union, und `scope` gibt es NUR am refresh-Zweig. Vorher las der
     // Test das Feld direkt — zur Laufzeit richtig, aber tsc sah es nie, weil
-    // `test/` in diesem Repo bis W9c gar nicht typgeprueft wurde. So geprueft
+    // `test/` in diesem Repo lange gar nicht typgeprueft wurde. So geprueft
     // beweist der Test zusaetzlich, dass der richtige Zweig entstanden ist.
     expect(parsed.grant_type).toBe('refresh_token')
     expect(parsed.grant_type === 'refresh_token' && parsed.scope).toBe('read')
@@ -344,7 +343,8 @@ describe('oauthError.fleetless_code', () => {
   it('keeps two policy refusals distinguishable inside one standard code', () => {
     // Both map to `access_denied`, which is the honest RFC code for either.
     // Without the extra member the caller cannot tell them apart — the exact
-    // shape W7a paid for with `failed` as a flat string[].
+    // shape this project already paid for once with `failed` as a flat
+    // string[].
     const disabled = oauthError.parse({
       error: 'access_denied', fleetless_code: 'dynamic_registration_disabled',
     })
@@ -367,7 +367,7 @@ describe('idpConfigRequest', () => {
 
   it('can set every field `idpConfig` can show', () => {
     // A field a response exposes and a request cannot set is a field nobody
-    // can turn on. This happened twice in one wave; the test is the guard.
+    // can turn on. This has happened twice here; the test is the guard.
     expect(idpConfigRequest.safeParse(base).success).toBe(true)
   })
 
@@ -381,7 +381,7 @@ describe('idpConfigRequest', () => {
 describe('oauthConsentResponse', () => {
   it('exists and is the same shape the login page already handles', () => {
     // A consumer forced to hand-write a schema for a documented response is a
-    // consumer guessing. Eve-W7b said so instead of importing something near
+    // consumer guessing. Somebody said so instead of importing something near
     // enough, which is why this exists.
     expect(oauthConsentResponse.safeParse({ redirect_to: 'https://app.example.com/cb?code=x' }).success).toBe(true)
     expect(oauthConsentResponse.safeParse({}).success).toBe(false)
@@ -390,8 +390,8 @@ describe('oauthConsentResponse', () => {
 
 describe('idpIssuer', () => {
   it('refuses every scheme that is not http(s)', () => {
-    // Argus-W7b stored all of these through PUT /api/apps/:id/idp and then
-    // caught the outbound discovery fetch on a listener he stood up.
+    // All of these were stored through PUT /api/apps/:id/idp and the outbound
+    // discovery fetch was then caught on a purpose-built listener.
     for (const bad of ['file:///etc/passwd', 'gopher://x/', 'data:text/plain,x', 'ftp://idp.test/']) {
       expect(idpIssuer.safeParse(bad).success, bad).toBe(false)
     }
@@ -417,7 +417,7 @@ describe('idpIssuer', () => {
 
 describe('one self-registration policy, not two', () => {
   it('idpConfig carries no role of its own', () => {
-    // W7b briefly had `default_role_id` here — a weaker copy of
+    // There was briefly a `default_role_id` here — a weaker copy of
     // `selfRegistration` that the federated path read while reading none of
     // the app's actual policy, so a developer who had turned self-registration
     // off still handed out accounts through the federated door. Removed

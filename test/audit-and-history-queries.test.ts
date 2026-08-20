@@ -7,7 +7,7 @@ import type { AuditQuery } from '../src/index.js'
 const UUID = '00000000-0000-4000-8000-000000000000'
 const NOW = '2026-08-19T12:00:00.000Z'
 
-describe('a limit a query string can actually carry (DEF-059)', () => {
+describe('a limit a query string can actually carry', () => {
   const lim = (v: unknown) => historyQuery.safeParse({ from: 'now-1h', limit: v })
 
   it('accepts the wire form and the programmatic form, and yields a number either way', () => {
@@ -31,7 +31,7 @@ describe('a limit a query string can actually carry (DEF-059)', () => {
   })
 })
 
-describe('the audit log can be paged and filtered (DEF-078, DEF-123)', () => {
+describe('the audit log can be paged and filtered', () => {
   it('takes a cursor and a limit from a query string', () => {
     const q = auditQuery.safeParse({ before_seq: '4711', limit: '50' })
     expect(q.success && q.data.before_seq).toBe(4711)
@@ -68,7 +68,7 @@ describe('the audit log can be paged and filtered (DEF-078, DEF-123)', () => {
   })
 })
 
-describe('one CSV column order, in one place (DEF-123)', () => {
+describe('one CSV column order, in one place', () => {
   it('names every field a reader needs to reconstruct the event', () => {
     expect(AUDIT_CSV_COLUMNS).toEqual(
       ['seq', 'at', 'actor_kind', 'actor_id', 'action', 'target_kind', 'target_id', 'target_label', 'details'],
@@ -80,8 +80,8 @@ describe('one CSV column order, in one place (DEF-123)', () => {
   })
 })
 
-describe('the retention window is one number, readable from both sides (DEF-123)', () => {
-  it('is 90 days, per spec §16.3', () => {
+describe('the retention window is one number, readable from both sides', () => {
+  it('is 90 days', () => {
     expect(AUDIT_RETENTION_DAYS).toBe(90)
   })
 

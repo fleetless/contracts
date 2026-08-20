@@ -25,8 +25,8 @@ import {
   updateAppRequest,
 } from '../src/index.js'
 
-/** A published configuration exactly as W7b left it — no `description` anywhere. */
-const preW7cDoc = {
+/** A published configuration from before descriptions existed — none anywhere. */
+const docWithoutDescriptions = {
   datapoints: [
     {
       slug: 'battery',
@@ -48,14 +48,14 @@ const preW7cDoc = {
   cameras: [],
 }
 
-describe('W7c — descriptions on the configuration', () => {
+describe('descriptions on the configuration', () => {
   /**
    * The migration claim, and it is the one that breaks live robots if it is
-   * wrong: every configuration published before this wave is jsonb in a
-   * column, read on every publish and on every bridge connect.
+   * wrong: every configuration published before descriptions existed is
+   * jsonb in a column, read on every publish and on every bridge connect.
    */
-  it('a pre-W7c configuration document still parses, with no description anywhere', () => {
-    const parsed = robotConfigDoc.parse(preW7cDoc)
+  it('a configuration document with no description anywhere still parses', () => {
+    const parsed = robotConfigDoc.parse(docWithoutDescriptions)
     expect(parsed.datapoints[0]!.description).toBeUndefined()
     expect(parsed.actions[0]!.description).toBeUndefined()
   })
@@ -63,13 +63,13 @@ describe('W7c — descriptions on the configuration', () => {
   /**
    * **Asserting the parsed value, not `.success`.** `robotConfigDoc`'s kinds
    * are not `.strict()`, so zod strips an unknown key and a `safeParse`
-   * succeeds either way — which is exactly how a W7b contracts test came out
-   * green after the field it tested had been deleted. `.success` here would
+   * succeeds either way — which is exactly how a contracts test here once
+   * came out green after the field it tested had been deleted. `.success` here would
    * pass whether or not `description` exists at all.
    */
   it.each([
-    ['datapoint', datapointConfig, { ...preW7cDoc.datapoints[0]! }],
-    ['action', actionConfig, { ...preW7cDoc.actions[0]! }],
+    ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints[0]! }],
+    ['action', actionConfig, { ...docWithoutDescriptions.actions[0]! }],
     ['service', serviceConfig, { slug: 'reset', ros_name: '/reset', type: 'std_srvs/srv/Trigger', parameters: [] }],
     [
       'publisher',
@@ -114,7 +114,7 @@ describe('W7c — descriptions on the configuration', () => {
 
   /** The empty string would be a second spelling of "not described". */
   it('refuses an empty description rather than storing a second spelling of absent', () => {
-    expect(datapointConfig.safeParse({ ...preW7cDoc.datapoints[0]!, description: '' }).success).toBe(false)
+    expect(datapointConfig.safeParse({ ...docWithoutDescriptions.datapoints[0]!, description: '' }).success).toBe(false)
   })
 
   /**
@@ -136,7 +136,7 @@ describe('W7c — descriptions on the configuration', () => {
   })
 })
 
-describe('W7c — the MCP app switch', () => {
+describe('the MCP app switch', () => {
   const base = {
     id: '00000000-0000-4000-8000-000000000001',
     org_id: '00000000-0000-4000-8000-000000000002',
@@ -164,7 +164,7 @@ describe('W7c — the MCP app switch', () => {
   })
 })
 
-describe('W7c — tool naming', () => {
+describe('tool naming', () => {
   it('speaks the revision the stable SDK ships', () => {
     expect(MCP_PROTOCOL_VERSION).toBe('2025-11-25')
     expect(mcpEndpointPath('ops')).toBe('/mcp/ops')
@@ -210,7 +210,7 @@ describe('W7c — tool naming', () => {
   })
 })
 
-describe('W7c — the console preview', () => {
+describe('the console preview', () => {
   const tool = {
     name: 'r3f2504e04f89__dock',
     title: 'RX1 · dock',
@@ -260,7 +260,7 @@ describe('W7c — the console preview', () => {
  * This test exists so the next person who notices "two different maxima, that
  * looks untidy" finds out why before making them equal.
  */
-describe('W7c — the generated description has room to be generated in', () => {
+describe('the generated description has room to be generated in', () => {
   const humanMax = 2000
   const generated = mcpToolPreview.shape.description
 
@@ -281,7 +281,7 @@ describe('W7c — the generated description has room to be generated in', () => 
   })
 })
 
-describe('W7c — error codes', () => {
+describe('error codes', () => {
   it('adds the two management-side codes and nothing for the MCP endpoint itself', () => {
     expect(ERROR_CODES).toContain('mcp_disabled')
     expect(ERROR_CODES).toContain('tool_not_available')

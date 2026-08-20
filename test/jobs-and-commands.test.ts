@@ -36,14 +36,14 @@ const ACTION = {
   parameters: [{ name: 'speed', type: 'float32', rule: { min: 0, max: 1.5, required: true } }],
 }
 
-describe('W4 config: three new kinds', () => {
+describe('config: three new kinds', () => {
   it('carries actions, services and publishers beside datapoints', () => {
     expect(actionConfig.safeParse(ACTION).success).toBe(true)
     expect(parameterSpec.safeParse({ name: 'speed', type: 'float32', rule: {} }).success).toBe(true)
     expect(parameterSpec.safeParse({ name: 'Speed!', type: 'float32', rule: {} }).success).toBe(false)
   })
 
-  it('keeps a W2 document valid — actions/services/publishers default to empty', () => {
+  it('keeps a datapoints-only document valid — actions/services/publishers default to empty', () => {
     // Stored configurations are jsonb. A required field here would have
     // invalidated every published version of every live robot on first read.
     const w2 = {
@@ -85,7 +85,7 @@ describe('W4 config: three new kinds', () => {
   })
 })
 
-describe('W4 jobs', () => {
+describe('jobs', () => {
   const J = { id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running', started_at: NOW, updated_at: NOW,
     seq: 1, result: null, error: null }
 
@@ -114,7 +114,7 @@ describe('W4 jobs', () => {
   })
 })
 
-describe('W4 command parity', () => {
+describe('command parity', () => {
   it('correlates every command with its reply', () => {
     expect(clientInvoke.safeParse({ type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', params: { speed: 0.5 } }).success).toBe(true)
     expect(clientInvoke.safeParse({ type: 'invoke', robot_id: UUID2, slug: 'drive-to', params: {} }).success).toBe(false)
@@ -125,7 +125,7 @@ describe('W4 command parity', () => {
   })
 
   it('lets a realtime refusal carry the same details REST does', () => {
-    // Without this the socket broke §11.1's parity promise: the same
+    // Without this the socket broke the parity promise: the same
     // parameter_invalid was actionable over HTTP and opaque over the socket,
     // because there was nowhere on the frame to put the violations.
     const r = {
@@ -144,7 +144,7 @@ describe('W4 command parity', () => {
   })
 })
 
-describe('W4 bridge protocol', () => {
+describe('bridge protocol', () => {
   it('has the cloud mint the job id before the bridge is asked', () => {
     // A job that exists only once the bridge answers cannot be reported lost.
     expect(cloudInvoke.safeParse({ type: 'invoke', job_id: UUID, slug: 'drive-to', params: { speed: 1 }, patience_ms: 15_000 }).success).toBe(true)
@@ -156,8 +156,8 @@ describe('W4 bridge protocol', () => {
     // what the bridge still has. So it says so, and the cloud reconciles:
     // a running job not named here is lost.
     //
-    // W6b widened the entries from bare uuids to `{job_id, slug, state}` and
-    // renamed the field with them. The old name is gone rather than kept as
+    // The entries were widened from bare uuids to `{job_id, slug, state}` and
+    // the field renamed with them. The old name is gone rather than kept as
     // an alias — see `bridgeHello.active_jobs`.
     const hello = { type: 'hello', protocol_version: 1, token: 'frt_x', bridge_version: '0.4.0' }
     const entry = { job_id: UUID, slug: 'drive-to', state: 'running' }
@@ -168,7 +168,7 @@ describe('W4 bridge protocol', () => {
     // is precisely the fact the cloud needs, not a missing field.
     expect(bridgeHello.parse({ ...hello, active_jobs: [] }).active_jobs).toEqual([])
 
-    // A pre-W4 bridge omits it entirely; it had no jobs, so empty is correct
+    // A bridge older than jobs omits it entirely; it had no jobs, so empty is correct
     // for it too, and the default direction is the safe one (lost, not
     // "still running because nobody said otherwise").
     expect(bridgeHello.parse(hello).active_jobs).toEqual([])
@@ -186,7 +186,7 @@ describe('W4 bridge protocol', () => {
   })
 })
 
-describe('W4 type trees', () => {
+describe('type trees', () => {
   const F = { name: 'x', type: 'float64', array: false, fields: null }
 
   it('resolves services and actions, not only messages', () => {
@@ -197,7 +197,7 @@ describe('W4 type trees', () => {
     expect(
       typeDefinition.safeParse({ name: 'p/action/T', kind: 'action', goal: [F], result: [], feedback: [] }).success,
     ).toBe(true)
-    // W2's stored `msg` shape is unchanged, so nothing needs migrating.
+    // The stored `msg` shape is unchanged, so nothing needs migrating.
     expect(typeDefinition.safeParse({ name: 'p/msg/T', kind: 'msg' }).success).toBe(false)
   })
 
@@ -210,7 +210,7 @@ describe('W4 type trees', () => {
   })
 })
 
-describe('W4 exposures and errors', () => {
+describe('exposures and errors', () => {
   it('names the kind of every grantable slug', () => {
     expect(
       exposureListResponse.safeParse({
@@ -230,7 +230,7 @@ describe('W4 exposures and errors', () => {
   })
 })
 
-describe('W4 parameter refusals', () => {
+describe('parameter refusals', () => {
   it('pins the shape of a parameter_invalid, so nobody has to sniff for it', () => {
     // Left as `unknown` on the envelope, three consumers each guessed a
     // different shape and each was right in its own tests.
@@ -248,7 +248,7 @@ describe('W4 parameter refusals', () => {
   })
 })
 
-describe('W4 review fixes', () => {
+describe('review fixes', () => {
   it('tells a client which kind it just commanded', () => {
     // Invoke and call share a route; only a *client* distinguishes them. With
     // no kind coming back, a service helper aimed at an action slug starts the

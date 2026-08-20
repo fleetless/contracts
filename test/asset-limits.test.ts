@@ -15,9 +15,9 @@ const runningSync = {
   updated_at: '2026-08-19T10:00:03.000Z',
 }
 
-describe('W9b — der Deckel, den beide Seiten kennen', () => {
+describe('der Deckel, den beide Seiten kennen', () => {
   it('steht als eine Zahl im Vertrag, nicht als zwei in zwei Repos', () => {
-    // DEF-127: die Bridge hatte eine geratene Zahl, die Cloud eine eigene.
+    // Die Bridge hatte einmal eine geratene Zahl, die Cloud eine eigene.
     // Eine Grenze, die der Sender raet und der Empfaenger durchsetzt, ist keine
     // Grenze — sie sind zwei Zahlen, die uebereinstimmen, bis eine sich aendert.
     expect(ASSET_UPLOAD_MAX_BYTES).toBe(64 * 1024 * 1024)
@@ -34,14 +34,14 @@ describe('W9b — der Deckel, den beide Seiten kennen', () => {
   })
 
   it('kuendigt die Groesse in einem eigenen Kopf an, damit die Absage vor dem Koerper entstehen kann', () => {
-    // DEF-116: Fastifys bodyLimit greift im Content-Type-Parser, also vor dem
+    // Fastifys bodyLimit greift im Content-Type-Parser, also vor dem
     // Handler — der strukturierte Fehler hatte keinen erreichbaren Erzeuger.
     expect(ASSET_UPLOAD_HEADERS.size).toBe('x-fleetless-asset-size')
     expect(new Set(Object.values(ASSET_UPLOAD_HEADERS)).size).toBe(Object.values(ASSET_UPLOAD_HEADERS).length)
   })
 })
 
-describe('W9b — ein laufender Sync ist adressierbar', () => {
+describe('ein laufender Sync ist adressierbar', () => {
   it('die busy-Absage nennt den Sync, nicht nur den Zustand', () => {
     // W6bs Lehre, eine Ebene weiter: ein Abbruch nennt seinen Job, eine
     // Freigabe ihre Session, und eine busy-Absage ihren Sync.
@@ -63,7 +63,7 @@ describe('W9b — ein laufender Sync ist adressierbar', () => {
   })
 })
 
-describe('W9b — der Deckel erreicht auch die Seite, die kein npm lesen kann', () => {
+describe('der Deckel erreicht auch die Seite, die kein npm lesen kann', () => {
   it('steht im Artefakt, nicht nur im TypeScript-Export', async () => {
     // **Der eigentliche Fehler des ersten Delta-Commits.** Die Konstante war
     // fuer TS-Konsumenten da und fuer die Bridge nicht: die liest
@@ -72,20 +72,20 @@ describe('W9b — der Deckel erreicht auch die Seite, die kein npm lesen kann', 
     // importieren. Der Header war angekommen, die Zahl nicht — eine Grenze,
     // die eine Seite nicht lesen kann, ist wieder zwei Zahlen.
     //
-    // Gefunden von Rosie-W9b, BEVOR sie darauf baute, in genau dem Commit, der
-    // das Raten abschaffen sollte.
+    // Gefunden, BEVOR jemand darauf baute — in genau dem Commit, der das
+    // Raten abschaffen sollte.
     const { readFileSync } = await import('node:fs')
     const artifact = JSON.parse(readFileSync(new URL('../artifacts/constants.json', import.meta.url), 'utf8'))
     expect(artifact.ASSET_UPLOAD_MAX_BYTES).toBe(ASSET_UPLOAD_MAX_BYTES)
   })
 })
 
-describe('a refusal that says how big, and how big it was allowed to be (Eve-W9b)', () => {
+describe('a refusal that says how big, and how big it was allowed to be', () => {
   const at = (kind: string, details?: unknown) => assetFailure.safeParse({ reference: 'package://p/base.dae', kind, details })
 
   it('is its own kind, because `refused` already carries the sammel-sentinel', () => {
-    // Beides unter `refused` zu legen wäre der Fehler, den W9a eine Welle
-    // zuvor ausgeräumt hat: zwei Fakten auf einem Schlüssel.
+    // Beides unter `refused` zu legen wäre derselbe Fehler wie zwei Fakten
+    // auf einem Schlüssel, den dieses Repo schon einmal ausgeräumt hat.
     expect(assetFailureKind.options).toContain('too_large')
     expect(assetFailureKind.options).toContain('refused')
   })
@@ -102,7 +102,7 @@ describe('a refusal that says how big, and how big it was allowed to be (Eve-W9b
   })
 })
 
-describe('missing names what is missing AND of what (DEF-081)', () => {
+describe('missing names what is missing AND of what', () => {
   const uc = (missing: unknown) => urdfCompleteness.safeParse({ present: true, mesh_count: 3, missing })
 
   it('refuses the blanke string list the console had to guess from', () => {

@@ -1,15 +1,13 @@
 /**
- * W6b — addressing: everything the platform could not name.
+ * Addressing: everything the platform could not name.
  *
- * Written **with** the contracts delta, not after it. W6a shipped four new
- * shapes with zero contract tests because a change to an existing shape
- * breaks the tests that cover it while a new shape breaks nothing — the note
- * at the top of `w6a.test.ts` says so, and this file is that note being acted
- * on rather than repeated.
+ * Written **with** the contracts delta, not after it — see the note at the
+ * top of `deletion-and-health.test.ts` for why additions are not
+ * self-policing and have to be tested deliberately.
  *
- * Each test below names the *confusion* it removes. That is the whole wave:
- * seven places where two different things shared one address, and the
- * platform resolved the ambiguity by picking one of them silently.
+ * Each test below names the *confusion* it removes: seven places where two
+ * different things shared one address, and the platform resolved the
+ * ambiguity by picking one of them silently.
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -34,10 +32,10 @@ const UUID = '7e2b1a4c-3d5f-4a6b-8c9d-0e1f2a3b4c5d'
 const UUID2 = '1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9'
 const NOW = '2026-08-12T10:00:00.000Z'
 
-describe('W6b error codes', () => {
-  it('registers every code the wave introduced', () => {
-    // The convention `w6a.test.ts` restored, applied on the way in this time
-    // rather than by a reviewer on the way out.
+describe('error codes', () => {
+  it('registers every code this area introduced', () => {
+    // The convention `deletion-and-health.test.ts` restored, applied on the
+    // way in this time rather than by a reviewer on the way out.
     for (const code of ['job_queue_full', 'invalid_uuid']) {
       expect(ERROR_CODES).toContain(code)
     }
@@ -52,7 +50,7 @@ describe('W6b error codes', () => {
   })
 })
 
-describe('W6b — naming a job', () => {
+describe('naming a job', () => {
   it('lets a cancel say WHICH job, and still lets it say "whatever is running"', () => {
     // Both are real requests. An operator hitting stop means the second; a
     // client cancelling its own job means the first, and until now could not
@@ -90,7 +88,7 @@ describe('W6b — naming a job', () => {
   })
 })
 
-describe('W6b — naming what a robot is still doing', () => {
+describe('naming what a robot is still doing', () => {
   it('reports a job with its slug and state, not only its id', () => {
     const entry = { job_id: UUID, slug: 'drive-to', state: 'running' }
     expect(activeJob.parse(entry)).toEqual(entry)
@@ -131,9 +129,9 @@ describe('W6b — naming what a robot is still doing', () => {
   })
 })
 
-describe('W6b — asking what a robot is doing without knowing what to ask', () => {
+describe('asking what a robot is doing without knowing what to ask', () => {
   it('lists the jobs a robot has, including ones no slug would find', () => {
-    // The per-slug route needs the slug first, and W6b creates two kinds of
+    // The per-slug route needs the slug first, and there are two kinds of
     // job nobody can name in advance: one adopted from a reconnecting bridge
     // that the cloud has no row for, and one left on a slug a configuration
     // change removed.
@@ -153,7 +151,7 @@ describe('W6b — asking what a robot is doing without knowing what to ask', () 
   })
 })
 
-describe('W6b — naming how long a caller will wait', () => {
+describe('naming how long a caller will wait', () => {
   it('defaults to what both sides already did independently', () => {
     // The cloud's commandTimeoutMs and the bridge's GOAL_ACCEPT_TIMEOUT_S
     // were both 15 s by two separate decisions. Picking that number as the
@@ -174,8 +172,8 @@ describe('W6b — naming how long a caller will wait', () => {
 
   it('refuses a patience above the cap instead of clamping it', () => {
     // A caller who asked for ten minutes and was quietly given two would read
-    // the timeout as the robot's failure. There is no rate limiting until W8,
-    // so an unbounded wait is a way to pin the cloud's sockets open.
+    // the timeout as the robot's failure. An unbounded wait is also a way to
+    // pin the cloud's sockets open.
     expect(invokeRequest.safeParse({ params: {}, patience_ms: MAX_PATIENCE_MS }).success).toBe(true)
     expect(invokeRequest.safeParse({ params: {}, patience_ms: MAX_PATIENCE_MS + 1 }).success).toBe(false)
     expect(cloudInvoke.safeParse({
@@ -189,7 +187,7 @@ describe('W6b — naming how long a caller will wait', () => {
     // action makes the bridge report `goal_timeout` and then issue a
     // CORRECTIVE CANCEL against a goal the server accepts a moment later — so
     // an unreachable deadline does not merely produce an error, it stops a
-    // machine. Repeatable, with no rate limiting until W8.
+    // machine. Repeatable.
     for (const bad of [0, -1, 1.5, 1, 999]) {
       expect(invokeRequest.safeParse({ params: {}, patience_ms: bad }).success).toBe(false)
     }
@@ -197,12 +195,12 @@ describe('W6b — naming how long a caller will wait', () => {
   })
 })
 
-describe('W6b — the same thing over both transports', () => {
+describe('the same thing over both transports', () => {
   it('lets a REST cancel carry an id, and lets it carry nothing at all', () => {
-    // The body is fully optional because `POST .../cancel` was bodyless before
-    // this wave and every existing caller still sends nothing. W5's worst bug
-    // was a bodyless POST being rejected outright, which took cancel, publish,
-    // restore, key rotation and member removal down with it.
+    // The body is fully optional because `POST .../cancel` used to be bodyless
+    // and every existing caller still sends nothing. One of this project's
+    // worst bugs was a bodyless POST being rejected outright, which took
+    // cancel, publish, restore, key rotation and member removal down with it.
     expect(cancelRequest.parse({}).job_id).toBeUndefined()
     expect(cancelRequest.parse({ job_id: null }).job_id).toBeNull()
     expect(cancelRequest.parse({ job_id: UUID }).job_id).toBe(UUID)
@@ -210,7 +208,7 @@ describe('W6b — the same thing over both transports', () => {
   })
 
   it('makes absent and null differ by transport, deliberately', () => {
-    // Over REST an absent body IS how a pre-W6b caller says "cancel whatever
+    // Over REST an absent body IS how an older caller says "cancel whatever
     // is running", so absent and null must mean the same thing. On the socket
     // the frame is assembled fresh by a client that has already been updated,
     // so `null` is a decision and an omission is a bug.
@@ -221,11 +219,12 @@ describe('W6b — the same thing over both transports', () => {
   })
 
   it('lets a socket caller state a patience, because parity is a rule', () => {
-    // §11.1: what REST can do travels over this socket. The first version of
-    // this delta gave `patience_ms` to the REST body only — and this project's
-    // own SDK invokes exclusively over the realtime channel, so the field
-    // would have been documented and unreachable for every SDK caller. W6a
-    // shipped four such methods; this one was caught before it shipped.
+    // Parity is the rule: what REST can do travels over this socket. The
+    // first version of this delta gave `patience_ms` to the REST body only —
+    // and this project's own SDK invokes exclusively over the realtime
+    // channel, so the field would have been documented and unreachable for
+    // every SDK caller. Four such methods have shipped that way before; this
+    // one was caught first.
     expect(clientInvoke.safeParse({
       type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
       params: {}, patience_ms: 2000,
@@ -265,7 +264,7 @@ describe('W6b — the same thing over both transports', () => {
   })
 })
 
-describe('W6b — naming a session', () => {
+describe('naming a session', () => {
   it('gives every live hold its own id', () => {
     // Two tabs of one identity were one hold, so either tab's release stopped
     // the robot for both — and the surviving tab kept rendering, because a
@@ -284,7 +283,7 @@ describe('W6b — naming a session', () => {
   })
 })
 
-describe('W6b — naming a publish attempt', () => {
+describe('naming a publish attempt', () => {
   it('makes every camera command carry the id its answer will echo', () => {
     expect(cloudCameraStart.safeParse({
       type: 'camera_start', slug: 'front', url: 'ws://x', room: 'r-1', token: 't', request_id: 'cs-1',
@@ -336,7 +335,7 @@ describe('W6b — naming a publish attempt', () => {
   })
 })
 
-describe('W6b — bounding a queue, and ordering a log', () => {
+describe('bounding a queue, and ordering a log', () => {
   it('gives a full-queue refusal somewhere to actually put its numbers', () => {
     // It shipped with a documented {limit, queued} payload and nowhere to put
     // it: the bridge reports a full queue as a JOB error, and `job.error` was

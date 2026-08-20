@@ -19,7 +19,7 @@ const ROBOT = {
   created_at: '2026-08-10T12:00:00.000Z',
 }
 
-describe('W1 bridge protocol additions', () => {
+describe('bridge protocol additions', () => {
   it('ping and pong carry the cloud clock', () => {
     expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1754800000000 }).success).toBe(true)
     expect(bridgePong.safeParse({ type: 'pong', ts_ms: 1754800000000 }).success).toBe(true)
@@ -28,7 +28,7 @@ describe('W1 bridge protocol additions', () => {
   })
 })
 
-describe('W1 REST shapes', () => {
+describe('REST shapes', () => {
   it('robot has uuid id, bounded name, ISO created_at', () => {
     expect(robot.safeParse(ROBOT).success).toBe(true)
     expect(robot.safeParse({ ...ROBOT, id: 'r1' }).success).toBe(false)
@@ -71,7 +71,7 @@ describe('W1 REST shapes', () => {
   })
 })
 
-describe('W1 realtime client protocol', () => {
+describe('realtime client protocol', () => {
   it('subscribe addresses a robot + slug', () => {
     expect(
       clientSubscribe.safeParse({ type: 'subscribe', robot_id: ROBOT.id, slug: 'bridge-state' })

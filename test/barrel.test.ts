@@ -5,18 +5,18 @@
  * which means every new symbol has to be written twice and nothing checks
  * the second one.
  *
- * It went wrong immediately: the W6a delta added five symbols across three
+ * It went wrong immediately: one delta added five symbols across three
  * modules, the artifacts and the typecheck were both clean, and the barrel
- * was never touched — so the wave's first consumer could not import any of
- * them. Found by a teammate on their first task, not by the lead who wrote
- * it, and not by any check in this repo.
+ * was never touched — so the first consumer could not import any of them.
+ * Found by a person, not by any check in this repo.
  *
  * This test is that missing check. It compares what the source modules
  * export against what the barrel re-exports, so the failure arrives here
  * rather than in another repo's install.
  *
- * It found a sixth on its first run — `SNAPSHOT_MAX_BYTES`, missing since
- * W5 and never noticed, because nothing had imported it from the package.
+ * It found a sixth on its first run — `SNAPSHOT_MAX_BYTES`, missing for
+ * months and never noticed, because nothing had imported it from the
+ * package.
  *
  * **What it cannot check: `export type`.** Types are erased at runtime, so a
  * missing type re-export is invisible here and shows up as a consumer's
@@ -30,12 +30,11 @@ import * as barrel from '../src/index.js'
  * **The module list enumerates itself, and that is the second lesson this
  * file has had to learn.**
  *
- * It was a hand-written `MODULES` record — and `assets.ts`, the entire W7
+ * It was a hand-written `MODULES` record — and `assets.ts`, the entire
  * asset store, was never added to it. So the check written to catch a missing
  * barrel export was **blind to a whole module** from the moment that module
- * arrived, and stayed blind through W7 and W7a until a teammate hit
- * `AssetFailure` missing from the barrel and asked why nothing had caught it
- * (Nimbus-W7a).
+ * arrived, and stayed blind until somebody hit `AssetFailure` missing from
+ * the barrel and asked why nothing had caught it.
  *
  * The original defect was *"every new symbol has to be written twice and
  * nothing checks the second one"*. The fix introduced a third place to

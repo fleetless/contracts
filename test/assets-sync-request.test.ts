@@ -8,8 +8,8 @@ const NOW = '2026-08-17T00:00:00.000Z'
 import { exportedConstants } from '../scripts/export-schemas.js'
 
 /**
- * W7a — the register. What changed in contracts is small; what it has to stop
- * happening is not.
+ * The sync request. What it adds to the contracts is small; what it has to
+ * stop happening is not.
  */
 describe('assetKind carries textures', () => {
   it('accepts `texture` and still refuses an invented kind', () => {
@@ -26,7 +26,7 @@ describe('assetSyncRequest has a consumer, and therefore a shape that bites', ()
   })
 
   it('refuses an unknown key instead of stripping it', () => {
-    // Through W7 the route read no body at all, so `{nonsense:1}` and `{}`
+    // The route once read no body at all, so `{nonsense:1}` and `{}`
     // behaved exactly like a well-formed request. A plain object would strip
     // the key and answer 200 — which is the same silence with a schema in
     // front of it.
@@ -62,8 +62,8 @@ describe('creating an app with robots', () => {
     expect(createAppRequest.safeParse(base).success).toBe(true)
     const withRobots = createAppRequest.safeParse({ ...base, robot_ids: [UUID] })
     expect(withRobots.success).toBe(true)
-    // The point of the change: the value survives parsing. Through W7 this
-    // read `undefined` and the caller got a 201 with an empty app.
+    // The point of the change: the value survives parsing. This used to
+    // read `undefined`, and the caller got a 201 with an empty app.
     expect(withRobots.success && withRobots.data.robot_ids).toEqual([UUID])
   })
 

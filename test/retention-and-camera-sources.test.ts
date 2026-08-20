@@ -17,7 +17,7 @@ import {
 const ROS = { kind: 'ros', topic: '/image_raw', type: 'sensor_msgs/msg/Image' } as const
 const CAM = { slug: 'front', source: ROS, width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000 }
 
-describe('W6 camera sources', () => {
+describe('camera sources', () => {
   it('makes an impossible camera unrepresentable, not merely invalid', () => {
     // The point of the discriminated union: there is no validation rule to
     // forget, because the shapes cannot be mixed in the first place.
@@ -27,7 +27,7 @@ describe('W6 camera sources', () => {
     expect(cameraSource.safeParse({ kind: 'ftp', url: 'ftp://cam/s' }).success).toBe(false)
   })
 
-  it('binds all four sources §10 names', () => {
+  it('binds all four camera sources the platform names', () => {
     for (const source of [
       ROS,
       { kind: 'rtsp', url: 'rtsp://cam.local/stream' },
@@ -55,7 +55,7 @@ describe('W6 camera sources', () => {
     // The bridge opens these with libraries that honour file: and ftp:, so an
     // unconstrained URL turns a config document into an arbitrary local-file
     // read — and the two distinct failure codes into an existence oracle.
-    // Spec §7.6 forbids exactly this class; it came back by omission.
+    // ROS-pure exposure forbids exactly this class; it came back by omission.
     for (const url of ['file:///etc/hostname', 'ftp://host/x', 'http://cam/s.mjpg']) {
       expect(cameraSource.safeParse({ kind: 'rtsp', url }).success).toBe(false)
     }
@@ -73,7 +73,7 @@ describe('W6 camera sources', () => {
   })
 })
 
-describe('W6 credentials on the wire, not in the document', () => {
+describe('credentials on the wire, not in the document', () => {
   it('carries credentials as a sibling of doc, never inside it', () => {
     const frame = cloudConfig.parse({
       type: 'config',
@@ -87,7 +87,7 @@ describe('W6 credentials on the wire, not in the document', () => {
     expect(JSON.stringify(frame.doc)).not.toContain('hunter2')
   })
 
-  it('defaults to no credentials, so a pre-W6 frame still parses', () => {
+  it('defaults to no credentials, so a frame written before they existed still parses', () => {
     const frame = cloudConfig.parse({ type: 'config', version: 0, doc: { datapoints: [] } })
     expect(frame.credentials).toEqual({})
   })
@@ -102,7 +102,7 @@ describe('W6 credentials on the wire, not in the document', () => {
   })
 
   it('separates "a password is stored" from "we can still decrypt it"', () => {
-    // W6a. These came apart in W6 and the API could not say so: an
+    // These two came apart once and the API could not say so: an
     // undecryptable credential answered `set: true` with `used_by` naming the
     // camera depending on it, while every config frame shipped `credentials:
     // {}`. The only evidence was a server log no developer can read.
@@ -131,7 +131,7 @@ describe('W6 credentials on the wire, not in the document', () => {
   })
 })
 
-describe('W6 retention and history', () => {
+describe('retention and history', () => {
   const DP = { slug: 'battery', topic: '/battery', type: 'sensor_msgs/msg/BatteryState', field: 'percentage', rate: { mode: 'max_hz', hz: 1 }, unit: null, scale: null, offset: null, range: null, buffered: false }
 
   it('records only when asked, and "not recorded" has one spelling', () => {
@@ -168,7 +168,8 @@ describe('W6 retention and history', () => {
         { bucket_start_ms: 1000, value: 0, sample_count: 4 },
       ],
     })
-    // Two facts, two representations. W5 established what happens otherwise.
+    // Two facts, two representations. Collapsing them has cost this project
+    // real time before.
     expect(parsed.buckets[0]!.sample_count).toBe(0)
     expect(parsed.buckets[1]!.value).toBe(0)
     expect(parsed.buckets[1]!.sample_count).toBeGreaterThan(0)
@@ -193,7 +194,7 @@ describe('W6 retention and history', () => {
   })
 })
 
-describe('W6 quotas', () => {
+describe('quotas', () => {
   it('shows a limit beside its usage — a limit alone tells nobody where they stand', () => {
     const quotas = {
       max_robots: 50, max_apps: 10, max_end_users: 1000,

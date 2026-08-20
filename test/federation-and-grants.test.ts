@@ -14,7 +14,7 @@ import type {
 const UUID = '00000000-0000-4000-8000-000000000000'
 const NOW = '2026-08-19T12:00:00.000Z'
 
-describe('one account, one linking policy (DEF-094)', () => {
+describe('one account, one linking policy', () => {
   const base = {
     app_id: UUID,
     issuer: 'https://idp.example.com',
@@ -58,7 +58,7 @@ describe('one account, one linking policy (DEF-094)', () => {
   })
 })
 
-describe('a grant a person can recognise, and a revocation that says what it ended (DEF-099)', () => {
+describe('a grant a person can recognise, and a revocation that says what it ended', () => {
   const grant = {
     client_id: 'client-abc',
     client_name: 'Fleet Dashboard',
@@ -85,7 +85,7 @@ describe('a grant a person can recognise, and a revocation that says what it end
   })
 
   /**
-   * **Die Grenze allein sagt nicht, ob etwas fehlt** (DEF-151). `truncated`
+   * **Die Grenze allein sagt nicht, ob etwas fehlt**. `truncated`
    * ist Pflicht, damit eine Antwort ohne das Feld nicht als *"es gibt nicht
    * mehr"* durchgeht — genau die stille Kuerzung, die diese Zeile geoeffnet
    * hat.
@@ -106,7 +106,7 @@ describe('a grant a person can recognise, and a revocation that says what it end
   })
 })
 
-describe('logout says which of four things is true (DEF-098)', () => {
+describe('logout says which of four things is true', () => {
   const parse = (idp_logout: unknown) => clientLogoutResponse.safeParse({ idp_logout })
 
   it('accepts exactly the four outcomes, and no fifth', () => {
@@ -150,9 +150,9 @@ describe('logout says which of four things is true (DEF-098)', () => {
 })
 
 describe('the barrel exports the TYPES, not only the schemas', () => {
-  // **Data-W9c hat das gefunden, bevor er darauf gebaut hat.** Mein Delta hat
-  // die Werte re-exportiert und die inferierten Typen vergessen — `tsc` sagte
-  // ihm *has no exported member named 'ClientLogoutResponse'. Did you mean
+  // **Ein Konsument hat das gefunden, bevor er darauf gebaut hat.** Das Delta
+  // hatte die Werte re-exportiert und die inferierten Typen vergessen — `tsc`
+  // sagte *has no exported member named 'ClientLogoutResponse'. Did you mean
   // 'clientLogoutResponse'?*, also die Grossschreibung als einziger
   // Unterschied. Ein Konsument kann dann das Schema benutzen und die Form
   // nicht benennen, was in der Praxis heisst: er schreibt sie noch einmal ab.

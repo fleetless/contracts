@@ -18,14 +18,14 @@ const CAM = {
   width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000,
 }
 
-describe('W5 cameras', () => {
-  it('keeps every pre-W5 document valid — cameras default to empty', () => {
-    const w4 = { datapoints: [], actions: [], services: [], publishers: [] }
-    expect(robotConfigDoc.parse(w4).cameras).toEqual([])
+describe('cameras', () => {
+  it('keeps a document written before cameras existed valid — they default to empty', () => {
+    const withoutCameras = { datapoints: [], actions: [], services: [], publishers: [] }
+    expect(robotConfigDoc.parse(withoutCameras).cameras).toEqual([])
   })
 
   it('puts bandwidth in the configuration, not in a viewer request', () => {
-    // §10: the developer governs the robot's bandwidth. A viewer never gets
+    // The developer governs the robot's bandwidth. A viewer never gets
     // to make a robot send more, so these live in the config document.
     expect(cameraConfig.safeParse(CAM).success).toBe(true)
     expect(cameraConfig.safeParse({ ...CAM, fps: 0 }).success).toBe(false)
@@ -43,8 +43,8 @@ describe('W5 cameras', () => {
       type: 'snapshot', slug: 'front', mime: 'image/jpeg',
       width: 1280, height: 720, timestamp_ms: 1786440000000,
     }).success).toBe(true)
-    // A picture that cannot say when it was taken is this wave's version of
-    // a job that reads "running" when nobody knows.
+    // A picture that cannot say when it was taken is the same defect as a
+    // job that reads "running" when nobody knows.
     expect(snapshotHeader.safeParse({ type: 'snapshot', slug: 'front', mime: 'image/jpeg', width: 1, height: 1 }).success).toBe(false)
   })
 
@@ -73,7 +73,7 @@ describe('W5 cameras', () => {
   })
 
   it('says WHY it is not publishing, because three different things looked identical', () => {
-    // W6a. `{publishing: false, error: null}` was sent for an answer to
+    // `{publishing: false, error: null}` was once sent for an answer to
     // camera_stop, for a stream a config change stopped, and for a source
     // that recovered — and the cloud could only tell them apart by
     // remembering what it saw before. A config-change stop is not a failure

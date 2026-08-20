@@ -34,7 +34,7 @@ const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
 const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
 const NOW = '2026-08-10T20:00:00.000Z'
 
-describe('W3 identity', () => {
+describe('identity', () => {
   it('states the password rule once, and it is length-based', () => {
     expect(password.safeParse('correct-horse-battery').success).toBe(true)
     expect(password.safeParse('short').success).toBe(false)
@@ -66,7 +66,7 @@ describe('W3 identity', () => {
 
   it('separates the developer login from the client login', () => {
     // The developer login carries no app identifier — that is what keeps the
-    // two identity spaces from accepting each other's credentials (§3.1).
+    // two identity spaces from accepting each other's credentials.
     expect(developerLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(true)
     expect(clientLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(false)
     expect(
@@ -90,7 +90,7 @@ describe('W3 identity', () => {
       role_id: UUID,
       expires_at: NOW,
       accept_url: 'https://console.fleetless.dev/invite/abc',
-      // W6c: `mail_sent: false` became `mail: 'not_configured' | 'failed' | 'sent'`.
+      // `mail_sent: false` became `mail: 'not_configured' | 'failed' | 'sent'`.
       // The boolean could not tell "we have no SMTP" from "the server refused",
       // so the console had to guess a cause — and guessed the reassuring one.
       mail: 'not_configured',
@@ -117,7 +117,7 @@ describe('W3 identity', () => {
   })
 })
 
-describe('W3 apps, keys and roles', () => {
+describe('apps, keys and roles', () => {
   it('identifies an app by a slug, like a service', () => {
     expect(appIdentifier.safeParse('fleet-ops').success).toBe(true)
     expect(appIdentifier.safeParse('Fleet Ops').success).toBe(false)
@@ -146,7 +146,7 @@ describe('W3 apps, keys and roles', () => {
       }).success,
     ).toBe(true)
     // A role granting nothing is legal and meaningful: it is how you hide a
-    // service app-wide (§3.3).
+    // service app-wide.
     expect(
       rolePermissions.safeParse({
         role_id: UUID,
@@ -181,7 +181,7 @@ describe('W3 apps, keys and roles', () => {
   })
 
   it('represents a developer on the client API — org-scoped, no app, no role', () => {
-    // The console's live views and the §15.2 playground are developers on the
+    // The console's live views and its playground are developers on the
     // client API. Requiring app_id would have made /realtime client-only and
     // silently killed every live badge in the console.
     expect(
@@ -192,7 +192,7 @@ describe('W3 apps, keys and roles', () => {
   })
 })
 
-describe('W3 audit', () => {
+describe('audit', () => {
   it('never records an anonymous event', () => {
     const actor = { kind: 'end_user', id: UUID, label: 'user@example.com' }
     expect(auditActor.safeParse(actor).success).toBe(true)
@@ -227,7 +227,7 @@ describe('W3 audit', () => {
   })
 })
 
-describe('W3 error vocabulary', () => {
+describe('error vocabulary', () => {
   it('names the refusals identity brings', () => {
     for (const code of [
       'unauthorized',
@@ -247,7 +247,7 @@ describe('W3 error vocabulary', () => {
   })
 })
 
-describe('W3 realtime authentication', () => {
+describe('realtime authentication', () => {
   it('authenticates with a first frame, not a query string', () => {
     // A browser cannot set Authorization on a WS handshake, and a token in
     // the URL outlives the request in every log it passes through.
