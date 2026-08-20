@@ -428,5 +428,27 @@ export const ERROR_CODES = [
    * two must be indistinguishable anyway — §3.3.
    */
   'tool_not_available',
+  // W9 — capabilities.
+  /**
+   * An app-wide **capability** the caller's role does not grant — today
+   * `assets` (`GET /api/robots/:id/assets` and the URDF/by-id byte routes)
+   * and `action_history` (`GET /api/robots/:id/jobs/history`). The message
+   * names which one.
+   *
+   * **Distinct from `forbidden`, and the distinction is the point.**
+   * `forbidden` is deliberately silent about existence, because roles are the
+   * only filter and a slug the caller cannot use must be indistinguishable
+   * from a slug that is not there (§3.3). A capability is not a slug: it is a
+   * switch in the console that the developer owns, and the caller reaching
+   * this refusal has already been proven to reach the robot. Answering
+   * `forbidden` there tells a developer only that they may not — not which
+   * toggle to flip — and a promise the console makes is exactly what these
+   * capabilities have historically failed to keep.
+   *
+   * Both gates answered differently for one wave: `assets` said `forbidden`,
+   * the newer `action_history` said this. One decision with two codes makes a
+   * client branch on which route it called, so `assets` was moved here.
+   */
+  'capability_required',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
