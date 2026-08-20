@@ -1467,6 +1467,42 @@ export const LATENCY_BUCKET_MS = 60_000
  */
 export const BRIDGE_LATENCY_RETENTION_DAYS = 7
 
+/**
+ * The three org-wide reads of the durable run history and the latency
+ * buckets — the fleet overview's whole data supply.
+ *
+ * | Route | Query | Answer |
+ * |---|---|---|
+ * | `GET /api/org/jobs` | `jobRunQuery` | `jobRunListResponse` — newest first, cursor-paged over the durable `seq` |
+ * | `GET /api/org/jobs/summary` | `jobRunSummaryQuery` | `jobRunSummary` — three numbers over the window the caller named |
+ * | `GET /api/org/latency` | `orgLatencyQuery` | `orgLatencyResponse` — one series per robot, truncation named |
+ *
+ * **Written down here because the last time a delta shipped shapes without
+ * their paths, a teammate had to ask three separate people** — see
+ * `robotDeletionSummary`'s neighbouring table, which exists for exactly that
+ * reason. The shapes landed one wave before the routes did, so this table is
+ * the only place the two halves meet.
+ *
+ * Three things about them are worth stating rather than inferring:
+ *
+ * **All three are org-wide, and `?robot_id=` narrows them** — the same choice
+ * `GET /api/org/health` already made, for the same reason: the overview
+ * screen shows every robot at once, and a per-robot path would make one
+ * screen N requests.
+ *
+ * **All three are developer-only, and there is no client-facing
+ * equivalent.** A `jobRun` names the actor who invoked it — `jobActor`
+ * carries an email — so an end-user-facing version of `GET /api/org/jobs`
+ * would tell one end user which other end users have been driving the
+ * machine. What an end user may see is what `GET /api/robots/:id/jobs/:slug`
+ * already answers, scoped to a slug they hold a role for.
+ *
+ * **Neither window is optional, and neither has a default.** A summary over
+ * an unnamed window is a number nobody can reproduce; an unbounded latency
+ * window is a response size chosen by whoever forgot to pass one. Each
+ * query's own doc comment says which of those two reasons applies to it.
+ */
+
 /** Seven days x 1440 buckets x N robots is otherwise an unbounded response. */
 export const MAX_LATENCY_BUCKETS_PER_RESPONSE = 20_000
 
