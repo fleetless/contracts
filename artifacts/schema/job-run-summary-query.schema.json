@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "since_ms": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,15}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    }
+  },
+  "required": [
+    "since_ms"
+  ],
+  "additionalProperties": false
+}

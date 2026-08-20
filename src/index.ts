@@ -102,6 +102,7 @@ export {
   jobRun,
   jobRunQuery,
   jobRunListResponse,
+  jobRunSummaryQuery,
   jobRunSummary,
 } from './jobs.js'
 export type { JobActor, JobRunKind, JobRun, JobRunQuery, JobRunListResponse, JobRunSummary } from './jobs.js'
@@ -217,6 +218,7 @@ export {
   MAX_LATENCY_BUCKETS_PER_RESPONSE,
   latencyBucket,
   robotLatencySeries,
+  orgLatencyQuery,
   orgLatencyResponse,
 } from './rest.js'
 export type { LatencyBucket, RobotLatencySeries, OrgLatencyResponse } from './rest.js'

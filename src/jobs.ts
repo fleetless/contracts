@@ -261,6 +261,27 @@ export type JobRunListResponse = z.infer<typeof jobRunListResponse>
  * number they cannot reproduce. Echoed back so a rendered tile can say which
  * window it is describing.
  */
+/**
+ * `GET /api/org/jobs/summary`'s query: the window, and nothing else.
+ *
+ * **`since_ms` is required and has no default.** Which day "today" is, only
+ * the browser knows; a cloud that picked its own boundary would show a
+ * developer in another timezone a number they cannot reproduce from anything
+ * in front of them. The absence of a default is the contract here, not an
+ * omission — see `jobRunSummary`, which echoes the window back so a rendered
+ * tile can say what it is describing.
+ *
+ * Its own shape rather than a slice of `jobRunQuery`: pagination and filters
+ * mean nothing to an aggregate, and `.strict()` would refuse them anyway, so
+ * borrowing that schema would advertise seven parameters the route ignores.
+ *
+ * `.strict()` for `jobRunQuery`'s reason — a mistyped `since_mss` that is
+ * silently ignored answers `200` over a window nobody chose, which is worse
+ * than a refusal because it looks like data.
+ */
+export const jobRunSummaryQuery = z.object({ since_ms: wireTimestampMs }).strict()
+export type JobRunSummaryQuery = z.infer<typeof jobRunSummaryQuery>
+
 export const jobRunSummary = z.object({
   running: z.number().int().nonnegative(),
   started: z.number().int().nonnegative(),

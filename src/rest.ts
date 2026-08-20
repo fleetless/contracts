@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
-import { slug, rosTypeName } from './common.js'
+import { slug, rosTypeName, wireTimestampMs } from './common.js'
 import { configState, datapointRange, datapointRate, robotConfigDoc, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
 import { job } from './jobs.js'
@@ -1500,6 +1500,59 @@ export const robotLatencySeries = z.object({
   buckets: z.array(latencyBucket),
 })
 export type RobotLatencySeries = z.infer<typeof robotLatencySeries>
+
+/**
+ * `GET /api/org/latency`'s query.
+ *
+ * **Both bounds are required**, for a reason narrower than
+ * `jobRunSummaryQuery`'s: this table holds a bucket per robot per minute for
+ * `BRIDGE_LATENCY_RETENTION_DAYS`, so "everything" is up to 10 080 rows per
+ * robot, and a default window would be a response size chosen by whoever
+ * forgot to pass one. `MAX_LATENCY_BUCKETS_PER_RESPONSE` still bounds the
+ * answer; required bounds are what let a caller decide *which* buckets they
+ * get instead of discovering the ceiling ate the ones they wanted.
+ *
+ * `wireTimestampMs` rather than a plain integer, for its own documented
+ * reason: the union's input branch is what a query string actually carries,
+ * and the year bound is what keeps `253402300800000` from reaching the
+ * Postgres bind path as a `500` where a `400` belongs.
+ */
+export const orgLatencyQuery = z
+  .object({
+    from_ms: wireTimestampMs,
+    /** Exclusive — half-open `[from, to)`, the convention every other query here already follows (DEF-062). */
+    to_ms: wireTimestampMs,
+    /**
+     * One robot's own sparkline. `z.uuid()`, because the column is one —
+     * the same fix in the same place `auditQuery.actor_id` documents at
+     * length: a non-uuid reaching Postgres as a uuid parameter answers
+     * `500 internal_error`, and a 500 explains nothing.
+     */
+    robot_id: z.uuid().optional(),
+  })
+  .strict()
+  /**
+   * Refused here rather than in the route, so an inverted window comes back
+   * as part of the same `validation_error` every other bad parameter
+   * produces. Strict, not `<=`: an empty half-open window is a query with no
+   * answer, and a caller who asked for one has made a mistake worth being
+   * told about rather than being handed an empty series that reads like a
+   * quiet robot.
+   *
+   * **The published artifact cannot express this**, and that is worth saying
+   * out loud rather than leaving a reader to assume the JSON Schema is the
+   * whole contract: a cross-field comparison has no JSON Schema rendering, so
+   * `org-latency-query.schema.json` describes two independent integers and
+   * validates an inverted window happily. The cloud is the only enforcement
+   * point for the ordering; a generated client that validates against the
+   * artifact alone will get a `400` from the route it did not predict, which
+   * is the correct outcome and not a drift bug.
+   */
+  .refine((query) => query.from_ms < query.to_ms, {
+    message: 'from_ms must be strictly before to_ms',
+    path: ['from_ms'],
+  })
+export type OrgLatencyQuery = z.infer<typeof orgLatencyQuery>
 
 export const orgLatencyResponse = z.object({
   series: z.array(robotLatencySeries),

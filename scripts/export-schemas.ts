@@ -92,7 +92,7 @@ import {
 } from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
 import { job, jobEvent } from '../src/jobs.js'
-import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummary } from '../src/jobs.js'
+import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary } from '../src/jobs.js'
 import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
 import {
   clientInvoke,
@@ -116,7 +116,7 @@ import { mcpToolPreview, mcpToolPreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
-import { latencyBucket, robotLatencySeries, orgLatencyResponse } from '../src/rest.js'
+import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import {
   historyQuery,
   historySamplesResponse,
@@ -242,6 +242,7 @@ export const exportedSchemas = {
   'job-actor': jobActor,
   'job-run': jobRun,
   'job-run-query': jobRunQuery,
+  'job-run-summary-query': jobRunSummaryQuery,
   'job-run-list-response': jobRunListResponse,
   'job-run-summary': jobRunSummary,
   'parameter-spec': parameterSpec,
@@ -265,6 +266,7 @@ export const exportedSchemas = {
   'exposure-list-response': exposureListResponse,
   'latency-bucket': latencyBucket,
   'robot-latency-series': robotLatencySeries,
+  'org-latency-query': orgLatencyQuery,
   'org-latency-response': orgLatencyResponse,
 } as const
 
@@ -368,7 +370,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'create-invitation-request', 'accept-invitation-request', 'create-app-request',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
-  'role-permissions', 'mcp-tool-preview', 'job-run-query',
+  'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
+  'org-latency-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`

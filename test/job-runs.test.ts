@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { jobRun, jobRunQuery, jobRunListResponse, jobRunSummary, JOB_RUN_PAGE_MAX } from '../src/index.js'
+import { jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary, JOB_RUN_PAGE_MAX } from '../src/index.js'
 
 const RUNNING = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -70,5 +70,26 @@ describe('jobRunSummary', () => {
   it('echoes the window boundary the caller named', () => {
     const parsed = jobRunSummary.parse({ running: 2, started: 14, failed: 1, since_ms: 1755690000000 })
     expect(parsed.since_ms).toBe(1755690000000)
+  })
+})
+
+describe('jobRunSummaryQuery', () => {
+  it('accepts since_ms as the numeric string a query string carries', () => {
+    expect(jobRunSummaryQuery.parse({ since_ms: '1755690000000' }).since_ms).toBe(1755690000000)
+  })
+
+  /**
+   * The one property this schema exists for. A cloud that defaulted the
+   * window would show a developer in another timezone a number they cannot
+   * reproduce — so the absence of a default is the contract, and a test that
+   * would still pass with `.default(startOfToday)` bolted on would not be
+   * testing it.
+   */
+  it('requires since_ms, because a summary over an unnamed window is a number nobody can reproduce', () => {
+    expect(jobRunSummaryQuery.safeParse({}).success).toBe(false)
+  })
+
+  it('refuses an unknown parameter rather than summarising something else', () => {
+    expect(jobRunSummaryQuery.safeParse({ since_ms: 1000, robot_id: '00000000-0000-4000-8000-000000000000' }).success).toBe(false)
   })
 })

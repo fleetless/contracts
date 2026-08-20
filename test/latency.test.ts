@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { latencyBucket, orgLatencyResponse, LATENCY_BUCKET_MS } from '../src/index.js'
+import { latencyBucket, orgLatencyQuery, orgLatencyResponse, LATENCY_BUCKET_MS } from '../src/index.js'
 
 describe('latencyBucket', () => {
   it('accepts a measured minute', () => {
@@ -39,5 +39,40 @@ describe('orgLatencyResponse', () => {
   it('refuses truncated_by outside the two named causes', () => {
     const bad = { series: [], from_ms: 1, to_ms: 2, truncated: true, truncated_by: 'because' }
     expect(orgLatencyResponse.safeParse(bad).success).toBe(false)
+  })
+})
+
+describe('orgLatencyQuery', () => {
+  // A query string carries text, never numbers — the union's input branch is
+  // the wire (DEF-059), so this is the shape a real request actually has.
+  it('accepts the window as the numeric strings a query string carries', () => {
+    const parsed = orgLatencyQuery.parse({ from_ms: '1755690000000', to_ms: '1755693600000' })
+    expect(parsed.from_ms).toBe(1755690000000)
+    expect(parsed.to_ms).toBe(1755693600000)
+  })
+
+  it('requires both bounds, because a default window is a response size nobody chose', () => {
+    expect(orgLatencyQuery.safeParse({ from_ms: '1755690000000' }).success).toBe(false)
+    expect(orgLatencyQuery.safeParse({ to_ms: '1755693600000' }).success).toBe(false)
+  })
+
+  it('refuses an inverted window, and an empty one, rather than answering with an empty series', () => {
+    // An empty half-open window has no answer; a caller who asked for one has
+    // made a mistake, and an empty `series` would read as a quiet fleet.
+    expect(orgLatencyQuery.safeParse({ from_ms: 2000, to_ms: 1000 }).success).toBe(false)
+    expect(orgLatencyQuery.safeParse({ from_ms: 1000, to_ms: 1000 }).success).toBe(false)
+    expect(orgLatencyQuery.safeParse({ from_ms: 1000, to_ms: 1001 }).success).toBe(true)
+  })
+
+  it('refuses a non-uuid robot_id here, where the column is one', () => {
+    // The `?actor_id=not-a-uuid` -> 500 defect (Argus-W9), refused in the
+    // same place its fix was: the contract, not a second guard in the route.
+    expect(orgLatencyQuery.safeParse({ from_ms: 1000, to_ms: 2000, robot_id: 'not-a-uuid' }).success).toBe(false)
+  })
+
+  it('refuses an unknown parameter rather than ignoring it', () => {
+    // A silently dropped `form_ms` answers 200 over a window the caller did
+    // not ask for, which is worse than a refusal because it looks like data.
+    expect(orgLatencyQuery.safeParse({ from_ms: 1000, to_ms: 2000, form_ms: 5 }).success).toBe(false)
   })
 })
