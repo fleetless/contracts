@@ -92,6 +92,7 @@ import {
 } from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
 import { job, jobEvent } from '../src/jobs.js'
+import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummary } from '../src/jobs.js'
 import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
 import {
   clientInvoke,
@@ -115,6 +116,7 @@ import { mcpToolPreview, mcpToolPreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
+import { latencyBucket, robotLatencySeries, orgLatencyResponse } from '../src/rest.js'
 import {
   historyQuery,
   historySamplesResponse,
@@ -237,6 +239,11 @@ export const exportedSchemas = {
   'audit-list-response': auditListResponse,
   job: job,
   'job-event': jobEvent,
+  'job-actor': jobActor,
+  'job-run': jobRun,
+  'job-run-query': jobRunQuery,
+  'job-run-list-response': jobRunListResponse,
+  'job-run-summary': jobRunSummary,
   'parameter-spec': parameterSpec,
   'action-config': actionConfig,
   'service-config': serviceConfig,
@@ -256,6 +263,9 @@ export const exportedSchemas = {
   'publish-request': publishRequest,
   'job-response': jobResponse,
   'exposure-list-response': exposureListResponse,
+  'latency-bucket': latencyBucket,
+  'robot-latency-series': robotLatencySeries,
+  'org-latency-response': orgLatencyResponse,
 } as const
 
 /**
@@ -358,7 +368,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'create-invitation-request', 'accept-invitation-request', 'create-app-request',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
-  'role-permissions', 'mcp-tool-preview',
+  'role-permissions', 'mcp-tool-preview', 'job-run-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -388,7 +398,8 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'session-tokens', 'sign-up-response', 'end-user', 'invitation', 'app', 'server-key',
   'create-server-key-response', 'role', 'app-membership', 'client-identity', 'audit-actor',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
-  'exposure-list-response',
+  'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
+  'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
