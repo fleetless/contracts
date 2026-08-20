@@ -61,6 +61,11 @@ import {
   subscribeError,
   datapointEvent,
   resourceHealthEvent,
+  orgEvent,
+  orgEventSubscribe,
+  orgEventUnsubscribe,
+  orgEventReplay,
+  orgEventDropped,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 import {
@@ -212,6 +217,11 @@ export const exportedSchemas = {
   'client-unsubscribe': clientUnsubscribe,
   'subscribe-error': subscribeError,
   'datapoint-event': datapointEvent,
+  'org-event': orgEvent,
+  'org-event-subscribe': orgEventSubscribe,
+  'org-event-unsubscribe': orgEventUnsubscribe,
+  'org-event-replay': orgEventReplay,
+  'org-event-dropped': orgEventDropped,
   'api-error': apiError,
   org: org,
   'org-member': orgMember,
@@ -364,6 +374,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-auth', 'auth-ok', 'auth-error', 'client-subscribe', 'client-unsubscribe',
   'subscribe-error', 'datapoint-event', 'resource-health-event', 'job-event',
   'client-invoke', 'client-cancel', 'client-publish', 'command-result', 'error-frame',
+  'org-event-subscribe', 'org-event-unsubscribe',
 
   // --- REST request bodies and queries -------------------------------------
   'create-robot-request', 'sign-up-request', 'developer-login-request',
@@ -403,6 +414,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
+  'org-event', 'org-event-replay', 'org-event-dropped',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

@@ -276,6 +276,18 @@ export {
   resourceHealthCleared,
   liveSessionEndReason,
   liveSessionEvent,
+  ORG_EVENT_SAMPLE_INTERVAL_MS,
+  ORG_EVENT_ORG_CEILING_PER_SECOND,
+  ORG_EVENT_BUFFER_SIZE,
+  ORG_EVENT_BUFFER_IDLE_MS,
+  ORG_EVENT_DETAIL_MAX_BYTES,
+  orgEventKind,
+  orgEventSeverity,
+  orgEvent,
+  orgEventSubscribe,
+  orgEventUnsubscribe,
+  orgEventReplay,
+  orgEventDropped,
 } from './realtime.js'
 export type {
   ClientAuth,
@@ -294,6 +306,13 @@ export type {
   ResourceHealthCleared,
   LiveSessionEndReason,
   LiveSessionEvent,
+  OrgEventKind,
+  OrgEventSeverity,
+  OrgEvent,
+  OrgEventSubscribe,
+  OrgEventUnsubscribe,
+  OrgEventReplay,
+  OrgEventDropped,
 } from './realtime.js'
 export {
   password,

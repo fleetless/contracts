@@ -423,3 +423,106 @@ export const resourceHealthEvent = z.object({
   changed_at_ms: z.number().int().nonnegative(),
 })
 export type ResourceHealthEvent = z.infer<typeof resourceHealthEvent>
+
+/**
+ * One line of the developer console's activity panel (spec
+ * `2026-08-20-org-event-stream`).
+ *
+ * **This is an activity log for humans, not a complete feed.** It is throttled
+ * and sampled, and `orgEventDropped` says so when it drops. Anything that needs
+ * completeness reads the audit log or the job-run history, both of which are
+ * durable and both of which keep 90 days.
+ */
+export const ORG_EVENT_SAMPLE_INTERVAL_MS = 1_000
+/** The backstop above the per-slug cap: a fleet larger than the panel could serve anyway. */
+export const ORG_EVENT_ORG_CEILING_PER_SECOND = 50
+/** Roughly 25 screens of scrollback. */
+export const ORG_EVENT_BUFFER_SIZE = 200
+/** An org's buffer is dropped after this long without an event, so memory follows active orgs rather than all of them. */
+export const ORG_EVENT_BUFFER_IDLE_MS = 3_600_000
+/** A log line, not a payload: a datapoint value is `unknown` and a LaserScan is megabytes. */
+export const ORG_EVENT_DETAIL_MAX_BYTES = 4_096
+
+export const orgEventKind = z.enum(['datapoint', 'health', 'job', 'bridge', 'audit'])
+export type OrgEventKind = z.infer<typeof orgEventKind>
+
+/**
+ * Assigned by the **producer**, never derived by the reader. The console's
+ * `errors` filter cuts across all five kinds, and only the source knows whether
+ * an `auth_failed` is bad. A reader guessing from `detail` guesses differently
+ * for each source.
+ */
+export const orgEventSeverity = z.enum(['info', 'warning', 'error'])
+export type OrgEventSeverity = z.infer<typeof orgEventSeverity>
+
+export const orgEvent = z
+  .object({
+    type: z.literal('org_event'),
+    /**
+     * **Per org, per process.** Like `job.seq` and unlike `job_runs.seq`, which
+     * is a postgres `bigserial` and durable. All three say which they are,
+     * because anyone who confuses them will confuse them in both directions.
+     */
+    seq: z.number().int().positive(),
+    at: z.iso.datetime(),
+    kind: orgEventKind,
+    severity: orgEventSeverity,
+    /** `null` for an org-level event — an invitation, a quota change — which belongs to no robot. */
+    robot_id: z.uuid().nullable(),
+    /** What the line is about: a slug, a camera, an actor's email. */
+    subject: z.string().min(1).max(200),
+    /**
+     * Kind-specific, and **capped at `ORG_EVENT_DETAIL_MAX_BYTES`** — above it
+     * the producer substitutes `{ omitted: 'too_large', bytes }`. Truncated,
+     * and saying so.
+     *
+     * Never a pre-formatted line: the reader decides language, number format
+     * and truncation, so changing how a line reads is not a cloud deploy.
+     */
+    detail: z.unknown().nullable(),
+  })
+  .strict()
+export type OrgEvent = z.infer<typeof orgEvent>
+
+/** Sent by a developer's socket to start the stream. Answered by `orgEventReplay`, then live `orgEvent`s. */
+export const orgEventSubscribe = z.object({ type: z.literal('org_event_subscribe') }).strict()
+export type OrgEventSubscribe = z.infer<typeof orgEventSubscribe>
+
+export const orgEventUnsubscribe = z.object({ type: z.literal('org_event_unsubscribe') }).strict()
+export type OrgEventUnsubscribe = z.infer<typeof orgEventUnsubscribe>
+
+/**
+ * What the cloud still remembers, oldest first, sent once before the live
+ * stream starts — so the panel is filled on arrival rather than blank until
+ * something happens. A blank panel is indistinguishable from a broken one.
+ */
+export const orgEventReplay = z
+  .object({
+    type: z.literal('org_event_replay'),
+    events: z.array(orgEvent).max(ORG_EVENT_BUFFER_SIZE),
+    /**
+     * **`false` means three different things, on purpose**: the buffer was
+     * already full, the cloud restarted, or this org's buffer had expired. All
+     * three mean the same thing to a reader — *something is missing above this
+     * line* — and a field separating them would claim a distinction nobody
+     * would act on differently.
+     */
+    complete: z.boolean(),
+  })
+  .strict()
+export type OrgEventReplay = z.infer<typeof orgEventReplay>
+
+/**
+ * Events this socket will never see. Two causes, reported alike: the cloud
+ * sampled them away, or this socket's send buffer was too far behind. Both mean
+ * *there was more than you are being shown*.
+ */
+export const orgEventDropped = z
+  .object({
+    type: z.literal('org_event_dropped'),
+    since_ms: z.number().int().nonnegative(),
+    /** Always at least one — a frame reporting nothing lost is noise on a channel built to be quiet. */
+    dropped: z.number().int().positive(),
+  })
+  .strict()
+export type OrgEventDropped = z.infer<typeof orgEventDropped>
