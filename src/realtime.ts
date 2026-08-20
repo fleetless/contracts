@@ -520,6 +520,16 @@ export type OrgEventReplay = z.infer<typeof orgEventReplay>
 export const orgEventDropped = z
   .object({
     type: z.literal('org_event_dropped'),
+    /**
+     * **An epoch instant in milliseconds (`Date.now()`), not a duration.**
+     * The moment this socket last reported a drop — or the moment it
+     * subscribed, if this is its first such frame. The window the `dropped`
+     * count covers is `since_ms` to now, so a reader wanting an age
+     * subtracts: `Date.now() - since_ms`. Spelled out because the type
+     * admits both readings and the wrong one is silent: a consumer treating
+     * it as "milliseconds ago" renders a drop that happened seconds ago as
+     * having happened in 1970.
+     */
     since_ms: z.number().int().nonnegative(),
     /** Always at least one — a frame reporting nothing lost is noise on a channel built to be quiet. */
     dropped: z.number().int().positive(),
