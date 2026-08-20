@@ -231,7 +231,7 @@ describe('W2 bridge protocol', () => {
 describe('W2 REST shapes', () => {
   const ROBOT_BASE = {
     id: '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f',
-    name: 'gate-w2',
+    name: 'contract-check',
     created_at: '2026-08-10T12:00:00.000Z',
     bridge_state: { online: true, latency_ms: 2 },
   }

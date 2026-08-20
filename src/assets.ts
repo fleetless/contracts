@@ -182,10 +182,10 @@ export type UrdfCompleteness = z.infer<typeof urdfCompleteness>
  * zip upload, and the first version of this shape had `'upload'` in the enum —
  * with **no body defined for the bytes**. An enum value with no producer and
  * no payload invites every consumer to guess a shape, and each guesses
- * differently; that is the exact defect Nimbus-W6c refused to introduce in
- * W6c, when the lead asked twice for an error code whose payload had moved.
- * The zip path is in `DEFERRALS.md` with a condition instead of sitting in the
- * wire as a promise.
+ * differently; that is a defect this project has deliberately refused to
+ * introduce before, when an error code was proposed whose payload had moved.
+ * The zip path stays a condition rather than sitting in the wire as a
+ * promise.
  *
  * A single-member enum rather than dropping the field: the second source is a
  * question of when, not whether, and a caller that already names its source
