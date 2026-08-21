@@ -1728,10 +1728,16 @@ export type OrgUsageQuery = z.infer<typeof orgUsageQuery>
 /**
  * One day's reading for one metric.
  *
- * **`app_id` is `null` when the consumer is the org itself** (spec D2) — for
- * `api_calls` and `live_session_ms` that is the developer console's own
- * traffic, which is deliberately *not* billable; for the three org-wide metrics
- * it means the metric has no app dimension. Billing reads `app_id !== null`.
+ * **`app_id` is `null` when the consumer is the org itself** (spec D2), and
+ * what that `null` means for billing depends on the *metric*, not on
+ * `app_id` alone. `api_calls` and `live_session_ms` are attributable to an
+ * app: a `null` app_id on those two is the developer console's own traffic,
+ * deliberately *not* billable. `retention_bytes`, `asset_bytes` and
+ * `robot_online_ms` have no app dimension at all — every row for those three
+ * carries `app_id: null` unconditionally, and every one is billable org-level
+ * consumption. **A reader must check `metric` before treating `app_id ===
+ * null` as "not billable"** — for three of the five metrics that reading is
+ * always wrong.
  *
  * `app_name` is `null` whenever `app_id` is, and also when the app has since
  * been deleted — usage outlives the app it was attributed to, because an org
