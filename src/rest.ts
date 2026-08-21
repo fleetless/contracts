@@ -1658,8 +1658,32 @@ export type UsageMetric = z.infer<typeof usageMetric>
  * a day and not a moment: a `Date` here would carry a time and a zone the
  * column does not have, and every bug in this area starts with one being
  * silently converted.
+ *
+ * **The regex checks shape, not validity** — `2026-13-45` and `2026-02-30`
+ * both match `\d{4}-\d{2}-\d{2}$` — so the `.refine()` below round-trips the
+ * string through `Date`'s UTC parser and rejects anything that does not come
+ * back unchanged: `2026-13-45` parses to `Invalid Date`, and `2026-02-30`
+ * (which `Date` rolls over rather than rejects) comes back as `2026-03-02`,
+ * a mismatch either way. Same defect class as `auditQuery.from_ms`'s
+ * `253402300800000`: a value that is the right *shape* reaching the Postgres
+ * bind path for a `date` column and answering `500` where `400` belongs.
+ *
+ * **What the published artifact does not say:** `wireTimestampMs`'s own
+ * note applies unchanged — a `.refine()` has no JSON Schema rendering, so
+ * `org-usage-query.schema.json` shows only the shape-checking `pattern` and
+ * a generated client that validates against the artifact alone will believe
+ * `2026-02-30` is acceptable. The runtime is the authority for this field.
  */
-export const usageDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a UTC calendar day, YYYY-MM-DD')
+export const usageDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a UTC calendar day, YYYY-MM-DD')
+  .refine(
+    (day) => {
+      const parsed = new Date(`${day}T00:00:00.000Z`)
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day
+    },
+    { message: 'must be a UTC calendar day, YYYY-MM-DD' },
+  )
 
 /**
  * **The window is inclusive at both ends**, unlike every millisecond window in
@@ -1674,6 +1698,23 @@ export const usageDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a UTC c
  * and `/api/org/jobs/summary` already follow. "This month" is a question only
  * the caller's calendar can answer, and a default window would be a query size
  * chosen by whoever forgot to pass one.
+ *
+ * **The published artifact cannot express any of this**, and that is worth
+ * saying out loud rather than leaving a reader to assume the JSON Schema is
+ * the whole contract, for `orgLatencyQuery`'s own reason: a cross-field
+ * comparison has no JSON Schema rendering, so `org-usage-query.schema.json`
+ * describes two independent pattern-matched strings and validates an
+ * inverted window happily — the cloud is the only enforcement point for the
+ * ordering. The artifact is equally silent about the inclusivity called out
+ * above: nothing in the shape distinguishes an inclusive day window from a
+ * half-open one, that is a fact about behaviour, not a field (the same gap
+ * `historyQuery`/`historyBucketsResponse` name for their own half-open
+ * boundary). And it says nothing about `USAGE_WINDOW_MAX_DAYS` at all — the
+ * constant is not wired into this schema as a check on the span between
+ * `from_day` and `to_day`; the cloud route is where a caller who asked for
+ * more than the ceiling is refused, so a generated client validating against
+ * the artifact alone can build a five-year window and get a `400` from the
+ * route it did not predict.
  */
 export const orgUsageQuery = z
   .object({ from_day: usageDay, to_day: usageDay })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { orgUsageQuery, orgUsageResponse, usageDay, usageMetric, USAGE_WINDOW_MAX_DAYS } from '../src/index.js'
+import { orgUsageQuery, orgUsageResponse, usageDay, usageMetric, usageRow, USAGE_WINDOW_MAX_DAYS } from '../src/index.js'
 
 describe('usage metering shapes', () => {
   it('takes an inclusive day window from a query string', () => {
@@ -23,10 +23,23 @@ describe('usage metering shapes', () => {
   })
 
   it('refuses anything that is not a calendar day', () => {
-    for (const bad of ['2026-7-1', '20260701', '2026-07-01T00:00:00Z', '', 'yesterday']) {
+    for (const bad of [
+      '2026-7-1',
+      '20260701',
+      '2026-07-01T00:00:00Z',
+      '',
+      'yesterday',
+      // Right shape, wrong calendar — the regex alone would accept these.
+      '2026-13-45',
+      '2026-02-30',
+      '0000-00-00',
+      '9999-99-99',
+      '2023-02-29', // 2023 is not a leap year
+    ]) {
       expect(usageDay.safeParse(bad).success, bad).toBe(false)
     }
     expect(usageDay.safeParse('2026-07-01').success).toBe(true)
+    expect(usageDay.safeParse('2024-02-29').success).toBe(true) // 2024 is a leap year
   })
 
   it('names exactly the five metrics the meter records', () => {
@@ -54,5 +67,22 @@ describe('usage metering shapes', () => {
 
   it('publishes the window ceiling as a constant, so the cloud and a client cannot disagree about it', () => {
     expect(USAGE_WINDOW_MAX_DAYS).toBe(366)
+  })
+
+  it('requires the window to be echoed on the response, not just the rows', () => {
+    // Broken by: deleting `from_day`/`to_day` from orgUsageResponse.
+    expect(orgUsageResponse.safeParse({ rows: [] }).success).toBe(false)
+  })
+
+  it('refuses a row whose metric is not one of the five named metrics', () => {
+    // Broken by: changing usageRow.metric from usageMetric to z.string().
+    const row = { app_id: null, app_name: null, metric: 'not_a_real_metric', day: '2026-07-01', value: 1 }
+    expect(usageRow.safeParse(row).success).toBe(false)
+  })
+
+  it('refuses a row whose app_id is not a uuid', () => {
+    // Broken by: changing usageRow.app_id from z.uuid() to z.string().
+    const row = { app_id: 'not-a-uuid', app_name: 'Warehouse', metric: 'api_calls', day: '2026-07-01', value: 1 }
+    expect(usageRow.safeParse(row).success).toBe(false)
   })
 })
