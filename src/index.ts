@@ -220,8 +220,15 @@ export {
   robotLatencySeries,
   orgLatencyQuery,
   orgLatencyResponse,
+  USAGE_WINDOW_MAX_DAYS,
+  usageMetric,
+  usageDay,
+  orgUsageQuery,
+  usageRow,
+  orgUsageResponse,
 } from './rest.js'
 export type { LatencyBucket, RobotLatencySeries, OrgLatencyResponse } from './rest.js'
+export type { UsageMetric, OrgUsageQuery, UsageRow, OrgUsageResponse } from './rest.js'
 export type {
   Robot,
   CreateRobotRequest,

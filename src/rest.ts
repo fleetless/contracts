@@ -1628,3 +1628,94 @@ export const orgLatencyResponse = z.object({
   truncated_by: z.enum(['limit', 'bytes']).nullable(),
 })
 export type OrgLatencyResponse = z.infer<typeof orgLatencyResponse>
+
+/**
+ * How long a usage window may be, in days. **Refused above this, not capped** —
+ * the rule `jobRunQuery.limit` already states: a caller who asked for more than
+ * the platform will answer is owed a `400` naming the field, not a quietly
+ * shorter answer they will mistake for the whole picture.
+ *
+ * 366 rather than 365, so "the last full year" is expressible in a leap year.
+ */
+export const USAGE_WINDOW_MAX_DAYS = 366
+
+/**
+ * The five things the meter records (spec D1).
+ *
+ * Storage is two metrics and not one summed byte count, for
+ * `org_quotas.max_asset_storage_bytes`'s own reason applied to billing: a sync
+ * grows storage in jumps and time series grow steadily, and one number would
+ * let the first crowd out the second on the invoice the same way it would on
+ * the quota.
+ */
+export const usageMetric = z.enum(['api_calls', 'live_session_ms', 'retention_bytes', 'asset_bytes', 'robot_online_ms'])
+export type UsageMetric = z.infer<typeof usageMetric>
+
+/**
+ * A UTC calendar day, `YYYY-MM-DD`.
+ *
+ * A string and not a millisecond instant, because the thing being described is
+ * a day and not a moment: a `Date` here would carry a time and a zone the
+ * column does not have, and every bug in this area starts with one being
+ * silently converted.
+ */
+export const usageDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a UTC calendar day, YYYY-MM-DD')
+
+/**
+ * **The window is inclusive at both ends**, unlike every millisecond window in
+ * this file (`from_ms`/`to_ms`, half-open per DEF-062).
+ *
+ * That inconsistency is deliberate and is stated here rather than left to be
+ * discovered: a calendar day is a unit, not an instant, and a person asking for
+ * July will write `from_day=2026-07-01&to_day=2026-07-31`. A half-open day
+ * window would silently drop the 31st.
+ *
+ * Both parameters are required and have no default — the rule `/api/org/latency`
+ * and `/api/org/jobs/summary` already follow. "This month" is a question only
+ * the caller's calendar can answer, and a default window would be a query size
+ * chosen by whoever forgot to pass one.
+ */
+export const orgUsageQuery = z
+  .object({ from_day: usageDay, to_day: usageDay })
+  .strict()
+  .refine((query) => query.from_day <= query.to_day, {
+    message: 'from_day must not be after to_day',
+    path: ['from_day'],
+  })
+export type OrgUsageQuery = z.infer<typeof orgUsageQuery>
+
+/**
+ * One day's reading for one metric.
+ *
+ * **`app_id` is `null` when the consumer is the org itself** (spec D2) — for
+ * `api_calls` and `live_session_ms` that is the developer console's own
+ * traffic, which is deliberately *not* billable; for the three org-wide metrics
+ * it means the metric has no app dimension. Billing reads `app_id !== null`.
+ *
+ * `app_name` is `null` whenever `app_id` is, and also when the app has since
+ * been deleted — usage outlives the app it was attributed to, because an org
+ * still owes for what it used. A UUID alone on an invoice line helps nobody,
+ * and a copy of the name stored on every row would be a second truth that
+ * drifts on the first rename.
+ *
+ * **What this number cannot promise:** counts are aggregated in memory and
+ * written every 30 seconds, so a `kill -9` loses up to 30 seconds of counting.
+ * Never more, and never against the caller — an unflushed count is simply not
+ * billed. A graceful shutdown loses nothing.
+ */
+export const usageRow = z.object({
+  app_id: z.uuid().nullable(),
+  app_name: z.string().nullable(),
+  metric: usageMetric,
+  day: usageDay,
+  value: z.number().int().nonnegative(),
+})
+export type UsageRow = z.infer<typeof usageRow>
+
+/** The window is echoed back for `orgLatencyResponse`'s reason: a rendered total has to be able to say which window it describes. */
+export const orgUsageResponse = z.object({
+  rows: z.array(usageRow),
+  from_day: usageDay,
+  to_day: usageDay,
+})
+export type OrgUsageResponse = z.infer<typeof orgUsageResponse>

@@ -122,6 +122,7 @@ import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
+import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
 import {
   historyQuery,
   historySamplesResponse,
@@ -279,6 +280,8 @@ export const exportedSchemas = {
   'robot-latency-series': robotLatencySeries,
   'org-latency-query': orgLatencyQuery,
   'org-latency-response': orgLatencyResponse,
+  'org-usage-query': orgUsageQuery,
+  'org-usage-response': orgUsageResponse,
 } as const
 
 /**
@@ -383,7 +386,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
-  'org-latency-query', 'audit-query',
+  'org-latency-query', 'audit-query', 'org-usage-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -415,7 +418,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
-  'org-event', 'org-event-replay', 'org-event-dropped',
+  'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
