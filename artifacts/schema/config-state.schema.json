@@ -70,12 +70,37 @@
               "slug": {
                 "type": "string"
               },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "datapoint",
+                  "action",
+                  "service",
+                  "publisher",
+                  "camera"
+                ]
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
               "message": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
+              },
+              "details": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
               }
             },
             "required": [
               "slug",
+              "kind",
+              "code",
               "message"
             ],
             "additionalProperties": false

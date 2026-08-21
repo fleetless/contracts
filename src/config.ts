@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { slug, rosName, rosTypeName, fieldPath } from './common.js'
+import { applyError, slug, rosName, rosTypeName, fieldPath } from './common.js'
 
 /**
  * The exposure model (spec §4): what a developer configures per robot, how a
@@ -405,8 +405,15 @@ export const configState = z.object({
   draft_updated_at: z.iso.datetime().nullable(),
   applied_version: z.number().int().nonnegative().nullable(),
   applied_ok: z.boolean().nullable(),
-  applied_errors: z
-    .array(z.object({ slug: z.string(), message: z.string() }))
-    .nullable(),
+  /**
+   * The bridge's own `bridgeConfigApplied.errors` (`protocol.ts`), read back
+   * verbatim. **Reuses `applyError` rather than restating `{ slug, message
+   * }`** — a narrower local copy here used to silently strip `kind`, `code`
+   * and `details` on every read: `configState.safeParse` dropped every field
+   * a caller did not ask for, and `robotDetailResponse` embeds `configState`
+   * (`useCloudApi.ts`'s `getRobot`), so the console lost the fields one
+   * layer before anyone could see them.
+   */
+  applied_errors: z.array(applyError).nullable(),
 })
 export type ConfigState = z.infer<typeof configState>

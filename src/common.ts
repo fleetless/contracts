@@ -106,3 +106,51 @@ export const wireTimestampMs = z
         return Number.isFinite(year) && year >= 1 && year <= 9999
       }, 'must fall within years 1..9999'),
   )
+
+/**
+ * Which kind of exposure failed to apply. Known at every one of the bridge's five apply call sites.
+ *
+ * Lives here, not in `protocol.ts`, for the same reason `slug` and friends
+ * do: `config.ts`'s `configState.applied_errors` is the REST shape the
+ * console reads this same error through (spec `2026-08-21-exposure-and-revoke-design`
+ * D3), and `protocol.ts` already imports from `config.ts`
+ * (`credentialRef`, `robotConfigDoc`) — so `config.ts` importing back from
+ * `protocol.ts` would be a cycle. One definition, reachable from both
+ * without either importing the other.
+ */
+export const applyErrorKind = z.enum(['datapoint', 'action', 'service', 'publisher', 'camera'])
+export type ApplyErrorKind = z.infer<typeof applyErrorKind>
+
+/**
+ * One thing that did not apply — carried on the wire by
+ * `protocol.ts`'s `bridgeConfigApplied.errors` and read back by the console
+ * through `config.ts`'s `configState.applied_errors`. **One definition**:
+ * `configState` used to declare its own narrower `{ slug, message }` copy,
+ * which silently stripped `kind`, `code` and `details` on every read —
+ * exactly the shape of bug this file's own module comment warns about,
+ * found only once the plan's console task tried to render the fields that
+ * were never there.
+ *
+ * `slug` is the exposure's slug, or `*` when a whole kind failed before any
+ * individual slug was reached (`client.py`'s `_apply_or_report` catch) — which
+ * means something different from every other error: not "this slug is wrong"
+ * but "this kind was not applied at all and its slugs are in an unknown state".
+ *
+ * **`code` is a bounded string and not a `z.enum`, deliberately**, following
+ * `cloudHelloError.code`. An enum would make every future bridge
+ * classification a protocol change on both sides; a string lets the bridge
+ * learn to classify without the cloud being taught first, and the cloud renders
+ * what it knows and passes the rest through. The codes the bridge produces
+ * today are `field_path_invalid`, `whole_kind_failed` and `unknown`.
+ *
+ * `details` carries whatever a classifier has to add. **Nothing redacts it** —
+ * the same rule `auditEvent.details` states.
+ */
+export const applyError = z.object({
+  slug: z.string(),
+  kind: applyErrorKind,
+  code: z.string().min(1).max(40),
+  message: z.string().min(1),
+  details: z.record(z.string(), z.unknown()).optional(),
+})
+export type ApplyError = z.infer<typeof applyError>

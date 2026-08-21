@@ -1,4 +1,5 @@
-export { slug, rosName, rosTypeName, fieldPath, wireSeqCursor, wireTimestampMs } from './common.js'
+export { slug, rosName, rosTypeName, fieldPath, wireSeqCursor, wireTimestampMs, applyErrorKind, applyError } from './common.js'
+export type { ApplyErrorKind, ApplyError } from './common.js'
 export {
   MCP_PROTOCOL_VERSION,
   MCP_TOOL_NAME_MAX,
@@ -31,8 +32,6 @@ export {
   datapointFrame,
   bridgeState,
   cloudConfig,
-  applyErrorKind,
-  applyError,
   bridgeConfigApplied,
   cloudIntrospectRequest,
   bridgeIntrospect,
@@ -68,8 +67,6 @@ export type {
   DatapointFrame,
   BridgeState,
   CloudConfig,
-  ApplyErrorKind,
-  ApplyError,
   BridgeConfigApplied,
   CloudIntrospectRequest,
   BridgeIntrospect,

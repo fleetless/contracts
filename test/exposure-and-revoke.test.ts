@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { auditQuery, bridgeConfigApplied, exposureCounts, robotListItem, PROTOCOL_VERSION } from '../src/index.js'
+import { auditQuery, bridgeConfigApplied, configState, exposureCounts, robotListItem, PROTOCOL_VERSION } from '../src/index.js'
 
 describe('exposure counts', () => {
   it('carries one non-negative integer per kind', () => {
@@ -22,7 +22,6 @@ describe('exposure counts', () => {
     // were wrongly made optional. See task-1-report.md.
     const withoutExposes = {
       id: '11111111-1111-4111-8111-111111111111',
-      org_id: '22222222-2222-4222-8222-222222222222',
       name: 'gate-bot',
       created_at: '2026-08-21T00:00:00.000Z',
       bridge_state: { online: false, latency_ms: null },
@@ -87,5 +86,30 @@ describe('structured apply errors', () => {
 
   it('announces protocol 2, because the wire changed', () => {
     expect(PROTOCOL_VERSION).toBe(2)
+  })
+})
+
+describe('the console reads the same apply error the bridge sent', () => {
+  it('round-trips kind, code and details through configState.applied_errors, not just slug and message', () => {
+    const fullError = {
+      slug: '*',
+      kind: 'camera' as const,
+      code: 'whole_kind_failed',
+      message: 'boom',
+      details: { attempted: 3 },
+    }
+    const parsed = configState.safeParse({
+      published_version: 2,
+      published_at: '2026-08-10T12:00:00.000Z',
+      draft_updated_at: '2026-08-10T12:05:00.000Z',
+      applied_version: 1,
+      applied_ok: false,
+      applied_errors: [fullError],
+    })
+    expect(parsed.success).toBe(true)
+    // Not `.toMatchObject` and not a subset check: the whole point is that
+    // nothing gets silently stripped, so the parsed error must equal the
+    // input exactly, field for field.
+    expect(parsed.success && parsed.data.applied_errors).toEqual([fullError])
   })
 })

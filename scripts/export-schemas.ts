@@ -30,6 +30,7 @@ import {
   cloudCameraStop,
   bridgeCameraState,
 } from '../src/protocol.js'
+import { applyError } from '../src/common.js'
 import {
   cameraListResponse,
   liveSessionResponse,
@@ -190,6 +191,11 @@ export const exportedSchemas = {
   'bridge-state': bridgeState,
   'cloud-config': cloudConfig,
   'bridge-config-applied': bridgeConfigApplied,
+  // Registered on its own, unlike `parameterViolation` (embedded once, in
+  // `apiError`'s array field, and not registered): `applyError` is embedded
+  // in TWO schemas now — here, and in `configState.applied_errors` — the
+  // same "reused, so registered" precedent `validationIssue` already sets.
+  'apply-error': applyError,
   'cloud-introspect-request': cloudIntrospectRequest,
   'bridge-introspect': bridgeIntrospect,
   'cloud-type-request': cloudTypeRequest,
@@ -370,7 +376,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
   'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong',
-  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied',
+  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
   'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
   'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',

@@ -113,7 +113,7 @@ describe('exposure model', () => {
         draft_updated_at: '2026-08-10T12:05:00.000Z',
         applied_version: 1,
         applied_ok: false,
-        applied_errors: [{ slug: 'battery-percentage', message: 'topic not found' }],
+        applied_errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'field_path_invalid', message: 'topic not found' }],
       }).success,
     ).toBe(true)
   })
