@@ -113,7 +113,7 @@ export const wireTimestampMs = z
  * Lives here, not in `protocol.ts`, for the same reason `slug` and friends
  * do: `config.ts`'s `configState.applied_errors` is the REST shape the
  * console reads this same error through (spec `2026-08-21-exposure-and-revoke-design`
- * D3), and `protocol.ts` already imports from `config.ts`
+ * D4), and `protocol.ts` already imports from `config.ts`
  * (`credentialRef`, `robotConfigDoc`) — so `config.ts` importing back from
  * `protocol.ts` would be a cycle. One definition, reachable from both
  * without either importing the other.
