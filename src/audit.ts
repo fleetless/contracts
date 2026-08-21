@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { wireTimestampMs } from './common.js'
+import { wireSeqCursor, wireTimestampMs } from './common.js'
 
 /**
  * Audit (spec §16). Every state-changing interaction is recorded and **every
@@ -65,7 +65,18 @@ export const auditEvent = z.object({
       label: z.string().min(1).max(200),
     })
     .nullable(),
-  /** Action-specific extras. Never credentials, never tokens. */
+  /**
+   * Action-specific extras.
+   *
+   * **Nothing redacts this.** There is no denylist, no allowlist and no pass
+   * over what a call site puts here — the call site is responsible, and this
+   * comment is where that responsibility is written down. Since the org event
+   * stream, the same object also reaches every developer with the console
+   * overview open, not only whoever later reads the audit log.
+   *
+   * So: never credentials, never tokens. That is a rule, not a guarantee the
+   * schema enforces.
+   */
   details: z.record(z.string(), z.unknown()).nullable(),
 })
 export type AuditEvent = z.infer<typeof auditEvent>
@@ -105,11 +116,7 @@ const auditTimestampMs = wireTimestampMs
 
 export const auditQuery = z.object({
   /** Only events with a smaller `seq` — the next, older page. */
-  before_seq: z
-    .union([z.string().regex(/^\d{1,19}$/), z.number().int()])
-    .transform((v) => Number(v))
-    .pipe(z.number().int().positive())
-    .optional(),
+  before_seq: wireSeqCursor.optional(),
   /**
    * Same shape as DEF-059's `historyQuery.limit`: a union whose input branch
    * **is the wire**. A `z.coerce` cannot be published — zod renders the

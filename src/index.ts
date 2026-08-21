@@ -1,4 +1,4 @@
-export { slug, rosName, rosTypeName, fieldPath, wireTimestampMs } from './common.js'
+export { slug, rosName, rosTypeName, fieldPath, wireSeqCursor, wireTimestampMs } from './common.js'
 export {
   MCP_PROTOCOL_VERSION,
   MCP_TOOL_NAME_MAX,

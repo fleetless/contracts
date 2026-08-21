@@ -46,6 +46,15 @@ describe('jobRunQuery', () => {
     expect(parsed).toMatchObject({ before_seq: 412, limit: 50, from_ms: 1755690000000 })
   })
 
+  it('refuses a cursor JavaScript cannot represent, rather than handing Postgres an out-of-range bigint', () => {
+    // The regex admits 19 digits and `Number()` renders those as 1e19, which
+    // `Number.isInteger` calls an integer. What refuses it is `.int()` bounding
+    // the SAFE-integer range — pinned here because that is not obvious from
+    // reading `.int().positive()`, and loosening it would be a silent 500.
+    expect(jobRunQuery.safeParse({ before_seq: '9999999999999999999' }).success).toBe(false)
+    expect(jobRunQuery.safeParse({ before_seq: String(Number.MAX_SAFE_INTEGER) }).success).toBe(true)
+  })
+
   it(`refuses a limit above ${JOB_RUN_PAGE_MAX}`, () => {
     expect(jobRunQuery.safeParse({ limit: String(JOB_RUN_PAGE_MAX + 1) }).success).toBe(false)
   })

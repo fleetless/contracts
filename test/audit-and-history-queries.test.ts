@@ -38,9 +38,18 @@ describe('the audit log can be paged and filtered', () => {
     expect(q.success && q.data.limit).toBe(50)
   })
 
+  it('refuses a cursor JavaScript cannot represent, rather than handing Postgres an out-of-range bigint', () => {
+    // The regex admits 19 digits and `Number()` renders those as 1e19, which
+    // `Number.isInteger` calls an integer. What refuses it is `.int()` bounding
+    // the SAFE-integer range — pinned here because that is not obvious from
+    // reading `.int().positive()`, and loosening it would be a silent 500.
+    expect(auditQuery.safeParse({ before_seq: '9999999999999999999' }).success).toBe(false)
+    expect(auditQuery.safeParse({ before_seq: String(Number.MAX_SAFE_INTEGER) }).success).toBe(true)
+  })
+
   it('is `.strict()`, so a typo in a filter name is refused rather than ignored', () => {
-    // Ein stillschweigend ignorierter Filter ist schlimmer als ein abgelehnter:
-    // der Aufrufer sieht eine Liste und glaubt, sie sei gefiltert.
+    // A silently ignored filter is worse than a refused one: the caller sees a
+    // list and believes it was filtered.
     expect(auditQuery.safeParse({ action: 'config.published' }).success).toBe(true)
     expect(auditQuery.safeParse({ action: 'config.published', actin: 'x' }).success).toBe(false)
   })

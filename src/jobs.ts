@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { slug, wireTimestampMs } from './common.js'
+import { slug, wireSeqCursor, wireTimestampMs } from './common.js'
 
 /**
  * Jobs (spec §6.1, §11.3): one running unit of work on a robot — an action
@@ -220,11 +220,7 @@ export type JobRun = z.infer<typeof jobRun>
 export const jobRunQuery = z
   .object({
     /** Only runs with a smaller `seq` — the next, older page. */
-    before_seq: z
-      .union([z.string().regex(/^\d{1,19}$/), z.number().int()])
-      .transform((v) => Number(v))
-      .pipe(z.number().int().positive())
-      .optional(),
+    before_seq: wireSeqCursor.optional(),
     limit: z
       .union([z.string().regex(/^\d{1,4}$/), z.number().int()])
       .transform((v) => Number(v))

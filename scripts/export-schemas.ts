@@ -95,7 +95,7 @@ import {
   clientLogoutRequest,
   clientIdentity,
 } from '../src/client-auth.js'
-import { auditActor, auditEvent, auditListResponse } from '../src/audit.js'
+import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
 import { job, jobEvent } from '../src/jobs.js'
 import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary } from '../src/jobs.js'
 import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
@@ -247,6 +247,7 @@ export const exportedSchemas = {
   'audit-actor': auditActor,
   'audit-event': auditEvent,
   'audit-list-response': auditListResponse,
+  'audit-query': auditQuery,
   job: job,
   'job-event': jobEvent,
   'job-actor': jobActor,
@@ -382,7 +383,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
-  'org-latency-query',
+  'org-latency-query', 'audit-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`

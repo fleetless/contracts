@@ -68,6 +68,31 @@ export const fieldPath = z
  * here from `audit.ts` when `jobRunQuery` needed the same guard; a second copy
  * would have been a second policy for one decision.
  */
+/**
+ * A `seq` cursor as a **query string** actually carries it.
+ *
+ * The regex admits 19 digits, which is wider than a JavaScript number can
+ * represent — `Number('9999999999999999999')` is `1e19`. That is safe, and
+ * for a reason worth writing down rather than re-deriving: **zod 4's `.int()`
+ * bounds the safe-integer range**, so such a value is refused here with a
+ * `too_big` issue and the route answers 400. It never reaches Postgres as an
+ * out-of-range `bigint`, and no extra `.max()` is needed — one that merely
+ * restated `.int()` would be a second policy for one decision.
+ *
+ * Lives here because `auditQuery` and `jobRunQuery` had this **twice**, which
+ * is how the newer copy ends up the weaker one.
+ *
+ * **What the published artifact does not say:** zod renders a
+ * `.transform().pipe()` from its *input* branch, so the JSON Schema shows the
+ * union and none of the constraints below it — a generated client reading it
+ * would believe `-5` is acceptable. The runtime is the authority for this
+ * field; the artifact describes only what the wire may carry.
+ */
+export const wireSeqCursor = z
+  .union([z.string().regex(/^\d{1,19}$/), z.number().int()])
+  .transform((v) => Number(v))
+  .pipe(z.number().int().positive())
+
 export const wireTimestampMs = z
   .union([z.string().regex(/^\d{1,15}$/), z.number().int()])
   .transform((v) => Number(v))

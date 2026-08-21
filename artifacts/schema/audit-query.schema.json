@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "before_seq": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,19}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    },
+    "limit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,4}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    },
+    "action": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "actor_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "target_kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "from_ms": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,15}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    },
+    "to_ms": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,15}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
