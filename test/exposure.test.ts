@@ -184,7 +184,7 @@ describe('bridge protocol', () => {
         type: 'config_applied',
         version: 1,
         ok: false,
-        errors: [{ slug: 'battery-percentage', message: 'type not resolvable in this workspace' }],
+        errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'unknown', message: 'type not resolvable in this workspace' }],
       }).success,
     ).toBe(true)
   })
@@ -234,6 +234,7 @@ describe('REST shapes', () => {
     name: 'contract-check',
     created_at: '2026-08-10T12:00:00.000Z',
     bridge_state: { online: true, latency_ms: 2 },
+    exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
   }
   const CONFIG_STATE = {
     published_version: 1,

@@ -34,10 +34,36 @@ export const createRobotResponse = z.object({
 })
 export type CreateRobotResponse = z.infer<typeof createRobotResponse>
 
+/**
+ * How many things a robot exposes, per kind (spec `2026-08-21-exposure-and-revoke-design` D1).
+ *
+ * **Five numbers, never a sum.** `robotDeletionSummary.slug_count` already made
+ * this call and wrote down why: fold cameras in and the sentence "this deletes
+ * N slugs and M cameras" counts them twice. A list row has the same problem.
+ *
+ * **Counted from the published configuration, and excluding the two built-ins.**
+ * `GET /api/robots/:id/exposures` answers *which* slugs and prepends
+ * `bridge-state` and `robot-details` as `builtin: true`; this answers *how
+ * many* and counts only what somebody configured. So a robot with an empty
+ * published config reports `datapoints: 0` here and two entries there. That is
+ * intentional, and it is written on both sides so the disagreement is never
+ * mistaken for a bug.
+ */
+export const exposureCounts = z.object({
+  datapoints: z.number().int().nonnegative(),
+  actions: z.number().int().nonnegative(),
+  services: z.number().int().nonnegative(),
+  publishers: z.number().int().nonnegative(),
+  cameras: z.number().int().nonnegative(),
+})
+export type ExposureCounts = z.infer<typeof exposureCounts>
+
 /** A robot as listed, with its current built-in `bridge-state`. */
 export const robotListItem = z.object({
   ...robot.shape,
   bridge_state: bridgeState,
+  /** Required, not optional: "we did not look" and "it exposes nothing" must not render the same. */
+  exposes: exposureCounts,
 })
 export type RobotListItem = z.infer<typeof robotListItem>
 

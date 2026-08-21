@@ -51,8 +51,11 @@ describe('REST shapes', () => {
 
   it('list items embed the current bridge-state', () => {
     expect(
-      robotListItem.safeParse({ ...ROBOT, bridge_state: { online: false, latency_ms: null } })
-        .success,
+      robotListItem.safeParse({
+        ...ROBOT,
+        bridge_state: { online: false, latency_ms: null },
+        exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
+      }).success,
     ).toBe(true)
     expect(robotListItem.safeParse(ROBOT).success).toBe(false)
   })

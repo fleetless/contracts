@@ -41,6 +41,44 @@
       ],
       "additionalProperties": false
     },
+    "exposes": {
+      "type": "object",
+      "properties": {
+        "datapoints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "actions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "services": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "publishers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cameras": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "datapoints",
+        "actions",
+        "services",
+        "publishers",
+        "cameras"
+      ],
+      "additionalProperties": false
+    },
     "bridge_version": {
       "anyOf": [
         {
@@ -187,6 +225,7 @@
     "name",
     "created_at",
     "bridge_state",
+    "exposes",
     "bridge_version",
     "last_hello_error",
     "config"

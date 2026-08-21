@@ -45,13 +45,52 @@
               "latency_ms"
             ],
             "additionalProperties": false
+          },
+          "exposes": {
+            "type": "object",
+            "properties": {
+              "datapoints": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "actions": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "services": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "publishers": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cameras": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "datapoints",
+              "actions",
+              "services",
+              "publishers",
+              "cameras"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "id",
           "name",
           "created_at",
-          "bridge_state"
+          "bridge_state",
+          "exposes"
         ],
         "additionalProperties": false
       }

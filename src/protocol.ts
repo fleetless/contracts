@@ -7,12 +7,19 @@ import { jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
- * Bridge <-> cloud protocol, version 1.
+ * Bridge <-> cloud protocol, version 2.
  *
  * The version is exchanged in the hello handshake; the cloud refuses an
- * incompatible bridge with a clear message (spec §5).
+ * incompatible bridge with a clear message (spec §5) — `ws/bridge.ts`'s
+ * `protocol_mismatch`, which names both versions and lands on the robot
+ * detail page as `last_hello_error`.
+ *
+ * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
+ * beside `message`. The check is `!==`, not a floor, so a bridge that is not
+ * exactly this version is refused entirely. That is deliberate: a cloud and a
+ * bridge that disagree about the wire should not pretend otherwise.
  */
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 /**
  * The bridge socket close code for "this robot no longer exists" (W6a).
@@ -226,6 +233,37 @@ export const cloudConfig = z.object({
 })
 export type CloudConfig = z.infer<typeof cloudConfig>
 
+/** Which kind of exposure failed to apply. Known at every one of the bridge's five apply call sites. */
+export const applyErrorKind = z.enum(['datapoint', 'action', 'service', 'publisher', 'camera'])
+export type ApplyErrorKind = z.infer<typeof applyErrorKind>
+
+/**
+ * One thing that did not apply.
+ *
+ * `slug` is the exposure's slug, or `*` when a whole kind failed before any
+ * individual slug was reached (`client.py`'s `_apply_or_report` catch) — which
+ * means something different from every other error: not "this slug is wrong"
+ * but "this kind was not applied at all and its slugs are in an unknown state".
+ *
+ * **`code` is a bounded string and not a `z.enum`, deliberately**, following
+ * `cloudHelloError.code`. An enum would make every future bridge
+ * classification a protocol change on both sides; a string lets the bridge
+ * learn to classify without the cloud being taught first, and the cloud renders
+ * what it knows and passes the rest through. The codes the bridge produces
+ * today are `field_path_invalid`, `whole_kind_failed` and `unknown`.
+ *
+ * `details` carries whatever a classifier has to add. **Nothing redacts it** —
+ * the same rule `auditEvent.details` states.
+ */
+export const applyError = z.object({
+  slug: z.string(),
+  kind: applyErrorKind,
+  code: z.string().min(1).max(40),
+  message: z.string().min(1),
+  details: z.record(z.string(), z.unknown()).optional(),
+})
+export type ApplyError = z.infer<typeof applyError>
+
 /**
  * What the bridge made of it. A single unusable entry must never stop the
  * others: the bridge applies what it can, reports the rest per slug, and
@@ -235,7 +273,7 @@ export const bridgeConfigApplied = z.object({
   type: z.literal('config_applied'),
   version: z.number().int().nonnegative(),
   ok: z.boolean(),
-  errors: z.array(z.object({ slug: z.string(), message: z.string().min(1) })),
+  errors: z.array(applyError),
 })
 export type BridgeConfigApplied = z.infer<typeof bridgeConfigApplied>
 

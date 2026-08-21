@@ -131,6 +131,24 @@ export const auditQuery = z.object({
   /** Exact action name, e.g. `config.published`. No prefix matching: a filter that matches more than it says is not one. */
   action: z.string().min(1).max(80).optional(),
   /**
+   * Everything under a dotted prefix, e.g. `server_key.` for all three
+   * server-key actions.
+   *
+   * **A separate parameter, not a widening of `action`.** The sentence on
+   * `action` above — a filter that matches more than it says is not one —
+   * still stands; this is a different question with a name that says which
+   * one it is. Setting both is refused rather than resolved, because a query
+   * naming an exact action *and* a prefix is a caller mistake, not a
+   * combination anyone should have to guess the meaning of.
+   *
+   * **The published artifact cannot express that refusal**: a cross-field
+   * `.refine()` has no JSON Schema rendering, so `audit-query.schema.json`
+   * describes two independent optional strings and validates both-at-once
+   * happily. The cloud is the only enforcement point — the same residual
+   * `orgLatencyQuery` and `orgUsageQuery` already name.
+   */
+  action_prefix: z.string().min(1).max(80).optional(),
+  /**
    * Only events by this actor.
    *
    * **`z.uuid()`, because the column is one (Argus-W9, W9 review).** This was
@@ -166,7 +184,12 @@ export const auditQuery = z.object({
    */
   from_ms: auditTimestampMs.optional(),
   to_ms: auditTimestampMs.optional(),
-}).strict()
+})
+  .strict()
+  .refine((query) => !(query.action !== undefined && query.action_prefix !== undefined), {
+    message: 'action and action_prefix cannot be combined',
+    path: ['action_prefix'],
+  })
 export type AuditQuery = z.infer<typeof auditQuery>
 
 export const auditListResponse = z.object({
