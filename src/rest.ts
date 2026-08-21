@@ -1745,10 +1745,38 @@ export type OrgUsageQuery = z.infer<typeof orgUsageQuery>
  * and a copy of the name stored on every row would be a second truth that
  * drifts on the first rename.
  *
- * **What this number cannot promise:** counts are aggregated in memory and
- * written every 30 seconds, so a `kill -9` loses up to 30 seconds of counting.
- * Never more, and never against the caller — an unflushed count is simply not
- * billed. A graceful shutdown loses nothing.
+ * **What this number cannot promise**, and the bound is conditional rather
+ * than flat. `api_calls` and `live_session_ms` are aggregated in memory and
+ * written every 30 seconds.
+ *
+ * *While those writes are landing*, a `kill -9` loses up to 30 seconds of
+ * counting — never more, and never against the caller, since an unflushed
+ * count is simply not billed.
+ *
+ * *While they are failing* — an unreachable database, say — that bound does
+ * not hold at all: everything counted since the last successful flush is
+ * held in memory, deliberately uncapped, and a `kill -9` loses all of it.
+ * The trade is intentional (dropping billing data to bound process memory is
+ * the worse half of it), but "at most one interval" describes a platform
+ * whose writes are landing, not a guarantee that survives an outage. This
+ * sentence used to say "never more", and it was false.
+ *
+ * A row the database rejects **permanently** — most concretely one whose org
+ * has been deleted since the count, since a usage row's `org_id` is `ON
+ * DELETE NO ACTION` — is written off instead: given up on, reported with a
+ * count, and never billed. That is a deliberate loss, and it is the smaller
+ * one. Before it, a single such row failed the whole batched write on every
+ * retry, forever, and stopped `api_calls` and `live_session_ms` reaching the
+ * database for **every** org on the platform.
+ *
+ * A graceful shutdown loses nothing **provided its final flush succeeds**.
+ * If that write fails, the process reports how many rows it is carrying and
+ * exits carrying them — there is no second attempt, because there is no
+ * longer a process to make one.
+ *
+ * The other three metrics never travel this path. They are sampled from
+ * other tables on their own timer and can lag; what a missed sample costs,
+ * per metric, is in the docs' `/api/org/usage` notes.
  */
 export const usageRow = z.object({
   app_id: z.uuid().nullable(),
