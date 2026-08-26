@@ -6,6 +6,8 @@ import {
   bridgeHello,
   datapointFrame,
   bridgeState,
+  bridgePressure,
+  PRESSURE_SLUG,
   apiError,
   slug,
 } from '../src/index.js'
@@ -60,6 +62,45 @@ describe('contracts v1', () => {
     expect(bridgeState.safeParse({ online: false }).success).toBe(false)
   })
 
+  it('bridge-pressure accepts a full sample and rejects an unknown tier or a negative link rate', () => {
+    const TIER = { sent: 10, bytes: 2048, drops: 0, high_water: 3 }
+    const FULL = {
+      link: { rate_bps: 12_500, snapshot_max_bytes: 65_536 },
+      tiers: { '0': TIER, '1': TIER, '2': TIER, '3': TIER, '4': TIER, '5': TIER },
+      video: {
+        active_streams: 1,
+        bitrate_sum_kbps: 800,
+        uplink_kbps: 2000,
+        override_kbps: null,
+        video_budget_kbps: 1500,
+        reserve_kbps: 500,
+      },
+    }
+    expect(bridgePressure.safeParse(FULL).success).toBe(true)
+
+    // a missing tier key reads as zeros — the schema does not require all six
+    const { '3': _dropped, ...partialTiers } = FULL.tiers
+    expect(bridgePressure.safeParse({ ...FULL, tiers: partialTiers }).success).toBe(true)
+    expect(bridgePressure.safeParse({ ...FULL, tiers: {} }).success).toBe(true)
+
+    // an unknown tier key is refused, not silently accepted
+    expect(
+      bridgePressure.safeParse({ ...FULL, tiers: { ...FULL.tiers, '7': TIER } }).success,
+    ).toBe(false)
+
+    // link.rate_bps is nonnegative (nullable, but never negative)
+    expect(
+      bridgePressure.safeParse({ ...FULL, link: { ...FULL.link, rate_bps: -1 } }).success,
+    ).toBe(false)
+    expect(
+      bridgePressure.safeParse({ ...FULL, link: { ...FULL.link, rate_bps: null } }).success,
+    ).toBe(true)
+  })
+
+  it('PRESSURE_SLUG names the reserved slug bridge-pressure rides on', () => {
+    expect(PRESSURE_SLUG).toBe('bridge-pressure')
+  })
+
   it('api errors carry stable code + message', () => {
     expect(
       apiError.safeParse({ code: 'robot_offline', message: 'The robot is offline.' }).success,
@@ -85,6 +126,23 @@ describe('schema artifacts', () => {
       Object.entries(exportedSchemas).map(([name, schema]) => [name, z.toJSONSchema(schema, { io: schemaIo(name) })]),
     )
     expect(onDisk).toEqual(fresh)
+  })
+
+  /**
+   * **The never-registered guard.** `pnpm artifacts` reporting no diff
+   * cannot distinguish "already current" from "the schema was never
+   * registered for export" — a schema defined in `protocol.ts` but left out
+   * of `exportedSchemas` produces no artifact and no failing test either,
+   * because there is nothing on disk to compare it against. So this checks
+   * the thing the staleness guard above cannot: that `bridge-pressure` is
+   * actually a key of `exportedSchemas`, and that the file it produces
+   * exists and carries the schema's own shape, not an empty stand-in.
+   */
+  it('bridge-pressure is registered for export and produces a real artifact', () => {
+    expect(Object.keys(exportedSchemas)).toContain('bridge-pressure')
+    const path = join(import.meta.dirname, '..', 'artifacts', 'schema', 'bridge-pressure.schema.json')
+    const contents = readFileSync(path, 'utf8')
+    expect(contents).toContain('bitrate_sum_kbps')
   })
 
   /**

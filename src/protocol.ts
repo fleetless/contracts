@@ -414,6 +414,66 @@ export const bridgeState = z.object({
 })
 export type BridgeState = z.infer<typeof bridgeState>
 
+/** One tier's counters, `tiers` below carries six of these under string keys. */
+const bridgePressureTier = z.object({
+  sent: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  drops: z.number().int().nonnegative(),
+  high_water: z.number().int().nonnegative(),
+})
+
+/**
+ * The built-in `bridge-pressure` datapoint (spec §4.3, the pressure-telemetry
+ * design's "The decision that shapes everything"): the bridge's own
+ * bandwidth-shaping state, sent on the same reserved-slug path as
+ * `bridge-state` so history, realtime, REST and MCP exposure fall out of the
+ * ordinary datapoint machinery for free.
+ */
+export const bridgePressure = z.object({
+  link: z.object({
+    /** bytes/s the socket demonstrably drains, from sends >= 64 KiB
+     *  only; null until the first large send of the session. */
+    rate_bps: z.number().nonnegative().nullable(),
+    /** the byte target snapshots are currently encoded to fit. */
+    snapshot_max_bytes: z.number().int().positive(),
+  }),
+  /**
+   * String keys "0".."5" because JSON has no integer keys. Counters are
+   * cumulative per session and reset on reconnect; clients window by
+   * differencing two samples.
+   *
+   * **What this schema does not decide:** it does not guarantee all six
+   * keys are present (`z.record` over the six literals is exhaustive in
+   * zod 4 — tested here, it required every key and rejected none, the
+   * opposite of what a partial sample needs — so this is a
+   * `.strictObject().partial()` over the same six literal keys instead, a
+   * deliberate deviation from the originally sketched `z.record` shape with
+   * the same runtime behaviour). A missing tier key reads as zeros; the
+   * schema names what it cannot decide rather than implying a completeness
+   * it cannot check.
+   */
+  tiers: z
+    .strictObject({
+      '0': bridgePressureTier,
+      '1': bridgePressureTier,
+      '2': bridgePressureTier,
+      '3': bridgePressureTier,
+      '4': bridgePressureTier,
+      '5': bridgePressureTier,
+    })
+    .partial(),
+  video: z.object({
+    active_streams: z.number().int().nonnegative(),
+    bitrate_sum_kbps: z.number().int().nonnegative(),
+    uplink_kbps: z.number().int().positive().nullable(),
+    override_kbps: z.number().int().nonnegative().nullable(),
+    video_budget_kbps: z.number().int().nonnegative().nullable(),
+    reserve_kbps: z.number().int().nonnegative(),
+  }),
+})
+export type BridgePressure = z.infer<typeof bridgePressure>
+export const PRESSURE_SLUG = 'bridge-pressure' as const
+
 /* ------------------------------------------------------------------ W5 --
  * Cameras (spec §10).
  */

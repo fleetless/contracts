@@ -72,8 +72,8 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, retention: { days: 7 } }).success).toBe(false)
   })
 
-  it('names the two built-in slugs', () => {
-    expect([...RESERVED_SLUGS]).toEqual(['bridge-state', 'robot-details'])
+  it('names the built-in slugs, bridge-pressure last', () => {
+    expect([...RESERVED_SLUGS]).toEqual(['bridge-state', 'robot-details', 'bridge-pressure'])
   })
 
   it('carries a whole configuration as one document', () => {

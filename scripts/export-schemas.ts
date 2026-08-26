@@ -17,6 +17,7 @@ import {
   bridgePong,
   datapointFrame,
   bridgeState,
+  bridgePressure,
   cloudConfig,
   bridgeConfigApplied,
   cloudIntrospectRequest,
@@ -189,6 +190,7 @@ export const exportedSchemas = {
   'bridge-pong': bridgePong,
   'datapoint-frame': datapointFrame,
   'bridge-state': bridgeState,
+  'bridge-pressure': bridgePressure,
   'cloud-config': cloudConfig,
   'bridge-config-applied': bridgeConfigApplied,
   // Registered on its own, unlike `parameterViolation` (embedded once, in
@@ -376,7 +378,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
   'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong',
-  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
+  'datapoint-frame', 'bridge-state', 'bridge-pressure', 'cloud-config', 'bridge-config-applied', 'apply-error',
   'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
   'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',

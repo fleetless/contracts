@@ -84,7 +84,7 @@ export const parameterSpec = z.object({
 export type ParameterSpec = z.infer<typeof parameterSpec>
 
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
-export const RESERVED_SLUGS = ['bridge-state', 'robot-details'] as const
+export const RESERVED_SLUGS = ['bridge-state', 'robot-details', 'bridge-pressure'] as const
 
 /**
  * How often a datapoint is sent (spec §4.2). The **bridge** enforces this, so
