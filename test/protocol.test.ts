@@ -97,6 +97,47 @@ describe('contracts v1', () => {
     ).toBe(true)
   })
 
+  it('bridge-pressure accepts the zeros a real bridge sends — no-video uplink and a floored snapshot target', () => {
+    // Both fields were `.positive()` once. `FLEETLESS_UPLINK_KBPS=0` is a
+    // documented bridge setting ("no video"), and `snapshot_max_bytes`
+    // floors to 0 for a link measured under 0.5 B/s — so `.positive()` did
+    // not reject a bad producer, it rejected the whole frame from a robot
+    // that was either deliberately video-less or genuinely struggling, and
+    // the console renders an unparseable pressure frame as "no feed", i.e.
+    // as a bridge too old to report pressure at all.
+    const TIER = { sent: 10, bytes: 2048, drops: 0, high_water: 3 }
+    const ZEROED = {
+      link: { rate_bps: 0, snapshot_max_bytes: 0 },
+      tiers: { '2': TIER },
+      video: {
+        active_streams: 0,
+        bitrate_sum_kbps: 0,
+        uplink_kbps: 0,
+        override_kbps: null,
+        video_budget_kbps: 0,
+        reserve_kbps: 0,
+      },
+    }
+    const parsed = bridgePressure.safeParse(ZEROED)
+    expect(parsed.success).toBe(true)
+    // Parsed, not merely "not rejected": a zero that survives as a zero is
+    // what the console reads, and `null` would mean something else entirely.
+    expect(parsed.success && parsed.data.video.uplink_kbps).toBe(0)
+    expect(parsed.success && parsed.data.link.snapshot_max_bytes).toBe(0)
+
+    // `null` still means "not set" for uplink, and negatives are still out
+    // on both — nonnegative widened the floor, it did not remove it.
+    expect(
+      bridgePressure.safeParse({ ...ZEROED, video: { ...ZEROED.video, uplink_kbps: null } }).success,
+    ).toBe(true)
+    expect(
+      bridgePressure.safeParse({ ...ZEROED, video: { ...ZEROED.video, uplink_kbps: -1 } }).success,
+    ).toBe(false)
+    expect(
+      bridgePressure.safeParse({ ...ZEROED, link: { ...ZEROED.link, snapshot_max_bytes: -1 } }).success,
+    ).toBe(false)
+  })
+
   it('PRESSURE_SLUG names the reserved slug bridge-pressure rides on', () => {
     expect(PRESSURE_SLUG).toBe('bridge-pressure')
   })

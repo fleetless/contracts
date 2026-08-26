@@ -434,8 +434,17 @@ export const bridgePressure = z.object({
     /** bytes/s the socket demonstrably drains, from sends >= 64 KiB
      *  only; null until the first large send of the session. */
     rate_bps: z.number().nonnegative().nullable(),
-    /** the byte target snapshots are currently encoded to fit. */
-    snapshot_max_bytes: z.number().int().positive(),
+    /**
+     * the byte target snapshots are currently encoded to fit.
+     *
+     * `.nonnegative()`, not `.positive()`: the target is derived from
+     * `rate_bps`, and a link measured below 0.5 B/s floors to 0 here. A
+     * schema that rejects 0 does not prevent that link — it only makes the
+     * frame reporting it unparseable, and a console that cannot parse a
+     * pressure frame shows "no feed", i.e. reports a struggling robot as an
+     * *old* one. Zero is a legitimate reading and says something true.
+     */
+    snapshot_max_bytes: z.number().int().nonnegative(),
   }),
   /**
    * String keys "0".."5" because JSON has no integer keys. Counters are
@@ -465,7 +474,20 @@ export const bridgePressure = z.object({
   video: z.object({
     active_streams: z.number().int().nonnegative(),
     bitrate_sum_kbps: z.number().int().nonnegative(),
-    uplink_kbps: z.number().int().positive().nullable(),
+    /**
+     * The uplink budget the bridge was configured with
+     * (`FLEETLESS_UPLINK_KBPS`), or `null` when none was set.
+     *
+     * `.nonnegative()`, not `.positive()`: `FLEETLESS_UPLINK_KBPS=0` is a
+     * documented setting meaning "no video budget at all", and the bridge
+     * emits that 0 verbatim. `.positive()` made every frame from such a
+     * robot fail the console's `safeParse`, which renders an unparseable
+     * frame as "no pressure feed" — so the one robot that had *deliberately*
+     * turned video off was the one diagnosed as running a bridge too old to
+     * report pressure. A value the producer legitimately sends must parse;
+     * `null` is the only "not set" this field has.
+     */
+    uplink_kbps: z.number().int().nonnegative().nullable(),
     override_kbps: z.number().int().nonnegative().nullable(),
     video_budget_kbps: z.number().int().nonnegative().nullable(),
     reserve_kbps: z.number().int().nonnegative(),

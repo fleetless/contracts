@@ -41,13 +41,20 @@ export type CreateRobotResponse = z.infer<typeof createRobotResponse>
  * this call and wrote down why: fold cameras in and the sentence "this deletes
  * N slugs and M cameras" counts them twice. A list row has the same problem.
  *
- * **Counted from the published configuration, and excluding the two built-ins.**
- * `GET /api/robots/:id/exposures` answers *which* slugs and prepends
- * `bridge-state` and `robot-details` as `builtin: true`; this answers *how
- * many* and counts only what somebody configured. So a robot with an empty
- * published config reports `datapoints: 0` here and two entries there. That is
- * intentional, and it is written on both sides so the disagreement is never
- * mistaken for a bug.
+ * **Counted from the published configuration, and excluding the built-ins.**
+ * `GET /api/robots/:id/exposures` answers *which* slugs and prepends the
+ * three built-in datapoints — `bridge-state`, `robot-details` and
+ * `bridge-pressure` — as `builtin: true`; this answers *how many* and counts
+ * only what somebody configured. So a robot with an empty published config
+ * reports `datapoints: 0` here and three entries there. That is intentional,
+ * and it is written on both sides so the disagreement is never mistaken for a
+ * bug.
+ *
+ * The number is "three" and not "two" as of `bridge-pressure`; the cloud
+ * builds that prefix from `PLANE_BUILTIN_DATAPOINTS` rather than a literal,
+ * so a further built-in moves this count again. Read the count off that set,
+ * not off this sentence, before filing the bug this comment exists to
+ * prevent.
  */
 export const exposureCounts = z.object({
   datapoints: z.number().int().nonnegative(),
