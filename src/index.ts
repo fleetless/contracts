@@ -202,6 +202,11 @@ export {
   RESOURCE_HEALTH_STATES,
   resourceHealthState,
   resourceHealthListResponse,
+  // W3a — robot rename, slug rename.
+  patchRobotRequest,
+  renameSlugRequest,
+  renameSlugResponse,
+  slugUsageResponse,
 } from './rest.js'
 export type {
   HistoryQuery,
@@ -216,6 +221,10 @@ export type {
   RobotDeletionSummary,
   ResourceHealthState,
   ResourceHealthListResponse,
+  PatchRobotRequest,
+  RenameSlugRequest,
+  RenameSlugResponse,
+  SlugUsageResponse,
 } from './rest.js'
 export {
   LATENCY_BUCKET_MS,
@@ -363,6 +372,11 @@ export {
   orgFederationPolicy,
   orgFederationPolicyRequest,
   idpConfigRequest,
+  // W3a — auth/me, org and member patches.
+  authMeResponse,
+  patchOrgRequest,
+  patchOrgMemberRequest,
+  patchAuthMeRequest,
 } from './identity.js'
 export type {
   OrgMemberRole,
@@ -397,6 +411,10 @@ export type {
   OrgFederationPolicy,
   OrgFederationPolicyRequest,
   IdpConfigRequest,
+  AuthMeResponse,
+  PatchOrgRequest,
+  PatchOrgMemberRequest,
+  PatchAuthMeRequest,
 } from './identity.js'
 export {
   appIdentifier,

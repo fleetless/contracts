@@ -31,6 +31,11 @@ export const orgMember = z.object({
   id: z.uuid(),
   org_id: z.uuid(),
   email: z.email(),
+  /**
+   * Optional human name, shown by the console instead of the email where
+   * present. Self-service via `PATCH /api/auth/me`; never used for auth.
+   */
+  display_name: z.string().min(1).max(120).nullable(),
   role: orgMemberRole,
   created_at: z.iso.datetime(),
 })
@@ -595,3 +600,23 @@ export const orgFederationPolicyRequest = z.object({
   link_verified_emails: z.boolean(),
 }).strict()
 export type OrgFederationPolicyRequest = z.infer<typeof orgFederationPolicyRequest>
+
+/** `GET /api/auth/me` — previously an inline shape in the cloud; named so the console can validate it. */
+export const authMeResponse = z.object({ org, member: orgMember })
+export type AuthMeResponse = z.infer<typeof authMeResponse>
+
+/** `PATCH /api/org` — rename the org. Owner only. Same bounds as signup's `org_name`. */
+export const patchOrgRequest = z.object({ name: z.string().min(1).max(120) }).strict()
+export type PatchOrgRequest = z.infer<typeof patchOrgRequest>
+
+/**
+ * `PATCH /api/org/members/:id` — change a member's role. Owner only.
+ * Demoting the last owner is refused with 409 `last_owner`, the same rule
+ * (and the same error shape) as member deletion.
+ */
+export const patchOrgMemberRequest = z.object({ role: orgMemberRole }).strict()
+export type PatchOrgMemberRequest = z.infer<typeof patchOrgMemberRequest>
+
+/** `PATCH /api/auth/me` — the caller updates their own display name (null clears it). */
+export const patchAuthMeRequest = z.object({ display_name: z.string().min(1).max(120).nullable() }).strict()
+export type PatchAuthMeRequest = z.infer<typeof patchAuthMeRequest>

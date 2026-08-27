@@ -17,6 +17,18 @@
       "format": "email",
       "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
     },
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "role": {
       "type": "string",
       "enum": [
@@ -34,6 +46,7 @@
     "id",
     "org_id",
     "email",
+    "display_name",
     "role",
     "created_at"
   ],

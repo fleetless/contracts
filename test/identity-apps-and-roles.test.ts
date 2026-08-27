@@ -51,14 +51,14 @@ describe('identity', () => {
     expect(
       signUpResponse.safeParse({
         org: { id: UUID, name: 'Dehne Robotik', created_at: NOW },
-        member: { id: UUID2, org_id: UUID, email: 'andre@example.com', role: 'owner', created_at: NOW },
+        member: { id: UUID2, org_id: UUID, email: 'andre@example.com', display_name: null, role: 'owner', created_at: NOW },
         tokens: { access_token: 'a', refresh_token: 'r', expires_in: 900 },
       }).success,
     ).toBe(true)
   })
 
   it('knows exactly two org tiers', () => {
-    const base = { id: UUID, org_id: UUID2, email: 'a@b.de', created_at: NOW }
+    const base = { id: UUID, org_id: UUID2, email: 'a@b.de', display_name: null, created_at: NOW }
     expect(orgMember.safeParse({ ...base, role: 'owner' }).success).toBe(true)
     expect(orgMember.safeParse({ ...base, role: 'member' }).success).toBe(true)
     expect(orgMember.safeParse({ ...base, role: 'admin' }).success).toBe(false)

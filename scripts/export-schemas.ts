@@ -82,6 +82,10 @@ import {
   invitation,
   createInvitationRequest,
   acceptInvitationRequest,
+  authMeResponse,
+  patchOrgRequest,
+  patchOrgMemberRequest,
+  patchAuthMeRequest,
 } from '../src/identity.js'
 import {
   app,
@@ -126,6 +130,7 @@ import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
+import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import {
   historyQuery,
   historySamplesResponse,
@@ -236,6 +241,10 @@ export const exportedSchemas = {
   'api-error': apiError,
   org: org,
   'org-member': orgMember,
+  'auth-me-response': authMeResponse,
+  'patch-org-request': patchOrgRequest,
+  'patch-org-member-request': patchOrgMemberRequest,
+  'patch-auth-me-request': patchAuthMeRequest,
   'session-tokens': sessionTokens,
   'sign-up-request': signUpRequest,
   'sign-up-response': signUpResponse,
@@ -292,6 +301,10 @@ export const exportedSchemas = {
   'org-latency-response': orgLatencyResponse,
   'org-usage-query': orgUsageQuery,
   'org-usage-response': orgUsageResponse,
+  'patch-robot-request': patchRobotRequest,
+  'rename-slug-request': renameSlugRequest,
+  'rename-slug-response': renameSlugResponse,
+  'slug-usage-response': slugUsageResponse,
 } as const
 
 /**
@@ -397,6 +410,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
+  'patch-org-request', 'patch-org-member-request', 'patch-auth-me-request',
+  'patch-robot-request', 'rename-slug-request',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -429,6 +444,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
   'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',
+  'auth-me-response', 'rename-slug-response', 'slug-usage-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

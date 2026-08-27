@@ -105,6 +105,11 @@ export type DatapointValue = z.infer<typeof datapointValue>
 export const robotDetailResponse = z.object({
   ...robotListItem.shape,
   bridge_version: z.string().min(1).nullable(),
+  /**
+   * Cleared (set back to null) by the next successful hello from this
+   * robot's bridge — a warning that outlives the condition it warns
+   * about would be read as current state, and was.
+   */
   last_hello_error: z
     .object({
       code: z.string().min(1),
@@ -1827,3 +1832,37 @@ export const orgUsageResponse = z.object({
   to_day: usageDay,
 })
 export type OrgUsageResponse = z.infer<typeof orgUsageResponse>
+
+/** `PATCH /api/robots/:id` — rename the robot. Display-only: nothing references robot names. */
+export const patchRobotRequest = z.object({ name: z.string().min(1).max(63) }).strict()
+export type PatchRobotRequest = z.infer<typeof patchRobotRequest>
+
+/**
+ * `POST /api/robots/:id/config/rename-slug` — atomic server-side rename:
+ * rewrites the **draft** config, every app-role grant carrying
+ * `{robot_id, from}`, and the recorded history rows, in one transaction.
+ * Job runs and audit events keep the old slug as historical fact. The
+ * published config is immutable, so the caller must publish afterwards
+ * (`requires_publish`); samples arriving between rename and the applied
+ * publish still land under the old slug — named residual, not migrated.
+ * This schema only enforces slug *shape*; whether `to` is reserved or
+ * already in use on this robot is checked once, behind the cloud's
+ * `validation.ts` door — one door, not a second copy of that rule here.
+ */
+export const renameSlugRequest = z.object({ from: slug, to: slug }).strict()
+export type RenameSlugRequest = z.infer<typeof renameSlugRequest>
+
+export const renameSlugResponse = z.object({
+  rewritten_grants: z.number().int().nonnegative(),
+  history_moved: z.boolean(),
+  requires_publish: z.literal(true)
+})
+export type RenameSlugResponse = z.infer<typeof renameSlugResponse>
+
+/** `GET /api/robots/:id/config/slug-usage/:slug` — what a rename would touch; feeds the console's confirm dialog. */
+export const slugUsageResponse = z.object({
+  grant_count: z.number().int().nonnegative(),
+  app_identifiers: z.array(z.string()),
+  has_recorded_history: z.boolean()
+})
+export type SlugUsageResponse = z.infer<typeof slugUsageResponse>
