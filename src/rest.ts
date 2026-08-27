@@ -1845,6 +1845,13 @@ export type PatchRobotRequest = z.infer<typeof patchRobotRequest>
  * published config is immutable, so the caller must publish afterwards
  * (`requires_publish`); samples arriving between rename and the applied
  * publish still land under the old slug — named residual, not migrated.
+ * Second residual in that same window: grants and the draft already name
+ * `to`, but the still-published config exposes only `from` until the
+ * publish lands — an end user's app has no working name for the datapoint
+ * at all for however long that gap lasts, since `to` isn't published yet
+ * and `from` no longer has a grant behind it. The console must publish
+ * immediately after a rename to keep this window short; nothing server-side
+ * closes it.
  * This schema only enforces slug *shape*; whether `to` is reserved or
  * already in use on this robot is checked once, behind the cloud's
  * `validation.ts` door — one door, not a second copy of that rule here.

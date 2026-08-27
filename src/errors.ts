@@ -61,6 +61,12 @@ export const ERROR_CODES = [
   // W2 — configuration
   'duplicate_slug',
   'reserved_slug',
+  /**
+   * `POST /api/robots/:id/config/rename-slug`'s `from` names nothing in the
+   * draft — distinct from `unknown_datapoint`, which is a read against a
+   * *published* config; a rename only ever inspects the draft.
+   */
+  'unknown_slug',
   'unknown_field_path',
   'unknown_type',
   'unknown_topic',
