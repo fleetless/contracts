@@ -112,7 +112,11 @@ export const datapointAlert = z.object({
    * everywhere else. It follows that this is NOT "the datapoint's current
    * value" — for that, read the live snapshot (`datapointValue`, or the
    * realtime datapoint stream), never this field. `null` before the
-   * alert's first transition.
+   * alert's first transition, and returns to `null` when a `PATCH`
+   * replaces `condition` wholesale — the old value was judged against the
+   * old condition, and the store resets runtime state in that same write
+   * rather than let it survive a condition change it no longer means
+   * anything against.
    */
   last_value: z.unknown().nullable(),
   created_at: z.iso.datetime(),
@@ -120,13 +124,19 @@ export const datapointAlert = z.object({
    * Whether this alert's `slug` is absent from the robot's published
    * config. Computed on read, not stored — it would otherwise need its own
    * write path kept in sync with every publish — and true for an absent
-   * slug the same way a missing key reads as "not there". Set only by
-   * `GET /api/robots/:id/alerts`; absent (never `false`) from
-   * `createAlertRequest`/`patchAlertRequest` responses and from
-   * `orgFiringAlertsResponse`, which have no published-config context to
-   * compute it against at their call sites. Optional, not required, so
-   * those other shapes — which share this same entity — stay valid
-   * without carrying a field that does not apply to them.
+   * slug the same way a missing key reads as "not there" — **except when
+   * the robot has no published config at all** (never published, or a
+   * draft only): that case marks NOTHING orphaned, deliberately, not the
+   * naive reading of "absent from an empty set". A robot pre-first-publish
+   * has no config yet for a slug to be absent *from*, and a developer's
+   * freshly created alert against their own unpublished draft must not
+   * read as broken. Set only by `GET /api/robots/:id/alerts`; absent
+   * (never `false`) from `createAlertRequest`/`patchAlertRequest`
+   * responses and from `orgFiringAlertsResponse`, which have no
+   * published-config context to compute it against at their call sites.
+   * Optional, not required, so those other shapes — which share this same
+   * entity — stay valid without carrying a field that does not apply to
+   * them.
    */
   orphaned: z.boolean().optional(),
 })
