@@ -97,6 +97,13 @@ export const ERROR_CODES = [
    * The account itself is blocked — distinct from `forbidden` on purpose: it
    * tells the account holder something about *their own* account, and reveals
    * nothing about any other principal or about what exists.
+   *
+   * **No producer since 2026-08-29, and that is worth knowing rather than
+   * discovering.** Blocking was a `status` column on `end_users`; D1's `users`
+   * has no such column, and nothing in the redesign reinstates one — removing
+   * a user's assignments is what withdraws access now. Kept, like
+   * `mcp_disabled`, because the reserved shape is the point; named as
+   * unproduced rather than left to look enforced.
    */
   'account_blocked',
   // W4 — the command path.
@@ -343,17 +350,22 @@ export const ERROR_CODES = [
   'identity_conflict',
   /**
    * **A federated login that got as far as an identity and found no route into
-   * this app** — and the app's `selfRegistration` does not admit them, so
-   * federation here is a login mechanism rather than a signup path.
+   * this app** — and nothing admits them unasked, so federation here is a
+   * login mechanism rather than a signup path.
    *
    * Two shapes reach it, and the name is about the outcome rather than about
    * which one:
    *
-   *   1. No existing end user matches at all.
+   *   1. No existing user matches at all.
    *   2. One matches **and was approved to link** (`link_verified_emails` and
-   *      `email_verified` both true) but holds no membership in *this* app,
-   *      and `selfRegistration` does not admit them either — disabled, or
-   *      their address is outside the app's domain list.
+   *      `email_verified` both true) but holds no assignment for *this* app,
+   *      and nothing provisions them either.
+   *
+   * **The admitting policy this comment used to name is gone** (2026-08-29,
+   * D6): `selfRegistration` was deleted with the per-app pools. Its successor
+   * is the group provider's `jit_enabled`/`jit_grants` (D3), which lands in
+   * the oidc-federation plan. Until it does, case 2's second half reads
+   * *"and nothing provisions them"* simply because nothing does.
    *
    * The second was found by Nimbus-W7b while giving these codes their
    * producers, and the first version of this comment did not cover it — it
@@ -456,5 +468,43 @@ export const ERROR_CODES = [
    * client branch on which route it called, so `assets` was moved here.
    */
   'capability_required',
+  // 2026-08-29 — org-central identity (D1/D2).
+  /**
+   * **An org must keep at least one Owner**, so the last one is neither
+   * deletable nor demotable. 409, on both `DELETE /api/org/users/:id` and
+   * `PATCH /api/org/users/:id/tier`.
+   *
+   * **It was already being emitted before it was registered here** — the cloud
+   * has answered `last_owner` from `org-members.ts` since W3a, and
+   * `identity.ts`'s own doc comment named it, but `sendError` takes a bare
+   * `string` and nothing ever compared the two lists. So a consumer switching
+   * exhaustively over `ERROR_CODES` could not handle a code the server
+   * actually sends. Registered as part of carrying the rule onto the new
+   * tiers, and named as the pre-existing gap it was rather than as a new code.
+   *
+   * Deliberately not `forbidden` or `tier_required`: an Owner reaching this
+   * has every permission the act needs. The refusal is about the org's
+   * remaining state, and the remedy — promote somebody first — is nothing the
+   * caller could infer from a silence about existence.
+   */
+  'last_owner',
+  /**
+   * **The Org Admins group cannot be deleted** (D1: exactly one per org,
+   * renamable, never deletable). 409 on `DELETE /api/org/groups/:id`.
+   *
+   * Not `forbidden`, which would say *you may not* and invite an owner to go
+   * looking for the tier that would let them: no tier does, and no future one
+   * will. The console can render "this group is the org's admin group" from
+   * `is_org_admins` without asking, so this code exists for the caller that
+   * did not look first.
+   *
+   * **Scope, stated because the neighbouring case is unresolved:** this code
+   * is about `is_org_admins` and nothing else. Whether a group that still has
+   * members or apps may be deleted — refuse, or cascade — is the cloud's
+   * decision in the routes task; if it refuses, that refusal needs its own
+   * code rather than this one widened to cover an outcome with a different
+   * remedy.
+   */
+  'group_not_deletable',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

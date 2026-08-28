@@ -1,6 +1,12 @@
 /**
- * Invitations, tiers, self-registration and account recovery — plus the rate
- * limit that has to exist before any of them face the internet.
+ * Invitations, tiers and account recovery — plus the rate limit that has to
+ * exist before any of them face the internet.
+ *
+ * **Reduced by the 2026-08-29 identity redesign (D1/D6).** The two invitation
+ * families and the self-registration policy this file was largely about are
+ * gone with the two identity spaces; what survives here is what was never a
+ * statement about which space a person lived in. The new shapes' behavioural
+ * pins live in `identity-shapes.test.ts`.
  *
  * Written **with** the delta, because additions are not self-policing: a
  * change to an existing shape breaks the tests that cover it, and a new shape
@@ -13,20 +19,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   mailStatus,
-  invitation,
-  developerInvitation,
-  createDeveloperInvitationRequest,
-  acceptDeveloperInvitationRequest,
-  createInvitationRequest,
+  userInvite,
   tierRequiredDetails,
-  selfRegistration,
-  clientRegisterRequest,
-  clientRegisterResponse,
-  clientRegisterConfirm,
   passwordChangeRequest,
   passwordResetRequest,
   passwordResetConfirm,
-  orgMemberRole,
 } from '../src/identity.js'
 import { rateLimitDetails } from '../src/rest.js'
 import { ERROR_CODES } from '../src/errors.js'
@@ -86,139 +83,53 @@ describe('mail, in three words instead of one', () => {
 
   it('has removed the boolean rather than leaving both', () => {
     const inv = {
-      id: UUID, email: 'dev@example.com', app_id: UUID, role_id: UUID,
+      id: UUID, email: 'dev@example.com', group_id: UUID,
       expires_at: LATER, accept_url: 'https://console.example/accept?t=x', mail: 'sent',
     }
-    expect(invitation.parse(inv).mail).toBe('sent')
+    expect(userInvite.parse(inv).mail).toBe('sent')
     const { mail: _dropped, ...withBooleanInstead } = inv
-    expect(invitation.safeParse({ ...withBooleanInstead, mail_sent: true }).success).toBe(false)
+    expect(userInvite.safeParse({ ...withBooleanInstead, mail_sent: true }).success).toBe(false)
   })
 
   it('lets an invitation be complete with no mail server at all', () => {
     // The link is the primary path. An org with no SMTP still invites.
-    expect(invitation.parse({
-      id: UUID, email: 'dev@example.com', app_id: UUID, role_id: UUID,
+    expect(userInvite.parse({
+      id: UUID, email: 'dev@example.com', group_id: UUID,
       expires_at: LATER, accept_url: 'https://console.example/accept?t=x',
       mail: 'not_configured',
     }).mail).toBe('not_configured')
   })
 })
 
-describe('two invitations that must never be confused', () => {
-  it('keeps the developer and end-user shapes structurally incompatible', () => {
-    // Different identity spaces: a credential from one must never
-    // authenticate the other. One shape with a discriminator would be a single
-    // careless cast away from letting it, so they are separate and each
-    // rejects the other's payload.
-    const devReq = { email: 'dev@example.com', role: 'member', send_mail: true }
-    const endUserReq = { email: 'user@example.com', app_id: UUID, role_id: UUID, send_mail: true }
-    expect(createDeveloperInvitationRequest.safeParse(devReq).success).toBe(true)
-    expect(createInvitationRequest.safeParse(endUserReq).success).toBe(true)
-    expect(createDeveloperInvitationRequest.safeParse(endUserReq).success).toBe(false)
-    expect(createInvitationRequest.safeParse(devReq).success).toBe(false)
-  })
-
-  it('requires the tier rather than defaulting it', () => {
-    // "I did not think about it" and "I meant Member" would otherwise produce
-    // the same request, on the field that decides who can remove whom.
-    expect(createDeveloperInvitationRequest.safeParse({
-      email: 'dev@example.com', send_mail: false,
-    }).success).toBe(false)
-    for (const role of orgMemberRole.options) {
-      expect(createDeveloperInvitationRequest.safeParse({
-        email: 'dev@example.com', role, send_mail: false,
-      }).success).toBe(true)
-    }
-  })
-
-  it('makes an accepted invitation set a password that meets the shared rule', () => {
-    expect(acceptDeveloperInvitationRequest.safeParse({ token: 't', password: GOOD_PASSWORD }).success).toBe(true)
-    expect(acceptDeveloperInvitationRequest.safeParse({ token: 't', password: 'short' }).success).toBe(false)
-    expect(acceptDeveloperInvitationRequest.safeParse({ password: GOOD_PASSWORD }).success).toBe(false)
-  })
-})
+/*
+ * **`two invitations that must never be confused` and `self-registration
+ * belongs to an app, not an org` were deleted here on 2026-08-29 (D1/D6), not
+ * quietly dropped.**
+ *
+ * The first pinned that the developer and end-user invitation shapes rejected
+ * each other's payloads, because a credential from one identity space must
+ * never authenticate the other. There is one space now, and one
+ * `createUserInviteRequest`; the property it guarded cannot be stated any
+ * more, and a test kept alive against a merged model would have been asserting
+ * a distinction the platform had stopped making.
+ *
+ * The second pinned `selfRegistration`'s four controls — the empty-domain-list
+ * reading in particular. That policy dies with no successor; its reasoning is
+ * carried forward, in words, at the deletion tombstone in `src/identity.ts`,
+ * because JIT provisioning (D3) inherits every one of its rules.
+ */
 
 describe('tiers', () => {
   it('names the tier required and the one held, and nothing about the target', () => {
-    // The rule stays intact: this says nothing about whether the target exists.
-    // It says what the caller could already read off the documentation.
-    const d = tierRequiredDetails.parse({ required: 'owner', actual: 'member' })
-    expect([d.required, d.actual]).toEqual(['owner', 'member'])
+    // The rule stays intact through the owner/member -> owner/developer
+    // rename: this says nothing about whether the target exists. It says what
+    // the caller could already read off the documentation.
+    const d = tierRequiredDetails.parse({ required: 'owner', actual: 'developer' })
+    expect([d.required, d.actual]).toEqual(['owner', 'developer'])
     expect(tierRequiredDetails.safeParse({ required: 'owner' }).success).toBe(false)
-    expect(tierRequiredDetails.safeParse({ required: 'admin', actual: 'member' }).success).toBe(false)
-  })
-})
-
-describe('self-registration belongs to an app, not an org', () => {
-  const base = { enabled: true, all_domains: false, domains: ['dehne-robotik.de'], role_id: UUID }
-
-  it('says "open to everyone" with a flag, never with an empty list', () => {
-    // The dangerous reading, written down because somebody will make it at
-    // 2 a.m. on a public endpoint: a filter that matches nothing is not a
-    // filter that matches everything. "Any email domain" is
-    // `all_domains: true` — something an app owner has to SAY, not something
-    // that falls out of leaving a list empty.
-    const nobody = selfRegistration.parse({ ...base, all_domains: false, domains: [] })
-    expect([nobody.enabled, nobody.all_domains, nobody.domains]).toEqual([true, false, []])
-    expect(selfRegistration.parse({ ...base, all_domains: true, domains: [] }).all_domains).toBe(true)
-  })
-
-  it('requires a role, because a pool member with no role is not a state', () => {
-    // A pool member gets exactly one role per app. An app that enables
-    // self-registration has to decide which one, and that IS the security
-    // decision here.
-    const { role_id: _dropped, ...noRole } = base
-    expect(selfRegistration.safeParse(noRole).success).toBe(false)
-    expect(selfRegistration.safeParse({ ...base, role_id: 'not-a-uuid' }).success).toBe(false)
-  })
-
-  it('requires every field, so "not configured" cannot masquerade as "open"', () => {
-    for (const drop of ['enabled', 'all_domains', 'domains', 'role_id'] as const) {
-      const partial = { ...base }
-      delete partial[drop]
-      expect(selfRegistration.safeParse(partial).success).toBe(false)
-    }
-  })
-
-  it('mints no session when registering — the address is confirmed first', () => {
-    // A domain filter gates WHICH domains may register, never whether the
-    // caller owns the address. Answering `sessionTokens` directly let anybody
-    // who knew the pattern register as somebody else at a permitted domain and
-    // receive a pool identity carrying the app's chosen role — which on this
-    // platform can mean permission to move a robot.
-    expect(clientRegisterResponse.parse({ mail: 'sent' }).mail).toBe('sent')
-    // Nothing in the response distinguishes a new address from one that
-    // already has an account: that would be an enumeration oracle on an
-    // unauthenticated route.
-    expect(Object.keys(clientRegisterResponse.parse({ mail: 'sent', created: true }))).toEqual(['mail'])
-    expect(clientRegisterResponse.safeParse({}).success).toBe(false)
-    // The session comes from spending the link, and from nothing else.
-    expect(clientRegisterConfirm.safeParse({ token: 't' }).success).toBe(true)
-    expect(clientRegisterConfirm.safeParse({ token: '' }).success).toBe(false)
-    // The password was set when registering; confirming does not re-set it.
-    expect(Object.keys(clientRegisterConfirm.parse({ token: 't', new_password: 'x' }))).toEqual(['token'])
-  })
-
-  it('registers an END USER against an app, never a developer against an org', () => {
-    // The first version of this delta had self-registration minting a
-    // DEVELOPER session against an org resolved by email domain — a feature
-    // the platform does not contain, and a path into the org that owns the
-    // robots rather than into an app's pool.
-    expect(clientRegisterRequest.safeParse({
-      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
-    }).success).toBe(true)
-    // No org_name, no role: the caller chooses neither.
-    expect(clientRegisterRequest.safeParse({
-      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
-      role_id: UUID, org_name: 'Sneaky',
-    }).success).toBe(true)
-    expect(Object.keys(clientRegisterRequest.parse({
-      app_identifier: 'my-app', email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
-      role_id: UUID,
-    }))).toEqual(['app_identifier', 'email', 'password'])
-    expect(clientRegisterRequest.safeParse({
-      email: 'user@dehne-robotik.de', password: GOOD_PASSWORD,
-    }).success).toBe(false)
+    expect(tierRequiredDetails.safeParse({ required: 'admin', actual: 'developer' }).success).toBe(false)
+    // The pre-redesign name is not an alias.
+    expect(tierRequiredDetails.safeParse({ required: 'owner', actual: 'member' }).success).toBe(false)
   })
 })
 

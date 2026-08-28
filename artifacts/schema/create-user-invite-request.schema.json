@@ -7,15 +7,37 @@
       "format": "email",
       "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
     },
-    "app_id": {
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "group_id": {
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
-    "role_id": {
+    "tier": {
       "type": "string",
-      "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "enum": [
+        "owner",
+        "developer"
+      ]
+    },
+    "mcp_access": {
+      "type": "string",
+      "enum": [
+        "default",
+        "allowed",
+        "denied"
+      ]
     },
     "send_mail": {
       "type": "boolean"
@@ -23,8 +45,8 @@
   },
   "required": [
     "email",
-    "app_id",
-    "role_id",
+    "group_id",
     "send_mail"
-  ]
+  ],
+  "additionalProperties": false
 }

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mcp_access": {
+      "type": "string",
+      "enum": [
+        "default",
+        "allowed",
+        "denied"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

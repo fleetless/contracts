@@ -431,74 +431,83 @@ export type JobResponse = z.infer<typeof jobResponse>
  * `jobResponse`.
  */
 /* ------------------------------------------------------------------ W6c --
- * Identity (spec §3), and the limit that has to exist before it. Written down
- * here for the same reason the W4 command routes were: **a body schema does
- * not imply a path**, and three consumers were about to derive nine paths
- * independently from one implementation.
+ * Identity, rewritten by the 2026-08-29 org-central redesign (D1/D2/D6).
+ * Written down here for the same reason the W4 command routes were: **a body
+ * schema does not imply a path**, and three consumers were about to derive
+ * nine paths independently from one implementation.
+ *
+ * **One pool, one prefix.** The `/api/org/` vs `/api/end-users/` split that
+ * this table used to insist on ("the two identity spaces must never
+ * authenticate each other") described two identity spaces that no longer
+ * exist. Users, groups and assignments are org-scoped and live under
+ * `/api/org/`; what is still separated is not *who a person is* but *what they
+ * are claiming*: the console surface (`/api/auth/`, Org Admins only) and the
+ * app surface (`/api/client/`, an assignment for a named app).
  *
  * | route | body | answers |
  * |---|---|---|
- * | `GET    /api/org/members`               | —                                  | `{ members: OrgMember[] }` |
- * | `DELETE /api/org/members/:id`           | —                                  | 204 — **and every session of that member ends** |
- * | `POST   /api/org/invitations`           | `createDeveloperInvitationRequest` | `developerInvitation` — **Owner** |
- * | `GET    /api/org/invitations`           | —                                  | `developerInvitationListResponse` — **Owner**, pending only, **no tokens** |
- * | `DELETE /api/org/invitations/:id`       | —                                  | 204 — **Owner** |
- * | `POST   /api/org/invitations/accept`    | `acceptDeveloperInvitationRequest` | `sessionTokens` — unauthenticated |
- * | `GET    /api/apps/:id/self-registration` | —                                 | `selfRegistration` |
- * | `PUT    /api/apps/:id/self-registration` | `selfRegistration`                | `selfRegistration` |
- * | `POST   /api/client/register`            | `clientRegisterRequest`           | `clientRegisterResponse` — 202, **no session** |
- * | `POST   /api/client/register/confirm`    | `clientRegisterConfirm`           | `sessionTokens` — unauthenticated, **end user** |
- * | `POST   /api/auth/password/change`      | `passwordChangeRequest`            | `sessionTokens` — authenticated, **developer** |
- * | `POST   /api/auth/password/reset`       | `passwordResetRequest`             | 202 — unauthenticated, **always the same answer** |
- * | `POST   /api/auth/password/reset/confirm` | `passwordResetConfirm`           | 204 — unauthenticated |
- * | `POST   /api/client/password/change`    | `passwordChangeRequest`            | `sessionTokens` — authenticated, **end user** |
- * | `POST   /api/client/password/reset`     | `clientPasswordResetRequest`       | 202 — unauthenticated, **carries the app** |
- * | `POST   /api/client/password/reset/confirm` | `passwordResetConfirm`         | 204 — unauthenticated |
+ * | `GET    /api/org/groups`                    | —                          | `groupListResponse` |
+ * | `POST   /api/org/groups`                    | `createGroupRequest`       | `orgGroup` |
+ * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
+ * | `DELETE /api/org/groups/:id`                | —                          | 204 — **never** for the Org Admins group |
+ * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
+ * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
+ * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
+ * | `DELETE /api/org/users/:id`                 | —                          | 204 — **and every session of that user ends** |
+ * | `GET    /api/org/users/:id/group-usage?group_id=` | —                    | `groupUsageResponse` — the preview |
+ * | `PUT    /api/org/users/:id/group`           | `moveUserGroupRequest`     | `orgUser` — cascade, behind the acknowledgement |
+ * | `PATCH  /api/org/users/:id/tier`            | `tierChangeRequest`        | `orgUser` — **Owner**, last-owner guarded |
+ * | `GET    /api/org/users/:id/assignments`     | —                          | `appAssignmentListResponse` |
+ * | `PUT    /api/org/users/:id/assignments/:appId` | `putAssignmentRequest`  | `appAssignment` |
+ * | `DELETE /api/org/users/:id/assignments/:appId` | —                       | 204 |
+ * | `GET    /api/apps/:id/assignments`          | —                          | `appAssignmentListResponse` |
+ * | `GET    /api/apps/:id/group-usage?group_id=` | —                         | `groupUsageResponse` — the preview |
+ * | `PUT    /api/apps/:id/group`                | `putAppGroupRequest`       | `app` — cascade, behind the acknowledgement |
+ * | `POST   /api/org/invitations`               | `createUserInviteRequest`  | `userInvite` |
+ * | `GET    /api/org/invitations`               | —                          | `userInviteListResponse` — pending only, **no tokens** |
+ * | `DELETE /api/org/invitations/:id`           | —                          | 204 |
+ * | `POST   /api/org/invitations/accept`        | `acceptUserInviteRequest`  | `sessionTokens` — unauthenticated |
+ * | `POST   /api/auth/password/change`          | `passwordChangeRequest`    | `sessionTokens` — authenticated, **console** |
+ * | `POST   /api/auth/password/reset`           | `passwordResetRequest`     | 202 — unauthenticated, **always the same answer** |
+ * | `POST   /api/auth/password/reset/confirm`   | `passwordResetConfirm`     | 204 — unauthenticated |
+ * | `POST   /api/client/password/change`        | `passwordChangeRequest`     | `sessionTokens` — authenticated, **app session** |
+ * | `POST   /api/client/password/reset`         | `clientPasswordResetRequest`| 202 — unauthenticated, **carries the app** |
+ * | `POST   /api/client/password/reset/confirm` | `passwordResetConfirm`      | 204 — unauthenticated |
  *
- * **Developer invitations live under `/api/org/`, end-user ones under
- * `/api/end-users/`.** That separation is not cosmetic: the two identity
- * spaces must never authenticate each other (§3.1, §3.4), and a shared path
- * prefix is the first step towards a shared handler. The accept routes are
- * separate for the same reason — `/api/invitations/accept` is the end user's
- * and stays that way.
+ * **Deleted with no successor** (D6), listed so that a consumer looking for
+ * them finds the reason rather than a 404: `POST /api/client/register` and
+ * `/register/confirm`, `GET|PUT /api/apps/:id/self-registration`, the per-app
+ * end-user CRUD and invitation routes, and `GET|DELETE|PATCH
+ * /api/org/members[/:id]`. Client apps move to the new flow; there are no
+ * compatibility aliases, because an alias here is how the deleted model would
+ * survive in production while the contract said otherwise.
  *
- * **Self-registration belongs to an app and creates an end user** (§3.2:
- * *"Selbstregistrierung über eine App — pro App aktivierbar"*). The first
- * version of this table had `POST /api/auth/self-register` minting a
- * **developer** session against an org resolved by email domain — a feature
- * the spec does not contain, opening a path into the org that owns the robots
- * rather than into an app's pool. Caught by Threepio-W6c reading §3.2 against
- * the delta before anything was built on it.
- *
- * So it answers on the client-auth surface, takes the `app_identifier` an app
- * already ships, and issues client tokens. The role is not the caller's to
- * choose: the app's `selfRegistration.role_id` decides it, because §3.2 also
- * says a pool member has exactly one role per app.
- *
- * **And registering mints no session — the address is confirmed first.** A
- * domain filter gates which domains may register, never whether the caller
- * owns the address, so a direct mint let anybody who knew the pattern register
- * as somebody else at a permitted domain and receive a pool identity carrying
- * the app's chosen role. On this platform a role can mean permission to move a
- * robot. `POST /api/client/register` answers 202 and mails a link; the link is
- * spent at `/register/confirm`, which is what returns tokens. Both routes
- * answer identically for an address that already has an account.
+ * **A group move and an app re-link are their own routes, not fields on a
+ * PATCH.** Both cascade-delete assignments, both are preceded by a
+ * `groupUsageResponse` read, and both refuse without
+ * `acknowledge_assignment_loss: true` (see `moveUserGroupRequest` for why the
+ * acknowledgement is unconditional and a literal). The preview is a separate
+ * GET rather than a dry-run flag on the write, so that fetching it can never
+ * perform anything.
  *
  * **`POST /api/auth/password/reset` answers `202` for every well-formed
  * address**, known or not. It is the one route where §3.3's silence about
  * existence is not a preference but the entire point: any status, body or
  * timing difference between the two cases is an account-enumeration oracle.
  * Note *timing* — a route that only sends mail for a real address must not
- * become measurably faster for an unknown one.
+ * become measurably faster for an unknown one. **D1 gave it a second problem
+ * without changing its shape**: `users.email` is unique per org, not globally,
+ * so one address may name an org admin in several orgs and the route cannot
+ * ask which — asking *is* the oracle. The cloud settles that; see
+ * `passwordResetRequest`.
  *
- * **Both identity spaces get the password routes, mirrored.** Cluster D names
- * the end user explicitly — *"an end user cannot change their own password, and
- * there is no reset path"* — and a developer needs the same thing; the first
- * version of this table gave the routes only the developer prefix, which would
- * have shipped the wave's named item for the wrong principal. The shapes are
- * shared because the operation is identical; the **prefix** is what keeps the
- * spaces apart, exactly as it does for `login` (Nimbus-W6c, asking rather than
- * building against the reading he thought was wrong).
+ * **Both surfaces get the password routes, mirrored.** Cluster D named the end
+ * user explicitly — *"an end user cannot change their own password, and there
+ * is no reset path"* — and a console user needs the same thing; the first
+ * version of this table gave the routes only one prefix, which would have
+ * shipped the wave's named item for the wrong principal. The shapes are shared
+ * because the operation is identical; the **prefix** is what says which
+ * session is being spent, exactly as it does for `login`.
  *
  * **A password change answers with fresh `sessionTokens`, not `204`.** The
  * promise is that the session which made the change survives while every other
@@ -507,27 +516,24 @@ export type JobResponse = z.infer<typeof jobResponse>
  * Re-issuing is the honest way to keep the promise: revoke everything, hand the
  * caller a new pair. Anything else means the caller keeps working until their
  * access token expires and is then silently logged out, which is
- * indistinguishable from the change having failed — the exact outcome the
- * promise exists to prevent (Nimbus-W6c).
+ * indistinguishable from the change having failed (Nimbus-W6c).
  *
  * **Every link this wave mails must carry what the page needs to act on it.**
  * Three things were mailed to pages that could not handle them — a reset link
- * to the *request* page, a developer accept link to a `404`, a register
- * confirmation to a redirect (Kassandra-W6c). Fixing the paths alone would
- * have left the defect underneath: **both identity spaces mailed the identical
- * reset URL**, and the console's confirm page posts to the developer route, so
- * an end user's token sent there answers `token_spent` forever. A URL that
- * does not say which space minted it cannot be routed correctly by anything.
+ * to the *request* page, an accept link to a `404`, a register confirmation to
+ * a redirect (Kassandra-W6c). Fixing the paths alone would have left the defect
+ * underneath: **both surfaces mailed the identical reset URL**, and the
+ * console's confirm page posts to the console route, so an app user's token
+ * sent there answers `token_spent` forever. A URL that does not say which
+ * surface minted it cannot be routed correctly by anything.
  *
  * So the link shapes are fixed here rather than in whichever repo builds them:
  *
  * | purpose | URL |
  * |---|---|
- * | developer password reset   | `{console}/reset-password/{token}` |
- * | developer invitation       | `{console}/accept-developer-invite/{token}` |
- * | end-user password reset    | `{console}/app/{app_identifier}/reset-password/{token}` |
- * | end-user self-registration | `{console}/app/{app_identifier}/confirm-registration/{token}` |
- * | end-user invitation        | `{console}/invite/{token}` — unchanged, W3 |
+ * | console password reset     | `{console}/reset-password/{token}` |
+ * | app password reset         | `{console}/app/{app_identifier}/reset-password/{token}` |
+ * | user invitation            | `{console}/invite/{token}` — one link for every user now, admin or not |
  *
  * ## W7 — the asset store (§4.6)
  *

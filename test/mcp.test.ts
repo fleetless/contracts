@@ -142,6 +142,7 @@ describe('the MCP app switch', () => {
     org_id: '00000000-0000-4000-8000-000000000002',
     name: 'Ops',
     identifier: 'ops',
+    group_id: '00000000-0000-4000-8000-00000000000a',
     robot_ids: [],
     accepts_dynamic_clients: false,
     created_at: '2026-08-18T10:00:00.000Z',
@@ -158,9 +159,10 @@ describe('the MCP app switch', () => {
    * already makes for `accepts_dynamic_clients`.
    */
   it('is accepted at creation and at update, and unknown keys still are not', () => {
-    expect(createAppRequest.parse({ name: 'Ops', identifier: 'ops', mcp_enabled: true }).mcp_enabled).toBe(true)
+    const GROUP = '00000000-0000-4000-8000-00000000000a'
+    expect(createAppRequest.parse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp_enabled: true }).mcp_enabled).toBe(true)
     expect(updateAppRequest.parse({ mcp_enabled: false }).mcp_enabled).toBe(false)
-    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', mcp: true }).success).toBe(false)
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp: true }).success).toBe(false)
   })
 })
 

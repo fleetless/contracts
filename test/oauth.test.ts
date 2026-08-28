@@ -7,7 +7,6 @@ import {
   ERROR_CODES,
   idpConfig,
   idpIssuer,
-  selfRegistration,
   OAUTH_PATHS,
   oauthClient,
   oauthClientRegistration,
@@ -209,6 +208,7 @@ describe('accepts_dynamic_clients', () => {
     // `accepts_dynamic_clients` were quietly made optional. A check that
     // cannot fail for its own reason has stopped measuring its own claim.
     mcp_enabled: false,
+    group_id: '00000000-0000-4000-8000-00000000000a',
     created_at: '2026-08-18T00:00:00.000Z',
   }
 
@@ -415,7 +415,7 @@ describe('idpIssuer', () => {
   })
 })
 
-describe('one self-registration policy, not two', () => {
+describe('one provisioning policy, not two', () => {
   it('idpConfig carries no role of its own', () => {
     // There was briefly a `default_role_id` here — a weaker copy of
     // `selfRegistration` that the federated path read while reading none of
@@ -426,9 +426,19 @@ describe('one self-registration policy, not two', () => {
     expect('default_role_id' in idpConfigRequest.shape).toBe(false)
   })
 
-  it('selfRegistration still carries all four controls the decision needs', () => {
-    for (const field of ['enabled', 'all_domains', 'domains', 'role_id']) {
-      expect(field in selfRegistration.shape, field).toBe(true)
+  /**
+   * The other half of this pair asserted that `selfRegistration` still carried
+   * all four controls the decision needed. That policy was deleted on
+   * 2026-08-29 (D6: *"the old per-app self-registration dies with no
+   * successor"*), so the assertion is replaced by the one thing that must stay
+   * true across the gap: **while there is no policy, the federated path must
+   * not grow a role of its own to fill the hole.** The successor is D3's
+   * `jit_grants` on the group provider, in the oidc-federation plan.
+   */
+  it('grows no substitute policy while the successor is unbuilt', () => {
+    for (const field of ['default_role_id', 'jit_enabled', 'jit_grants', 'self_registration']) {
+      expect(field in idpConfig.shape, field).toBe(false)
+      expect(field in idpConfigRequest.shape, field).toBe(false)
     }
   })
 })

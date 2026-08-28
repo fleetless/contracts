@@ -2,15 +2,14 @@ import { describe, it, expect } from 'vitest'
 import {
   password,
   org,
-  orgMember,
+  orgUser,
   sessionTokens,
   signUpRequest,
   signUpResponse,
   developerLoginRequest,
-  endUser,
-  invitation,
-  createInvitationRequest,
-  acceptInvitationRequest,
+  userInvite,
+  createUserInviteRequest,
+  acceptUserInviteRequest,
   app,
   appIdentifier,
   serverKeyToken,
@@ -18,7 +17,7 @@ import {
   createServerKeyResponse,
   role,
   rolePermissions,
-  appMembership,
+  appAssignment,
   clientLoginRequest,
   clientIdentity,
   clientLogoutRequest,
@@ -51,22 +50,33 @@ describe('identity', () => {
     expect(
       signUpResponse.safeParse({
         org: { id: UUID, name: 'Dehne Robotik', created_at: NOW },
-        member: { id: UUID2, org_id: UUID, email: 'andre@example.com', display_name: null, role: 'owner', created_at: NOW },
+        user: {
+          id: UUID2, org_id: UUID, email: 'andre@example.com', display_name: null,
+          group_id: UUID, has_password: true, mcp_access: 'default', tier: 'owner', created_at: NOW,
+        },
         tokens: { access_token: 'a', refresh_token: 'r', expires_in: 900 },
       }).success,
     ).toBe(true)
   })
 
-  it('knows exactly two org tiers', () => {
-    const base = { id: UUID, org_id: UUID2, email: 'a@b.de', display_name: null, created_at: NOW }
-    expect(orgMember.safeParse({ ...base, role: 'owner' }).success).toBe(true)
-    expect(orgMember.safeParse({ ...base, role: 'member' }).success).toBe(true)
-    expect(orgMember.safeParse({ ...base, role: 'admin' }).success).toBe(false)
+  it('knows exactly two org-admin tiers, and only inside the Org Admins group', () => {
+    const base = {
+      id: UUID, org_id: UUID2, email: 'a@b.de', display_name: null, group_id: UUID,
+      has_password: true, mcp_access: 'default', created_at: NOW,
+    }
+    expect(orgUser.safeParse({ ...base, tier: 'owner' }).success).toBe(true)
+    expect(orgUser.safeParse({ ...base, tier: 'developer' }).success).toBe(true)
+    expect(orgUser.safeParse({ ...base, tier: 'admin' }).success).toBe(false)
+    // No tier at all is the ordinary case: a user outside the Org Admins group
+    // has no console powers to grade.
+    expect(orgUser.safeParse(base).success).toBe(true)
   })
 
-  it('separates the developer login from the client login', () => {
-    // The developer login carries no app identifier — that is what keeps the
-    // two identity spaces from accepting each other's credentials.
+  it('separates the console login from the app login', () => {
+    // The console login carries no app identifier: it is answered against the
+    // Org Admins group, never against an app's assignments. (Under D1 both
+    // resolve rows of the same pool — the app identifier is what says WHICH
+    // access is being claimed, not which identity space.)
     expect(developerLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(true)
     expect(clientLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(false)
     expect(
@@ -74,20 +84,17 @@ describe('identity', () => {
     ).toBe(true)
   })
 
-  it('tracks an end user through invited, active and blocked', () => {
-    const base = { id: UUID, org_id: UUID2, email: 'user@example.com', created_at: NOW }
-    for (const status of ['invited', 'active', 'blocked']) {
-      expect(endUser.safeParse({ ...base, status }).success).toBe(true)
-    }
-    expect(endUser.safeParse({ ...base, status: 'deleted' }).success).toBe(false)
-  })
+  // `tracks an end user through invited, active and blocked` was deleted on
+  // 2026-08-29: `endUser` is gone with the per-app pools, and D1's `users`
+  // carries no `status` column. Whether the pool regains a blocked state is
+  // the cloud's decision (see the note on the `account_blocked` error code) —
+  // a test asserting one here would be inventing it.
 
   it('carries the accept link and says what happened to the mail', () => {
     const invite = {
       id: UUID,
       email: 'user@example.com',
-      app_id: UUID2,
-      role_id: UUID,
+      group_id: UUID2,
       expires_at: NOW,
       accept_url: 'https://console.fleetless.dev/invite/abc',
       // `mail_sent: false` became `mail: 'not_configured' | 'failed' | 'sent'`.
@@ -95,15 +102,15 @@ describe('identity', () => {
       // so the console had to guess a cause — and guessed the reassuring one.
       mail: 'not_configured',
     }
-    expect(invitation.safeParse(invite).success).toBe(true)
+    expect(userInvite.safeParse(invite).success).toBe(true)
     // `not_configured` is a normal outcome, not an error — the link is the
     // primary path and a cloud without SMTP still invites. `failed` is not.
-    expect(invitation.safeParse({ ...invite, accept_url: 'not-a-url' }).success).toBe(false)
+    expect(userInvite.safeParse({ ...invite, accept_url: 'not-a-url' }).success).toBe(false)
     expect(
-      createInvitationRequest.safeParse({ email: 'u@e.de', app_id: UUID, role_id: UUID2, send_mail: true }).success,
+      createUserInviteRequest.safeParse({ email: 'u@e.de', group_id: UUID2, send_mail: true }).success,
     ).toBe(true)
-    expect(acceptInvitationRequest.safeParse({ token: 't', password: 'correct-horse-battery' }).success).toBe(true)
-    expect(acceptInvitationRequest.safeParse({ token: 't', password: 'short' }).success).toBe(false)
+    expect(acceptUserInviteRequest.safeParse({ token: 't', password: 'correct-horse-battery' }).success).toBe(true)
+    expect(acceptUserInviteRequest.safeParse({ token: 't', password: 'short' }).success).toBe(false)
   })
 
   it('bounds the session token shape', () => {
@@ -122,7 +129,7 @@ describe('apps, keys and roles', () => {
     expect(appIdentifier.safeParse('fleet-ops').success).toBe(true)
     expect(appIdentifier.safeParse('Fleet Ops').success).toBe(false)
     expect(
-      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet-ops', robot_ids: [UUID], accepts_dynamic_clients: false, mcp_enabled: false, created_at: NOW })
+      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet-ops', group_id: UUID2, robot_ids: [UUID], accepts_dynamic_clients: false, mcp_enabled: false, created_at: NOW })
         .success,
     ).toBe(true)
   })
@@ -166,7 +173,10 @@ describe('apps, keys and roles', () => {
   it('marks the two starting roles and gives a user one role per app', () => {
     expect(role.safeParse({ id: UUID, app_id: UUID2, name: 'observe', builtin: true }).success).toBe(true)
     expect(role.safeParse({ id: UUID, app_id: UUID2, name: 'night-shift', builtin: false }).success).toBe(true)
-    expect(appMembership.safeParse({ end_user_id: UUID, app_id: UUID2, role_id: UUID }).success).toBe(true)
+    // `appMembership.end_user_id` became `appAssignment.user_id` with the one
+    // pool; the "exactly one role per app" property it pinned is unchanged.
+    expect(appAssignment.safeParse({ user_id: UUID, app_id: UUID2, role_id: UUID }).success).toBe(true)
+    expect(appAssignment.safeParse({ end_user_id: UUID, app_id: UUID2, role_id: UUID }).success).toBe(false)
   })
 
   it('reports who the caller is without making the client decode a token', () => {

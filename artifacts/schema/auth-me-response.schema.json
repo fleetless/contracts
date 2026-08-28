@@ -28,7 +28,7 @@
       ],
       "additionalProperties": false
     },
-    "member": {
+    "user": {
       "type": "object",
       "properties": {
         "id": {
@@ -58,11 +58,27 @@
             }
           ]
         },
-        "role": {
+        "group_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "has_password": {
+          "type": "boolean"
+        },
+        "mcp_access": {
+          "type": "string",
+          "enum": [
+            "default",
+            "allowed",
+            "denied"
+          ]
+        },
+        "tier": {
           "type": "string",
           "enum": [
             "owner",
-            "member"
+            "developer"
           ]
         },
         "created_at": {
@@ -76,7 +92,9 @@
         "org_id",
         "email",
         "display_name",
-        "role",
+        "group_id",
+        "has_password",
+        "mcp_access",
         "created_at"
       ],
       "additionalProperties": false
@@ -84,7 +102,7 @@
   },
   "required": [
     "org",
-    "member"
+    "user"
   ],
   "additionalProperties": false
 }

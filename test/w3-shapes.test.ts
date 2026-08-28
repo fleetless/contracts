@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  orgMember,
+  orgUser,
   patchOrgRequest,
-  patchOrgMemberRequest,
+  tierChangeRequest,
   patchAuthMeRequest,
 } from '../src/identity.js'
 import { patchRobotRequest, renameSlugRequest } from '../src/rest.js'
@@ -22,11 +22,13 @@ describe('W3a — org, member and robot patches; slug rename', () => {
     expect(patchOrgRequest.safeParse({ name: 'Dehne Robotik', nam: 'x' }).success).toBe(false)
   })
 
-  it('patchOrgMemberRequest: strict, and only the two known roles', () => {
-    expect(patchOrgMemberRequest.safeParse({ role: 'owner' }).success).toBe(true)
-    expect(patchOrgMemberRequest.safeParse({ role: 'member' }).success).toBe(true)
-    expect(patchOrgMemberRequest.safeParse({ role: 'admin' }).success).toBe(false)
-    expect(patchOrgMemberRequest.safeParse({ role: 'owner', roles: ['owner'] }).success).toBe(false)
+  // `patchOrgMemberRequest` became `tierChangeRequest` on 2026-08-29: same
+  // act (owner-only, last-owner guard), new field name and new tier names.
+  it('tierChangeRequest: strict, and only the two known tiers', () => {
+    expect(tierChangeRequest.safeParse({ tier: 'owner' }).success).toBe(true)
+    expect(tierChangeRequest.safeParse({ tier: 'developer' }).success).toBe(true)
+    expect(tierChangeRequest.safeParse({ tier: 'admin' }).success).toBe(false)
+    expect(tierChangeRequest.safeParse({ tier: 'owner', tiers: ['owner'] }).success).toBe(false)
   })
 
   it('patchAuthMeRequest: strict, nullable, and pins the 120-char display_name bound', () => {
@@ -55,26 +57,30 @@ describe('W3a — org, member and robot patches; slug rename', () => {
   })
 
   /**
-   * **The design's main defence, pinned explicitly.** `orgMember.display_name`
-   * is required (nullable, not optional) precisely so that any mapper the
-   * cloud writes from a database row to this shape is *forced* to carry the
-   * column across — an `.optional()` or `.nullish()` field would let a mapper
-   * that forgot the column pass validation anyway, silently dropping it. This
-   * test exists to go red the moment that requiredness is loosened; see the
-   * fix report for the break-test run that confirmed it does.
+   * **The design's main defence, pinned explicitly.** `orgUser.display_name`
+   * (`orgMember`'s successor since the 2026-08-29 identity merge) is required
+   * (nullable, not optional) precisely so that any mapper the cloud writes
+   * from a database row to this shape is *forced* to carry the column across —
+   * an `.optional()` or `.nullish()` field would let a mapper that forgot the
+   * column pass validation anyway, silently dropping it. This test exists to
+   * go red the moment that requiredness is loosened; see the fix report for
+   * the break-test run that confirmed it does.
    */
-  it('orgMember: display_name is required (nullable, not optional) — parsing without the key fails', () => {
+  it('orgUser: display_name is required (nullable, not optional) — parsing without the key fails', () => {
     const withKey = {
       id: UUID,
       org_id: UUID2,
       email: 'a@b.de',
       display_name: null,
-      role: 'owner',
+      group_id: UUID2,
+      has_password: true,
+      mcp_access: 'default',
+      tier: 'owner',
       created_at: NOW,
     }
-    expect(orgMember.safeParse(withKey).success).toBe(true)
+    expect(orgUser.safeParse(withKey).success).toBe(true)
 
     const { display_name: _drop, ...withoutKey } = withKey
-    expect(orgMember.safeParse(withoutKey).success).toBe(false)
+    expect(orgUser.safeParse(withoutKey).success).toBe(false)
   })
 })

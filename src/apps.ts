@@ -27,6 +27,20 @@ export const app = z.object({
   org_id: z.uuid(),
   name: z.string().min(1).max(120),
   identifier: appIdentifier,
+  /**
+   * **Exactly one group owns this app** (2026-08-29 identity redesign, D2).
+   * The app uses that group's auth provider, and only users of that group can
+   * hold an assignment for it — which is why re-linking cascade-deletes the
+   * assignments that stop being valid.
+   *
+   * Not nullable and not optional: "an app with no group" is not a state the
+   * model has, and an optional field here would let a mapper that forgot the
+   * column produce one anyway.
+   *
+   * Changing it is `PUT /api/apps/:id/group` with `putAppGroupRequest`, never
+   * `updateAppRequest` — see the comment there.
+   */
+  group_id: z.uuid(),
   /** Robots are referenced individually; tags never grant rights (§12.2). */
   robot_ids: z.array(z.uuid()),
   /**
@@ -109,9 +123,26 @@ export const createAppRequest = z.object({
    * switches.
    */
   mcp_enabled: z.boolean().optional(),
+  /**
+   * Required, unlike the two switches above: an app belongs to exactly one
+   * group from the moment it exists (D2), there is no sensible default — the
+   * Org Admins group would be the one group whose members never hold
+   * assignments — and a defaulted answer here decides who can log into the app.
+   */
+  group_id: z.uuid(),
 }).strict()
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
+/**
+ * **`group_id` is absent here on purpose.** Re-linking an app to another group
+ * cascade-deletes every assignment that stops being valid, so it is its own
+ * route with its own acknowledgement (`putAppGroupRequest`). A rename must not
+ * be able to arrive carrying that.
+ *
+ * This shape is not `.strict()`, so an offered `group_id` is *dropped* rather
+ * than refused — a silence this project has been bitten by before. The route
+ * is the place that must refuse it loudly.
+ */
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
@@ -225,13 +256,11 @@ export const rolePermissions = z.object({
 })
 export type RolePermissions = z.infer<typeof rolePermissions>
 
-/** An end user has exactly one role per app (spec §3.2). */
-export const appMembership = z.object({
-  end_user_id: z.uuid(),
-  app_id: z.uuid(),
-  role_id: z.uuid(),
-})
-export type AppMembership = z.infer<typeof appMembership>
+/* `appMembership` (end_user_id, app_id, role_id) was deleted on 2026-08-29:
+ * it is `appAssignment` in `identity.ts` now, keyed by `user_id` because there
+ * is one pool. Not renamed in place — the field name was the whole of what
+ * changed, and a shape that kept `end_user_id` would have let the deleted
+ * model survive in every consumer that only reads keys. */
 
 /**
  * Per-app branding for the hosted login page (André, 2026-08-18).

@@ -2,16 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "role": {
+    "name": {
       "type": "string",
-      "enum": [
-        "owner",
-        "member"
-      ]
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "mcp_enabled": {
+      "default": false,
+      "type": "boolean"
     }
   },
   "required": [
-    "role"
+    "name"
   ],
   "additionalProperties": false
 }

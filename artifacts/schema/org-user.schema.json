@@ -12,35 +12,45 @@
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
-    "name": {
+    "email": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 120
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
     },
-    "identifier": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    "display_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "group_id": {
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
-    "robot_ids": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "format": "uuid",
-        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
-    },
-    "accepts_dynamic_clients": {
+    "has_password": {
       "type": "boolean"
     },
-    "mcp_enabled": {
-      "type": "boolean"
+    "mcp_access": {
+      "type": "string",
+      "enum": [
+        "default",
+        "allowed",
+        "denied"
+      ]
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "developer"
+      ]
     },
     "created_at": {
       "type": "string",
@@ -51,12 +61,11 @@
   "required": [
     "id",
     "org_id",
-    "name",
-    "identifier",
+    "email",
+    "display_name",
     "group_id",
-    "robot_ids",
-    "accepts_dynamic_clients",
-    "mcp_enabled",
+    "has_password",
+    "mcp_access",
     "created_at"
   ],
   "additionalProperties": false
