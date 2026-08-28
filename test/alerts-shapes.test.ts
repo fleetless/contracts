@@ -103,6 +103,22 @@ describe('datapointAlert — the entity, definition + runtime state together', (
     expect(parsed.condition).toMatchObject({ resolve_hysteresis: 0 })
   })
 
+  it('orphaned is optional — an entity without it still parses (create/patch responses, org firing endpoint)', () => {
+    const parsed = datapointAlert.parse(VALID_ALERT)
+    expect(parsed.orphaned).toBeUndefined()
+  })
+
+  it('orphaned is accepted when boolean, in both directions', () => {
+    expect(datapointAlert.parse({ ...VALID_ALERT, orphaned: true }).orphaned).toBe(true)
+    expect(datapointAlert.parse({ ...VALID_ALERT, orphaned: false }).orphaned).toBe(false)
+  })
+
+  it('orphaned rejects a non-boolean value rather than coercing it', () => {
+    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: 'true' }).success).toBe(false)
+    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: 1 }).success).toBe(false)
+    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: null }).success).toBe(false)
+  })
+
   it('caps recipients at ALERT_RECIPIENTS_MAX (20)', () => {
     expect(datapointAlert.safeParse({ ...VALID_ALERT, recipients: Array(20).fill('dev@example.com') }).success).toBe(
       true,
@@ -237,6 +253,11 @@ describe('slugUsageResponse — alert_count (D5): the rename dialog counts alert
 describe('alertListResponse / orgFiringAlertsResponse', () => {
   it('alertListResponse wraps a list of alerts', () => {
     expect(alertListResponse.parse({ alerts: [VALID_ALERT] }).alerts).toHaveLength(1)
+  })
+
+  it('alertListResponse accepts orphaned on an entry — the shape this route actually sends', () => {
+    const parsed = alertListResponse.parse({ alerts: [{ ...VALID_ALERT, orphaned: true }] })
+    expect(parsed.alerts[0]!.orphaned).toBe(true)
   })
 
   it('orgFiringAlertsResponse requires robot_name alongside every alert field', () => {

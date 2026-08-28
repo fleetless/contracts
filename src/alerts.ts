@@ -103,9 +103,32 @@ export const datapointAlert = z.object({
   state: alertState,
   /** `null` only until the first evaluation writes a state; every alert is created `ok` (D2), so in practice this is set from creation onward. */
   state_since: z.iso.datetime().nullable(),
-  /** The last sample value the evaluator saw for this slug, whatever shape that datapoint carries — same `unknown` as `datapointValue.value`. `null` before the first sample. */
+  /**
+   * The value at the alert's last state transition — written only when the
+   * alert fires or resolves, never on a per-sample basis. This is a
+   * deliberate cost trade, not an oversight: a per-sample write would turn
+   * every accepted sample into a DB write regardless of whether anything
+   * changed, which is exactly the hot-path cost the evaluator avoids
+   * everywhere else. It follows that this is NOT "the datapoint's current
+   * value" — for that, read the live snapshot (`datapointValue`, or the
+   * realtime datapoint stream), never this field. `null` before the
+   * alert's first transition.
+   */
   last_value: z.unknown().nullable(),
   created_at: z.iso.datetime(),
+  /**
+   * Whether this alert's `slug` is absent from the robot's published
+   * config. Computed on read, not stored — it would otherwise need its own
+   * write path kept in sync with every publish — and true for an absent
+   * slug the same way a missing key reads as "not there". Set only by
+   * `GET /api/robots/:id/alerts`; absent (never `false`) from
+   * `createAlertRequest`/`patchAlertRequest` responses and from
+   * `orgFiringAlertsResponse`, which have no published-config context to
+   * compute it against at their call sites. Optional, not required, so
+   * those other shapes — which share this same entity — stay valid
+   * without carrying a field that does not apply to them.
+   */
+  orphaned: z.boolean().optional(),
 })
 export type DatapointAlert = z.infer<typeof datapointAlert>
 
@@ -159,7 +182,7 @@ export const patchAlertRequest = z
   .strict()
 export type PatchAlertRequest = z.infer<typeof patchAlertRequest>
 
-/** `GET /api/robots/:id/alerts`. */
+/** `GET /api/robots/:id/alerts` — the one route that sets `datapointAlert.orphaned` on every entry. */
 export const alertListResponse = z.object({
   alerts: z.array(datapointAlert),
 })
@@ -169,7 +192,9 @@ export type AlertListResponse = z.infer<typeof alertListResponse>
  * `GET /api/org/alerts?state=firing` — feeds the overview's "open issues"
  * tile and the fleet grid's per-robot badge (D3). Org-scoped and
  * cross-robot, so each entry carries `robot_name` alongside the alert: the
- * overview has no robot context of its own to join against.
+ * overview has no robot context of its own to join against. Never sets
+ * `orphaned` — this route has no per-robot published-config context to
+ * compute it against, and the shape's own doc comment says so.
  */
 export const orgFiringAlertsResponse = z.object({
   alerts: z.array(datapointAlert.extend({ robot_name: z.string().min(1).max(63) })),
