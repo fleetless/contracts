@@ -16,30 +16,40 @@ import { slug } from './common.js'
 /**
  * `above`/`below` compare the numeric sample value (already scale/offset
  * applied by the bridge) against `threshold`. `resolve_hysteresis` (≥ 0,
- * default 0 — plain re-cross) moves the resolve point off the threshold
- * itself: `above` resolves at `value ≤ threshold − resolve_hysteresis`,
- * mirrored for `below`. `equals` compares the raw value for equality — the
- * shape for boolean/string datapoints a threshold cannot describe ("Hindernis
- * erkannt" = `equals true`) — and carries no hysteresis, because equality has
- * no direction to relax.
+ * **defaulted to 0** — plain re-cross) moves the resolve point off the
+ * threshold itself: `above` resolves at `value ≤ threshold −
+ * resolve_hysteresis`, mirrored for `below`. Defaulted rather than left
+ * `optional` so a parsed entity never makes a consumer re-derive "absent
+ * means 0" — the cloud always sends an explicit resolve point, and every
+ * reader gets the same number whether it was sent or not. `equals` compares
+ * the raw value for equality — the shape for boolean/string datapoints a
+ * threshold cannot describe ("Hindernis erkannt" = `equals true`) — and
+ * carries no hysteresis, because equality has no direction to relax.
  *
  * A discriminated union on `kind` rather than one object with optional
  * fields: an `equals` alert carrying a stray `threshold` would otherwise
  * parse silently and mean nothing, and a consumer's `switch (kind)` fails
  * `tsc` on an unhandled member instead of failing at runtime on a `never`.
+ *
+ * **Each member is `.strict()`, not the union's default `z.object`.** A
+ * plain `z.object` strips unknown keys silently rather than refusing them —
+ * so without this, `{kind: 'equals', value: true, threshold: 5}` would
+ * parse successfully with `threshold` dropped on the floor, which is exactly
+ * the "parse silently and mean nothing" failure the paragraph above already
+ * argued against, just one layer further in.
  */
 export const alertCondition = z.discriminatedUnion('kind', [
-  z.object({
+  z.strictObject({
     kind: z.literal('above'),
     threshold: z.number().finite(),
-    resolve_hysteresis: z.number().nonnegative().optional(),
+    resolve_hysteresis: z.number().nonnegative().default(0),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('below'),
     threshold: z.number().finite(),
-    resolve_hysteresis: z.number().nonnegative().optional(),
+    resolve_hysteresis: z.number().nonnegative().default(0),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('equals'),
     /** A JSON scalar, matching what a datapoint value actually is on the wire — never an object or array. */
     value: z.union([z.number(), z.string(), z.boolean()]),
@@ -61,6 +71,10 @@ export type AlertState = z.infer<typeof alertState>
 
 /** Mail throttle: at most one firing mail per alert per this many minutes. Events themselves are never throttled — only mail (D2). */
 export const ALERT_COOLDOWN_MINUTES_DEFAULT = 15
+/** A week. Not a documented product decision — a sanity ceiling so a typo (`15000`) doesn't silently mean "never mails again" rather than failing loudly. */
+export const ALERT_COOLDOWN_MINUTES_MAX = 10_080
+/** Fan-out bound, the same discipline as the other per-alert bounds in this file — a mistyped mailing list should fail validation, not become an incident. */
+export const ALERT_RECIPIENTS_MAX = 20
 
 /**
  * One alert row, definition and runtime state together — the runtime fields
@@ -78,13 +92,13 @@ export const datapointAlert = z.object({
   enabled: z.boolean(),
   severity: alertSeverity,
   condition: alertCondition,
-  cooldown_minutes: z.number().int().min(1),
+  cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX),
   /**
    * Prefilled with the creating developer by the console, not by this
    * schema. **An empty list is a valid, meaningful state** — "no mail" — not
-   * an omission this shape should refuse.
+   * an omission this shape should refuse. Capped at `ALERT_RECIPIENTS_MAX`.
    */
-  recipients: z.array(z.email()),
+  recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
   notify_on_resolve: z.boolean(),
   state: alertState,
   /** `null` only until the first evaluation writes a state; every alert is created `ok` (D2), so in practice this is set from creation onward. */
@@ -113,8 +127,8 @@ export const createAlertRequest = z
     enabled: z.boolean().default(true),
     severity: alertSeverity,
     condition: alertCondition,
-    cooldown_minutes: z.number().int().min(1).default(ALERT_COOLDOWN_MINUTES_DEFAULT),
-    recipients: z.array(z.email()),
+    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).default(ALERT_COOLDOWN_MINUTES_DEFAULT),
+    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
     notify_on_resolve: z.boolean().default(false),
   })
   .strict()
@@ -138,8 +152,8 @@ export const patchAlertRequest = z
     enabled: z.boolean().optional(),
     severity: alertSeverity.optional(),
     condition: alertCondition.optional(),
-    cooldown_minutes: z.number().int().min(1).optional(),
-    recipients: z.array(z.email()).optional(),
+    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).optional(),
+    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX).optional(),
     notify_on_resolve: z.boolean().optional(),
   })
   .strict()

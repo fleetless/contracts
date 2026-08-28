@@ -1866,10 +1866,20 @@ export const renameSlugResponse = z.object({
 })
 export type RenameSlugResponse = z.infer<typeof renameSlugResponse>
 
-/** `GET /api/robots/:id/config/slug-usage/:slug` — what a rename would touch; feeds the console's confirm dialog. */
+/**
+ * `GET /api/robots/:id/config/slug-usage/:slug` — what a rename would touch;
+ * feeds the console's confirm dialog.
+ *
+ * `alert_count` (spec `2026-08-28-alerts-and-datapoint-modal-design`, D5)
+ * joined the atomic rename transaction alongside grants and history: alerts
+ * are keyed by `(robot_id, slug)` too, and a rename that silently moved the
+ * alert row while the usage preview stayed silent about it would show a
+ * developer a smaller blast radius than the rename actually has.
+ */
 export const slugUsageResponse = z.object({
   grant_count: z.number().int().nonnegative(),
   app_identifiers: z.array(z.string()),
-  has_recorded_history: z.boolean()
+  has_recorded_history: z.boolean(),
+  alert_count: z.number().int().nonnegative(),
 })
 export type SlugUsageResponse = z.infer<typeof slugUsageResponse>

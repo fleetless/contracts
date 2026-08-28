@@ -15,12 +15,18 @@
     },
     "has_recorded_history": {
       "type": "boolean"
+    },
+    "alert_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
     }
   },
   "required": [
     "grant_count",
     "app_identifiers",
-    "has_recorded_history"
+    "has_recorded_history",
+    "alert_count"
   ],
   "additionalProperties": false
 }

@@ -9,6 +9,7 @@ import {
   datapointDisplay,
   putDatapointDisplayRequest,
   orgEvent,
+  slugUsageResponse,
 } from '../src/index.js'
 
 // Valid UUIDs: zod 4's z.uuid() enforces the version and variant nibbles, so
@@ -47,11 +48,24 @@ describe('alertCondition — discriminated union on kind', () => {
     expect(alertCondition.safeParse({ kind: 'below' }).success).toBe(false)
   })
 
-  it('resolve_hysteresis is optional but non-negative when present', () => {
+  it('resolve_hysteresis is optional on input but non-negative when present', () => {
     expect(alertCondition.safeParse({ kind: 'above', threshold: 10, resolve_hysteresis: 0 }).success).toBe(true)
     expect(alertCondition.safeParse({ kind: 'above', threshold: 10, resolve_hysteresis: 2 }).success).toBe(true)
     // Bounds pin: -1 must be refused, not clamped or silently accepted.
     expect(alertCondition.safeParse({ kind: 'above', threshold: 10, resolve_hysteresis: -1 }).success).toBe(false)
+  })
+
+  it('resolve_hysteresis defaults to 0 when absent, on both above and below', () => {
+    expect(alertCondition.parse({ kind: 'above', threshold: 10 })).toMatchObject({ resolve_hysteresis: 0 })
+    expect(alertCondition.parse({ kind: 'below', threshold: 10 })).toMatchObject({ resolve_hysteresis: 0 })
+  })
+
+  it('above rejects an unrecognized key — each union member is .strict(), not zod\'s default strip', () => {
+    expect(alertCondition.safeParse({ kind: 'above', threshold: 10, value: true }).success).toBe(false)
+  })
+
+  it('equals rejects a stray threshold — the exact silent-drop this schema\'s doc comment used to be wrong about', () => {
+    expect(alertCondition.safeParse({ kind: 'equals', value: true, threshold: 5 }).success).toBe(false)
   })
 
   it('equals accepts a JSON scalar and refuses object/array values', () => {
@@ -82,6 +96,20 @@ describe('datapointAlert — the entity, definition + runtime state together', (
   it('state_since and last_value are nullable', () => {
     expect(datapointAlert.parse({ ...VALID_ALERT, state_since: NOW, last_value: 19.4 }).last_value).toBe(19.4)
     expect(datapointAlert.parse({ ...VALID_ALERT, state_since: null, last_value: null }).last_value).toBeNull()
+  })
+
+  it('a parsed entity never needs to re-derive "absent means 0" — resolve_hysteresis defaults on the entity too', () => {
+    const parsed = datapointAlert.parse({ ...VALID_ALERT, condition: { kind: 'below', threshold: 20 } })
+    expect(parsed.condition).toMatchObject({ resolve_hysteresis: 0 })
+  })
+
+  it('caps recipients at ALERT_RECIPIENTS_MAX (20)', () => {
+    expect(datapointAlert.safeParse({ ...VALID_ALERT, recipients: Array(20).fill('dev@example.com') }).success).toBe(
+      true,
+    )
+    expect(datapointAlert.safeParse({ ...VALID_ALERT, recipients: Array(21).fill('dev@example.com') }).success).toBe(
+      false,
+    )
   })
 })
 
@@ -139,6 +167,20 @@ describe('createAlertRequest — strict, no id/state fields, defaults', () => {
   it('is strict: a caller-supplied state alongside otherwise-valid fields is rejected', () => {
     expect(createAlertRequest.safeParse({ ...BASE, state: 'firing' }).success).toBe(false)
   })
+
+  it('rejects a 21st recipient — fan-out bound, ALERT_RECIPIENTS_MAX', () => {
+    expect(createAlertRequest.safeParse({ ...BASE, recipients: Array(20).fill('dev@example.com') }).success).toBe(
+      true,
+    )
+    expect(createAlertRequest.safeParse({ ...BASE, recipients: Array(21).fill('dev@example.com') }).success).toBe(
+      false,
+    )
+  })
+
+  it('rejects cooldown_minutes over a week (10080) — a sanity ceiling, not a product decision', () => {
+    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 10_080 }).success).toBe(true)
+    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 10_081 }).success).toBe(false)
+  })
 })
 
 describe('patchAlertRequest — strict, every definition field optional, never state', () => {
@@ -163,6 +205,32 @@ describe('patchAlertRequest — strict, every definition field optional, never s
   it('validates condition when present', () => {
     expect(patchAlertRequest.safeParse({ condition: { kind: 'above', threshold: 5 } }).success).toBe(true)
     expect(patchAlertRequest.safeParse({ condition: { kind: 'above' } }).success).toBe(false)
+  })
+
+  it('rejects cooldown_minutes over the week ceiling when present', () => {
+    expect(patchAlertRequest.safeParse({ cooldown_minutes: 10_081 }).success).toBe(false)
+  })
+
+  it('rejects a 21st recipient when present', () => {
+    expect(patchAlertRequest.safeParse({ recipients: Array(21).fill('dev@example.com') }).success).toBe(false)
+  })
+})
+
+describe('slugUsageResponse — alert_count (D5): the rename dialog counts alerts too', () => {
+  const USAGE = {
+    grant_count: 2,
+    app_identifiers: ['nav-app'],
+    has_recorded_history: true,
+    alert_count: 3,
+  }
+
+  it('parses with alert_count', () => {
+    expect(slugUsageResponse.parse(USAGE).alert_count).toBe(3)
+  })
+
+  it('requires alert_count — a rename-usage preview silent about alerts undercounts the blast radius', () => {
+    const { alert_count: _omit, ...withoutAlertCount } = USAGE
+    expect(slugUsageResponse.safeParse(withoutAlertCount).success).toBe(false)
   })
 })
 

@@ -491,6 +491,8 @@ export {
   alertSeverity,
   alertState,
   ALERT_COOLDOWN_MINUTES_DEFAULT,
+  ALERT_COOLDOWN_MINUTES_MAX,
+  ALERT_RECIPIENTS_MAX,
   datapointAlert,
   createAlertRequest,
   patchAlertRequest,

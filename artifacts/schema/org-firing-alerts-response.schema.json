@@ -51,13 +51,15 @@
                     "type": "number"
                   },
                   "resolve_hysteresis": {
+                    "default": 0,
                     "type": "number",
                     "minimum": 0
                   }
                 },
                 "required": [
                   "kind",
-                  "threshold"
+                  "threshold",
+                  "resolve_hysteresis"
                 ],
                 "additionalProperties": false
               },
@@ -72,13 +74,15 @@
                     "type": "number"
                   },
                   "resolve_hysteresis": {
+                    "default": 0,
                     "type": "number",
                     "minimum": 0
                   }
                 },
                 "required": [
                   "kind",
-                  "threshold"
+                  "threshold",
+                  "resolve_hysteresis"
                 ],
                 "additionalProperties": false
               },
@@ -114,9 +118,10 @@
           "cooldown_minutes": {
             "type": "integer",
             "minimum": 1,
-            "maximum": 9007199254740991
+            "maximum": 10080
           },
           "recipients": {
+            "maxItems": 20,
             "type": "array",
             "items": {
               "type": "string",
