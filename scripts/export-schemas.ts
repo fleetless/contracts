@@ -103,6 +103,15 @@ import {
   clientIdentity,
 } from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
+import {
+  datapointAlert,
+  createAlertRequest,
+  patchAlertRequest,
+  alertListResponse,
+  orgFiringAlertsResponse,
+  datapointDisplay,
+  putDatapointDisplayRequest,
+} from '../src/alerts.js'
 import { job, jobEvent } from '../src/jobs.js'
 import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary } from '../src/jobs.js'
 import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
@@ -305,6 +314,17 @@ export const exportedSchemas = {
   'rename-slug-request': renameSlugRequest,
   'rename-slug-response': renameSlugResponse,
   'slug-usage-response': slugUsageResponse,
+  // Datapoint alerts and chart display config (2026-08-28
+  // alerts-and-datapoint-modal-design, D1/D2/D5). `alertCondition`,
+  // `alertSeverity` and `alertState` are not registered on their own —
+  // embedded fields, the same call already made for `datapointRate`.
+  'datapoint-alert': datapointAlert,
+  'create-alert-request': createAlertRequest,
+  'patch-alert-request': patchAlertRequest,
+  'alert-list-response': alertListResponse,
+  'org-firing-alerts-response': orgFiringAlertsResponse,
+  'datapoint-display': datapointDisplay,
+  'put-datapoint-display-request': putDatapointDisplayRequest,
 } as const
 
 /**
@@ -412,6 +432,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'org-latency-query', 'audit-query', 'org-usage-query',
   'patch-org-request', 'patch-org-member-request', 'patch-auth-me-request',
   'patch-robot-request', 'rename-slug-request',
+  'create-alert-request', 'patch-alert-request', 'put-datapoint-display-request',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -445,6 +466,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
   'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',
   'auth-me-response', 'rename-slug-response', 'slug-usage-response',
+  'datapoint-alert', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

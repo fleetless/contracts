@@ -486,6 +486,31 @@ export type {
 } from './assets.js'
 export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS } from './audit.js'
 export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse } from './audit.js'
+export {
+  alertCondition,
+  alertSeverity,
+  alertState,
+  ALERT_COOLDOWN_MINUTES_DEFAULT,
+  datapointAlert,
+  createAlertRequest,
+  patchAlertRequest,
+  alertListResponse,
+  orgFiringAlertsResponse,
+  datapointDisplay,
+  putDatapointDisplayRequest,
+} from './alerts.js'
+export type {
+  AlertCondition,
+  AlertSeverity,
+  AlertState,
+  DatapointAlert,
+  CreateAlertRequest,
+  PatchAlertRequest,
+  AlertListResponse,
+  OrgFiringAlertsResponse,
+  DatapointDisplay,
+  PutDatapointDisplayRequest,
+} from './alerts.js'
 export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'
 export type { ApiError, ParameterViolation, ParameterInvalidDetails, ErrorCode } from './errors.js'
 export {

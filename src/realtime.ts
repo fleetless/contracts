@@ -443,7 +443,13 @@ export const ORG_EVENT_BUFFER_IDLE_MS = 3_600_000
 /** A log line, not a payload: a datapoint value is `unknown` and a LaserScan is megabytes. */
 export const ORG_EVENT_DETAIL_MAX_BYTES = 4_096
 
-export const orgEventKind = z.enum(['datapoint', 'health', 'job', 'bridge', 'audit'])
+/**
+ * `'alert'` — a transition of a datapoint alert (`ok ⇄ firing`, spec
+ * `2026-08-28-alerts-and-datapoint-modal-design` D2). A firing event carries
+ * the alert's own `severity`; a resolved event is always `info` — resolving
+ * is good news regardless of how bad the firing was.
+ */
+export const orgEventKind = z.enum(['datapoint', 'health', 'job', 'bridge', 'audit', 'alert'])
 export type OrgEventKind = z.infer<typeof orgEventKind>
 
 /**

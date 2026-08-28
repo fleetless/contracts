@@ -23,7 +23,8 @@
         "health",
         "job",
         "bridge",
-        "audit"
+        "audit",
+        "alert"
       ]
     },
     "severity": {
