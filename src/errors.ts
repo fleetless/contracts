@@ -89,21 +89,55 @@ export const ERROR_CODES = [
   'token_revoked',
   'invite_expired',
   'invite_used',
+  /**
+   * The address is already taken — **and what "already" means changed on
+   * 2026-08-29 (D1)**.
+   *
+   * It used to mean two different things depending on which shape produced
+   * it: a *global* collision for a developer (`org_members.email` was unique
+   * across the platform) and a per-org one for an end user. There is one pool
+   * now and one rule: `users.email` is unique **within the org**, so this code
+   * means *this org already has this address*. The same address in another org
+   * is a different person and is not a collision.
+   *
+   * The narrowing is worth stating because the code's name did not change: a
+   * consumer that reads it as "somebody, somewhere, has this address" is
+   * reading the pre-redesign meaning and will tell a user something false.
+   *
+   * It stays an answer to a *write* an authenticated admin made — inviting or
+   * creating — never to a login. `identity_conflict` is the login-side
+   * neighbour, and it deliberately says less.
+   */
   'email_taken',
   'identifier_taken',
   'weak_password',
-  'not_a_member',
+  /* `not_a_member` was removed on 2026-08-29. It had no producer anywhere in
+   * this repository or in the cloud (`grep` found exactly two hits: its own
+   * entry here and a test asserting the entry existed), and its vocabulary was
+   * the deleted model's — "member" of an app's pool, in a platform whose
+   * membership is now a group and whose access is an assignment. A code that
+   * nothing emits and whose noun no longer exists is the third failure mode in
+   * this project's list: a guard written against a state no producer reports.
+   * The refusals that do the work are `forbidden` (silent about existence) and
+   * `tier_required` (about the caller's own tier). */
   /**
    * The account itself is blocked — distinct from `forbidden` on purpose: it
    * tells the account holder something about *their own* account, and reveals
    * nothing about any other principal or about what exists.
    *
-   * **No producer since 2026-08-29, and that is worth knowing rather than
-   * discovering.** Blocking was a `status` column on `end_users`; D1's `users`
-   * has no such column, and nothing in the redesign reinstates one — removing
-   * a user's assignments is what withdraws access now. Kept, like
-   * `mcp_disabled`, because the reserved shape is the point; named as
-   * unproduced rather than left to look enforced.
+   * **It loses its producer when D1's `users` replaces `end_users` — it has
+   * not lost it yet.** At the time of writing the cloud still emits it from
+   * five sites (`auth.ts`, `routes/end-users.ts`, `ws/realtime.ts`, and twice
+   * in `routes/client-auth.ts`), all reading `end_users.status === 'blocked'`.
+   * D1's `users` has no `status` column and nothing in the redesign
+   * reinstates one — removing a user's assignments is what withdraws access
+   * there — so those five sites go with the old tables in the cloud task.
+   *
+   * Kept either way, like `mcp_disabled`, because the reserved shape is the
+   * point. Written in the tense that is true today rather than in the one the
+   * plan expects to become true: a comment that declares a producer gone
+   * before it is gone sends the next reader to `grep` and find the opposite,
+   * which is the failure `mcp_disabled`'s own comment was written to fix.
    */
   'account_blocked',
   // W4 — the command path.
@@ -506,5 +540,24 @@ export const ERROR_CODES = [
    * remedy.
    */
   'group_not_deletable',
+  /**
+   * **A group that still has members or apps.** 409 on
+   * `DELETE /api/org/groups/:id`, and the house precedent is `robot_in_use` /
+   * `credential_in_use`: a refusal that names the *state* blocking the delete,
+   * so the caller knows the remedy is to empty the group first — move the
+   * users, re-link or delete the apps.
+   *
+   * Deliberately separate from `group_not_deletable`, which is about the Org
+   * Admins group and can **never** be satisfied. This one clears the moment
+   * the last member and the last app leave, and the two remedies have nothing
+   * in common; one code for both would tell an owner to go looking for a way
+   * to empty a group that no amount of emptying will let them delete.
+   *
+   * Registered now, ahead of its producer, so the routes task does not need a
+   * second contracts commit and re-pin for one string. **That makes it
+   * unproduced until then** — the same standing as `mcp_disabled`, said out
+   * loud for the same reason.
+   */
+  'group_in_use',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

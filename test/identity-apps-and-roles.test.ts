@@ -250,10 +250,20 @@ describe('error vocabulary', () => {
       'email_taken',
       'identifier_taken',
       'weak_password',
-      'not_a_member',
     ]) {
       expect(ERROR_CODES).toContain(code)
     }
+  })
+
+  /**
+   * The other half: a code this file used to assert the *presence* of, now
+   * asserted absent. `not_a_member` had no producer and named the deleted
+   * model's noun; re-adding it would be re-adding a refusal nothing can
+   * answer with. See the tombstone in `errors.ts` for the reasoning.
+   */
+  it('has dropped the refusal that named the deleted model', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes).not.toContain('not_a_member')
   })
 })
 

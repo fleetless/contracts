@@ -161,6 +161,14 @@ export const JOB_RUN_RETENTION_DAYS = 90
  * Deliberately **not** `auditActor`: that enum carries `bridge` as a fourth
  * case, and a bridge invokes nothing. An enum that names an impossible case
  * invites every reader to handle it.
+ *
+ * **Seam — an unassigned residual (2026-08-29, D1).** `developer` and
+ * `end_user` were two identity spaces; they are now two ways of reaching the
+ * same pool — an Org Admins member and an assigned user. The distinction the
+ * enum draws is still *observable* (it is what the caller was acting as), so
+ * this is not yet wrong, but the words are the old model's. No current plan
+ * touches it; a rename would rewrite the meaning of every historical job row,
+ * which is a migration, not a contract edit.
  */
 export const jobActor = z.object({
   kind: z.enum(['developer', 'end_user', 'server_key']),

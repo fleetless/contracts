@@ -15,6 +15,16 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  * The four kinds of actor the platform knows (§3.4). `label` is what a human
  * reads in the log — an email, a key name, a robot name — so the console
  * never has to resolve four different id kinds to render a row.
+ *
+ * **Seam — an unassigned residual (2026-08-29, D1), and the one of the three
+ * most likely to be hit first.** `developer` / `end_user` are the merged
+ * spaces' names. The federation plan wires impersonation attribution ("Admin A
+ * as User B") into `recordAudit`'s actor resolution, which is exactly this
+ * plumbing — but that plan does not say it changes this enum, so calling it
+ * resolved there would be a promise nobody made. Whoever adds the `act`-claim
+ * half should decide it then; renaming here first would leave every stored
+ * audit row's `kind` disagreeing with its schema, and audit rows are the ones
+ * this platform must never rewrite.
  */
 export const auditActor = z.object({
   kind: z.enum(['developer', 'end_user', 'server_key', 'bridge']),

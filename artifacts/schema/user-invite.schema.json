@@ -24,6 +24,7 @@
     },
     "accept_url": {
       "type": "string",
+      "maxLength": 500,
       "format": "uri"
     },
     "mail": {

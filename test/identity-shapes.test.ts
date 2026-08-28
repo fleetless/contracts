@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest'
 import * as barrel from '../src/index.js'
 import * as identity from '../src/identity.js'
+import * as apps from '../src/apps.js'
 import { ERROR_CODES } from '../src/errors.js'
 import { app, createAppRequest, updateAppRequest } from '../src/index.js'
 import {
@@ -247,6 +248,14 @@ describe('userInvite / pendingUserInvite / acceptUserInviteRequest', () => {
     expect(userInvite.safeParse({ ...ISSUED, mail: 'delivered' }).success).toBe(false)
   })
 
+  it('bounds the accept link — an unbounded URL on a mailed shape is a size nobody chose', () => {
+    const long = 'https://console.fleetless.dev/accept-invite/' + 'x'.repeat(600)
+    expect(long.length).toBeGreaterThan(500)
+    expect(userInvite.safeParse({ ...ISSUED, accept_url: long }).success).toBe(false)
+    const ok = 'https://console.fleetless.dev/accept-invite/' + 'x'.repeat(400)
+    expect(userInvite.safeParse({ ...ISSUED, accept_url: ok }).success).toBe(true)
+  })
+
   /**
    * The list must not hand out live credentials — the same rule
    * `pendingDeveloperInvitation` carried, kept through the redesign. If
@@ -461,6 +470,12 @@ describe('the old per-app end-user world is gone from the contract', () => {
     'orgMember',
     'orgMemberRole',
     'patchOrgMemberRequest',
+    // From `apps.ts`, and the one whose resurrection would be worst: it is
+    // the only deleted shape that carried `end_user_id`, so a copy coming
+    // back would reintroduce the deleted model's key, not just its name.
+    // The list missed it for a round — a reviewer re-added the shape AND its
+    // barrel export and the whole suite stayed green.
+    'appMembership',
   ] as const
 
   it('exports none of them from the barrel', () => {
@@ -473,6 +488,17 @@ describe('the old per-app end-user world is gone from the contract', () => {
     for (const name of DELETED) {
       expect(name in identity, name).toBe(false)
     }
+  })
+
+  /**
+   * `appMembership` lived in `apps.ts`, so the module check above would pass
+   * vacuously for it — it was never an `identity` export to begin with. The
+   * barrel check is the one that binds for it, and this pins the module it
+   * actually has to be absent from.
+   */
+  it('exports appMembership from neither the apps module nor the barrel', () => {
+    expect('appMembership' in apps).toBe(false)
+    expect('appAssignment' in barrel).toBe(true)
   })
 })
 
@@ -538,14 +564,27 @@ describe('an app belongs to exactly one group (D2)', () => {
   })
 
   /**
-   * The re-link is `putAppGroupRequest` on its own route. `updateAppRequest`
-   * is not `.strict()`, so this pins the *absence* of the field rather than a
-   * refusal — a caller who sends it here is silently ignored, and the route is
-   * where that has to become loud.
+   * The re-link is `putAppGroupRequest` on its own route, and
+   * `updateAppRequest` is `.strict()` so asking for it here is a **refusal**,
+   * not a silent strip. The absence-pin this test used to carry (`'group_id'
+   * in shape` is false, and a parse drops it) could not tell *refused* from
+   * *quietly ignored* — which was the whole complaint about the shape before
+   * it became strict, so the assertion is now the stronger one.
    */
-  it('updateAppRequest carries no group_id — a rename cannot smuggle a re-link', () => {
+  it('updateAppRequest refuses group_id — a rename cannot smuggle a re-link', () => {
     expect('group_id' in updateAppRequest.shape).toBe(false)
-    expect(updateAppRequest.parse({ name: 'Renamed', group_id: GROUP })).not.toHaveProperty('group_id')
+    expect(updateAppRequest.safeParse({ name: 'Renamed', group_id: GROUP }).success).toBe(false)
+    // The fields it does carry still work, one at a time.
+    expect(updateAppRequest.safeParse({ name: 'Renamed' }).success).toBe(true)
+    expect(updateAppRequest.safeParse({}).success).toBe(true)
+  })
+
+  it('updateAppRequest refuses any unknown key, not only group_id', () => {
+    // Strictness is the property; `group_id` is one instance of it. A typo
+    // (`mcp_enable`) must not read as "leave it unchanged" either.
+    expect(updateAppRequest.safeParse({ name: 'Renamed', nam: 'x' }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ mcp_enable: true }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ identifier: 'renamed' }).success).toBe(false)
   })
 })
 
@@ -556,9 +595,24 @@ describe('the refusals this model needs are registered codes', () => {
    * A consumer switching exhaustively over `ERROR_CODES` could not handle a
    * code the server actually sends.
    */
-  it('registers last_owner and group_not_deletable', () => {
+  it('registers last_owner, group_not_deletable and group_in_use', () => {
     expect(ERROR_CODES).toContain('last_owner')
     expect(ERROR_CODES).toContain('group_not_deletable')
+    // Registered ahead of its producer so the routes task needs no second
+    // contracts commit and re-pin for one string — and unproduced until then,
+    // which its own doc comment says.
+    expect(ERROR_CODES).toContain('group_in_use')
+  })
+
+  /**
+   * The two group refusals are separate because their remedies are: emptying
+   * a group clears `group_in_use` and will never clear `group_not_deletable`.
+   * One code for both would send an owner looking for a way to empty a group
+   * that no amount of emptying lets them delete.
+   */
+  it('keeps the two group refusals apart', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes.indexOf('group_in_use')).not.toBe(codes.indexOf('group_not_deletable'))
   })
 
   it('keeps them distinct from the silent-about-existence refusals', () => {

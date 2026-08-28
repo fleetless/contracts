@@ -134,21 +134,31 @@ export const createAppRequest = z.object({
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
 /**
- * **`group_id` is absent here on purpose.** Re-linking an app to another group
- * cascade-deletes every assignment that stops being valid, so it is its own
- * route with its own acknowledgement (`putAppGroupRequest`). A rename must not
- * be able to arrive carrying that.
+ * **`group_id` is absent here on purpose, and `.strict()` is what makes that
+ * absence mean something.** Re-linking an app to another group cascade-deletes
+ * every assignment that stops being valid, so it is its own route with its own
+ * acknowledgement (`putAppGroupRequest`). A rename must not be able to arrive
+ * carrying that.
  *
- * This shape is not `.strict()`, so an offered `group_id` is *dropped* rather
- * than refused — a silence this project has been bitten by before. The route
- * is the place that must refuse it loudly.
+ * This shape was not strict until 2026-08-29, which meant an offered
+ * `group_id` was *dropped* — the caller got a `200`, the app kept its old
+ * group, and nothing anywhere said so. That is the exact silence
+ * `createAppRequest` above already learned about in W7a (*"a create shape that
+ * silently drops a field cost two people a day each"*), and the lesson had not
+ * been carried one shape over. A caller who sends `group_id` here is asking
+ * for something this route does not do, and the honest answer is `400`, not a
+ * success that means less than it looks.
+ *
+ * The route keeps its own check as belt-and-braces; a schema and a handler
+ * agreeing is not two policies, it is one policy stated where each half can
+ * enforce it.
  */
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
   accepts_dynamic_clients: z.boolean().optional(),
   mcp_enabled: z.boolean().optional(),
-})
+}).strict()
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 
 /**

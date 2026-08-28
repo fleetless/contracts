@@ -352,6 +352,14 @@ export type ProtectedResourceMetadata = z.infer<typeof protectedResourceMetadata
  * recorded against a client alone would be re-usable for a different app or a
  * role the user never saw — the user consented to a *sentence*, and every noun
  * in it has to be part of what is stored.
+ *
+ * **Seam — an unassigned residual (2026-08-29, D1).** `end_user_id` names a
+ * row of a table that no longer exists: there is one pool, and the field means
+ * `users.id`. No current plan renames it — the federation plan rewrites the
+ * authorize path that writes these rows and is the natural place, but it does
+ * not say so, and claiming otherwise would be inventing a commitment. Left as
+ * a name that is one word wrong rather than half-renamed here, where nothing
+ * would migrate the stored rows with it.
  */
 export const consentGrant = z.object({
   client_id: z.string().min(1).max(200),

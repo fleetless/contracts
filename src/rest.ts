@@ -447,9 +447,10 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | route | body | answers |
  * |---|---|---|
  * | `GET    /api/org/groups`                    | —                          | `groupListResponse` |
+ * | `GET    /api/org/groups/:id`                | —                          | `orgGroup` |
  * | `POST   /api/org/groups`                    | `createGroupRequest`       | `orgGroup` |
  * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
- * | `DELETE /api/org/groups/:id`                | —                          | 204 — **never** for the Org Admins group |
+ * | `DELETE /api/org/groups/:id`                | —                          | 204 — `group_not_deletable` for the Org Admins group, `group_in_use` while it holds members or apps |
  * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
  * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
  * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
@@ -498,7 +499,8 @@ export type JobResponse = z.infer<typeof jobResponse>
  * become measurably faster for an unknown one. **D1 gave it a second problem
  * without changing its shape**: `users.email` is unique per org, not globally,
  * so one address may name an org admin in several orgs and the route cannot
- * ask which — asking *is* the oracle. The cloud settles that; see
+ * ask which — asking *is* the oracle. Settled as multi-candidate verify on
+ * login and mail-every-match on reset, with no shape change; see
  * `passwordResetRequest`.
  *
  * **Both surfaces get the password routes, mirrored.** Cluster D named the end

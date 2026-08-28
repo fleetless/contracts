@@ -130,6 +130,13 @@ export type OrgGroup = z.infer<typeof orgGroup>
  * enforces in the database; a schema cannot see two rows at once and this one
  * makes no claim to. Two orgs may hold the same address, and they are two
  * different people as far as anything here can tell.
+ *
+ * That is a **loosening** — `org_members.email` was globally unique — so a
+ * bare address no longer resolves to one account on the login and reset
+ * routes. Settled without a contract change (Andre, 2026-08-29): console login
+ * verifies the password against every candidate row and refuses a double
+ * match; reset mails every match with an org-scoped token. Both shapes stay
+ * `{ email, … }`, which is precisely why that option was chosen.
  */
 export const orgUser = z.object({
   id: z.uuid(),
@@ -264,9 +271,13 @@ export type SignUpResponse = z.infer<typeof signUpResponse>
  * comment in the cloud said so explicitly — *"developer login takes only email
  * + password, no org context to disambiguate with"*. One address can now be an
  * org admin in two orgs, and nothing in this shape can tell the cloud which
- * one is meant. The login path must decide it (refuse the ambiguous case, or
- * carry an org selector); this contract deliberately does not pretend the
- * question is settled.
+ * one is meant.
+ *
+ * **Settled without changing this shape** (Andre, 2026-08-29): the login
+ * verifies the password against every candidate row and refuses a double
+ * match — an outcome nobody can provoke without already holding a password
+ * that works in two orgs. The alternative, an org selector, would have told an
+ * unauthenticated caller which orgs an address belongs to.
  */
 export const developerLoginRequest = z.object({
   email: z.email(),
@@ -355,7 +366,8 @@ export const userInvite = z.object({
   email: z.email(),
   group_id: z.uuid(),
   expires_at: z.iso.datetime(),
-  accept_url: z.url(),
+  /** Bounded like `idpIssuer`: an unbounded URL on a shape that gets mailed, logged and rendered is a size nobody chose. */
+  accept_url: z.url().max(500),
   /** Replaces `mail_sent: boolean` — see `mailStatus` for why one bit was not enough. */
   mail: mailStatus,
 })
@@ -649,10 +661,10 @@ export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
  * unique address (`org_members.email`) and resolved to exactly one account.
  * `users.email` is unique per org, so a bare address can now name one org
  * admin per org, and the route cannot ask which — asking is itself the oracle
- * this shape exists to avoid. The cloud's reset path must settle it (send to
- * every match, or refuse ambiguity silently), and it must do so **without**
- * changing what an unknown address sees. Named here, unresolved on purpose:
- * the plan's cloud task owns the decision, not this file.
+ * this shape exists to avoid. **Settled without changing this shape** (Andre,
+ * 2026-08-29): every match is mailed, each with an org-scoped token. An
+ * unknown address still sees the identical `202`, which is the constraint that
+ * ruled out every option that would have had to ask.
  */
 export const passwordResetRequest = z.object({
   email: z.email(),
