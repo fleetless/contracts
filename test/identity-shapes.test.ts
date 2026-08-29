@@ -548,6 +548,7 @@ describe('an app belongs to exactly one group (D2)', () => {
     robot_ids: [],
     accepts_dynamic_clients: false,
     mcp_enabled: false,
+    default_role_id: null,
     created_at: NOW,
   }
 
@@ -577,6 +578,29 @@ describe('an app belongs to exactly one group (D2)', () => {
     // The fields it does carry still work, one at a time.
     expect(updateAppRequest.safeParse({ name: 'Renamed' }).success).toBe(true)
     expect(updateAppRequest.safeParse({}).success).toBe(true)
+  })
+
+  /**
+   * D1 put the default role in *app settings*, and these two assertions are
+   * what keep it from becoming three different fields. `null` is a legal
+   * value on the row (an app that has not chosen one yet — every app, the
+   * moment it is created), and on the PATCH `null` is how you take it back
+   * off, which an `.optional()`-only field could never express.
+   */
+  it('default_role_id is required-and-nullable on the app row', () => {
+    expect(app.safeParse({ ...APP_ROW, default_role_id: ROLE }).success).toBe(true)
+    expect(app.safeParse({ ...APP_ROW, default_role_id: null }).success).toBe(true)
+    const { default_role_id: _dropped, ...without } = APP_ROW
+    expect(app.safeParse(without).success).toBe(false)
+    expect(app.safeParse({ ...APP_ROW, default_role_id: 'observe' }).success).toBe(false)
+  })
+
+  it('updateAppRequest can set the default role and can clear it', () => {
+    expect(updateAppRequest.safeParse({ default_role_id: ROLE }).success).toBe(true)
+    expect(updateAppRequest.safeParse({ default_role_id: null }).success).toBe(true)
+    // Absent is "leave it alone" — distinct from the explicit `null` above.
+    expect('default_role_id' in updateAppRequest.parse({ name: 'Renamed' })).toBe(false)
+    expect(updateAppRequest.safeParse({ default_role_id: 'not-a-uuid' }).success).toBe(false)
   })
 
   it('updateAppRequest refuses any unknown key, not only group_id', () => {

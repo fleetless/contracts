@@ -209,6 +209,7 @@ describe('accepts_dynamic_clients', () => {
     // cannot fail for its own reason has stopped measuring its own claim.
     mcp_enabled: false,
     group_id: '00000000-0000-4000-8000-00000000000a',
+    default_role_id: null,
     created_at: '2026-08-18T00:00:00.000Z',
   }
 

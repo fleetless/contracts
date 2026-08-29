@@ -129,7 +129,7 @@ describe('apps, keys and roles', () => {
     expect(appIdentifier.safeParse('fleet-ops').success).toBe(true)
     expect(appIdentifier.safeParse('Fleet Ops').success).toBe(false)
     expect(
-      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet-ops', group_id: UUID2, robot_ids: [UUID], accepts_dynamic_clients: false, mcp_enabled: false, created_at: NOW })
+      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet-ops', group_id: UUID2, robot_ids: [UUID], accepts_dynamic_clients: false, mcp_enabled: false, default_role_id: null, created_at: NOW })
         .success,
     ).toBe(true)
   })

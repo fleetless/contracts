@@ -511,7 +511,7 @@ export const putAssignmentRequest = z.object({ role_id: z.uuid() }).strict()
 export type PutAssignmentRequest = z.infer<typeof putAssignmentRequest>
 
 /**
- * `PATCH /api/org/users/:id/tier` — **owner-only, and the last owner is
+ * `PUT /api/org/users/:id/tier` — **owner-only, and the last owner is
  * neither demotable nor deletable** (D1; the rule carries over unchanged from
  * the Owner/Member world, refused with 409 `last_owner`).
  *

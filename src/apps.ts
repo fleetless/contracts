@@ -83,6 +83,27 @@ export const app = z.object({
    * that chain walkable.
    */
   mcp_enabled: z.boolean(),
+  /**
+   * **The app's default role** (2026-08-29 identity redesign, D1: *"role +
+   * rights matrix and default role in app settings"*).
+   *
+   * Two consumers, one field. The console prefills it when an admin assigns a
+   * user (`putAssignmentRequest` still carries the role explicitly — a
+   * prefill is not a default the server applies), and the cloud authorizes an
+   * **org admin** with it: admins hold no assignments (see `appAssignment`),
+   * so an app login by one has to get its role from somewhere, and until D4's
+   * impersonation interstitial lands this is that somewhere.
+   *
+   * `null` — and nullable rather than absent — means *this app has not chosen
+   * one*. That is a normal state, not an unset field: every app is created
+   * before its roles are configured, and the cloud falls back to the
+   * least-privileged builtin (`observe`) by name rather than picking a role by
+   * position. An app whose default role is deleted lands back here.
+   *
+   * The role must belong to **this** app; the schema sees a uuid and cannot
+   * check that, so `PATCH /api/apps/:id` does.
+   */
+  default_role_id: z.uuid().nullable(),
   created_at: z.iso.datetime(),
 })
 export type App = z.infer<typeof app>
@@ -158,6 +179,22 @@ export const updateAppRequest = z.object({
   robot_ids: z.array(z.uuid()).optional(),
   accepts_dynamic_clients: z.boolean().optional(),
   mcp_enabled: z.boolean().optional(),
+  /**
+   * `app.default_role_id`'s write half — an app *setting*, which is where D1
+   * put the default role, so it belongs on the app's own PATCH and not on a
+   * route of its own.
+   *
+   * **`.nullable().optional()`, and the two mean different things.** Absent
+   * leaves the current default alone; an explicit `null` clears it. A field
+   * that could only be set and never unset would make "we changed our mind"
+   * unreachable through the API — the same silence `group_id` above was made
+   * strict to avoid, from the other direction.
+   *
+   * Unlike `group_id`, this carries no cascade: changing it invalidates no
+   * assignment and cuts nobody off, so it needs no acknowledgement and no
+   * route of its own.
+   */
+  default_role_id: z.uuid().nullable().optional(),
 }).strict()
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 

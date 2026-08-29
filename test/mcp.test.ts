@@ -145,6 +145,7 @@ describe('the MCP app switch', () => {
     group_id: '00000000-0000-4000-8000-00000000000a',
     robot_ids: [],
     accepts_dynamic_clients: false,
+    default_role_id: null,
     created_at: '2026-08-18T10:00:00.000Z',
   }
 
