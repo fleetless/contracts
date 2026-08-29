@@ -589,5 +589,28 @@ export const ERROR_CODES = [
    * loud for the same reason.
    */
   'target_state_conflict',
+  // 2026-08-29 — central-mcp (D5).
+  /**
+   * **MCP access is gated off for this caller.** The central MCP server
+   * (`mcp.fleetless.dev`) decides access from the group flag `mcp_enabled`
+   * crossed with the per-user override `mcp_access` (`default | allowed |
+   * denied`): `denied` beats a group that is on, `allowed` beats a group
+   * that is off, `default` follows the group. When the answer is "no", this
+   * is the refusal — enforced at token issue **and** on every request, so a
+   * revocation bites at the next call, not the next refresh (D5).
+   *
+   * Deliberately its own code, not `forbidden`: `forbidden` is silent about
+   * existence and is the app-role refusal REST already speaks; this one is
+   * about a caller's *own* MCP entitlement, which the caller can act on
+   * (ask an admin to flip the flag or the override). Not `tier_required`
+   * either — that is about owner/developer rank, an orthogonal axis.
+   *
+   * **The cloud produces it in the gating task (central-mcp Task 4);
+   * registered here ahead of that producer so the task needs no second
+   * contracts commit and re-pin. That makes it unproduced until then** — the
+   * same standing as `group_in_use` and `target_state_conflict`, said out
+   * loud for the same reason.
+   */
+  'mcp_access_denied',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

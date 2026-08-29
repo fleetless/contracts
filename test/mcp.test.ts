@@ -291,3 +291,15 @@ describe('error codes', () => {
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
   })
 })
+
+describe('central MCP gating (D5)', () => {
+  it('carries mcp_access_denied — the refusal a gated user meets at the central server', () => {
+    // The group flag `mcp_enabled` × the per-user `mcp_access` override
+    // decide MCP access (D5); when the answer is "no", the central MCP
+    // server refuses with this code, at token issue AND on every request.
+    // Registered here ahead of its cloud producer (Task 4), the same
+    // standing as `mcp_disabled`/`group_in_use` — unproduced until then.
+    expect(ERROR_CODES).toContain('mcp_access_denied')
+    expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
+  })
+})
