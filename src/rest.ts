@@ -510,12 +510,11 @@ export type JobResponse = z.infer<typeof jobResponse>
  * existence is not a preference but the entire point: any status, body or
  * timing difference between the two cases is an account-enumeration oracle.
  * Note *timing* — a route that only sends mail for a real address must not
- * become measurably faster for an unknown one. **D1 gave it a second problem
- * without changing its shape**: `users.email` is unique per org, not globally,
- * so one address may name an org admin in several orgs and the route cannot
- * ask which — asking *is* the oracle. Settled as multi-candidate verify on
- * login and mail-every-match on reset, with no shape change; see
- * `passwordResetRequest`.
+ * become measurably faster for an unknown one. Email is **globally unique**
+ * (Andre, 2026-08-29), so a bare address names at most one account and the
+ * route mails the one match, if any; the per-org detour the 2026-08-29
+ * redesign briefly took (multi-candidate verify on login, mail-every-match on
+ * reset) is retired, with no shape change. See `passwordResetRequest`.
  *
  * **Both surfaces get the password routes, mirrored.** Cluster D named the end
  * user explicitly — *"an end user cannot change their own password, and there

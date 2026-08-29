@@ -18,12 +18,15 @@ import { appIdentifier } from './apps.js'
  * token shapes, and the enumeration-oracle reasoning on password reset — those
  * were never statements about which space a person lived in.
  *
- * **The one thing this merge loosened, said out loud:** `org_members.email`
- * was *globally* unique, and `users.email` is unique **per org** (D1). Every
- * shape here that identifies a person by a bare address — `developerLoginRequest`,
- * `passwordResetRequest` — therefore names something that can now match one
- * account *per org*. A schema cannot fix that; the resolution belongs to the
- * cloud's login path and is named on those shapes rather than implied away.
+ * **Email is globally unique** (Andre, 2026-08-29). The merge briefly
+ * loosened `org_members.email`'s platform-wide uniqueness to per-org (D1), but
+ * that was reversed the same day: `lower(email)` is unique across **all** orgs,
+ * so one address is exactly one `users` row in exactly one org. Every shape
+ * here that identifies a person by a bare address — `developerLoginRequest`,
+ * `passwordResetRequest` — therefore resolves to at most one account, with no
+ * org context needed to disambiguate. The multi-org-same-person case is gone
+ * by design; the consultant who wanted one address in several orgs now needs
+ * one address per org.
  */
 
 /**
@@ -126,17 +129,16 @@ export type OrgGroup = z.infer<typeof orgGroup>
  * **A user of the org's one pool** (D1) — the shape that replaced both
  * `orgMember` and `endUser`.
  *
- * `email` is **unique within the org**, and that is a constraint the cloud
- * enforces in the database; a schema cannot see two rows at once and this one
- * makes no claim to. Two orgs may hold the same address, and they are two
- * different people as far as anything here can tell.
+ * `email` is **globally unique** (Andre, 2026-08-29) — `lower(email)` unique
+ * across every org, a constraint the cloud enforces in the database; a schema
+ * cannot see two rows at once and this one makes no claim to. One address is
+ * one person: no two orgs may hold the same one.
  *
- * That is a **loosening** — `org_members.email` was globally unique — so a
- * bare address no longer resolves to one account on the login and reset
- * routes. Settled without a contract change (Andre, 2026-08-29): console login
- * verifies the password against every candidate row and refuses a double
- * match; reset mails every match with an org-scoped token. Both shapes stay
- * `{ email, … }`, which is precisely why that option was chosen.
+ * The 2026-08-29 redesign briefly made this per-org (a loosening of
+ * `org_members.email`'s global uniqueness), which is why the login and reset
+ * routes once verified against multiple candidate rows. That was reversed the
+ * same day: a bare address resolves to at most one account again, both shapes
+ * stay `{ email, … }`, and no org context is needed to disambiguate.
  */
 export const orgUser = z.object({
   id: z.uuid(),
@@ -265,19 +267,13 @@ export type SignUpResponse = z.infer<typeof signUpResponse>
  * group's OIDC provider never governs the console (D3), which removes the
  * IdP-lockout class entirely.
  *
- * **The residual D1 introduced, named rather than implied away:** this
- * resolves a person by address alone, and `users.email` is unique only *per
- * org*. Under `org_members` the address was globally unique and the schema
- * comment in the cloud said so explicitly — *"developer login takes only email
- * + password, no org context to disambiguate with"*. One address can now be an
- * org admin in two orgs, and nothing in this shape can tell the cloud which
- * one is meant.
- *
- * **Settled without changing this shape** (Andre, 2026-08-29): the login
- * verifies the password against every candidate row and refuses a double
- * match — an outcome nobody can provoke without already holding a password
- * that works in two orgs. The alternative, an org selector, would have told an
- * unauthenticated caller which orgs an address belongs to.
+ * This resolves a person by address alone, and `users.email` is **globally
+ * unique** (Andre, 2026-08-29), so a bare address names at most one account
+ * and no org context is needed to disambiguate. The 2026-08-29 redesign
+ * briefly made email per-org, which forced the login to verify against every
+ * candidate row and refuse a double match; that machinery is retired now that
+ * one address is one account. An org selector was never needed and would have
+ * told an unauthenticated caller which org an address belongs to.
  */
 export const developerLoginRequest = z.object({
   email: z.email(),
@@ -657,14 +653,12 @@ export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
  * status, body **and timing**, and any consumer that renders "no such account"
  * from it has reintroduced the oracle.
  *
- * **The console half of the D1 residual.** This shape assumed a globally
- * unique address (`org_members.email`) and resolved to exactly one account.
- * `users.email` is unique per org, so a bare address can now name one org
- * admin per org, and the route cannot ask which — asking is itself the oracle
- * this shape exists to avoid. **Settled without changing this shape** (Andre,
- * 2026-08-29): every match is mailed, each with an org-scoped token. An
- * unknown address still sees the identical `202`, which is the constraint that
- * ruled out every option that would have had to ask.
+ * A bare address resolves to at most one account: `users.email` is **globally
+ * unique** (Andre, 2026-08-29), so the reset mails the one match, if any, with
+ * a token bound to that account. The 2026-08-29 redesign briefly made email
+ * per-org, which had this route mail *every* match; that is retired with the
+ * multi-candidate machinery. An unknown address still sees the identical
+ * `202`, which is the property this shape exists to preserve.
  */
 export const passwordResetRequest = z.object({
   email: z.email(),
@@ -675,18 +669,16 @@ export type PasswordResetRequest = z.infer<typeof passwordResetRequest>
  * Asking for a reset link **through an app**.
  *
  * Same act, different shape, because the two surfaces identify a person
- * differently. A user's address is unique only per `(org_id, email)` — the
- * same address can belong to several orgs' pools — so a bare email has nothing
- * to scope the lookup to and the route would have to guess which account the
- * caller meant (Nimbus-W6c, building it; the reasoning outlived the pool split
- * that prompted it and now applies to the console route too — see
- * `passwordResetRequest`).
+ * differently. Email is globally unique (Andre, 2026-08-29), so a bare address
+ * does resolve to one account — but a client authenticates **per app**, and
+ * this surface stays symmetric with the rest of client-auth rather than
+ * reaching across apps from an address alone (Nimbus-W6c, building it).
  *
  * `app_identifier` is what every other client-auth shape already carries
  * (`clientLoginRequest`) for exactly this reason: on this surface a person is
- * identified by **app and address**, never by address alone. The app resolves
- * the org, and D2 makes that resolution sharper than it was: an app belongs to
- * one group, so the address is looked up in one pool.
+ * identified by **app and address**. The app resolves the org, and D2 makes
+ * that resolution sharper than it was: an app belongs to one group, so the
+ * address is looked up in one pool.
  *
  * The response is still identical for a known and an unknown pair, and for an
  * app that does not exist — otherwise this becomes the enumeration oracle the
@@ -1000,8 +992,9 @@ export const oidcCallbackErrorCode = z.enum([
   /** An unknown identity on a group with JIT off — no route in, by design (D3). */
   'jit_disabled',
   /**
-   * JIT would provision, but the asserted email already belongs to a user of
-   * the pool. **Refusal, never auto-link** (account-takeover guard, D3);
+   * JIT would provision, but the asserted email already belongs to a user —
+   * of this org or any other, since email is globally unique (Andre,
+   * 2026-08-29). **Refusal, never auto-link** (account-takeover guard, D3);
    * resolution is manual, by an org admin.
    */
   'email_collision',

@@ -90,23 +90,19 @@ export const ERROR_CODES = [
   'invite_expired',
   'invite_used',
   /**
-   * The address is already taken — **and what "already" means changed on
-   * 2026-08-29 (D1)**.
+   * The address is already taken — **globally, across every org** (Andre,
+   * 2026-08-29).
    *
-   * It used to mean two different things depending on which shape produced
-   * it: a *global* collision for a developer (`org_members.email` was unique
-   * across the platform) and a per-org one for an end user. There is one pool
-   * now and one rule: `users.email` is unique **within the org**, so this code
-   * means *this org already has this address*. The same address in another org
-   * is a different person and is not a collision.
+   * The 2026-08-29 redesign first made `users.email` unique *per org* (D1), so
+   * this code briefly meant only *this org already has this address*. That was
+   * reversed the same day: email is **globally unique** again, one address is
+   * exactly one account in exactly one org, and this code means *somebody,
+   * somewhere already has this address* — the pre-redesign meaning the code's
+   * name always implied. There is no per-org reading of it any more.
    *
-   * The narrowing is worth stating because the code's name did not change: a
-   * consumer that reads it as "somebody, somewhere, has this address" is
-   * reading the pre-redesign meaning and will tell a user something false.
-   *
-   * It stays an answer to a *write* an authenticated admin made — inviting or
-   * creating — never to a login. `identity_conflict` is the login-side
-   * neighbour, and it deliberately says less.
+   * It stays an answer to a *write* an authenticated admin made — signing up,
+   * inviting or creating — never to a login. `identity_conflict` is the
+   * login-side neighbour, and it deliberately says less.
    */
   'email_taken',
   'identifier_taken',
