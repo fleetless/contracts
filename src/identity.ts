@@ -215,7 +215,7 @@ export type GroupListResponse = z.infer<typeof groupListResponse>
 export const orgUserListResponse = z.object({ users: z.array(orgUser) })
 export type OrgUserListResponse = z.infer<typeof orgUserListResponse>
 
-/** `GET /api/org/users/:id/assignments` and `GET /api/apps/:id/assignments` — see `appAssignment` on why an empty list is not an answer about admins. */
+/** `GET /api/org/users/:id/assignments` — see `appAssignment` on why an empty list is not an answer about admins. (There is no app-scoped assignment list route; the live cloud serves only the per-user one.) */
 export const appAssignmentListResponse = z.object({ assignments: z.array(appAssignment) })
 export type AppAssignmentListResponse = z.infer<typeof appAssignmentListResponse>
 
@@ -875,6 +875,167 @@ export const orgFederationPolicyRequest = z.object({
   link_verified_emails: z.boolean(),
 }).strict()
 export type OrgFederationPolicyRequest = z.infer<typeof orgFederationPolicyRequest>
+
+/* ------------------------------------------------- oidc-federation, D3/D4 --
+ * **The provider moved from the app to the group** (spec
+ * `2026-08-29-org-identity-redesign`, D3). `idpConfig`/`idpConfigRequest`
+ * above are the per-app seam D3 supersedes — kept until the cloud drops the
+ * `idp_configs` table, not half-moved here — and the reasoning they carried
+ * (issuer SSRF residual, write-only secret, link-only-when-verified) is the
+ * reasoning below, unchanged. What is new is JIT: a group provider may admit
+ * unknown identities, and the grants it hands them are provider config.
+ */
+
+/**
+ * **One grant a JIT-provisioned user receives** (D3): an app and the role they
+ * get in it. Materialised as an `appAssignment` the first time an unknown
+ * `(issuer, sub)` signs in through a group whose provider has `jit_enabled`.
+ *
+ * `.strict()` — a stray key here is a misconfiguration that would silently
+ * grant the wrong thing. The schema cannot check that `role_id` belongs to
+ * `app_id`'s role set, nor that `app_id` belongs to the provider's group, nor
+ * that no two grants name the same app: those are the cloud's, the same three
+ * checks `putAssignmentRequest` already delegates.
+ */
+export const jitGrant = z.object({
+  app_id: z.uuid(),
+  role_id: z.uuid(),
+}).strict()
+export type JitGrant = z.infer<typeof jitGrant>
+
+/**
+ * **A group's OIDC provider, as read back** (D3) — at most one per group, and
+ * **never the Org Admins group's** (console login is always the Fleetless
+ * password provider, which removes the IdP-lockout class entirely). The schema
+ * cannot see which group is the admin one; it sees a `group_id`. The cloud
+ * refuses to attach a provider to the Org Admins group, and that refusal is
+ * `target_state_conflict` — a target in a state that forbids the operation.
+ *
+ * **No secret, by construction.** The client secret goes in through
+ * `putGroupOidcProviderRequest` and never comes back out — a secret a response
+ * can carry is a secret in every log that ever captured a response, the same
+ * rule the server key and `idpConfig` already keep. This shape is `.strict()`
+ * so a `client_secret` offered here is a refusal, not a silently dropped
+ * field: *field present* and *field absent* must never be the same outcome on
+ * a credential.
+ *
+ * `jit_grants` is meaningful only when `jit_enabled`; the schema does not
+ * couple them (an empty list is legal either way) because the coupling is a
+ * statement about behaviour the cloud enforces, and a shape that looked like
+ * it enforced it would be a second door.
+ */
+export const groupOidcProvider = z.object({
+  group_id: z.uuid(),
+  issuer: idpIssuer,
+  client_id: z.string().min(1).max(200),
+  scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
+  /** Whether an unknown `(issuer, sub)` is provisioned rather than refused (D3). */
+  jit_enabled: z.boolean(),
+  /**
+   * The grants an unknown user receives on their first federated login.
+   * Bounded for the reason `scopes` and `accept_url` are: an unbounded array
+   * on a shape that is stored, logged and rendered is a size nobody chose.
+   */
+  jit_grants: z.array(jitGrant).max(50),
+  created_at: z.iso.datetime(),
+}).strict()
+export type GroupOidcProvider = z.infer<typeof groupOidcProvider>
+
+/**
+ * **Writing a group's provider** — `PUT /api/org/groups/:id/oidc-provider`,
+ * `.strict()`, and the **only** shape that carries the client secret.
+ *
+ * No `group_id`: it is in the path, and a body that repeated it could disagree
+ * with the path and leave a handler to choose which to believe
+ * (`putAssignmentRequest`'s reasoning).
+ *
+ * `client_secret` is **write-only and optional**. Optional is the
+ * rotate-only-when-present rule `idpConfigRequest` already set: a PUT that
+ * omits it keeps the stored secret, so a routine edit of scopes or grants does
+ * not force the secret back onto the wire. **The cloud requires it on the
+ * first write** (a provider with no secret cannot exchange a code) — a
+ * create-vs-update distinction a single PUT shape cannot see, named here
+ * rather than pretended away. The minimum length refuses a trivial value: a
+ * one-character client secret is a misconfiguration, not a rotation.
+ *
+ * `issuer` is `idpIssuer` — http(s) only, no credentials, query or fragment.
+ * **This is not the SSRF defence.** It cannot tell the dev IdP
+ * (`http://localhost:8081/...`) from `http://127.0.0.1:5432`, both loopback
+ * http; the real defence refuses loopback, link-local and private ranges at
+ * the discovery fetch, in the cloud. Said on `idpIssuer` at length; repeated
+ * here because this is a second field, in a second file, that decides where
+ * the *server* connects.
+ */
+export const putGroupOidcProviderRequest = z.object({
+  issuer: idpIssuer,
+  client_id: z.string().min(1).max(200),
+  /** Write-only; absent means keep the stored secret. Never echoed by `groupOidcProvider`. */
+  client_secret: z.string().min(16).max(500).optional(),
+  scopes: z.array(z.string().min(1).max(60)).min(1).max(20),
+  jit_enabled: z.boolean().default(false),
+  jit_grants: z.array(jitGrant).max(50).default([]),
+}).strict()
+export type PutGroupOidcProviderRequest = z.infer<typeof putGroupOidcProviderRequest>
+
+/**
+ * **Why a federated callback failed, in words safe to show the person who hit
+ * it** (D4, Error handling). The custom-OIDC login ends at the cloud's
+ * callback; when the exchange or the claims fail, the cloud renders an honest
+ * error page and **never falls back to the Fleetless login form** — a form
+ * that asked for a Fleetless password after an IdP round-trip is a phishing
+ * door the spec closes by name.
+ *
+ * The `code` is for the page to branch on and for an operator to grep; the
+ * `message` is the sentence the user reads, so it must carry no issuer, no
+ * `invalid_grant` internals, no stack — only what a person can act on, which
+ * for most of these is *"contact your administrator"*.
+ */
+export const oidcCallbackErrorCode = z.enum([
+  /** The IdP could not be reached, or its discovery document could not be read. */
+  'idp_unreachable',
+  /** The authorization code could not be exchanged for tokens (`invalid_grant` and friends). */
+  'exchange_failed',
+  /** The IdP answered, but the token is missing a `sub` or `email` the flow needs. */
+  'claims_incomplete',
+  /** An unknown identity on a group with JIT off — no route in, by design (D3). */
+  'jit_disabled',
+  /**
+   * JIT would provision, but the asserted email already belongs to a user of
+   * the pool. **Refusal, never auto-link** (account-takeover guard, D3);
+   * resolution is manual, by an org admin.
+   */
+  'email_collision',
+  /** The provider is set up wrong (bad client, secret rejected) — the developer's to fix. */
+  'provider_misconfigured',
+])
+export type OidcCallbackErrorCode = z.infer<typeof oidcCallbackErrorCode>
+
+export const oidcCallbackError = z.object({
+  code: oidcCallbackErrorCode,
+  /** Safe user-facing text — no issuer, no token internals; bounded because it is rendered. */
+  message: z.string().min(1).max(300),
+}).strict()
+export type OidcCallbackError = z.infer<typeof oidcCallbackError>
+
+/**
+ * **The interstitial's choice: an org admin entering an app picks how**
+ * (D4). An Org Admins member holds no assignment for any app, so on an app
+ * login the authorize step offers two ways in — **as a role** (a preview of
+ * what that role can do) or **as a specific user** of the app's group. Admins
+ * never appear in that user list: there is no admin-impersonates-admin.
+ *
+ * A **strict discriminated union**, so *"as a role"* cannot also smuggle a
+ * `user_id` and vice versa — the two choices must stay two, or the handler
+ * receives one ambiguous body and has to guess which the admin meant. The
+ * resulting token carries the effective identity/role **and** the real admin
+ * (`clientIdentity.act`), so every action audits as "Admin A as User B /
+ * as role X".
+ */
+export const impersonationChoice = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('role'), role_id: z.uuid() }).strict(),
+  z.object({ mode: z.literal('user'), user_id: z.uuid() }).strict(),
+])
+export type ImpersonationChoice = z.infer<typeof impersonationChoice>
 
 /**
  * `GET /api/auth/me` — named so the console can validate it.

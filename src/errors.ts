@@ -559,5 +559,35 @@ export const ERROR_CODES = [
    * loud for the same reason.
    */
   'group_in_use',
+  // 2026-08-29 — oidc-federation (D3/D4).
+  /**
+   * **The target is in a state that refuses the operation** — not the caller's
+   * rights, not the target's existence, but *what the target currently is*.
+   * 409.
+   *
+   * It is the home for three refusals identity-core left riding a `400
+   * validation_error` with a `rule` string — `org_admins_group`,
+   * `not_in_org_admins_group`, `group_mismatch` — none of which is a
+   * malformed-input problem: the body is well-formed and names a real target
+   * whose *state* is the obstacle. Attaching a group OIDC provider to the Org
+   * Admins group is the D3 case (that group never carries a provider); the
+   * other two are the state checks around impersonation and group membership.
+   * A `400` said "you sent something invalid" for a request that was nothing
+   * of the kind, and a bare `rule` string on the validation envelope is not a
+   * code a consumer can switch on.
+   *
+   * Deliberately not `forbidden` (which is silent about existence and about
+   * the target) and not `tier_required` (which is about the caller's own
+   * rank): a caller reaching this has the rights and named a real thing — the
+   * obstacle is the target's state, and the remedy is to change that state or
+   * pick a different target, neither of which a silence would reveal.
+   *
+   * **The cloud maps the three `rule` strings to this code in the
+   * oidc-federation routes task; registered here ahead of that producer, so
+   * that task needs no second contracts commit and re-pin. That makes it
+   * unproduced until then** — the same standing as `group_in_use`, said out
+   * loud for the same reason.
+   */
+  'target_state_conflict',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

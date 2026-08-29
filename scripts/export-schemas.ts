@@ -95,6 +95,10 @@ import {
   putAssignmentRequest,
   tierChangeRequest,
   groupUsageResponse,
+  groupOidcProvider,
+  putGroupOidcProviderRequest,
+  oidcCallbackError,
+  impersonationChoice,
   authMeResponse,
   patchOrgRequest,
   patchAuthMeRequest,
@@ -285,6 +289,14 @@ export const exportedSchemas = {
   'put-assignment-request': putAssignmentRequest,
   'tier-change-request': tierChangeRequest,
   'group-usage-response': groupUsageResponse,
+  // oidc-federation (D3/D4). `jitGrant` (embedded in the two provider shapes)
+  // and `oidcCallbackErrorCode` (embedded in `oidcCallbackError`) are not
+  // registered on their own — the `idpClaimMapping` / `alertCondition`
+  // precedent for a shape that only ever appears inside another.
+  'group-oidc-provider': groupOidcProvider,
+  'put-group-oidc-provider-request': putGroupOidcProviderRequest,
+  'oidc-callback-error': oidcCallbackError,
+  'impersonation-choice': impersonationChoice,
   app: app,
   'create-app-request': createAppRequest,
   'server-key': serverKey,
@@ -451,6 +463,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'create-group-request', 'patch-group-request', 'create-user-invite-request',
   'accept-user-invite-request', 'patch-user-request', 'move-user-group-request',
   'put-app-group-request', 'put-assignment-request', 'tier-change-request',
+  'put-group-oidc-provider-request', 'impersonation-choice',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
@@ -488,6 +501,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'org-user', 'org-group', 'app-assignment', 'group-list-response',
   'org-user-list-response', 'app-assignment-list-response', 'user-invite',
   'user-invite-list-response', 'group-usage-response',
+  'group-oidc-provider', 'oidc-callback-error',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',

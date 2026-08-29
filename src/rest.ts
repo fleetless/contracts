@@ -451,23 +451,23 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `POST   /api/org/groups`                    | `createGroupRequest`       | `orgGroup` |
  * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
  * | `DELETE /api/org/groups/:id`                | —                          | 204 — `group_not_deletable` for the Org Admins group, `group_in_use` while it holds members or apps |
+ * | `GET    /api/org/groups/:id/usage?group_id=` | —                         | `groupUsageResponse` — the app-relink preview for this group |
  * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
  * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
  * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
  * | `DELETE /api/org/users/:id`                 | —                          | 204 — **and every session of that user ends** |
- * | `GET    /api/org/users/:id/group-usage?group_id=` | —                    | `groupUsageResponse` — the preview |
- * | `PUT    /api/org/users/:id/group`           | `moveUserGroupRequest`     | `orgUser` — cascade, behind the acknowledgement |
- * | `PATCH  /api/org/users/:id/tier`            | `tierChangeRequest`        | `orgUser` — **Owner**, last-owner guarded |
+ * | `GET    /api/org/users/:id/usage?group_id=` | —                          | `groupUsageResponse` — the move preview |
+ * | `POST   /api/org/users/:id/move-group`      | `moveUserGroupRequest`     | `orgUser` — cascade, behind the acknowledgement |
+ * | `PUT    /api/org/users/:id/tier`            | `tierChangeRequest`        | `orgUser` — **Owner**, last-owner guarded |
  * | `GET    /api/org/users/:id/assignments`     | —                          | `appAssignmentListResponse` |
  * | `PUT    /api/org/users/:id/assignments/:appId` | `putAssignmentRequest`  | `appAssignment` |
  * | `DELETE /api/org/users/:id/assignments/:appId` | —                       | 204 |
- * | `GET    /api/apps/:id/assignments`          | —                          | `appAssignmentListResponse` |
- * | `GET    /api/apps/:id/group-usage?group_id=` | —                         | `groupUsageResponse` — the preview |
+ * | `GET    /api/apps/:id/group-usage?group_id=` | —                         | `groupUsageResponse` — the re-link preview |
  * | `PUT    /api/apps/:id/group`                | `putAppGroupRequest`       | `app` — cascade, behind the acknowledgement |
- * | `POST   /api/org/invitations`               | `createUserInviteRequest`  | `userInvite` |
- * | `GET    /api/org/invitations`               | —                          | `userInviteListResponse` — pending only, **no tokens** |
- * | `DELETE /api/org/invitations/:id`           | —                          | 204 |
- * | `POST   /api/org/invitations/accept`        | `acceptUserInviteRequest`  | `sessionTokens` — unauthenticated |
+ * | `POST   /api/org/users/invitations`         | `createUserInviteRequest`  | `userInvite` |
+ * | `GET    /api/org/users/invitations`         | —                          | `userInviteListResponse` — pending only, **no tokens** |
+ * | `DELETE /api/org/users/invitations/:id`     | —                          | 204 |
+ * | `POST   /api/org/users/invitations/accept`  | `acceptUserInviteRequest`  | 204 — unauthenticated, **and the login is created; sign in next** |
  * | `POST   /api/auth/password/change`          | `passwordChangeRequest`    | `sessionTokens` — authenticated, **console** |
  * | `POST   /api/auth/password/reset`           | `passwordResetRequest`     | 202 — unauthenticated, **always the same answer** |
  * | `POST   /api/auth/password/reset/confirm`   | `passwordResetConfirm`     | 204 — unauthenticated |

@@ -156,6 +156,25 @@ export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>
  * `app_id` and `role_id` are null for them, and roles do not filter what they
  * see. `kind` states this explicitly rather than leaving it to be inferred
  * from which id happens to be set.
+ *
+ * **`act` is the real admin behind an impersonation** (spec
+ * `2026-08-29-org-identity-redesign`, D4, the `act`-claim pattern of RFC
+ * 8693). An Org Admins member entering an app through the interstitial
+ * (`impersonationChoice`) gets a token whose *effective* identity is the role
+ * or user they chose — that is what the rest of this shape describes — while
+ * `act` names **the admin who is actually driving**. So every action can
+ * audit as "Admin A as User B / as role X", and a client can render the "you
+ * are acting as …" banner without decoding the token.
+ *
+ * **Optional, not a nullable actor, for `orgUser.tier`'s reason:** absence
+ * means *this is an ordinary session, nobody is delegating*, which is not the
+ * same fact as *the actor is unknown*. The overwhelming majority of sessions
+ * are ordinary and carry no `act` at all; a session that has one is a
+ * delegation and says who by. The schema cannot check that `act` is present
+ * exactly when the effective identity was impersonated — that pairing is the
+ * cloud's, minted at the authorize step. Only the admin's **id** rides here:
+ * the label is resolved by whoever renders it, not carried as a second
+ * unverified name on the wire.
  */
 export const clientIdentity = z.object({
   kind: z.enum(['developer', 'end_user', 'server_key']),
@@ -165,5 +184,7 @@ export const clientIdentity = z.object({
   app_id: z.uuid().nullable(),
   role_id: z.uuid().nullable(),
   email: z.email().nullable(),
+  /** Present only under impersonation — the real admin's user id (D4, `act`-claim). */
+  act: z.object({ admin_user_id: z.uuid() }).strict().optional(),
 })
 export type ClientIdentity = z.infer<typeof clientIdentity>
