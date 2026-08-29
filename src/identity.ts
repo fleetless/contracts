@@ -70,18 +70,26 @@ export const orgAdminTier = z.enum(['owner', 'developer'])
 export type OrgAdminTier = z.infer<typeof orgAdminTier>
 
 /**
- * The per-user MCP override (D5's gating half, stored here).
+ * The per-user MCP override for a **customer-group** user (D5's gating half).
  *
  * - `default` — follow the user's group (`orgGroup.mcp_enabled`).
  * - `allowed` — this user may use the MCP server even if their group does not.
  * - `denied`  — this user may not, whatever their group says.
  *
- * **This is the data model only. Nothing in this plan enforces it** — the
- * central-MCP plan is where the flag starts deciding anything, at token issue
- * *and* on every request. Said here because a stored permission field that
- * looks enforced is exactly the kind of second door this project keeps finding:
- * a console showing `denied` while every call still succeeds is worse than no
- * field at all.
+ * **Enforced since 0.5.0**, by one door called at both enforcement points
+ * (`cloud/src/mcp-access.ts`): at token issue, so a gated-out user never gets
+ * an `mcp_session`, and again on **every** MCP request, re-read from the
+ * current row rather than cached off the token — so a flip to `denied` bites
+ * at the next call, not the next refresh. Written down because a stored
+ * permission field that only *looks* enforced is the kind of second door this
+ * project keeps finding.
+ *
+ * **It does not decide for an Org Admins user, in either direction.** The door
+ * checks `is_org_admins` first and permits unconditionally (Andre,
+ * 2026-08-29): neither `denied` here nor a group flag turned off can refuse an
+ * org admin. A console that renders this field for an admin is showing a
+ * setting nothing reads. When billing lands, admin MCP becomes a paid feature
+ * and that exception grows a subscription condition.
  */
 export const mcpAccess = z.enum(['default', 'allowed', 'denied'])
 export type McpAccess = z.infer<typeof mcpAccess>
@@ -117,7 +125,18 @@ export const orgGroup = z.object({
    * `.strict()` so offering it is a refusal rather than a silent drop.
    */
   is_org_admins: z.boolean(),
-  /** Whether this group's users may reach the central MCP server — see `mcpAccess` for what is and is not enforced yet. */
+  /**
+   * Whether this **customer** group's users may reach the central MCP server,
+   * enforced since 0.5.0 at token issue and on every request
+   * (`cloud/src/mcp-access.ts`), with the per-user `mcpAccess` override
+   * winning over it in both directions.
+   *
+   * **On the Org Admins group it decides nothing.** The door permits a member
+   * of `is_org_admins` unconditionally (Andre, 2026-08-29) before it reads
+   * either this flag or the user's override; turning it off there refuses
+   * nobody. Stored and settable all the same, so the group shape stays one
+   * shape — but it is a customer-group control, and only that.
+   */
   mcp_enabled: z.boolean(),
   member_count: z.number().int().nonnegative(),
   app_count: z.number().int().nonnegative(),

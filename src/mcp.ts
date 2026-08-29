@@ -2,8 +2,10 @@ import { z } from 'zod'
 import { slug } from './common.js'
 
 /**
- * The MCP server of §17: a remote MCP endpoint per app, whose tools are the
- * exposed services and datapoints the end user's role permits.
+ * The MCP server of §17: **one** remote MCP endpoint for the whole platform,
+ * whose tools are the exposed services and datapoints the signed-in user's
+ * roles permit. The per-app `/mcp/<identifier>` servers this file once
+ * described were deleted by the org-central identity redesign (D5/D6).
  *
  * **This file describes the seam, not the protocol.** The MCP messages
  * themselves (`initialize`, `tools/list`, `tools/call`) are defined by the
@@ -33,10 +35,24 @@ import { slug } from './common.js'
  */
 export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
 
-/** The path an end user pastes into their AI tool. */
-export function mcpEndpointPath(appIdentifier: string): string {
-  return `/mcp/${appIdentifier}`
-}
+/**
+ * The path of the one central MCP server — what an end user pastes into their
+ * AI tool, appended to the cloud's public base URL.
+ *
+ * **There is exactly one server, and this path is not parameterised.** It
+ * replaced `mcpEndpointPath(appIdentifier)`, which returned the per-app
+ * `/mcp/<identifier>` deleted in the identity redesign (D5/D6) — a URL that
+ * answered `404` live while the console still offered it with a copy button.
+ * A helper that takes an argument invites the deleted shape back; a constant
+ * cannot.
+ *
+ * **The canonical URL is `<PUBLIC_API_BASE_URL>${MCP_ENDPOINT_PATH}`, not the
+ * friendly alias.** `mcp.fleetless.dev` is a reverse proxy onto the same
+ * cloud, but the cloud mints every OAuth issuer, resource and `aud` from
+ * `PUBLIC_API_BASE_URL` and compares the token's `aud` against that string —
+ * never against the request's `Host`. Hand out the canonical one.
+ */
+export const MCP_ENDPOINT_PATH = '/mcp' as const
 
 /**
  * Which exposed kind a tool came from. Not the MCP protocol's vocabulary —

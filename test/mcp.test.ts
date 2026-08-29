@@ -9,8 +9,8 @@ import {
   ERROR_CODES,
   MCP_OMISSION_REASONS,
   MCP_PROTOCOL_VERSION,
+  MCP_ENDPOINT_PATH,
   MCP_TOOL_NAME_MAX,
-  mcpEndpointPath,
   mcpRobotKey,
   mcpRobotKeys,
   mcpToolName,
@@ -24,6 +24,7 @@ import {
   serviceConfig,
   updateAppRequest,
 } from '../src/index.js'
+import * as contracts from '../src/index.js'
 
 /** A published configuration from before descriptions existed — none anywhere. */
 const docWithoutDescriptions = {
@@ -170,7 +171,21 @@ describe('the MCP app switch', () => {
 describe('tool naming', () => {
   it('speaks the revision the stable SDK ships', () => {
     expect(MCP_PROTOCOL_VERSION).toBe('2025-11-25')
-    expect(mcpEndpointPath('ops')).toBe('/mcp/ops')
+  })
+
+  /**
+   * **The endpoint path takes no argument, and that is the assertion.** The
+   * per-app `mcpEndpointPath(appIdentifier)` it replaced returned
+   * `/mcp/<identifier>`, a route the cloud deleted in the identity redesign
+   * (D5/D6) and which probes live to `404`. A constant cannot be handed an
+   * app, so the deleted shape cannot be rebuilt by accident.
+   */
+  it('names the one central MCP path, unparameterised', () => {
+    expect(MCP_ENDPOINT_PATH).toBe('/mcp')
+    expect(Object.keys(contracts)).toContain('MCP_ENDPOINT_PATH')
+    // The retired helper is gone from the public surface, not merely unused:
+    // an export nobody imports today is an export somebody imports tomorrow.
+    expect(Object.keys(contracts)).not.toContain('mcpEndpointPath')
   })
 
   /**
@@ -297,8 +312,8 @@ describe('central MCP gating (D5)', () => {
     // The group flag `mcp_enabled` × the per-user `mcp_access` override
     // decide MCP access (D5); when the answer is "no", the central MCP
     // server refuses with this code, at token issue AND on every request.
-    // Registered here ahead of its cloud producer (Task 4), the same
-    // standing as `mcp_disabled`/`group_in_use` — unproduced until then.
+    // Produced by the cloud since 0.5.0 (`cloud/src/mcp-access.ts`), at both
+    // enforcement points; this pins the code the two of them agree on.
     expect(ERROR_CODES).toContain('mcp_access_denied')
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
   })

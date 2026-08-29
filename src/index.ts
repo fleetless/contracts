@@ -2,11 +2,11 @@ export { slug, rosName, rosTypeName, fieldPath, wireSeqCursor, wireTimestampMs, 
 export type { ApplyErrorKind, ApplyError } from './common.js'
 export {
   MCP_PROTOCOL_VERSION,
+  MCP_ENDPOINT_PATH,
   MCP_TOOL_NAME_MAX,
   MCP_TOOL_NAME_SEPARATOR,
   MCP_OMISSION_REASONS,
   mcpToolNamePattern,
-  mcpEndpointPath,
   mcpRobotKey,
   mcpRobotKeys,
   mcpToolName,
