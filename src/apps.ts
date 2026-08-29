@@ -55,34 +55,19 @@ export const app = z.object({
    *
    * The flag is app state rather than a deployment setting so that turning it
    * on is a decision somebody made about one app, visible in the console and
-   * in the audit log. It is also the precursor of W7c's MCP-App kind — the
-   * model grows here rather than being retrofitted around it.
+   * in the audit log.
+   *
+   * **It is the only switch left on an app, and the sibling it used to have
+   * is worth remembering.** W7c added `mcp_enabled` beside it — "whether this
+   * app serves a remote MCP server at `/mcp/<identifier>`" — and the
+   * central-MCP cut (D5, 2026-08-29) deleted the per-app endpoint it named.
+   * The field outlived its endpoint by a release, gating nothing but one
+   * `resource` branch of the legacy OAuth stub, and was removed on
+   * 2026-08-29. `orgGroup.mcp_enabled` in `identity.ts` is a **different**
+   * field with a live door behind it (`cloud/src/mcp-access.ts`); the two
+   * shared a name and never a meaning.
    */
   accepts_dynamic_clients: z.boolean(),
-  /**
-   * Whether this app serves a remote MCP server at `/mcp/<identifier>` (§17).
-   *
-   * **A switch, not an app kind.** §2 and §17 called the MCP app *"eine eigene
-   * App-Art"*; André decided on 2026-08-18 that it is a per-app switch the
-   * developer flips in the console, and §17 was reworded in the same wave
-   * rather than left contradicting this field. The model grows here — which
-   * is what the comment on `accepts_dynamic_clients` above predicted it would
-   * do, one wave before there was anything to add.
-   *
-   * The two switches are related and not the same. `accepts_dynamic_clients`
-   * decides whether a client may **register itself**; this one decides whether
-   * there is anything for it to reach. An MCP app will usually want both,
-   * because §17's end user *"trägt nur die URL ein"* and the AI tool registers
-   * itself — but a developer who registers their own MCP client by hand wants
-   * exactly this one, and coupling them would take that away.
-   *
-   * **Off means off at the metadata too.** With this false, `/mcp/<app>`
-   * answers `404` and so do its discovery documents. A resource that is
-   * advertised and not served sends a conforming client through the whole
-   * discovery chain to a door that is not there — and W7b spent a wave making
-   * that chain walkable.
-   */
-  mcp_enabled: z.boolean(),
   /**
    * **The app's default role** (2026-08-29 identity redesign, D1: *"role +
    * rights matrix and default role in app settings"*).
@@ -134,18 +119,7 @@ export const createAppRequest = z.object({
   /** Optional, defaulting to `false` — same reasoning as `robot_ids` above: setting it at creation is the obvious operation, and refusing it here would make a `.strict()` request reject the field the caller can plainly see on `app`. */
   accepts_dynamic_clients: z.boolean().optional(),
   /**
-   * **W7c's playbook said this field would not be accepted here, and the
-   * sentence above is why that was wrong.** The argument for refusing it was
-   * W7's `robot_ids` finding — a create shape that silently drops a field cost
-   * two people a day each. But that finding was closed by *accepting* the
-   * field, not by refusing it, and this request is `.strict()`: refusing
-   * `mcp_enabled` would make it `400` on a field the caller can plainly see on
-   * `app`, which is the exact shape the line above rejects. One rule, both
-   * switches.
-   */
-  mcp_enabled: z.boolean().optional(),
-  /**
-   * Required, unlike the two switches above: an app belongs to exactly one
+   * Required, unlike the switch above: an app belongs to exactly one
    * group from the moment it exists (D2), there is no sensible default — the
    * Org Admins group would be the one group whose members never hold
    * assignments — and a defaulted answer here decides who can log into the app.
@@ -178,7 +152,6 @@ export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
   accepts_dynamic_clients: z.boolean().optional(),
-  mcp_enabled: z.boolean().optional(),
   /**
    * `app.default_role_id`'s write half — an app *setting*, which is where D1
    * put the default role, so it belongs on the app's own PATCH and not on a

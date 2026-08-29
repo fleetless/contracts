@@ -137,7 +137,7 @@ describe('descriptions on the configuration', () => {
   })
 })
 
-describe('the MCP app switch', () => {
+describe('the app-level MCP switch is gone (2026-08-29)', () => {
   const base = {
     id: '00000000-0000-4000-8000-000000000001',
     org_id: '00000000-0000-4000-8000-000000000002',
@@ -150,21 +150,34 @@ describe('the MCP app switch', () => {
     created_at: '2026-08-18T10:00:00.000Z',
   }
 
-  it('is required on the app itself — an app whose MCP state is unknown is not an app', () => {
-    expect(app.safeParse(base).success).toBe(false)
-    expect(app.parse({ ...base, mcp_enabled: true }).mcp_enabled).toBe(true)
+  /**
+   * W7c gave an app an `mcp_enabled` switch for the per-app endpoint
+   * `/mcp/<identifier>`. The central-MCP cut (D5) deleted that endpoint; the
+   * field then gated nothing but one `resource` branch of the legacy OAuth
+   * stub, and Andre removed it on 2026-08-29. What gates MCP now is
+   * `orgGroup.mcp_enabled` x `orgUser.mcp_access` — a different field with a
+   * live door behind it, deliberately not renamed here.
+   *
+   * These are removal guards, and each one names what would make it red: a
+   * re-added field on `app` (first), or a re-added field on either request
+   * shape (second).
+   */
+  it('is not a field on `app` — an app parses without it, and never grows one back', () => {
+    const parsed = app.parse(base)
+    expect(parsed).not.toHaveProperty('mcp_enabled')
+    // `app` is not `.strict()`, so an old client still sending it gets it
+    // stripped rather than a 400. Asserting on the PARSED object, not on
+    // `safeParse().success`, is the difference between measuring "the field is
+    // gone" and measuring "zod strips unknown keys", which it always does.
+    expect(app.parse({ ...base, mcp_enabled: true })).not.toHaveProperty('mcp_enabled')
   })
 
-  /**
-   * `createAppRequest` is `.strict()`, so refusing this field would `400` on a
-   * field the caller can plainly see on `app` — the same argument the file
-   * already makes for `accepts_dynamic_clients`.
-   */
-  it('is accepted at creation and at update, and unknown keys still are not', () => {
+  it('is refused by the two `.strict()` request shapes, which is the honest answer to a removed field', () => {
     const GROUP = '00000000-0000-4000-8000-00000000000a'
-    expect(createAppRequest.parse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp_enabled: true }).mcp_enabled).toBe(true)
-    expect(updateAppRequest.parse({ mcp_enabled: false }).mcp_enabled).toBe(false)
-    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp: true }).success).toBe(false)
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP }).success).toBe(true)
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp_enabled: true }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ name: 'Ops' }).success).toBe(true)
+    expect(updateAppRequest.safeParse({ mcp_enabled: false }).success).toBe(false)
   })
 })
 

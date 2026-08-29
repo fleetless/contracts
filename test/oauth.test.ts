@@ -202,12 +202,13 @@ describe('accepts_dynamic_clients', () => {
     name: 'Some App',
     identifier: 'some-app',
     robot_ids: [],
-    // MCP added a second required switch. It belongs in `base` and NOT in the
-    // assertion below: with it missing here too, `safeParse(base)` would fail
-    // for two reasons, and this test would go on passing if
-    // `accepts_dynamic_clients` were quietly made optional. A check that
-    // cannot fail for its own reason has stopped measuring its own claim.
-    mcp_enabled: false,
+    // `base` deliberately carries every required field of `app` EXCEPT
+    // `accepts_dynamic_clients`, so `safeParse(base)` can only fail for that
+    // one reason. When MCP briefly added a second required switch it was put
+    // here for exactly that reason; it was removed with the field on
+    // 2026-08-29, and the discipline is what has to survive: anything new and
+    // required on `app` belongs in `base`, never left out beside the field
+    // under test, or this check stops measuring its own claim.
     group_id: '00000000-0000-4000-8000-00000000000a',
     default_role_id: null,
     created_at: '2026-08-18T00:00:00.000Z',

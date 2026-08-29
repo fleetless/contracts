@@ -39,9 +39,6 @@
     "accepts_dynamic_clients": {
       "type": "boolean"
     },
-    "mcp_enabled": {
-      "type": "boolean"
-    },
     "default_role_id": {
       "anyOf": [
         {
@@ -68,7 +65,6 @@
     "group_id",
     "robot_ids",
     "accepts_dynamic_clients",
-    "mcp_enabled",
     "default_role_id",
     "created_at"
   ],

@@ -547,7 +547,6 @@ describe('an app belongs to exactly one group (D2)', () => {
     group_id: GROUP,
     robot_ids: [],
     accepts_dynamic_clients: false,
-    mcp_enabled: false,
     default_role_id: null,
     created_at: NOW,
   }

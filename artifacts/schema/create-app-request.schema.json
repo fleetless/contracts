@@ -24,9 +24,6 @@
     "accepts_dynamic_clients": {
       "type": "boolean"
     },
-    "mcp_enabled": {
-      "type": "boolean"
-    },
     "group_id": {
       "type": "string",
       "format": "uuid",
