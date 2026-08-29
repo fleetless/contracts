@@ -451,7 +451,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `POST   /api/org/groups`                    | `createGroupRequest`       | `orgGroup` |
  * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
  * | `DELETE /api/org/groups/:id`                | —                          | 204 — `group_not_deletable` for the Org Admins group, `group_in_use` while it holds members or apps |
- * | `GET    /api/org/groups/:id/usage?group_id=` | —                         | `groupUsageResponse` — the app-relink preview for this group |
+ * | `GET    /api/org/groups/:id/usage`          | —                         | `groupUsageResponse` — the members + apps attached to this group (delete preview) |
  * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
  * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
  * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
