@@ -452,6 +452,9 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
  * | `DELETE /api/org/groups/:id`                | —                          | 204 — `group_not_deletable` for the Org Admins group, `group_in_use` while it holds members or apps |
  * | `GET    /api/org/groups/:id/usage`          | —                         | `groupUsageResponse` — the members + apps attached to this group (delete preview) |
+ * | `GET    /api/org/groups/:id/oidc-provider`  | —                          | `groupOidcProvider` — `404` when the group has none configured |
+ * | `PUT    /api/org/groups/:id/oidc-provider`  | `putGroupOidcProviderRequest` | `groupOidcProvider` — the Org Admins group is refused `target_state_conflict` / `org_admins_group`; the first write must carry `client_secret` |
+ * | `DELETE /api/org/groups/:id/oidc-provider`  | —                          | 204 — `404` when the group has none configured |
  * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
  * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
  * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
@@ -482,6 +485,17 @@ export type JobResponse = z.infer<typeof jobResponse>
  * /api/org/members[/:id]`. Client apps move to the new flow; there are no
  * compatibility aliases, because an alias here is how the deleted model would
  * survive in production while the contract said otherwise.
+ *
+ * **A group's OIDC provider is config, the login it enables is not.** The three
+ * `oidc-provider` rows above are the developer-facing CRUD (Org Admins only) for
+ * *which* IdP a group federates to (`groupOidcProvider` / D3). The *login* that
+ * uses it — the federated authorize/callback legs and the org-admin
+ * impersonation interstitial — is not a `/api/` REST shape but a browser flow
+ * of server-owned redirect targets, and it lives with the other OAuth paths in
+ * `OAUTH_PATHS` (`idpStart`, `idpCallback`, `impersonate`), for the same reason
+ * `authorize` and `token` do: a client never constructs those paths, it is sent
+ * to them. The cloud is the authorization server; toward the group's IdP it is a
+ * relying party (see `oauth.ts`).
  *
  * **A group move and an app re-link are their own routes, not fields on a
  * PATCH.** Both cascade-delete assignments, both are preceded by a

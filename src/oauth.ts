@@ -663,4 +663,21 @@ export const OAUTH_PATHS = {
    * page, not a standard client. See the dialect note at the top of this file.
    */
   login: '/login',
+  /**
+   * **The org-admin impersonation interstitial** (spec `org-identity-redesign`
+   * D4) — and, like `consent` and `login`, **one path with both verbs**: `GET`
+   * serves the "sign in as" page, `POST` accepts an `impersonationChoice` and
+   * answers an `oauthLoginResponse`.
+   *
+   * Reached only by an org admin whose `POST /login` authenticated against the
+   * Org Admins group: instead of a session, they are redirected here to pick a
+   * role to preview or a user to sign in as. The page is **server-rendered by
+   * the cloud from its own origin** — the console never builds it and never
+   * hardcodes this path; the login page merely follows the `redirect_to` it is
+   * handed. It belongs in this list for the reason `idpStart`/`idpCallback` do:
+   * a server-owned target a client is sent to, which must have exactly one
+   * definition rather than a literal in `cloud/src/routes/oauth.ts` that a
+   * second reader could drift from.
+   */
+  impersonate: '/oauth/impersonate',
 } as const
