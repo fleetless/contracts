@@ -542,13 +542,31 @@ export type JobResponse = z.infer<typeof jobResponse>
  * sent there answers `token_spent` forever. A URL that does not say which
  * surface minted it cannot be routed correctly by anything.
  *
- * So the link shapes are fixed here rather than in whichever repo builds them:
+ * So the link shapes are fixed here rather than in whichever repo builds them.
+ * **They moved to the auth portal** (auth-portal spec `2026-08-30`, D-A1): the
+ * console serves no credential page at all any more, and `{portal}` is the
+ * cloud's `AUTH_PUBLIC_URL` — `auth.fleetless.dev` where the deployment has
+ * that vhost, the cloud's own base where it does not, since the cloud renders
+ * these pages itself either way.
  *
  * | purpose | URL |
  * |---|---|
- * | console password reset     | `{console}/reset-password/{token}` |
- * | app password reset         | `{console}/app/{app_identifier}/reset-password/{token}` |
- * | user invitation            | `{console}/invite/{token}` — one link for every user now, admin or not |
+ * | password reset             | `{portal}/reset-password/{token}` |
+ * | user invitation            | `{portal}/accept-invite/{token}` — one link for every user now, admin or not |
+ *
+ * The **app** password reset row is deleted rather than re-pointed: that flow
+ * has no producer and no route. Nothing in the cloud ever built or mailed
+ * `{console}/app/{identifier}/reset-password/{token}`, and the endpoint its
+ * page posted to was never registered — train C deleted the page and said so.
+ * If an app's end users are ever to reset a password, that is a feature to
+ * design, not a row to restore.
+ *
+ * The strings themselves live in `cloud/src/portal-paths.ts`, read by the
+ * route that serves each page AND by the builder that mails it — one constant,
+ * because the defect this table records happened again after it was written:
+ * `buildAcceptUrl` mailed `{console}/accept-invite/{token}` while the console
+ * served `/invite/{token}`, and this table said a third thing. Nothing caught
+ * it because nothing shared a string.
  *
  * ## W7 — the asset store (§4.6)
  *
