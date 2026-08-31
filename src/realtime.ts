@@ -452,6 +452,17 @@ export const ORG_EVENT_DETAIL_MAX_BYTES = 4_096
  * `2026-08-28-alerts-and-datapoint-modal-design` D2). A firing event carries
  * the alert's own `severity`; a resolved event is always `info` — resolving
  * is good news regardless of how bad the firing was.
+ *
+ * `'datapoint'` — since FL-001, **no producer emits this kind**: the
+ * datapoint producer was made a deliberate no-op (Task 5/6, this stream's own
+ * per-slug sampling made it redundant with what the datapoint history route
+ * already serves). The member stays in the enum rather than being removed,
+ * because a reader may still hold a pre-deploy frame of this kind sitting in
+ * a buffer (a reconnect replay, a client that hasn't refreshed) and must be
+ * able to parse it rather than fail closed on an old, valid value. Same shape
+ * as the correction on `ORG_EVENT_SAMPLE_INTERVAL_MS`'s comment just above:
+ * name what the wire no longer does instead of leaving a value the cloud can
+ * never send undocumented.
  */
 export const orgEventKind = z.enum(['datapoint', 'health', 'job', 'bridge', 'audit', 'alert'])
 export type OrgEventKind = z.infer<typeof orgEventKind>
