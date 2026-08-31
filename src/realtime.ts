@@ -429,9 +429,13 @@ export type ResourceHealthEvent = z.infer<typeof resourceHealthEvent>
  * `2026-08-20-org-event-stream`).
  *
  * **This is an activity log for humans, not a complete feed.** It is throttled
- * and sampled, and `orgEventDropped` says so when it drops. Anything that needs
- * completeness reads the audit log or the job-run history, both of which are
- * durable and both of which keep 90 days.
+ * and sampled. `orgEventDropped` still reports a drop on the wire, but since
+ * FL-001 **no Fleetless surface renders it** — the console's gap banner was
+ * removed on request, and nothing replaced it. A reader of this stream
+ * therefore cannot tell a complete window from a sampled one, and this
+ * comment says so rather than implying a notice that exists only in the
+ * protocol. Anything that needs completeness reads the audit log or the
+ * job-run history, both durable, both 90 days.
  */
 export const ORG_EVENT_SAMPLE_INTERVAL_MS = 1_000
 /** The backstop above the per-slug cap: a fleet larger than the panel could serve anyway. */
