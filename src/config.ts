@@ -178,6 +178,16 @@ export const datapointChart = z.strictObject({
 })
 
 /**
+ * The ceiling lives here once. `rest.ts`'s `datapointDescriptor` reuses it,
+ * so the two cannot drift apart the way a number spelled out twice always
+ * eventually does. `0` is deliberately admitted — zero and "omitted"
+ * (`datapointConfig`) or `null` (`datapointDescriptor`) are the same fact,
+ * "no throttling", not a refused value: `.positive()` here would exclude
+ * the very thing this field's own absence already means.
+ */
+export const rateThrottleHz = z.number().nonnegative().max(20)
+
+/**
  * One exposed datapoint: one field of a topic, or the whole topic
  * (`field` omitted). Never several topics.
  *
@@ -191,7 +201,7 @@ export const datapointConfig = z
     topic: rosName,
     type: rosTypeName,
     field: fieldPath.optional(),
-    rate_throttle_hz: z.number().positive().max(20).optional(),
+    rate_throttle_hz: rateThrottleHz.optional(),
     description: serviceDescription,
     numeric: datapointNumeric.optional(),
     retention: datapointRetention.optional(),

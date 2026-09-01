@@ -28,7 +28,7 @@
               },
               "rate_throttle_hz": {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0,
                 "maximum": 20
               },
               "description": {

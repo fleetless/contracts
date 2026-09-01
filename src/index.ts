@@ -129,6 +129,7 @@ export {
   cameraConfig,
   alertCondition,
   datapointAlert,
+  rateThrottleHz,
   datapointNumeric,
   datapointRetention,
   datapointChart,

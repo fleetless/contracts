@@ -30,7 +30,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "exclusiveMinimum": 0,
+                "minimum": 0,
                 "maximum": 20
               },
               {

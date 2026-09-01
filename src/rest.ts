@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName, wireTimestampMs } from './common.js'
-import { configState, robotConfigDoc, validationIssue } from './config.js'
+import { configState, rateThrottleHz, robotConfigDoc, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
 import { job } from './jobs.js'
 
@@ -205,11 +205,12 @@ export const datapointDescriptor = z.object({
   unit: z.string().nullable(),
   /**
    * `null` for a built-in and for a datapoint published with no throttle —
-   * the same "no ceiling configured" absence `datapointConfig.rate_throttle_hz`
-   * itself carries, just re-spelled nullable rather than optional because
-   * this shape is a read response, not a document a caller writes.
+   * the same "no ceiling configured" fact `datapointConfig.rate_throttle_hz`
+   * itself carries as `0` or absence, just re-spelled nullable rather than
+   * optional because this shape is a read response, not a document a caller
+   * writes. Reuses `rateThrottleHz` so the 20 Hz ceiling is written once.
    */
-  rate_throttle_hz: z.number().positive().max(20).nullable(),
+  rate_throttle_hz: rateThrottleHz.nullable(),
 })
 export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 

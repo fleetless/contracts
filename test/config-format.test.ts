@@ -138,6 +138,14 @@ describe('datapoint', () => {
     expect(datapointConfig.parse({ ...base }).rate_throttle_hz).toBeUndefined()
   })
 
+  it('accepts 0 — zero and omitted both mean no throttling, not a refused value', () => {
+    expect(datapointConfig.safeParse({ ...base, field: 'percentage', rate_throttle_hz: 0 }).success).toBe(true)
+    const zero = datapointConfig.parse({ ...base, field: 'percentage', rate_throttle_hz: 0 })
+    const omitted = datapointConfig.parse({ ...base, field: 'percentage' })
+    expect(zero.rate_throttle_hz).toBe(0)
+    expect(omitted.rate_throttle_hz).toBeUndefined()
+  })
+
   it('refuses numeric, chart and alerts when field is omitted', () => {
     const whole = { ...base }
     expect(datapointConfig.safeParse({ ...whole, numeric: { scale: 2 } }).success).toBe(false)
