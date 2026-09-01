@@ -51,4 +51,8 @@ describe('parameter', () => {
     expect('required' in parsed).toBe(false)
     expect(parsed.default).toBeUndefined()
   })
+
+  it('refuses reversed bounds', () => {
+    expect(parameterSpec.safeParse({ type: 'int32', min_value: 5, max_value: 1 }).success).toBe(false)
+  })
 })
