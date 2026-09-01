@@ -47,13 +47,13 @@ describe('W3a — org, member and robot patches; slug rename', () => {
   })
 
   it('renameSlugRequest: strict, and refuses a non-slug `to`', () => {
-    expect(renameSlugRequest.safeParse({ from: 'front-camera', to: 'rear-camera' }).success).toBe(true)
-    expect(renameSlugRequest.safeParse({ from: 'front-camera', to: 'rear-camera', note: 'x' }).success).toBe(false)
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'rear_camera' }).success).toBe(true)
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'rear_camera', note: 'x' }).success).toBe(false)
     // Shape only — not what a rename to that shape would collide with or
     // reserve. Whether `to` is already used on this robot, or one of the
     // built-ins, is checked once, behind the cloud's validation door, not
     // duplicated here (see the doc comment on `renameSlugRequest`).
-    expect(renameSlugRequest.safeParse({ from: 'front-camera', to: 'Not A Slug' }).success).toBe(false)
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'Not A Slug' }).success).toBe(false)
   })
 
   /**

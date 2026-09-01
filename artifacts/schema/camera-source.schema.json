@@ -23,7 +23,8 @@
         "kind",
         "topic",
         "type"
-      ]
+      ],
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -39,31 +40,34 @@
           "pattern": "^rtsps?:\\/\\/"
         },
         "transport": {
-          "default": "tcp",
           "type": "string",
           "enum": [
             "tcp",
             "udp"
           ]
         },
-        "credentials_ref": {
-          "default": null,
-          "anyOf": [
-            {
+        "credentials": {
+          "type": "object",
+          "properties": {
+            "username": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 64
+              "maxLength": 128
             },
-            {
-              "type": "null"
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
-          ]
+          },
+          "additionalProperties": false
         }
       },
       "required": [
         "kind",
         "url"
-      ]
+      ],
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -78,24 +82,28 @@
           "maxLength": 2048,
           "pattern": "^https?:\\/\\/"
         },
-        "credentials_ref": {
-          "default": null,
-          "anyOf": [
-            {
+        "credentials": {
+          "type": "object",
+          "properties": {
+            "username": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 64
+              "maxLength": 128
             },
-            {
-              "type": "null"
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
             }
-          ]
+          },
+          "additionalProperties": false
         }
       },
       "required": [
         "kind",
         "url"
-      ]
+      ],
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -114,7 +122,8 @@
       "required": [
         "kind",
         "device"
-      ]
+      ],
+      "additionalProperties": false
     }
   ]
 }

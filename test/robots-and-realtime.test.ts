@@ -63,13 +63,13 @@ describe('REST shapes', () => {
   it('datapoint reads always carry slug, value, timestamp_ms', () => {
     expect(
       datapointValue.safeParse({
-        slug: 'bridge-state',
+        slug: 'bridge_state',
         value: { online: true, latency_ms: 12 },
         timestamp_ms: 1754800000000,
       }).success,
     ).toBe(true)
     expect(
-      datapointValue.safeParse({ slug: 'bridge-state', value: {} }).success,
+      datapointValue.safeParse({ slug: 'bridge_state', value: {} }).success,
     ).toBe(false)
   })
 })
@@ -77,11 +77,11 @@ describe('REST shapes', () => {
 describe('realtime client protocol', () => {
   it('subscribe addresses a robot + slug', () => {
     expect(
-      clientSubscribe.safeParse({ type: 'subscribe', robot_id: ROBOT.id, slug: 'bridge-state' })
+      clientSubscribe.safeParse({ type: 'subscribe', robot_id: ROBOT.id, slug: 'bridge_state' })
         .success,
     ).toBe(true)
     expect(
-      clientSubscribe.safeParse({ type: 'subscribe', robot_id: 'nope', slug: 'bridge-state' })
+      clientSubscribe.safeParse({ type: 'subscribe', robot_id: 'nope', slug: 'bridge_state' })
         .success,
     ).toBe(false)
   })
@@ -115,7 +115,7 @@ describe('realtime client protocol', () => {
       datapointEvent.safeParse({
         type: 'datapoint',
         robot_id: ROBOT.id,
-        slug: 'bridge-state',
+        slug: 'bridge_state',
         value: { online: true, latency_ms: 8 },
         timestamp_ms: 1754800000000,
       }).success,
@@ -123,7 +123,7 @@ describe('realtime client protocol', () => {
     expect(
       datapointEvent.safeParse({
         type: 'datapoint',
-        slug: 'bridge-state',
+        slug: 'bridge_state',
         value: {},
         timestamp_ms: 1,
       }).success,

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { assetFailure } from './assets.js'
 import { applyError, slug } from './common.js'
-import { credentialRef, robotConfigDoc } from './config.js'
+import { robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
 import { jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
@@ -175,7 +175,7 @@ export type DatapointFrame = z.infer<typeof datapointFrame>
 /**
  * Latency probe, cloud → bridge. The cloud sends its own clock in `ts_ms`;
  * the bridge echoes it back untouched and the cloud derives the round-trip
- * latency shown as `bridge-state.latency_ms`.
+ * latency shown as `bridge_state.latency_ms`.
  */
 export const cloudPing = z.object({
   type: z.literal('ping'),
@@ -201,35 +201,26 @@ export type BridgePong = z.infer<typeof bridgePong>
 /**
  * Cloud → bridge: the configuration to apply.
  *
- * **`doc` is the document; `credentials` is not part of it.** The document is
- * what a developer writes: stored as jsonb, versioned, restorable, returned
- * by REST, rendered by the console, referenced in audit details. A secret in
- * there is a secret in all of those, permanently — version history does not
- * forget.
+ * **`doc` is the whole of it.** Camera credentials travel inline in
+ * `doc.cameras[].source`, per `config.ts`'s `cameraCredentials` — there is no
+ * side channel any more. That was a deliberate, recorded trade-off: a
+ * password here is in every published version, and those are immutable. The
+ * bound on that decision is elsewhere and load-bearing — the publish audit
+ * event and the org event stream must not carry the document body.
  *
- * This frame is a *message*, assembled fresh each time the cloud sends
- * configuration to one authenticated robot over its own socket, and discarded
- * afterwards. So the credentials a camera needs ride here, keyed by name,
- * injected at send time and never written back into the document. A robot is
- * only ever sent the credentials its own cameras reference.
- *
- * The bridge does not persist configuration — it holds this in memory and is
- * sent it again on every reconnect. **That is what keeps camera passwords off
- * the robot's disk**, and anyone who later adds configuration caching must
- * exclude this field for that reason.
- *
- * Changing only a credential does not change the document's version, so the
- * cloud re-sends configuration on a credential change as well. Without that,
- * a corrected password would sit in the database while the robot kept using
- * the old one.
+ * **The bridge does not persist configuration.** It holds this frame in
+ * memory and is sent it again on every reconnect, and that is the only thing
+ * keeping camera passwords off the robot's disk. The retired side channel
+ * carried this warning with an escape hatch attached — cache the config, just
+ * exclude the `credentials` field. There is no such field now: the secrets are
+ * inside `doc`, so caching the configuration caches the passwords, with
+ * nothing left to leave out. The warning survives its own mechanism, narrower
+ * and harder to satisfy than when it was written.
  */
 export const cloudConfig = z.object({
   type: z.literal('config'),
   version: z.number().int().nonnegative(),
   doc: robotConfigDoc,
-  credentials: z
-    .record(credentialRef, z.object({ username: z.string(), password: z.string() }))
-    .default({}),
 })
 export type CloudConfig = z.infer<typeof cloudConfig>
 
@@ -405,7 +396,7 @@ export const bridgeTypeDefinitions = z.object({
 export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
 
 /**
- * The built-in `bridge-state` datapoint every robot has (spec §4.3):
+ * The built-in `bridge_state` datapoint every robot has (spec §4.3):
  * connection status plus latency, the basis for offline-aware client UIs.
  */
 export const bridgeState = z.object({
@@ -423,10 +414,10 @@ const bridgePressureTier = z.object({
 })
 
 /**
- * The built-in `bridge-pressure` datapoint (spec §4.3, the pressure-telemetry
+ * The built-in `bridge_pressure` datapoint (spec §4.3, the pressure-telemetry
  * design's "The decision that shapes everything"): the bridge's own
  * bandwidth-shaping state, sent on the same reserved-slug path as
- * `bridge-state` so history, realtime, REST and MCP exposure fall out of the
+ * `bridge_state` so history, realtime, REST and MCP exposure fall out of the
  * ordinary datapoint machinery for free.
  */
 export const bridgePressure = z.object({
@@ -494,7 +485,7 @@ export const bridgePressure = z.object({
   }),
 })
 export type BridgePressure = z.infer<typeof bridgePressure>
-export const PRESSURE_SLUG = 'bridge-pressure' as const
+export const PRESSURE_SLUG = 'bridge_pressure' as const
 
 /* ------------------------------------------------------------------ W5 --
  * Cameras (spec §10).

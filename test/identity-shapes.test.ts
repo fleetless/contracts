@@ -543,7 +543,7 @@ describe('an app belongs to exactly one group (D2)', () => {
     id: APP,
     org_id: ORG,
     name: 'Warehouse ops',
-    identifier: 'warehouse-ops',
+    identifier: 'warehouse_ops',
     group_id: GROUP,
     robot_ids: [],
     accepts_dynamic_clients: false,

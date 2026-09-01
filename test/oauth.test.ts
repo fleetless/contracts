@@ -200,7 +200,7 @@ describe('accepts_dynamic_clients', () => {
     id: '00000000-0000-4000-8000-000000000001',
     org_id: '00000000-0000-4000-8000-000000000002',
     name: 'Some App',
-    identifier: 'some-app',
+    identifier: 'some_app',
     robot_ids: [],
     // `base` deliberately carries every required field of `app` EXCEPT
     // `accepts_dynamic_clients`, so `safeParse(base)` can only fail for that

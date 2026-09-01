@@ -145,9 +145,11 @@ export type McpOmissionReason = (typeof MCP_OMISSION_REASONS)[number]
  * One tool, as the console previews it.
  *
  * `input_schema` is `unknown` on purpose: it is a **JSON Schema document**
- * generated from `parameterSpec[]` and `valueRule`, and pinning its shape here
- * would mean maintaining a zod description of JSON Schema. The console renders
- * it; nothing validates against it in TypeScript.
+ * generated from an action's, service's or publisher's `parameters` — a
+ * `parameterMap`, which is a record of `parameterSpec` keyed by parameter
+ * name, not a list. Pinning its shape here would mean maintaining a zod
+ * description of JSON Schema. The console renders it; nothing validates
+ * against it in TypeScript.
  */
 export const mcpToolPreview = z.object({
   name: z.string().min(1).max(MCP_TOOL_NAME_MAX).regex(mcpToolNamePattern),

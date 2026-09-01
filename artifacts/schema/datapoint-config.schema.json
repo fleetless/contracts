@@ -2,12 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "slug": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-    },
     "topic": {
       "type": "string",
       "maxLength": 255,
@@ -19,158 +13,146 @@
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
     },
     "field": {
-      "anyOf": [
-        {
-          "type": "string",
-          "maxLength": 255,
-          "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "string",
+      "maxLength": 255,
+      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
     },
-    "rate": {
-      "oneOf": [
-        {
-          "type": "object",
-          "properties": {
-            "mode": {
-              "type": "string",
-              "const": "max_hz"
-            },
-            "hz": {
-              "type": "number",
-              "exclusiveMinimum": 0,
-              "maximum": 100
-            }
-          },
-          "required": [
-            "mode",
-            "hz"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "mode": {
-              "type": "string",
-              "const": "on_change"
-            }
-          },
-          "required": [
-            "mode"
-          ]
-        }
-      ]
-    },
-    "unit": {
-      "anyOf": [
-        {
-          "type": "string",
-          "maxLength": 32
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "scale": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "offset": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "range": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "min": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "max": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            }
-          },
-          "required": [
-            "min",
-            "max"
-          ]
-        },
-        {
-          "type": "null"
-        }
-      ]
+    "rate_throttle_hz": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 20
     },
     "description": {
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
     },
-    "retention": {
-      "default": false,
-      "type": "boolean"
-    },
-    "buffer": {
-      "default": {
-        "enabled": false,
-        "max_values": 0
+    "numeric": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        }
       },
+      "additionalProperties": false
+    },
+    "retention": {
       "type": "object",
       "properties": {
         "enabled": {
           "type": "boolean"
         },
-        "max_values": {
+        "interval_seconds": {
           "type": "integer",
-          "minimum": 0,
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "max_buffer_values": {
+          "type": "integer",
+          "minimum": 1,
           "maximum": 100000
         }
       },
-      "required": [
-        "enabled",
-        "max_values"
-      ]
+      "additionalProperties": false
+    },
+    "chart": {
+      "type": "object",
+      "properties": {
+        "y_min": {
+          "type": "number"
+        },
+        "y_max": {
+          "type": "number"
+        },
+        "style": {
+          "type": "string",
+          "enum": [
+            "line",
+            "step"
+          ]
+        },
+        "default_window_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 43200
+        }
+      },
+      "additionalProperties": false
+    },
+    "alerts": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 63,
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "condition": {
+            "type": "object",
+            "properties": {
+              "fire_at": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "resolve_at": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "fire_at"
+            ],
+            "additionalProperties": false
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "warning",
+              "error"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "condition"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
-    "slug",
     "topic",
-    "type",
-    "field",
-    "rate",
-    "unit",
-    "scale",
-    "offset",
-    "range"
-  ]
+    "type"
+  ],
+  "additionalProperties": false
 }

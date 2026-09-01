@@ -47,11 +47,11 @@ describe('contracts v1', () => {
     ).toBe(false)
   })
 
-  it('slugs are lowercase, dash-separated, letter-initial', () => {
-    for (const good of ['battery', 'front-cam', 'bridge-state', 'ab']) {
+  it('slugs are lowercase, underscore-separated, letter-initial', () => {
+    for (const good of ['battery', 'front_cam', 'bridge_state', 'ab']) {
       expect(slug.safeParse(good).success).toBe(true)
     }
-    for (const bad of ['Battery', '1st', '-x', 'a', 'a_b', 'a b', 'foo-', 'a--b']) {
+    for (const bad of ['Battery', '1st', '_x', 'a', 'a-b', 'a b', 'foo_', 'a__b']) {
       expect(slug.safeParse(bad).success).toBe(false)
     }
   })
@@ -138,8 +138,8 @@ describe('contracts v1', () => {
     ).toBe(false)
   })
 
-  it('PRESSURE_SLUG names the reserved slug bridge-pressure rides on', () => {
-    expect(PRESSURE_SLUG).toBe('bridge-pressure')
+  it('PRESSURE_SLUG names the reserved slug bridge_pressure rides on', () => {
+    expect(PRESSURE_SLUG).toBe('bridge_pressure')
   })
 
   it('api errors carry stable code + message', () => {

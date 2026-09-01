@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   cameraConfig,
+  cameraDescriptor,
   robotConfigDoc,
   snapshotHeader,
   cloudCameraStart,
@@ -13,15 +14,14 @@ import {
 } from '../src/index.js'
 
 const CAM = {
-  slug: 'front',
   source: { kind: 'ros', topic: '/image_raw', type: 'sensor_msgs/msg/Image' },
-  width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000,
+  width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5,
 }
 
 describe('cameras', () => {
-  it('keeps a document written before cameras existed valid — they default to empty', () => {
-    const withoutCameras = { datapoints: [], actions: [], services: [], publishers: [] }
-    expect(robotConfigDoc.parse(withoutCameras).cameras).toEqual([])
+  it('keeps a document written before cameras existed valid — the section is simply absent', () => {
+    const withoutCameras = { fleetless: 1 as const }
+    expect(robotConfigDoc.parse(withoutCameras).cameras).toBeUndefined()
   })
 
   it('puts bandwidth in the configuration, not in a viewer request', () => {
@@ -33,9 +33,25 @@ describe('cameras', () => {
   })
 
   it('refuses a snapshot interval that is really a video stream', () => {
-    // Snapshot is the cheap mode by design; sub-second is live in disguise.
-    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_ms: 1000 }).success).toBe(true)
-    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_ms: 200 }).success).toBe(false)
+    // Snapshot is the cheap mode by design; sub-second is live in disguise —
+    // and the unit is whole seconds, so there is nothing smaller than the floor.
+    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_seconds: 1 }).success).toBe(true)
+    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_seconds: 0 }).success).toBe(false)
+  })
+
+  it('reads the snapshot interval back in the unit the document writes it in', () => {
+    // The descriptor said `snapshot_interval_ms` after the document moved to
+    // seconds, so the cloud converted the unit on this descriptor and not on
+    // `datapointDescriptor` beside it, with nothing saying so. Both now reuse
+    // the document's own bound, which is where the range assertions come
+    // from: nothing here spells 1 or 3600 a second time.
+    const DESC = { slug: 'front', width: 1280, height: 720, fps: 15, snapshot_interval_seconds: 5 }
+    expect(cameraDescriptor.safeParse(DESC).success).toBe(true)
+    expect(cameraDescriptor.safeParse({ ...DESC, snapshot_interval_seconds: 3600 }).success).toBe(true)
+    expect(cameraDescriptor.safeParse({ ...DESC, snapshot_interval_seconds: 3601 }).success).toBe(false)
+    expect(cameraDescriptor.safeParse({ ...DESC, snapshot_interval_seconds: 0 }).success).toBe(false)
+    const { snapshot_interval_seconds, ...noInterval } = DESC
+    expect(cameraDescriptor.safeParse({ ...noInterval, snapshot_interval_ms: 5000 }).success).toBe(false)
   })
 
   it('carries capture time on a snapshot, so its age can always be stated', () => {

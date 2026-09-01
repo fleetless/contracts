@@ -2,12 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "slug": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-    },
     "ros_name": {
       "type": "string",
       "maxLength": 255,
@@ -18,52 +12,74 @@
       "maxLength": 255,
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
     },
+    "message": {},
     "parameters": {
-      "maxItems": 50,
-      "type": "array",
-      "items": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 63,
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 255,
-            "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-          },
           "type": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 255
+            "enum": [
+              "bool",
+              "byte",
+              "char",
+              "int8",
+              "uint8",
+              "int16",
+              "uint16",
+              "int32",
+              "uint32",
+              "int64",
+              "uint64",
+              "float32",
+              "float64",
+              "string",
+              "wstring"
+            ]
           },
-          "rule": {
-            "type": "object",
-            "properties": {
-              "min": {
+          "default": {
+            "anyOf": [
+              {
                 "type": "number"
               },
-              "max": {
-                "type": "number"
-              },
-              "enum": {
-                "minItems": 1,
-                "type": "array",
-                "items": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "number"
-                    }
-                  ]
-                }
-              },
-              "pattern": {
+              {
                 "type": "string"
               },
-              "required": {
+              {
                 "type": "boolean"
               }
+            ]
+          },
+          "min_value": {
+            "type": "number"
+          },
+          "max_value": {
+            "type": "number"
+          },
+          "enum": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
             }
+          },
+          "regex": {
+            "type": "string",
+            "minLength": 1
           },
           "description": {
             "type": "string",
@@ -72,10 +88,9 @@
           }
         },
         "required": [
-          "name",
-          "type",
-          "rule"
-        ]
+          "type"
+        ],
+        "additionalProperties": false
       }
     },
     "description": {
@@ -85,9 +100,8 @@
     }
   },
   "required": [
-    "slug",
     "ros_name",
-    "type",
-    "parameters"
-  ]
+    "type"
+  ],
+  "additionalProperties": false
 }

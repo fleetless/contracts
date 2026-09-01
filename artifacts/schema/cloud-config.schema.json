@@ -14,18 +14,31 @@
     "doc": {
       "type": "object",
       "properties": {
+        "fleetless": {
+          "type": "number",
+          "const": 1
+        },
+        "messages": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {}
+        },
         "datapoints": {
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
-              "slug": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-              },
               "topic": {
                 "type": "string",
                 "maxLength": 255,
@@ -37,175 +50,161 @@
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
               "field": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "maxLength": 255,
-                    "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+                "type": "string",
+                "maxLength": 255,
+                "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
               },
-              "rate": {
-                "oneOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "mode": {
-                        "type": "string",
-                        "const": "max_hz"
-                      },
-                      "hz": {
-                        "type": "number",
-                        "exclusiveMinimum": 0,
-                        "maximum": 100
-                      }
-                    },
-                    "required": [
-                      "mode",
-                      "hz"
-                    ]
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "mode": {
-                        "type": "string",
-                        "const": "on_change"
-                      }
-                    },
-                    "required": [
-                      "mode"
-                    ]
-                  }
-                ]
-              },
-              "unit": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "maxLength": 32
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "scale": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "offset": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "range": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "min": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "max": {
-                        "anyOf": [
-                          {
-                            "type": "number"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      }
-                    },
-                    "required": [
-                      "min",
-                      "max"
-                    ]
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+              "rate_throttle_hz": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 20
               },
               "description": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2000
               },
-              "retention": {
-                "default": false,
-                "type": "boolean"
-              },
-              "buffer": {
-                "default": {
-                  "enabled": false,
-                  "max_values": 0
+              "numeric": {
+                "type": "object",
+                "properties": {
+                  "scale": {
+                    "type": "number"
+                  },
+                  "offset": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "decimals": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  }
                 },
+                "additionalProperties": false
+              },
+              "retention": {
                 "type": "object",
                 "properties": {
                   "enabled": {
                     "type": "boolean"
                   },
-                  "max_values": {
+                  "interval_seconds": {
                     "type": "integer",
-                    "minimum": 0,
+                    "minimum": 1,
+                    "maximum": 3600
+                  },
+                  "max_buffer_values": {
+                    "type": "integer",
+                    "minimum": 1,
                     "maximum": 100000
                   }
                 },
-                "required": [
-                  "enabled",
-                  "max_values"
-                ]
+                "additionalProperties": false
+              },
+              "chart": {
+                "type": "object",
+                "properties": {
+                  "y_min": {
+                    "type": "number"
+                  },
+                  "y_max": {
+                    "type": "number"
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "line",
+                      "step"
+                    ]
+                  },
+                  "default_window_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 43200
+                  }
+                },
+                "additionalProperties": false
+              },
+              "alerts": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "condition": {
+                      "type": "object",
+                      "properties": {
+                        "fire_at": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        },
+                        "resolve_at": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "fire_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "warning",
+                        "error"
+                      ]
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "condition"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
-              "slug",
               "topic",
-              "type",
-              "field",
-              "rate",
-              "unit",
-              "scale",
-              "offset",
-              "range"
-            ]
+              "type"
+            ],
+            "additionalProperties": false
           }
         },
         "actions": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
-              "slug": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-              },
               "ros_name": {
                 "type": "string",
                 "maxLength": 255,
@@ -216,52 +215,74 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
+              "message": {},
               "parameters": {
-                "maxItems": 50,
-                "type": "array",
-                "items": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "additionalProperties": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -270,10 +291,9 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "description": {
@@ -283,26 +303,23 @@
               }
             },
             "required": [
-              "slug",
               "ros_name",
-              "type",
-              "parameters"
-            ]
+              "type"
+            ],
+            "additionalProperties": false
           }
         },
         "services": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
-              "slug": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-              },
               "ros_name": {
                 "type": "string",
                 "maxLength": 255,
@@ -313,52 +330,74 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
+              "message": {},
               "parameters": {
-                "maxItems": 50,
-                "type": "array",
-                "items": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "additionalProperties": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -367,10 +406,9 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "description": {
@@ -380,26 +418,23 @@
               }
             },
             "required": [
-              "slug",
               "ros_name",
-              "type",
-              "parameters"
-            ]
+              "type"
+            ],
+            "additionalProperties": false
           }
         },
         "publishers": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
-              "slug": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-              },
               "topic": {
                 "type": "string",
                 "maxLength": 255,
@@ -410,52 +445,74 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
+              "message": {},
               "parameters": {
-                "maxItems": 50,
-                "type": "array",
-                "items": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "additionalProperties": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -464,18 +521,27 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
-              "timeout_ms": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 60000
+              "failsafe": {
+                "type": "object",
+                "properties": {
+                  "timeout_ms": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 60000
+                  },
+                  "message": {}
+                },
+                "required": [
+                  "timeout_ms",
+                  "message"
+                ],
+                "additionalProperties": false
               },
-              "failsafe": {},
               "quiet_timeout_ms": {
                 "type": "integer",
                 "minimum": 0,
@@ -488,29 +554,26 @@
               }
             },
             "required": [
-              "slug",
               "topic",
               "type",
-              "parameters",
-              "timeout_ms",
+              "message",
               "failsafe",
               "quiet_timeout_ms"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "cameras": {
-          "default": [],
-          "maxItems": 50,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
-              "slug": {
-                "type": "string",
-                "minLength": 2,
-                "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
-              },
               "source": {
                 "oneOf": [
                   {
@@ -535,7 +598,8 @@
                       "kind",
                       "topic",
                       "type"
-                    ]
+                    ],
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -551,31 +615,34 @@
                         "pattern": "^rtsps?:\\/\\/"
                       },
                       "transport": {
-                        "default": "tcp",
                         "type": "string",
                         "enum": [
                           "tcp",
                           "udp"
                         ]
                       },
-                      "credentials_ref": {
-                        "default": null,
-                        "anyOf": [
-                          {
+                      "credentials": {
+                        "type": "object",
+                        "properties": {
+                          "username": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 64
+                            "maxLength": 128
                           },
-                          {
-                            "type": "null"
+                          "password": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
                           }
-                        ]
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "required": [
                       "kind",
                       "url"
-                    ]
+                    ],
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -590,24 +657,28 @@
                         "maxLength": 2048,
                         "pattern": "^https?:\\/\\/"
                       },
-                      "credentials_ref": {
-                        "default": null,
-                        "anyOf": [
-                          {
+                      "credentials": {
+                        "type": "object",
+                        "properties": {
+                          "username": {
                             "type": "string",
                             "minLength": 1,
-                            "maxLength": 64
+                            "maxLength": 128
                           },
-                          {
-                            "type": "null"
+                          "password": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
                           }
-                        ]
+                        },
+                        "additionalProperties": false
                       }
                     },
                     "required": [
                       "kind",
                       "url"
-                    ]
+                    ],
+                    "additionalProperties": false
                   },
                   {
                     "type": "object",
@@ -626,7 +697,8 @@
                     "required": [
                       "kind",
                       "device"
-                    ]
+                    ],
+                    "additionalProperties": false
                   }
                 ]
               },
@@ -650,10 +722,10 @@
                 "exclusiveMinimum": 0,
                 "maximum": 50000
               },
-              "snapshot_interval_ms": {
+              "snapshot_interval_seconds": {
                 "type": "integer",
-                "minimum": 1000,
-                "maximum": 3600000
+                "minimum": 1,
+                "maximum": 3600
               },
               "description": {
                 "type": "string",
@@ -662,44 +734,21 @@
               }
             },
             "required": [
-              "slug",
               "source",
               "width",
               "height",
               "fps",
               "bitrate_kbps",
-              "snapshot_interval_ms"
-            ]
+              "snapshot_interval_seconds"
+            ],
+            "additionalProperties": false
           }
         }
       },
       "required": [
-        "datapoints"
-      ]
-    },
-    "credentials": {
-      "default": {},
-      "type": "object",
-      "propertyNames": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 64
-      },
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "username": {
-            "type": "string"
-          },
-          "password": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "username",
-          "password"
-        ]
-      }
+        "fleetless"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

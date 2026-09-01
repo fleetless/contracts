@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  alertCondition,
-  datapointAlert,
+  alertRowCondition as alertCondition,
+  datapointAlertRow as datapointAlert,
   createAlertRequest,
   patchAlertRequest,
   alertListResponse,
@@ -21,7 +21,7 @@ const NOW = '2026-08-28T20:00:00.000Z'
 const VALID_ALERT = {
   id: ALERT,
   robot_id: ROBOT,
-  slug: 'battery-voltage',
+  slug: 'battery_voltage',
   name: 'Battery low',
   enabled: true,
   severity: 'warning' as const,
@@ -131,7 +131,7 @@ describe('datapointAlert — the entity, definition + runtime state together', (
 
 describe('createAlertRequest — strict, no id/state fields, defaults', () => {
   const BASE = {
-    slug: 'battery-voltage',
+    slug: 'battery_voltage',
     name: 'Battery low',
     severity: 'warning' as const,
     condition: { kind: 'below' as const, threshold: 20 },
@@ -215,7 +215,7 @@ describe('patchAlertRequest — strict, every definition field optional, never s
   })
 
   it('rejects slug — immutable through this route; only the rename transaction moves it', () => {
-    expect(patchAlertRequest.safeParse({ slug: 'other-slug' }).success).toBe(false)
+    expect(patchAlertRequest.safeParse({ slug: 'other_slug' }).success).toBe(false)
   })
 
   it('validates condition when present', () => {
@@ -298,7 +298,7 @@ describe('orgEventKind gains \'alert\'', () => {
       severity: 'error',
       robot_id: ROBOT,
       subject: 'Battery low',
-      detail: { slug: 'battery-voltage', value: 18.2, threshold: 20 },
+      detail: { slug: 'battery_voltage', value: 18.2, threshold: 20 },
     })
     expect(parsed.kind).toBe('alert')
     expect(parsed.severity).toBe('error')

@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName, wireTimestampMs } from './common.js'
-import { configState, datapointRange, datapointRate, robotConfigDoc, validationIssue } from './config.js'
+import { configState, rateThrottleHz, robotConfigDoc, snapshotIntervalSeconds, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
 import { job } from './jobs.js'
 
 /**
  * REST shapes of the robot resource (spec §11.1). W1 scope: create, list,
- * get, and the built-in `bridge-state` datapoint read.
+ * get, and the built-in `bridge_state` datapoint read.
  */
 
 export const robot = z.object({
@@ -43,14 +43,14 @@ export type CreateRobotResponse = z.infer<typeof createRobotResponse>
  *
  * **Counted from the published configuration, and excluding the built-ins.**
  * `GET /api/robots/:id/exposures` answers *which* slugs and prepends the
- * three built-in datapoints — `bridge-state`, `robot-details` and
- * `bridge-pressure` — as `builtin: true`; this answers *how many* and counts
+ * three built-in datapoints — `bridge_state`, `robot_details` and
+ * `bridge_pressure` — as `builtin: true`; this answers *how many* and counts
  * only what somebody configured. So a robot with an empty published config
  * reports `datapoints: 0` here and three entries there. That is intentional,
  * and it is written on both sides so the disagreement is never mistaken for a
  * bug.
  *
- * The number is "three" and not "two" as of `bridge-pressure`; the cloud
+ * The number is "three" and not "two" as of `bridge_pressure`; the cloud
  * builds that prefix from `PLANE_BUILTIN_DATAPOINTS` rather than a literal,
  * so a further built-in moves this count again. Read the count off that set,
  * not off this sentence, before filing the bug this comment exists to
@@ -65,7 +65,7 @@ export const exposureCounts = z.object({
 })
 export type ExposureCounts = z.infer<typeof exposureCounts>
 
-/** A robot as listed, with its current built-in `bridge-state`. */
+/** A robot as listed, with its current built-in `bridge_state`. */
 export const robotListItem = z.object({
   ...robot.shape,
   bridge_state: bridgeState,
@@ -82,7 +82,7 @@ export type RobotListResponse = z.infer<typeof robotListResponse>
 /**
  * The REST read of one datapoint. For bridge-captured data `timestamp_ms`
  * is the capture time at the bridge (spec §6.3); for the cloud-observed
- * built-in `bridge-state` it is the time the cloud observed the state.
+ * built-in `bridge_state` it is the time the cloud observed the state.
  */
 export const datapointValue = z.object({
   slug,
@@ -203,8 +203,14 @@ export const datapointDescriptor = z.object({
   slug,
   builtin: z.boolean(),
   unit: z.string().nullable(),
-  range: datapointRange.nullable(),
-  rate: datapointRate.nullable(),
+  /**
+   * `null` for a built-in and for a datapoint published with no throttle —
+   * the same "no ceiling configured" fact `datapointConfig.rate_throttle_hz`
+   * itself carries as `0` or absence, just re-spelled nullable rather than
+   * optional because this shape is a read response, not a document a caller
+   * writes. Reuses `rateThrottleHz` so the 20 Hz ceiling is written once.
+   */
+  rate_throttle_hz: rateThrottleHz.nullable(),
 })
 export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 
@@ -214,7 +220,7 @@ export const datapointListResponse = z.object({
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
 
 /**
- * The built-in `robot-details` datapoint (spec §4.3): static properties the
+ * The built-in `robot_details` datapoint (spec §4.3): static properties the
  * developer maintains. Bounded so one robot cannot become a document store.
  */
 export const robotDetailsDoc = z.record(
@@ -855,7 +861,14 @@ export const cameraDescriptor = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   fps: z.number().int().positive(),
-  snapshot_interval_ms: z.number().int().positive(),
+  /**
+   * Seconds, as the document spells it, reusing `snapshotIntervalSeconds` so
+   * the 1–3600 bound is written once. It was `snapshot_interval_ms` after the
+   * document moved to seconds, which left the cloud converting the unit on
+   * this descriptor and not on `datapointDescriptor` beside it — the same
+   * drift `rateThrottleHz` was extracted to stop.
+   */
+  snapshot_interval_seconds: snapshotIntervalSeconds,
 })
 export type CameraDescriptor = z.infer<typeof cameraDescriptor>
 
@@ -1296,9 +1309,12 @@ export const RESOURCE_HEALTH_STATES = [
    * `unknown`, which means "the robot reported a failure we cannot classify"
    * — a different fact with a different fix.
    *
-   * It is reachable by a typo: `cloud-config-frame.ts` deliberately tolerates
-   * an unresolved `credentials_ref` at publish time, so this is an ordinary
-   * developer mistake rather than an edge case.
+   * **Retiring with the credential store**, and not live behaviour to build
+   * against. Its one producer was `cloud-config-frame.ts` tolerating an
+   * unresolved `credentials_ref` at publish time; FL-002 deleted that field,
+   * so nothing emits this today. It is kept only until the wave that removes
+   * the store also removes these three credential states — `unreadable_credential`
+   * and the `readable` fact on `credentialSummary` go the same way.
    */
   'credential_missing',
   /** A configuration change stopped this stream, deliberately. */
@@ -1472,9 +1488,24 @@ export type OrgQuotaUsage = z.infer<typeof orgQuotaUsage>
 /**
  * A named credential as the API is willing to describe it (§10, W6).
  *
- * **There is no password field here, and there is no route that returns one.**
- * A secret you can read back is not a secret; `set` and `username` are enough
- * to manage a credential and not enough to be a leak.
+ * **Retiring with the credential store**, which FL-002 removes: a camera's
+ * password now lives in the configuration document, on `config.ts`'s
+ * `cameraCredentials`. This shape and its routes go when the store does, in
+ * the wave that moves the contracts pin.
+ *
+ * **There is no password field here, and this route returns none.** A secret
+ * you can read back is not a secret; `set` and `username` are enough to
+ * manage a credential and not enough to be a leak.
+ *
+ * That used to be a statement about the whole REST API, and is now a
+ * statement about this shape alone. Three shapes carry a camera password
+ * since credentials moved into the document: `putConfigDraftRequest.doc`
+ * carries one in, and `configDraftResponse.doc` and
+ * `configVersionResponse.doc` hand it back to anyone who may read a robot's
+ * configuration — for every published version, immutably. That was decided
+ * against a recorded objection (see `cameraCredentials`), and the one bound
+ * on it is that the publish audit event and the org event stream must not
+ * carry the document body.
  *
  * `used_by` is what makes sharing safe: one site account typically serves many
  * cameras across several robots, and rotating it blind is how one of them
@@ -1524,7 +1555,16 @@ export type CredentialSummary = z.infer<typeof credentialSummary>
 export const credentialListResponse = z.object({ credentials: z.array(credentialSummary) })
 export type CredentialListResponse = z.infer<typeof credentialListResponse>
 
-/** Write-only. The only shape that carries a password anywhere in the REST API. */
+/**
+ * Write-only, and retiring with the credential store — see
+ * `credentialSummary`.
+ *
+ * It was the only shape carrying a password anywhere in the REST API until
+ * credentials moved into `robotConfigDoc`. Now there are four, and this is
+ * the only one of them that cannot be read back: `putConfigDraftRequest.doc`,
+ * `configDraftResponse.doc` and `configVersionResponse.doc` all carry
+ * `cameraCredentials.password`.
+ */
 export const credentialWriteRequest = z.object({
   username: z.string().min(1).max(128),
   password: z.string().min(1).max(512),

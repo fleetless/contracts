@@ -28,25 +28,19 @@ import * as contracts from '../src/index.js'
 
 /** A published configuration from before descriptions existed — none anywhere. */
 const docWithoutDescriptions = {
-  datapoints: [
-    {
-      slug: 'battery',
+  fleetless: 1 as const,
+  datapoints: {
+    battery_state: {
       topic: '/battery_state',
       type: 'sensor_msgs/msg/BatteryState',
       field: 'percentage',
-      rate: { mode: 'max_hz' as const, hz: 1 },
-      unit: '%',
-      scale: 100,
-      offset: null,
-      range: { min: 0, max: 100 },
+      rate_throttle_hz: 1,
+      numeric: { scale: 100, unit: '%' },
     },
-  ],
-  actions: [
-    { slug: 'dock', ros_name: '/dock', type: 'rx1_msgs/action/Dock', parameters: [] },
-  ],
-  services: [],
-  publishers: [],
-  cameras: [],
+  },
+  actions: {
+    dock: { ros_name: '/dock', type: 'rx1_msgs/action/Dock' },
+  },
 }
 
 describe('descriptions on the configuration', () => {
@@ -57,31 +51,35 @@ describe('descriptions on the configuration', () => {
    */
   it('a configuration document with no description anywhere still parses', () => {
     const parsed = robotConfigDoc.parse(docWithoutDescriptions)
-    expect(parsed.datapoints[0]!.description).toBeUndefined()
-    expect(parsed.actions[0]!.description).toBeUndefined()
+    expect(parsed.datapoints!.battery_state!.description).toBeUndefined()
+    expect(parsed.actions!.dock!.description).toBeUndefined()
   })
 
   /**
-   * **Asserting the parsed value, not `.success`.** `robotConfigDoc`'s kinds
-   * are not `.strict()`, so zod strips an unknown key and a `safeParse`
-   * succeeds either way — which is exactly how a contracts test here once
-   * came out green after the field it tested had been deleted. `.success` here would
-   * pass whether or not `description` exists at all.
+   * **Asserting the parsed value, not `.success`.** `description` is optional
+   * on every kind, so a document without one parses whether or not the field
+   * still exists in the schema — which is exactly how a contracts test here
+   * once came out green after the field it tested had been deleted. Reading
+   * the parsed property is what tells those two apart.
+   *
+   * Not because unknown keys are stripped: every kind is `z.strictObject` as
+   * of this wave (`config-format.test.ts` pins the refusal), which makes
+   * `.success` say less rather than more — a `false` under `strictObject`
+   * cannot distinguish an unknown key from a missing required one, and a
+   * `true` still cannot mean the field was recognised.
    */
   it.each([
-    ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints[0]! }],
-    ['action', actionConfig, { ...docWithoutDescriptions.actions[0]! }],
-    ['service', serviceConfig, { slug: 'reset', ros_name: '/reset', type: 'std_srvs/srv/Trigger', parameters: [] }],
+    ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints.battery_state }],
+    ['action', actionConfig, { ...docWithoutDescriptions.actions.dock }],
+    ['service', serviceConfig, { ros_name: '/reset', type: 'std_srvs/srv/Trigger' }],
     [
       'publisher',
       publisherConfig,
       {
-        slug: 'drive',
         topic: '/cmd_vel',
         type: 'geometry_msgs/msg/Twist',
-        parameters: [],
-        timeout_ms: 500,
-        failsafe: {},
+        message: { linear: { x: 0 }, angular: { z: 0 } },
+        failsafe: { timeout_ms: 500, message: { linear: { x: 0 }, angular: { z: 0 } } },
         quiet_timeout_ms: 2000,
       },
     ],
@@ -89,13 +87,12 @@ describe('descriptions on the configuration', () => {
       'camera',
       cameraConfig,
       {
-        slug: 'front',
         source: { kind: 'ros' as const, topic: '/image_raw', type: 'sensor_msgs/msg/Image' },
         width: 640,
         height: 480,
         fps: 10,
         bitrate_kbps: 800,
-        snapshot_interval_ms: 1000,
+        snapshot_interval_seconds: 1,
       },
     ],
   ])('%s carries a description through the parse', (_name, schema, base) => {
@@ -105,9 +102,9 @@ describe('descriptions on the configuration', () => {
 
   it('a parameter carries its own description', () => {
     const parsed = parameterSpec.parse({
-      name: 'speed',
-      type: 'double',
-      rule: { min: 0, max: 1.5 },
+      type: 'float64',
+      min_value: 0,
+      max_value: 1.5,
       description: 'Metres per second. Above 1.0 the robot will not take corners.',
     })
     expect(parsed.description).toContain('Metres per second')
@@ -115,7 +112,7 @@ describe('descriptions on the configuration', () => {
 
   /** The empty string would be a second spelling of "not described". */
   it('refuses an empty description rather than storing a second spelling of absent', () => {
-    expect(datapointConfig.safeParse({ ...docWithoutDescriptions.datapoints[0]!, description: '' }).success).toBe(false)
+    expect(datapointConfig.safeParse({ ...docWithoutDescriptions.datapoints.battery_state, description: '' }).success).toBe(false)
   })
 
   /**
@@ -128,11 +125,14 @@ describe('descriptions on the configuration', () => {
    * field into a default later.
    */
   it('the generated JSON Schema does not make description required', () => {
+    // Each section is now a record keyed by name — `additionalProperties`
+    // carries the entry schema, where `items` used to when sections were
+    // arrays.
     const schema = z.toJSONSchema(robotConfigDoc) as {
-      properties: Record<string, { items?: { required?: string[] } }>
+      properties: Record<string, { additionalProperties?: { required?: string[] } }>
     }
     for (const kind of ['datapoints', 'actions', 'services', 'publishers', 'cameras']) {
-      expect(schema.properties[kind]?.items?.required ?? []).not.toContain('description')
+      expect(schema.properties[kind]?.additionalProperties?.required ?? []).not.toContain('description')
     }
   })
 })

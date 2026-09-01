@@ -119,7 +119,7 @@ import {
 } from '../src/client-auth.js'
 import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
 import {
-  datapointAlert,
+  datapointAlertRow,
   createAlertRequest,
   patchAlertRequest,
   alertListResponse,
@@ -291,7 +291,7 @@ export const exportedSchemas = {
   'group-usage-response': groupUsageResponse,
   // oidc-federation (D3/D4). `jitGrant` (embedded in the two provider shapes)
   // and `oidcCallbackErrorCode` (embedded in `oidcCallbackError`) are not
-  // registered on their own — the `idpClaimMapping` / `alertCondition`
+  // registered on their own — the `idpClaimMapping` / `alertRowCondition`
   // precedent for a shape that only ever appears inside another.
   'group-oidc-provider': groupOidcProvider,
   'put-group-oidc-provider-request': putGroupOidcProviderRequest,
@@ -349,10 +349,10 @@ export const exportedSchemas = {
   'rename-slug-response': renameSlugResponse,
   'slug-usage-response': slugUsageResponse,
   // Datapoint alerts and chart display config (2026-08-28
-  // alerts-and-datapoint-modal-design, D1/D2/D5). `alertCondition`,
+  // alerts-and-datapoint-modal-design, D1/D2/D5). `alertRowCondition`,
   // `alertSeverity` and `alertState` are not registered on their own —
   // embedded fields, the same call already made for `datapointRate`.
-  'datapoint-alert': datapointAlert,
+  'datapoint-alert-row': datapointAlertRow,
   'create-alert-request': createAlertRequest,
   'patch-alert-request': patchAlertRequest,
   'alert-list-response': alertListResponse,
@@ -508,7 +508,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
   'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',
   'auth-me-response', 'rename-slug-response', 'slug-usage-response',
-  'datapoint-alert', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
+  'datapoint-alert-row', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

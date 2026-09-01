@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   RESERVED_SLUGS,
   datapointConfig,
-  datapointRate,
   robotConfigDoc,
   validationIssue,
   configState,
@@ -20,26 +19,23 @@ import {
   introspectionResponse,
   datapointListResponse,
   robotDetailsDoc,
-  valueRule,
+  parameterSpec,
   ERROR_CODES,
 } from '../src/index.js'
 
 const DATAPOINT = {
-  slug: 'battery-percentage',
   topic: '/battery',
   type: 'sensor_msgs/msg/BatteryState',
   field: 'percentage',
-  rate: { mode: 'max_hz', hz: 2 },
-  unit: '%',
-  scale: 100,
-  offset: null,
-  range: { min: 0, max: 100 },
+  rate_throttle_hz: 2,
+  numeric: { scale: 100, unit: '%' },
 }
 
 describe('exposure model', () => {
   it('takes one field of a topic, or the whole topic', () => {
     expect(datapointConfig.safeParse(DATAPOINT).success).toBe(true)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, field: null }).success).toBe(true)
+    const { field: _field, numeric: _numeric, ...whole } = DATAPOINT
+    expect(datapointConfig.safeParse(whole).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'pose.position.x' }).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'ranges[0]' }).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'Pose..x' }).success).toBe(false)
@@ -53,39 +49,20 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'example/srv/AddTwoInts' }).success).toBe(true)
   })
 
-  it('bounds the send rate and knows the change-only mode', () => {
-    expect(datapointRate.safeParse({ mode: 'on_change' }).success).toBe(true)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 100 }).success).toBe(true)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 0 }).success).toBe(false)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 101 }).success).toBe(false)
-    expect(datapointRate.safeParse({ mode: 'max_hz' }).success).toBe(false)
-  })
-
-  it('retention is a boolean with exactly one spelling of "not recorded"', () => {
-    // An earlier placeholder accepted `null`. It is a boolean now, and `false` is
-    // the only representation of "not recorded" the contract admits — the
-    // cloud normalises a stored `null` on read rather than the contract
-    // carrying two spellings of one fact.
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: true }).success).toBe(true)
-    expect(datapointConfig.parse({ ...DATAPOINT }).retention).toBe(false)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: null }).success).toBe(false)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: { days: 7 } }).success).toBe(false)
-  })
-
-  it('names the built-in slugs, bridge-pressure last', () => {
-    expect([...RESERVED_SLUGS]).toEqual(['bridge-state', 'robot-details', 'bridge-pressure'])
+  it('names the built-in slugs, bridge_pressure last', () => {
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'bridge_pressure'])
   })
 
   it('carries a whole configuration as one document', () => {
-    expect(robotConfigDoc.safeParse({ datapoints: [DATAPOINT] }).success).toBe(true)
-    expect(robotConfigDoc.safeParse({ datapoints: [] }).success).toBe(true)
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoints: { battery_percentage: DATAPOINT } }).success).toBe(true)
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoints: {} }).success).toBe(true)
     expect(robotConfigDoc.safeParse({}).success).toBe(false)
   })
 
   it('reports issues with field, rule and a severity that decides publishing', () => {
     const issue = {
       path: 'datapoints[0].field',
-      slug: 'battery-percentage',
+      slug: 'battery_percentage',
       code: 'unknown_field_path',
       message: 'sensor_msgs/msg/BatteryState has no field "percentag"',
       severity: 'error',
@@ -113,16 +90,20 @@ describe('exposure model', () => {
         draft_updated_at: '2026-08-10T12:05:00.000Z',
         applied_version: 1,
         applied_ok: false,
-        applied_errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'field_path_invalid', message: 'topic not found' }],
+        applied_errors: [{ slug: 'battery_percentage', kind: 'datapoint', code: 'field_path_invalid', message: 'topic not found' }],
       }).success,
     ).toBe(true)
   })
 
-  it('defines the parameter rules without enforcing them yet', () => {
-    expect(valueRule.safeParse({}).success).toBe(true)
-    expect(valueRule.safeParse({ min: 0, max: 1, required: true }).success).toBe(true)
-    expect(valueRule.safeParse({ enum: ['left', 'right'] }).success).toBe(true)
-    expect(valueRule.safeParse({ enum: [] }).success).toBe(false)
+  it('defines parameter specs with type-driven constraints', () => {
+    // A numeric parameter with bounds
+    expect(parameterSpec.safeParse({ type: 'int32', min_value: 0, max_value: 1 }).success).toBe(true)
+    // A string parameter with an enum
+    expect(parameterSpec.safeParse({ type: 'string', enum: ['left', 'right'] }).success).toBe(true)
+    // An enum cannot be empty
+    expect(parameterSpec.safeParse({ type: 'string', enum: [] }).success).toBe(false)
+    // A parameter without a type is invalid
+    expect(parameterSpec.safeParse({ enum: ['left', 'right'] }).success).toBe(false)
   })
 })
 
@@ -172,9 +153,9 @@ describe('introspection', () => {
 
 describe('bridge protocol', () => {
   it('pushes the published configuration, with version 0 meaning nothing published', () => {
-    expect(cloudConfig.safeParse({ type: 'config', version: 1, doc: { datapoints: [DATAPOINT] } }).success).toBe(true)
-    expect(cloudConfig.safeParse({ type: 'config', version: 0, doc: { datapoints: [] } }).success).toBe(true)
-    expect(cloudConfig.safeParse({ type: 'config', version: -1, doc: { datapoints: [] } }).success).toBe(false)
+    expect(cloudConfig.safeParse({ type: 'config', version: 1, doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } } }).success).toBe(true)
+    expect(cloudConfig.safeParse({ type: 'config', version: 0, doc: { fleetless: 1 } }).success).toBe(true)
+    expect(cloudConfig.safeParse({ type: 'config', version: -1, doc: { fleetless: 1 } }).success).toBe(false)
   })
 
   it('reports what was applied, with per-slug errors that do not fail the frame', () => {
@@ -184,7 +165,7 @@ describe('bridge protocol', () => {
         type: 'config_applied',
         version: 1,
         ok: false,
-        errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'unknown', message: 'type not resolvable in this workspace' }],
+        errors: [{ slug: 'battery_percentage', kind: 'datapoint', code: 'unknown', message: 'type not resolvable in this workspace' }],
       }).success,
     ).toBe(true)
   })
@@ -271,13 +252,13 @@ describe('REST shapes', () => {
   it('returns the draft together with its issues', () => {
     expect(
       configDraftResponse.safeParse({
-        doc: { datapoints: [DATAPOINT] },
+        doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } },
         updated_at: '2026-08-10T12:02:00.000Z',
         issues: [],
       }).success,
     ).toBe(true)
     expect(
-      configDraftResponse.safeParse({ doc: { datapoints: [] }, updated_at: null, issues: [] }).success,
+      configDraftResponse.safeParse({ doc: { fleetless: 1 }, updated_at: null, issues: [] }).success,
     ).toBe(true)
   })
 
@@ -300,14 +281,14 @@ describe('REST shapes', () => {
     expect(
       datapointListResponse.safeParse({
         datapoints: [
-          { slug: 'bridge-state', builtin: true, unit: null, range: null, rate: null },
-          { slug: 'battery-percentage', builtin: false, unit: '%', range: { min: 0, max: 100 }, rate: { mode: 'max_hz', hz: 2 } },
+          { slug: 'bridge_state', builtin: true, unit: null, rate_throttle_hz: null },
+          { slug: 'battery_percentage', builtin: false, unit: '%', rate_throttle_hz: 2 },
         ],
       }).success,
     ).toBe(true)
   })
 
-  it('bounds robot-details keys and value kinds', () => {
+  it('bounds robot_details keys and value kinds', () => {
     expect(
       robotDetailsDoc.safeParse({
         model: 'rx1',
