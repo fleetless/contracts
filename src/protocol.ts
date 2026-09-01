@@ -249,14 +249,23 @@ export const cloudInvoke = z.object({
   /**
    * Already validated against §4.4 rules; the bridge validates structurally.
    *
-   * **Flat, keyed by `parameterSpec.name`** — `{"target_pose.position.x": 1}`,
-   * not a nested message tree. Three things follow from that and none of them
-   * survive the nested form: the key a caller sends is the key a rule names,
-   * so a `parameter_invalid` can report a `field` the caller can actually
-   * find; the console binds one form input per spec; and a goal field that no
-   * `parameterSpec` declares simply cannot be set, which is what §4.4 means by
-   * the developer deciding what a client may pass. The bridge unflattens once,
-   * on the way into the ROS goal or request.
+   * **Flat, keyed by parameter name** — `{"target_x": 1}`. The key is a key of
+   * the entry's `parameters` mapping, not a path into the message. Those were
+   * the same thing until FL-002 and are now deliberately decoupled: a
+   * parameter keeps its name when the field it fills moves in the message
+   * tree, which is the same reason a slug is not a topic name.
+   *
+   * Three things follow, and the last one got stronger rather than weaker:
+   * the key a caller sends is the key a rule names, so a `parameter_invalid`
+   * reports something the caller can find; the console binds one input per
+   * parameter; and a position the template does not mark with `${…}` cannot
+   * be set by any caller at all. That last one used to be a rule about what
+   * no `parameterSpec` declared. It is now structural — the value has nowhere
+   * to go.
+   *
+   * The bridge substitutes these values into the entry's `message` template
+   * at its placeholder positions. It no longer unflattens a dotted path;
+   * there is no dotted path to unflatten.
    */
   params: z.record(z.string(), z.unknown()),
   /**
@@ -308,12 +317,14 @@ export const cloudPublish = z.object({
   type: z.literal('publish'),
   slug,
   /**
-   * Flat and keyed by `parameterSpec.name`, exactly like `cloudInvoke.params`
-   * — a publisher carries parameter specs and the same §4.4 validation, so it
-   * must carry the same shape. Note this is *not* the shape of
-   * `publisherConfig.failsafe`, which is a complete nested ROS message: the
-   * failsafe is authored once by the developer against the type, never sent
-   * by a caller and never rule-checked per field.
+   * Flat and keyed by parameter name, exactly like `cloudInvoke.params` — a
+   * publisher declares parameters and takes the same validation, so it takes
+   * the same shape.
+   *
+   * This is *not* the shape of `publisherConfig.failsafe.message`, which is a
+   * complete ROS message template. The failsafe is authored once against the
+   * type, sent by the bridge with no caller present, and refused outright if
+   * it contains a placeholder — there would be nobody to fill it.
    */
   message: z.record(z.string(), z.unknown()),
 })
