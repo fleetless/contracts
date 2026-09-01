@@ -30,15 +30,11 @@ import * as contracts from '../src/index.js'
 const docWithoutDescriptions = {
   datapoints: [
     {
-      slug: 'battery',
       topic: '/battery_state',
       type: 'sensor_msgs/msg/BatteryState',
       field: 'percentage',
-      rate: { mode: 'max_hz' as const, hz: 1 },
-      unit: '%',
-      scale: 100,
-      offset: null,
-      range: { min: 0, max: 100 },
+      rate_throttle_hz: 1,
+      numeric: { scale: 100, unit: '%' },
     },
   ],
   actions: [

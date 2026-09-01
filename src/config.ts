@@ -1,5 +1,13 @@
 import { z } from 'zod'
 import { applyError, slug, rosName, rosTypeName, fieldPath } from './common.js'
+/**
+ * `alertSeverity` is identical for the stored row and this document-nested
+ * definition — `z.enum(['warning', 'error'])`, nothing more to say twice —
+ * so it is imported rather than redefined. Not re-exported from here: the
+ * barrel already carries it from `alerts.ts`, and wave 4 moves the
+ * definition itself into this file once `alerts.ts` retires.
+ */
+import { alertSeverity } from './alerts.js'
 
 /**
  * The exposure model (spec §4): what a developer configures per robot, how a
@@ -116,87 +124,91 @@ export const parameterMap = z
 export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure'] as const
 
 /**
- * How often a datapoint is sent (spec §4.2). The **bridge** enforces this, so
- * every realtime subscriber sees the same rate by construction (§11.1).
+ * When an alert fires and when it is ok again. There is no discriminator:
+ * `resolve_at` absent means equality, present means a threshold whose
+ * direction follows from the comparison. The gap is the hysteresis, and it
+ * is therefore mandatory for thresholds — a value sitting exactly on a
+ * threshold with no gap flips on every sample.
  */
-export const datapointRate = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('max_hz'), hz: z.number().positive().max(100) }),
-  z.object({ mode: z.literal('on_change') }),
-])
-export type DatapointRate = z.infer<typeof datapointRate>
+export const alertCondition = z
+  .strictObject({
+    fire_at: z.union([z.number().finite(), z.string(), z.boolean()]),
+    resolve_at: z.number().finite().optional(),
+  })
+  .superRefine((c, ctx) => {
+    if (c.resolve_at === undefined) return
+    if (typeof c.fire_at !== 'number')
+      ctx.addIssue({ code: 'custom', path: ['resolve_at'], message: 'resolve_at is only allowed when fire_at is a number' })
+    else if (c.resolve_at === c.fire_at)
+      ctx.addIssue({ code: 'custom', path: ['resolve_at'], message: 'resolve_at must differ from fire_at' })
+  })
+export type AlertCondition = z.infer<typeof alertCondition>
 
-/** Plausibility bounds shown to clients; metadata, not a filter. */
-export const datapointRange = z.object({
-  min: z.number().nullable(),
-  max: z.number().nullable(),
+/**
+ * An alert's definition. Runtime state — whether it is firing, since when,
+ * with what value — is NOT here: it lives in the database and survives a
+ * restart, and it has no business in a versioned document.
+ */
+export const datapointAlert = z.strictObject({
+  condition: alertCondition,
+  severity: alertSeverity.optional(),
+  name: z.string().min(1).max(120).optional(),
+  enabled: z.boolean().optional(),
 })
-export type DatapointRange = z.infer<typeof datapointRange>
+
+/** Requires a numeric field — all four fields share that one precondition. */
+export const datapointNumeric = z.strictObject({
+  scale: z.number().optional(),
+  offset: z.number().optional(),
+  unit: z.string().max(32).optional(),
+  decimals: z.number().int().min(0).max(6).optional(),
+})
+
+export const datapointRetention = z.strictObject({
+  enabled: z.boolean().optional(),
+  interval_seconds: z.number().int().min(1).max(3600).optional(),
+  max_buffer_values: z.number().int().min(1).max(100_000).optional(),
+})
+
+export const datapointChart = z.strictObject({
+  y_min: z.number().finite().optional(),
+  y_max: z.number().finite().optional(),
+  style: z.enum(['line', 'step']).optional(),
+  default_window_minutes: z.number().int().min(1).max(43_200).optional(),
+})
 
 /**
  * One exposed datapoint: one field of a topic, or the whole topic
- * (`field: null`) — never several topics (spec §4.2).
+ * (`field` omitted). Never several topics.
  *
- * `scale`/`offset` are applied at the bridge (`value * scale + offset`) so
- * that REST and realtime carry identical numbers; `unit` and `range` travel
- * as metadata.
+ * `rate_throttle_hz` is an upper bound, not a clock — the bridge drops what
+ * arrives too fast and never repeats a value to manufacture a rate. The
+ * ceiling is 20: an app's surface has no use for more, and a control loop
+ * belongs on a tool that reads at the robot.
  */
-export const datapointConfig = z.object({
-  slug,
-  topic: rosName,
-  type: rosTypeName,
-  field: fieldPath.nullable(),
-  rate: datapointRate,
-  unit: z.string().max(32).nullable(),
-  scale: z.number().nullable(),
-  offset: z.number().nullable(),
-  range: datapointRange.nullable(),
-  description: serviceDescription,
-  /**
-   * Record this datapoint (spec §8). Recorded values go to the time-series
-   * store and are queryable through the history API; everything else is
-   * live-only and leaves no trace.
-   *
-   * **Exactly one representation of "not recorded": `false`.** W5 reserved
-   * this field as `z.null().optional()`, so stored documents may carry
-   * `retention: null` — the cloud normalises that to `false` on read rather
-   * than the contract accepting both, because two spellings of one fact is
-   * the defect this project has spent two waves removing.
-   *
-   * Defaulted so a document written before W6 still parses.
-   *
-   * **The `.default()`-publishes-as-`required` trap is closed** (W9d, DEF-059,
-   * `62ede62`): artifacts are now emitted per schema in the mode their
-   * direction calls for, and `retention` no longer appears in `required` in
-   * `cloud-config.schema.json`. This comment described it as *"deferred to
-   * W7 with the fix identified"* for two waves after the fix landed — found by
-   * Momus-W9, and it is the same shape as the three comments in `bridge/` that
-   * were corrected in the same wave: **a note that names a defect as open is
-   * itself a claim, and it goes stale exactly like a register row.**
-   */
-  retention: z.boolean().default(false),
-  /**
-   * What happens to this datapoint's values while the bridge is disconnected
-   * (spec §6.3). Buffered values are backfilled after reconnect — **after**
-   * live telemetry and job results, at a limited rate, so closing a gap can
-   * never delay what is happening now. An unbuffered datapoint simply has a
-   * gap, which is an honest answer and often the right one.
-   */
-  buffer: z
-    .object({
-      enabled: z.boolean(),
-      /**
-       * Zero is legal and means "no depth" — it is what a disabled buffer
-       * carries. The invariant that matters is stated below: *enabled*
-       * implies a depth greater than zero.
-       */
-      max_values: z.number().int().nonnegative().max(100_000),
-    })
-    .refine((b) => !b.enabled || b.max_values > 0, {
-      message: 'an enabled buffer needs max_values > 0',
-      path: ['max_values'],
-    })
-    .default({ enabled: false, max_values: 0 }),
-})
+export const datapointConfig = z
+  .strictObject({
+    topic: rosName,
+    type: rosTypeName,
+    field: fieldPath.optional(),
+    rate_throttle_hz: z.number().positive().max(20).optional(),
+    description: serviceDescription,
+    numeric: datapointNumeric.optional(),
+    retention: datapointRetention.optional(),
+    chart: datapointChart.optional(),
+    alerts: z.record(slug, datapointAlert).optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.field !== undefined) return
+    for (const group of ['numeric', 'chart', 'alerts'] as const) {
+      if (d[group] !== undefined)
+        ctx.addIssue({
+          code: 'custom',
+          path: [group],
+          message: `${group} needs a single field; without 'field' the value is the whole message`,
+        })
+    }
+  })
 export type DatapointConfig = z.infer<typeof datapointConfig>
 
 /**

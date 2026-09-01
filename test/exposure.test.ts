@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   RESERVED_SLUGS,
   datapointConfig,
-  datapointRate,
   robotConfigDoc,
   validationIssue,
   configState,
@@ -25,21 +24,18 @@ import {
 } from '../src/index.js'
 
 const DATAPOINT = {
-  slug: 'battery_percentage',
   topic: '/battery',
   type: 'sensor_msgs/msg/BatteryState',
   field: 'percentage',
-  rate: { mode: 'max_hz', hz: 2 },
-  unit: '%',
-  scale: 100,
-  offset: null,
-  range: { min: 0, max: 100 },
+  rate_throttle_hz: 2,
+  numeric: { scale: 100, unit: '%' },
 }
 
 describe('exposure model', () => {
   it('takes one field of a topic, or the whole topic', () => {
     expect(datapointConfig.safeParse(DATAPOINT).success).toBe(true)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, field: null }).success).toBe(true)
+    const { field: _field, numeric: _numeric, ...whole } = DATAPOINT
+    expect(datapointConfig.safeParse(whole).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'pose.position.x' }).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'ranges[0]' }).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'Pose..x' }).success).toBe(false)
@@ -51,25 +47,6 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'sensor_msgs/BatteryState' }).success).toBe(false)
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'custom_msgs/msg/Speed' }).success).toBe(true)
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'example/srv/AddTwoInts' }).success).toBe(true)
-  })
-
-  it('bounds the send rate and knows the change-only mode', () => {
-    expect(datapointRate.safeParse({ mode: 'on_change' }).success).toBe(true)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 100 }).success).toBe(true)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 0 }).success).toBe(false)
-    expect(datapointRate.safeParse({ mode: 'max_hz', hz: 101 }).success).toBe(false)
-    expect(datapointRate.safeParse({ mode: 'max_hz' }).success).toBe(false)
-  })
-
-  it('retention is a boolean with exactly one spelling of "not recorded"', () => {
-    // An earlier placeholder accepted `null`. It is a boolean now, and `false` is
-    // the only representation of "not recorded" the contract admits — the
-    // cloud normalises a stored `null` on read rather than the contract
-    // carrying two spellings of one fact.
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: true }).success).toBe(true)
-    expect(datapointConfig.parse({ ...DATAPOINT }).retention).toBe(false)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: null }).success).toBe(false)
-    expect(datapointConfig.safeParse({ ...DATAPOINT, retention: { days: 7 } }).success).toBe(false)
   })
 
   it('names the built-in slugs, bridge_pressure last', () => {
@@ -304,8 +281,8 @@ describe('REST shapes', () => {
     expect(
       datapointListResponse.safeParse({
         datapoints: [
-          { slug: 'bridge_state', builtin: true, unit: null, range: null, rate: null },
-          { slug: 'battery_percentage', builtin: false, unit: '%', range: { min: 0, max: 100 }, rate: { mode: 'max_hz', hz: 2 } },
+          { slug: 'bridge_state', builtin: true, unit: null, rate_throttle_hz: null },
+          { slug: 'battery_percentage', builtin: false, unit: '%', rate_throttle_hz: 2 },
         ],
       }).success,
     ).toBe(true)

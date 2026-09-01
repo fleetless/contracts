@@ -37,8 +37,15 @@ import { slug } from './common.js'
  * parse successfully with `threshold` dropped on the floor, which is exactly
  * the "parse silently and mean nothing" failure the paragraph above already
  * argued against, just one layer further in.
+ *
+ * **`Row` names the stored row, not the document.** `config.ts`'s own
+ * `alertCondition` is the definition nested inside a datapoint — a different
+ * shape for a different question (`fire_at`/`resolve_at` rather than
+ * `kind`/`threshold`/`resolve_hysteresis`). This one and `datapointAlertRow`
+ * below are retired in wave 4, once the document is the only place an alert
+ * is defined.
  */
-export const alertCondition = z.discriminatedUnion('kind', [
+export const alertRowCondition = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('above'),
     threshold: z.number().finite(),
@@ -55,7 +62,7 @@ export const alertCondition = z.discriminatedUnion('kind', [
     value: z.union([z.number(), z.string(), z.boolean()]),
   }),
 ])
-export type AlertCondition = z.infer<typeof alertCondition>
+export type AlertRowCondition = z.infer<typeof alertRowCondition>
 
 /**
  * Assigned at creation, carried onto every `orgEventKind: 'alert'` firing
@@ -83,15 +90,20 @@ export const ALERT_RECIPIENTS_MAX = 20
  * appear on `createAlertRequest` or `patchAlertRequest` (pinned by
  * `alerts-shapes.test.ts` — a `PATCH` naming `state` is rejected by
  * `.strict()`, not silently ignored).
+ *
+ * **`Row`, because this is the stored row** — id, ownership, runtime state
+ * and mail settings together. The document's own alert (`config.ts`'s
+ * `datapointAlert`) is definition only, nested under its datapoint, and
+ * sends no mail. Both exist through wave 4, which deletes this one.
  */
-export const datapointAlert = z.object({
+export const datapointAlertRow = z.object({
   id: z.uuid(),
   robot_id: z.uuid(),
   slug,
   name: z.string().min(1).max(120),
   enabled: z.boolean(),
   severity: alertSeverity,
-  condition: alertCondition,
+  condition: alertRowCondition,
   cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX),
   /**
    * Prefilled with the creating developer by the console, not by this
@@ -140,7 +152,7 @@ export const datapointAlert = z.object({
    */
   orphaned: z.boolean().optional(),
 })
-export type DatapointAlert = z.infer<typeof datapointAlert>
+export type DatapointAlertRow = z.infer<typeof datapointAlertRow>
 
 /**
  * `POST /api/robots/:id/alerts`. `robot_id` comes from the path, never the
@@ -159,7 +171,7 @@ export const createAlertRequest = z
     name: z.string().min(1).max(120),
     enabled: z.boolean().default(true),
     severity: alertSeverity,
-    condition: alertCondition,
+    condition: alertRowCondition,
     cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).default(ALERT_COOLDOWN_MINUTES_DEFAULT),
     recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
     notify_on_resolve: z.boolean().default(false),
@@ -184,7 +196,7 @@ export const patchAlertRequest = z
     name: z.string().min(1).max(120).optional(),
     enabled: z.boolean().optional(),
     severity: alertSeverity.optional(),
-    condition: alertCondition.optional(),
+    condition: alertRowCondition.optional(),
     cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).optional(),
     recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX).optional(),
     notify_on_resolve: z.boolean().optional(),
@@ -192,9 +204,9 @@ export const patchAlertRequest = z
   .strict()
 export type PatchAlertRequest = z.infer<typeof patchAlertRequest>
 
-/** `GET /api/robots/:id/alerts` — the one route that sets `datapointAlert.orphaned` on every entry. */
+/** `GET /api/robots/:id/alerts` — the one route that sets `datapointAlertRow.orphaned` on every entry. */
 export const alertListResponse = z.object({
-  alerts: z.array(datapointAlert),
+  alerts: z.array(datapointAlertRow),
 })
 export type AlertListResponse = z.infer<typeof alertListResponse>
 
@@ -207,7 +219,7 @@ export type AlertListResponse = z.infer<typeof alertListResponse>
  * compute it against, and the shape's own doc comment says so.
  */
 export const orgFiringAlertsResponse = z.object({
-  alerts: z.array(datapointAlert.extend({ robot_name: z.string().min(1).max(63) })),
+  alerts: z.array(datapointAlertRow.extend({ robot_name: z.string().min(1).max(63) })),
 })
 export type OrgFiringAlertsResponse = z.infer<typeof orgFiringAlertsResponse>
 

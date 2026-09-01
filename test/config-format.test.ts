@@ -126,3 +126,48 @@ describe('message template', () => {
     expect(messageMap.safeParse(maxOk).success).toBe(true)
   })
 })
+
+import { datapointConfig, alertCondition } from '../src/index.js'
+
+const base = { topic: '/battery', type: 'sensor_msgs/msg/BatteryState' }
+
+describe('datapoint', () => {
+  it('caps the throttle at 20 Hz and treats absence as no throttling', () => {
+    expect(datapointConfig.safeParse({ ...base, field: 'percentage', rate_throttle_hz: 20 }).success).toBe(true)
+    expect(datapointConfig.safeParse({ ...base, field: 'percentage', rate_throttle_hz: 21 }).success).toBe(false)
+    expect(datapointConfig.parse({ ...base }).rate_throttle_hz).toBeUndefined()
+  })
+
+  it('refuses numeric, chart and alerts when field is omitted', () => {
+    const whole = { ...base }
+    expect(datapointConfig.safeParse({ ...whole, numeric: { scale: 2 } }).success).toBe(false)
+    expect(datapointConfig.safeParse({ ...whole, chart: { y_min: 0 } }).success).toBe(false)
+    expect(datapointConfig.safeParse({ ...whole, alerts: { hot: { condition: { fire_at: true } } } }).success).toBe(false)
+    expect(datapointConfig.safeParse(whole).success).toBe(true)
+  })
+
+  it('has no expected_range', () => {
+    expect(datapointConfig.safeParse({ ...base, field: 'percentage', expected_range: { min: 0, max: 1 } }).success).toBe(false)
+  })
+
+  it('derives an alert direction from the two values and refuses an equal pair', () => {
+    expect(alertCondition.safeParse({ fire_at: 80, resolve_at: 75 }).success).toBe(true)
+    expect(alertCondition.safeParse({ fire_at: 15, resolve_at: 18 }).success).toBe(true)
+    expect(alertCondition.safeParse({ fire_at: true }).success).toBe(true)
+    expect(alertCondition.safeParse({ fire_at: 3 }).success).toBe(true)
+    expect(alertCondition.safeParse({ fire_at: 15, resolve_at: 15 }).success).toBe(false)
+  })
+
+  it('refuses resolve_at on a non-numeric fire_at', () => {
+    expect(alertCondition.safeParse({ fire_at: true, resolve_at: 1 }).success).toBe(false)
+    expect(alertCondition.safeParse({ fire_at: 'err', resolve_at: 'ok' }).success).toBe(false)
+  })
+
+  it('carries no recipients, cooldown or notify_on_resolve on an alert', () => {
+    const withAlert = {
+      ...base, field: 'percentage',
+      alerts: { low: { condition: { fire_at: 15, resolve_at: 18 }, recipients: ['a@b.de'] } },
+    }
+    expect(datapointConfig.safeParse(withAlert).success).toBe(false)
+  })
+})

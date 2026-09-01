@@ -6,7 +6,6 @@ import {
   credentialListResponse,
   credentialSummary,
   credentialWriteRequest,
-  datapointConfig,
   historyBucketsResponse,
   historyQuery,
   historySamplesResponse,
@@ -132,14 +131,6 @@ describe('credentials on the wire, not in the document', () => {
 })
 
 describe('retention and history', () => {
-  const DP = { slug: 'battery', topic: '/battery', type: 'sensor_msgs/msg/BatteryState', field: 'percentage', rate: { mode: 'max_hz', hz: 1 }, unit: null, scale: null, offset: null, range: null, buffered: false }
-
-  it('records only when asked, and "not recorded" has one spelling', () => {
-    expect(datapointConfig.parse(DP).retention).toBe(false)
-    expect(datapointConfig.parse({ ...DP, retention: true }).retention).toBe(true)
-    expect(datapointConfig.safeParse({ ...DP, retention: null }).success).toBe(false)
-  })
-
   it('accepts a range both ways a caller thinks about time', () => {
     expect(historyQuery.safeParse({ from: 'now-30s' }).success).toBe(true)
     expect(historyQuery.safeParse({ from: '1786453230705', to: '1786453290705' }).success).toBe(true)

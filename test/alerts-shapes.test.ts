@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  alertCondition,
-  datapointAlert,
+  alertRowCondition as alertCondition,
+  datapointAlertRow as datapointAlert,
   createAlertRequest,
   patchAlertRequest,
   alertListResponse,

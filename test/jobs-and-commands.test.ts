@@ -4,7 +4,6 @@ import {
   actionConfig,
   publisherConfig,
   parameterSpec,
-  datapointConfig,
   job,
   jobEvent,
   busyDetails,
@@ -48,28 +47,14 @@ describe('config: three new kinds', () => {
     // invalidated every published version of every live robot on first read.
     const w2 = {
       datapoints: [{
-        slug: 'battery_percentage', topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
-        field: 'percentage', rate: { mode: 'max_hz', hz: 2 }, unit: '%', scale: 100, offset: null, range: null,
+        topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
+        field: 'percentage', rate_throttle_hz: 2, numeric: { scale: 100, unit: '%' },
       }],
     }
     const parsed = robotConfigDoc.parse(w2)
     expect(parsed.actions).toEqual([])
     expect(parsed.services).toEqual([])
     expect(parsed.publishers).toEqual([])
-    expect(parsed.datapoints[0].buffer).toEqual({ enabled: false, max_values: 0 })
-  })
-
-  it('gives a datapoint a buffer, because a disconnect otherwise means a gap', () => {
-    const dp = { slug: 'buf_test', topic: '/b', type: 'p/msg/T', field: null, rate: { mode: 'on_change' },
-      unit: null, scale: null, offset: null, range: null, buffer: { enabled: true, max_values: 500 } }
-    expect(datapointConfig.safeParse(dp).success).toBe(true)
-    expect(datapointConfig.safeParse({ ...dp, buffer: { enabled: true, max_values: 0 } }).success).toBe(false)
-    // A schema whose own default fails its own validation is a trap: the
-    // cloud parses a stored document, writes the result back, and the second
-    // read refuses it. Caught by running the CLOUD's suite against this pin,
-    // not by any test written here.
-    const roundTripped = robotConfigDoc.parse({ datapoints: [{ ...dp, buffer: undefined }] })
-    expect(robotConfigDoc.safeParse(roundTripped).success).toBe(true)
   })
 
   it('makes a publisher carry both timeouts — they are different promises', () => {
