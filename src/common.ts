@@ -10,16 +10,20 @@ import { z } from 'zod'
  */
 
 /**
- * A slug names an exposed service or datapoint: lowercase, dash-separated,
- * letter-initial, 2..63 characters, no leading/trailing/doubled dashes.
- * Slugs are stable and decoupled from ROS names (spec §4.1) — renaming a
- * topic on the robot must never break a client app.
+ * A name: a slug for an exposed service or datapoint, a parameter name, a
+ * message name. Lowercase, underscore-separated, letter-initial, 2..63
+ * characters, no leading/trailing/doubled underscores.
+ *
+ * Names are stable and decoupled from ROS names (spec §4.1) — renaming a
+ * topic on the robot must never break a client app. The reverse also holds
+ * and costs more: changing a name breaks every client, role grant and MCP
+ * tool name that uses it.
  */
 export const slug = z
   .string()
   .min(2)
   .max(63)
-  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+  .regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/)
 
 /**
  * A fully qualified ROS graph name: absolute, slash-separated, each segment

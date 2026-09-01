@@ -15,7 +15,7 @@
                 "type": "string",
                 "minLength": 2,
                 "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
               },
               "topic": {
                 "type": "string",
@@ -202,7 +202,7 @@
                 "type": "string",
                 "minLength": 2,
                 "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
               },
               "ros_name": {
                 "type": "string",
@@ -302,7 +302,7 @@
                 "type": "string",
                 "minLength": 2,
                 "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
               },
               "ros_name": {
                 "type": "string",
@@ -402,7 +402,7 @@
                 "type": "string",
                 "minLength": 2,
                 "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
               },
               "topic": {
                 "type": "string",
@@ -516,7 +516,7 @@
                 "type": "string",
                 "minLength": 2,
                 "maxLength": 63,
-                "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
               },
               "source": {
                 "oneOf": [

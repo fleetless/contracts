@@ -57,10 +57,10 @@ describe('naming a job', () => {
     // say so — so a cancel arriving just after its own job ended stopped the
     // next caller's job on the same slug.
     expect(clientCancel.safeParse({
-      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', job_id: UUID,
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to', job_id: UUID,
     }).success).toBe(true)
     expect(clientCancel.safeParse({
-      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', job_id: null,
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to', job_id: null,
     }).success).toBe(true)
   })
 
@@ -68,29 +68,29 @@ describe('naming a job', () => {
     // `null` is a decision — "I mean whatever is running". An absent field is
     // whatever the reader assumes, and two readers assume differently.
     expect(clientCancel.safeParse({
-      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to',
     }).success).toBe(false)
-    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive-to' }).success).toBe(false)
+    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive_to' }).success).toBe(false)
   })
 
   it('keeps the slug required on a cancel even when an id is given', () => {
     // The bridge finds the tracker by slug; an id alone would make it search.
     expect(cloudCancel.safeParse({ type: 'cancel', job_id: UUID }).success).toBe(false)
-    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive-to', job_id: UUID }).success).toBe(true)
+    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive_to', job_id: UUID }).success).toBe(true)
   })
 
   it('refuses a job id that is not a uuid, rather than passing the string through', () => {
     // This is the contract half of `invalid_uuid`: the wire will not carry a
     // shape the route is expected to refuse.
     expect(clientCancel.safeParse({
-      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', job_id: 'not-a-uuid',
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to', job_id: 'not-a-uuid',
     }).success).toBe(false)
   })
 })
 
 describe('naming what a robot is still doing', () => {
   it('reports a job with its slug and state, not only its id', () => {
-    const entry = { job_id: UUID, slug: 'drive-to', state: 'running' }
+    const entry = { job_id: UUID, slug: 'drive_to', state: 'running' }
     expect(activeJob.parse(entry)).toEqual(entry)
   })
 
@@ -100,8 +100,8 @@ describe('naming what a robot is still doing', () => {
     // job it never recorded — which is exactly the job a crash between
     // minting the id and writing the row leaves behind.
     expect(activeJob.safeParse({ job_id: UUID }).success).toBe(false)
-    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive-to' }).success).toBe(false)
-    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive-to', state: 'busy' }).success).toBe(false)
+    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive_to' }).success).toBe(false)
+    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive_to', state: 'busy' }).success).toBe(false)
   })
 
   it('lets the bridge report a terminal state it is still holding', () => {
@@ -109,7 +109,7 @@ describe('naming what a robot is still doing', () => {
     // down has the result in hand; publishing `lost` over it would destroy a
     // fact the robot was still able to state.
     for (const state of ['running', 'succeeded', 'failed', 'cancelled', 'lost']) {
-      expect(activeJob.safeParse({ job_id: UUID, slug: 'drive-to', state }).success).toBe(true)
+      expect(activeJob.safeParse({ job_id: UUID, slug: 'drive_to', state }).success).toBe(true)
     }
   })
 
@@ -136,7 +136,7 @@ describe('asking what a robot is doing without knowing what to ask', () => {
     // that the cloud has no row for, and one left on a slug a configuration
     // change removed.
     const j = {
-      id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running' as const,
+      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running' as const,
       started_at: NOW, updated_at: NOW,
     seq: 1, result: null, error: null,
     }
@@ -166,7 +166,7 @@ describe('naming how long a caller will wait', () => {
     // picking a number the cloud is already counting against.
     expect(invokeRequest.parse({ params: {} }).patience_ms).toBeUndefined()
     expect(cloudInvoke.safeParse({
-      type: 'invoke', job_id: UUID, slug: 'drive-to', params: {},
+      type: 'invoke', job_id: UUID, slug: 'drive_to', params: {},
     }).success).toBe(false)
   })
 
@@ -177,7 +177,7 @@ describe('naming how long a caller will wait', () => {
     expect(invokeRequest.safeParse({ params: {}, patience_ms: MAX_PATIENCE_MS }).success).toBe(true)
     expect(invokeRequest.safeParse({ params: {}, patience_ms: MAX_PATIENCE_MS + 1 }).success).toBe(false)
     expect(cloudInvoke.safeParse({
-      type: 'invoke', job_id: UUID, slug: 'drive-to', params: {}, patience_ms: MAX_PATIENCE_MS + 1,
+      type: 'invoke', job_id: UUID, slug: 'drive_to', params: {}, patience_ms: MAX_PATIENCE_MS + 1,
     }).success).toBe(false)
   })
 
@@ -214,7 +214,7 @@ describe('the same thing over both transports', () => {
     // so `null` is a decision and an omission is a bug.
     expect(cancelRequest.safeParse({}).success).toBe(true)
     expect(clientCancel.safeParse({
-      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to',
     }).success).toBe(false)
   })
 
@@ -226,14 +226,14 @@ describe('the same thing over both transports', () => {
     // every SDK caller. Four such methods have shipped that way before; this
     // one was caught first.
     expect(clientInvoke.safeParse({
-      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive_to',
       params: {}, patience_ms: 2000,
     }).success).toBe(true)
     expect(clientInvoke.parse({
-      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', params: {},
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive_to', params: {},
     }).patience_ms).toBeUndefined()
     expect(clientInvoke.safeParse({
-      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to',
+      type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive_to',
       params: {}, patience_ms: MAX_PATIENCE_MS + 1,
     }).success).toBe(false)
   })
@@ -343,7 +343,7 @@ describe('bounding a queue, and ordering a log', () => {
     // sentence and lost. The console then rendered an alert from a shape
     // nothing produced, and its test built that shape by hand.
     const withDetails = {
-      id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'failed' as const,
+      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'failed' as const,
       started_at: NOW, updated_at: NOW,
     seq: 1, result: null,
       error: { code: 'job_queue_full', message: '200 jobs are already queued', details: { limit: 200, queued: 200 } },

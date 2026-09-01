@@ -80,7 +80,7 @@ describe('identity', () => {
     expect(developerLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(true)
     expect(clientLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(false)
     expect(
-      clientLoginRequest.safeParse({ app_identifier: 'fleet-ops', email: 'a@b.de', password: 'x' }).success,
+      clientLoginRequest.safeParse({ app_identifier: 'fleet_ops', email: 'a@b.de', password: 'x' }).success,
     ).toBe(true)
   })
 
@@ -126,10 +126,10 @@ describe('identity', () => {
 
 describe('apps, keys and roles', () => {
   it('identifies an app by a slug, like a service', () => {
-    expect(appIdentifier.safeParse('fleet-ops').success).toBe(true)
+    expect(appIdentifier.safeParse('fleet_ops').success).toBe(true)
     expect(appIdentifier.safeParse('Fleet Ops').success).toBe(false)
     expect(
-      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet-ops', group_id: UUID2, robot_ids: [UUID], accepts_dynamic_clients: false, default_role_id: null, created_at: NOW })
+      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet_ops', group_id: UUID2, robot_ids: [UUID], accepts_dynamic_clients: false, default_role_id: null, created_at: NOW })
         .success,
     ).toBe(true)
   })
@@ -148,7 +148,7 @@ describe('apps, keys and roles', () => {
     expect(
       rolePermissions.safeParse({
         role_id: UUID,
-        grants: [{ robot_id: UUID2, slugs: ['battery-percentage', 'bridge-state'] }],
+        grants: [{ robot_id: UUID2, slugs: ['battery_percentage', 'bridge_state'] }],
         capabilities: { action_history: false, presence: true, assets: false },
       }).success,
     ).toBe(true)

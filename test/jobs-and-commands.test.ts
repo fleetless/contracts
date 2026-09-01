@@ -30,7 +30,7 @@ const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
 const NOW = '2026-08-11T06:00:00.000Z'
 
 const ACTION = {
-  slug: 'drive-to',
+  slug: 'drive_to',
   ros_name: '/drive_to',
   type: 'example/action/DriveTo',
   parameters: [{ name: 'speed', type: 'float32', rule: { min: 0, max: 1.5, required: true } }],
@@ -48,7 +48,7 @@ describe('config: three new kinds', () => {
     // invalidated every published version of every live robot on first read.
     const w2 = {
       datapoints: [{
-        slug: 'battery-percentage', topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
+        slug: 'battery_percentage', topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
         field: 'percentage', rate: { mode: 'max_hz', hz: 2 }, unit: '%', scale: 100, offset: null, range: null,
       }],
     }
@@ -60,7 +60,7 @@ describe('config: three new kinds', () => {
   })
 
   it('gives a datapoint a buffer, because a disconnect otherwise means a gap', () => {
-    const dp = { slug: 'buf-test', topic: '/b', type: 'p/msg/T', field: null, rate: { mode: 'on_change' },
+    const dp = { slug: 'buf_test', topic: '/b', type: 'p/msg/T', field: null, rate: { mode: 'on_change' },
       unit: null, scale: null, offset: null, range: null, buffer: { enabled: true, max_values: 500 } }
     expect(datapointConfig.safeParse(dp).success).toBe(true)
     expect(datapointConfig.safeParse({ ...dp, buffer: { enabled: true, max_values: 0 } }).success).toBe(false)
@@ -86,7 +86,7 @@ describe('config: three new kinds', () => {
 })
 
 describe('jobs', () => {
-  const J = { id: UUID, robot_id: UUID2, slug: 'drive-to', state: 'running', started_at: NOW, updated_at: NOW,
+  const J = { id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running', started_at: NOW, updated_at: NOW,
     seq: 1, result: null, error: null }
 
   it('knows lost as a real outcome, not an absence of news', () => {
@@ -99,12 +99,12 @@ describe('jobs', () => {
   it('stamps job updates with bridge capture time, like any datapoint', () => {
     expect(
       jobEvent.safeParse({
-        type: 'job', robot_id: UUID2, slug: 'drive-to', job: J,
+        type: 'job', robot_id: UUID2, slug: 'drive_to', job: J,
         feedback: { distance: 2.5 }, progress: 0.4, timestamp_ms: 1786400000000,
       }).success,
     ).toBe(true)
     expect(
-      jobEvent.safeParse({ type: 'job', robot_id: UUID2, slug: 'drive-to', job: J, feedback: null, progress: 1.5, timestamp_ms: 1 }).success,
+      jobEvent.safeParse({ type: 'job', robot_id: UUID2, slug: 'drive_to', job: J, feedback: null, progress: 1.5, timestamp_ms: 1 }).success,
     ).toBe(false)
   })
 
@@ -116,9 +116,9 @@ describe('jobs', () => {
 
 describe('command parity', () => {
   it('correlates every command with its reply', () => {
-    expect(clientInvoke.safeParse({ type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive-to', params: { speed: 0.5 } }).success).toBe(true)
-    expect(clientInvoke.safeParse({ type: 'invoke', robot_id: UUID2, slug: 'drive-to', params: {} }).success).toBe(false)
-    expect(clientCancel.safeParse({ type: 'cancel', request_id: 'r2', robot_id: UUID2, slug: 'drive-to', job_id: null }).success).toBe(true)
+    expect(clientInvoke.safeParse({ type: 'invoke', request_id: 'r1', robot_id: UUID2, slug: 'drive_to', params: { speed: 0.5 } }).success).toBe(true)
+    expect(clientInvoke.safeParse({ type: 'invoke', robot_id: UUID2, slug: 'drive_to', params: {} }).success).toBe(false)
+    expect(clientCancel.safeParse({ type: 'cancel', request_id: 'r2', robot_id: UUID2, slug: 'drive_to', job_id: null }).success).toBe(true)
     expect(
       commandResult.safeParse({ type: 'command_result', request_id: 'r1', ok: false, job: null, kind: 'action', code: 'busy', message: 'already running' }).success,
     ).toBe(true)
@@ -147,8 +147,8 @@ describe('command parity', () => {
 describe('bridge protocol', () => {
   it('has the cloud mint the job id before the bridge is asked', () => {
     // A job that exists only once the bridge answers cannot be reported lost.
-    expect(cloudInvoke.safeParse({ type: 'invoke', job_id: UUID, slug: 'drive-to', params: { speed: 1 }, patience_ms: 15_000 }).success).toBe(true)
-    expect(cloudInvoke.safeParse({ type: 'invoke', slug: 'drive-to', params: {}, patience_ms: 15_000 }).success).toBe(false)
+    expect(cloudInvoke.safeParse({ type: 'invoke', job_id: UUID, slug: 'drive_to', params: { speed: 1 }, patience_ms: 15_000 }).success).toBe(true)
+    expect(cloudInvoke.safeParse({ type: 'invoke', slug: 'drive_to', params: {}, patience_ms: 15_000 }).success).toBe(false)
   })
 
   it('tells a reconnect from a restart, which look identical otherwise', () => {
@@ -160,7 +160,7 @@ describe('bridge protocol', () => {
     // the field renamed with them. The old name is gone rather than kept as
     // an alias — see `bridgeHello.active_jobs`.
     const hello = { type: 'hello', protocol_version: 1, token: 'frt_x', bridge_version: '0.4.0' }
-    const entry = { job_id: UUID, slug: 'drive-to', state: 'running' }
+    const entry = { job_id: UUID, slug: 'drive_to', state: 'running' }
     const live = bridgeHello.parse({ ...hello, active_jobs: [entry] })
     expect(live.active_jobs).toEqual([entry])
 
@@ -179,7 +179,7 @@ describe('bridge protocol', () => {
     expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [] }).success).toBe(true)
     expect(
       bridgeJobUpdate.safeParse({
-        type: 'job_update', job_id: UUID, slug: 'drive-to', state: 'succeeded',
+        type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'succeeded',
         feedback: null, progress: 1, result: { ok: true }, error: null, timestamp_ms: 1786400000000,
       }).success,
     ).toBe(true)
@@ -215,8 +215,8 @@ describe('exposures and errors', () => {
     expect(
       exposureListResponse.safeParse({
         exposures: [
-          { slug: 'bridge-state', kind: 'datapoint', builtin: true },
-          { slug: 'drive-to', kind: 'action', builtin: false },
+          { slug: 'bridge_state', kind: 'datapoint', builtin: true },
+          { slug: 'drive_to', kind: 'action', builtin: false },
           { slug: 'drive', kind: 'publisher', builtin: false },
         ],
       }).success,

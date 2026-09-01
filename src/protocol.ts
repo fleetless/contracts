@@ -494,7 +494,7 @@ export const bridgePressure = z.object({
   }),
 })
 export type BridgePressure = z.infer<typeof bridgePressure>
-export const PRESSURE_SLUG = 'bridge-pressure' as const
+export const PRESSURE_SLUG = 'bridge_pressure' as const
 
 /* ------------------------------------------------------------------ W5 --
  * Cameras (spec §10).

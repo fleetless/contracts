@@ -25,7 +25,7 @@ import {
 } from '../src/index.js'
 
 const DATAPOINT = {
-  slug: 'battery-percentage',
+  slug: 'battery_percentage',
   topic: '/battery',
   type: 'sensor_msgs/msg/BatteryState',
   field: 'percentage',
@@ -72,8 +72,8 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, retention: { days: 7 } }).success).toBe(false)
   })
 
-  it('names the built-in slugs, bridge-pressure last', () => {
-    expect([...RESERVED_SLUGS]).toEqual(['bridge-state', 'robot-details', 'bridge-pressure'])
+  it('names the built-in slugs, bridge_pressure last', () => {
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'bridge_pressure'])
   })
 
   it('carries a whole configuration as one document', () => {
@@ -85,7 +85,7 @@ describe('exposure model', () => {
   it('reports issues with field, rule and a severity that decides publishing', () => {
     const issue = {
       path: 'datapoints[0].field',
-      slug: 'battery-percentage',
+      slug: 'battery_percentage',
       code: 'unknown_field_path',
       message: 'sensor_msgs/msg/BatteryState has no field "percentag"',
       severity: 'error',
@@ -113,7 +113,7 @@ describe('exposure model', () => {
         draft_updated_at: '2026-08-10T12:05:00.000Z',
         applied_version: 1,
         applied_ok: false,
-        applied_errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'field_path_invalid', message: 'topic not found' }],
+        applied_errors: [{ slug: 'battery_percentage', kind: 'datapoint', code: 'field_path_invalid', message: 'topic not found' }],
       }).success,
     ).toBe(true)
   })
@@ -184,7 +184,7 @@ describe('bridge protocol', () => {
         type: 'config_applied',
         version: 1,
         ok: false,
-        errors: [{ slug: 'battery-percentage', kind: 'datapoint', code: 'unknown', message: 'type not resolvable in this workspace' }],
+        errors: [{ slug: 'battery_percentage', kind: 'datapoint', code: 'unknown', message: 'type not resolvable in this workspace' }],
       }).success,
     ).toBe(true)
   })
@@ -300,14 +300,14 @@ describe('REST shapes', () => {
     expect(
       datapointListResponse.safeParse({
         datapoints: [
-          { slug: 'bridge-state', builtin: true, unit: null, range: null, rate: null },
-          { slug: 'battery-percentage', builtin: false, unit: '%', range: { min: 0, max: 100 }, rate: { mode: 'max_hz', hz: 2 } },
+          { slug: 'bridge_state', builtin: true, unit: null, range: null, rate: null },
+          { slug: 'battery_percentage', builtin: false, unit: '%', range: { min: 0, max: 100 }, rate: { mode: 'max_hz', hz: 2 } },
         ],
       }).success,
     ).toBe(true)
   })
 
-  it('bounds robot-details keys and value kinds', () => {
+  it('bounds robot_details keys and value kinds', () => {
     expect(
       robotDetailsDoc.safeParse({
         model: 'rx1',
