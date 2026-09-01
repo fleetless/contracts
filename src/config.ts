@@ -14,9 +14,12 @@ import { alertSeverity } from './alerts.js'
  * configuration moves from draft to published, and how the cloud reports what
  * it refuses.
  *
- * The envelope is deliberately kind-agnostic. W2 implements the datapoint
- * kind; W4 adds actions, services and publishers to `robotConfigDoc`, W5 the
- * cameras — without changing draft/publish, versioning or slug rules.
+ * `robotConfigDoc` carries all six sections — messages, datapoints, actions,
+ * services, publishers and cameras — plus, since FL-002, the alerts, the
+ * chart bounds and the camera credentials that used to live outside it.
+ * Everything configurable about a robot is in this document, and there is one
+ * door to it. FL-002 rewrote the slug grammar (underscores, not dashes) and
+ * keyed every section by name; draft/publish and versioning are unchanged.
  */
 
 /**

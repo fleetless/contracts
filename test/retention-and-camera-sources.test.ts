@@ -42,11 +42,12 @@ describe('camera sources', () => {
     expect(cameraSource.parse({ kind: 'rtsp', url: 'rtsp://cam.local/s', transport: 'udp' })).toMatchObject({ transport: 'udp' })
   })
 
-  it('accepts a URL carrying userinfo — permitted, and warned about elsewhere', () => {
-    // André's call: a developer may do this. The schema does not refuse it;
-    // the cloud answers `credentials_in_url` with severity `warning`, which
-    // does not block a publish. Encoding the refusal here would make that
-    // decision unimplementable.
+  it('accepts a URL carrying userinfo — it is one of the two places credentials may live', () => {
+    // André's call: a developer may do this. The schema does not refuse it,
+    // and neither does the cloud any more — FL-002 removed both
+    // `credentials_in_url` and `credentials_in_url_ignored`. The rule is now
+    // that the explicit `credentials` block wins where both are present, so
+    // there is nothing left to warn about.
     expect(cameraSource.safeParse({ kind: 'rtsp', url: 'rtsp://u:p@cam.local/s' }).success).toBe(true)
   })
 

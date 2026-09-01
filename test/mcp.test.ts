@@ -56,11 +56,17 @@ describe('descriptions on the configuration', () => {
   })
 
   /**
-   * **Asserting the parsed value, not `.success`.** `robotConfigDoc`'s kinds
-   * are not `.strict()`, so zod strips an unknown key and a `safeParse`
-   * succeeds either way — which is exactly how a contracts test here once
-   * came out green after the field it tested had been deleted. `.success` here would
-   * pass whether or not `description` exists at all.
+   * **Asserting the parsed value, not `.success`.** `description` is optional
+   * on every kind, so a document without one parses whether or not the field
+   * still exists in the schema — which is exactly how a contracts test here
+   * once came out green after the field it tested had been deleted. Reading
+   * the parsed property is what tells those two apart.
+   *
+   * Not because unknown keys are stripped: every kind is `z.strictObject` as
+   * of this wave (`config-format.test.ts` pins the refusal), which makes
+   * `.success` say less rather than more — a `false` under `strictObject`
+   * cannot distinguish an unknown key from a missing required one, and a
+   * `true` still cannot mean the field was recognised.
    */
   it.each([
     ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints.battery_state }],

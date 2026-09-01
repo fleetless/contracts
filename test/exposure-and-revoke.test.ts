@@ -48,7 +48,7 @@ describe('the audit prefix filter', () => {
 })
 
 describe('structured apply errors', () => {
-  const base = { slug: 'front-camera', kind: 'camera' as const, code: 'unknown', message: 'boom' }
+  const base = { slug: 'front_camera', kind: 'camera' as const, code: 'unknown', message: 'boom' }
 
   it('carries the kind that failed and a code beside the message', () => {
     const ok = bridgeConfigApplied.safeParse({ type: 'config_applied', version: 3, ok: false, errors: [base] })

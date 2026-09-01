@@ -175,7 +175,7 @@ export type DatapointFrame = z.infer<typeof datapointFrame>
 /**
  * Latency probe, cloud → bridge. The cloud sends its own clock in `ts_ms`;
  * the bridge echoes it back untouched and the cloud derives the round-trip
- * latency shown as `bridge-state.latency_ms`.
+ * latency shown as `bridge_state.latency_ms`.
  */
 export const cloudPing = z.object({
   type: z.literal('ping'),
@@ -396,7 +396,7 @@ export const bridgeTypeDefinitions = z.object({
 export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
 
 /**
- * The built-in `bridge-state` datapoint every robot has (spec §4.3):
+ * The built-in `bridge_state` datapoint every robot has (spec §4.3):
  * connection status plus latency, the basis for offline-aware client UIs.
  */
 export const bridgeState = z.object({
@@ -414,10 +414,10 @@ const bridgePressureTier = z.object({
 })
 
 /**
- * The built-in `bridge-pressure` datapoint (spec §4.3, the pressure-telemetry
+ * The built-in `bridge_pressure` datapoint (spec §4.3, the pressure-telemetry
  * design's "The decision that shapes everything"): the bridge's own
  * bandwidth-shaping state, sent on the same reserved-slug path as
- * `bridge-state` so history, realtime, REST and MCP exposure fall out of the
+ * `bridge_state` so history, realtime, REST and MCP exposure fall out of the
  * ordinary datapoint machinery for free.
  */
 export const bridgePressure = z.object({

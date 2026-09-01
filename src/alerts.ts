@@ -8,9 +8,16 @@ import { slug } from './common.js'
  * An alert is a **state machine** (`ok ⇄ firing`), not a fire-once event —
  * the definition (this file's request/entity shapes) and the runtime state
  * (`state`, `state_since`, `last_value`) share one row, evaluated by the
- * cloud at ingest. Neither table is part of `robotConfigDoc`: both apply
- * immediately, with no publish step, which is the whole reason they are
- * their own entity rather than a datapoint config field.
+ * cloud at ingest.
+ *
+ * **Both tables moved into `robotConfigDoc` in FL-002.** The alert definition
+ * is `config.ts`'s `datapointAlert`, nested under the datapoint it watches;
+ * the chart bounds are `datapointChart`. They therefore take effect on
+ * publish rather than immediately, and in exchange every change to them is
+ * versioned, comparable and revertible. What is left here is the stored row
+ * and the REST surface still serving it — both exist through wave 4, which
+ * deletes them. The runtime state stays wherever the definition goes: it
+ * belongs in the database and has no business in a versioned document.
  */
 
 /**

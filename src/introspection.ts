@@ -96,7 +96,14 @@ export const typeDefinition = z.discriminatedUnion('kind', [
 export type TypeDefinition = z.infer<typeof typeDefinition>
 
 /**
- * The tree a `parameterSpec.name` must resolve against, per the table above.
+ * The tree a message template resolves against, per the table above.
+ *
+ * What resolves against it is a **placeholder's position in the template** —
+ * the field the `${name}` sits on — and not the parameter's name.
+ * `parameterSpec` has no `name`; `parameters` is a record keyed by name, and
+ * the format decouples that name from the field path on purpose, so a
+ * parameter survives its field moving in the tree.
+ *
  * One helper so cloud, console and SDK cannot each pick a different field.
  */
 export function parameterFieldsOf(def: TypeDefinition): TypeField[] {

@@ -276,7 +276,7 @@ export type SubscribeError = z.infer<typeof subscribeError>
 /**
  * One datapoint sample pushed to a subscriber. The current value arrives
  * immediately on subscribe, then every change. `timestamp_ms` semantics as
- * in `datapointValue` (capture time; cloud-observed for `bridge-state`).
+ * in `datapointValue` (capture time; cloud-observed for `bridge_state`).
  */
 export const datapointEvent = z.object({
   type: z.literal('datapoint'),
