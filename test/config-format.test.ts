@@ -43,7 +43,49 @@ describe('parameter', () => {
 
   it('gives bool no constraints at all', () => {
     expect(parameterSpec.safeParse({ type: 'bool' }).success).toBe(true)
-    expect(parameterSpec.safeParse({ type: 'bool', enum: [true] }).success).toBe(false)
+    // **`enum: [true]` cannot reach the guard.** `enum`'s element type is
+    // `string | number`, so a boolean entry fails at `invalid_union` on
+    // `enum[0]` and the `superRefine` never runs — the version of this test
+    // that used it stayed green with the guard deleted. `['a']` is a
+    // well-typed entry and gets that far.
+    //
+    // `.success` alone still would not be enough: with the guard gone the
+    // per-entry type check refuses the same document at `enum.0`. The path is
+    // what pins *this* rule, and it is the assertion that goes red when the
+    // guard is deleted (measured). The float case above is the one only this
+    // guard can refuse.
+    const r = parameterSpec.safeParse({ type: 'bool', enum: ['a'] })
+    expect(r.success).toBe(false)
+    expect(!r.success && r.error.issues.map((i) => i.path.join('.'))).toEqual(['enum'])
+    expect(!r.success && r.error.issues[0]!.message).toContain('enum needs an integer or string type')
+  })
+
+  it('refuses a default that does not match the declared type', () => {
+    expect(parameterSpec.safeParse({ type: 'int32', default: 3 }).success).toBe(true)
+    expect(parameterSpec.safeParse({ type: 'int32', default: 'nope' }).success).toBe(false)
+    // 1.5 is not an int32; 1.0 is indistinguishable from 1 in both JSON and
+    // YAML, so the check cannot and does not claim to catch that one.
+    expect(parameterSpec.safeParse({ type: 'int32', default: 1.5 }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'float64', default: 1.5 }).success).toBe(true)
+    expect(parameterSpec.safeParse({ type: 'string', default: true }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'bool', default: 1 }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'bool', default: false }).success).toBe(true)
+  })
+
+  it('refuses an enum entry that does not match the declared type', () => {
+    const r = parameterSpec.safeParse({ type: 'int32', enum: ['a'] })
+    expect(r.success).toBe(false)
+    expect(!r.success && r.error.issues[0]!.path).toEqual(['enum', 0])
+    expect(parameterSpec.safeParse({ type: 'int32', enum: [1, 2.5] }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'string', enum: ['idle', 3] }).success).toBe(false)
+  })
+
+  it('reports a float enum as one mistake, not two', () => {
+    // `enum` is not allowed on a float at all, so the per-entry type check is
+    // not also run: a document that trips this code must trip exactly it.
+    const r = parameterSpec.safeParse({ type: 'float64', enum: ['a'] })
+    expect(r.success).toBe(false)
+    expect(!r.success && r.error.issues.map((i) => i.path.join('.'))).toEqual(['enum'])
   })
 
   it('has no `required` field — absence of `default` is what makes it required', () => {

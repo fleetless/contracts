@@ -88,6 +88,14 @@ const STRING_TYPES = new Set(['string', 'wstring'])
  * `enum`: equality on floating point is unreliable, so an enumerated float
  * list is a trap that only shows up in operation.
  *
+ * **A `default` and every `enum` entry must match `type`**, and that is
+ * decided here rather than in the cloud. Its sibling
+ * `constraint_not_allowed_for_type` was always here, and leaving one of a
+ * pair in zod and the other in the cloud is two policies for one decision.
+ * It needs nothing this schema does not have: a value and a declared type.
+ * `type_mismatch` — the declared type against the type at the template
+ * position — is the one that needs introspection, and it is the cloud's.
+ *
  * There is no `required` field. A placeholder cannot be left unfilled, so
  * "required" is exactly "has no `default`" — a second spelling of one fact
  * is the defect this file has spent two waves removing.
@@ -104,17 +112,49 @@ export const parameterSpec = z
   })
   .superRefine((p, ctx) => {
     const numeric = INTEGER_TYPES.has(p.type) || FLOAT_TYPES.has(p.type)
-    const refuse = (path: string, why: string) =>
-      ctx.addIssue({ code: 'custom', path: [path], message: why })
+    const refuse = (path: (string | number)[], why: string) =>
+      ctx.addIssue({ code: 'custom', path, message: why })
+
+    /**
+     * What a value of this parameter's declared type may look like on the
+     * wire. Integers are checked with `Number.isInteger`, which cannot tell
+     * `1.0` from `1` — nothing can, in JSON or in YAML, since both parse to
+     * the same double. `1.5` on an `int32` is the case worth catching and it
+     * is caught.
+     */
+    const matchesType = (v: unknown): boolean => {
+      if (p.type === 'bool') return typeof v === 'boolean'
+      if (STRING_TYPES.has(p.type)) return typeof v === 'string'
+      if (INTEGER_TYPES.has(p.type)) return typeof v === 'number' && Number.isInteger(v)
+      return typeof v === 'number' && Number.isFinite(v)
+    }
 
     if (!numeric && (p.min_value !== undefined || p.max_value !== undefined))
-      refuse('min_value', `min_value/max_value need a numeric type, not '${p.type}'`)
+      refuse(['min_value'], `min_value/max_value need a numeric type, not '${p.type}'`)
     if (!STRING_TYPES.has(p.type) && p.regex !== undefined)
-      refuse('regex', `regex needs a string type, not '${p.type}'`)
-    if (p.enum !== undefined && !(INTEGER_TYPES.has(p.type) || STRING_TYPES.has(p.type)))
-      refuse('enum', `enum needs an integer or string type, not '${p.type}'`)
+      refuse(['regex'], `regex needs a string type, not '${p.type}'`)
+    if (p.enum !== undefined && !(INTEGER_TYPES.has(p.type) || STRING_TYPES.has(p.type))) {
+      refuse(['enum'], `enum needs an integer or string type, not '${p.type}'`)
+    } else if (p.enum !== undefined) {
+      /**
+       * Only reached when `enum` is allowed at all. A float `enum` is one
+       * mistake, not two: reporting both codes for it would leave neither
+       * pinned to a document that produces exactly it.
+       */
+      p.enum.forEach((v, i) => {
+        if (!matchesType(v)) refuse(['enum', i], `enum entry does not match type '${p.type}'`)
+      })
+    }
+    if (p.default !== undefined && !matchesType(p.default))
+      refuse(['default'], `default does not match type '${p.type}'`)
+    /**
+     * No spec code for this one, deliberately: `invalid_range` was deleted
+     * with `expected_range`, and reversed bounds are not one of the thirteen.
+     * It stays a plain `custom` refusal until something downstream needs to
+     * name it.
+     */
     if (p.min_value !== undefined && p.max_value !== undefined && p.min_value > p.max_value)
-      refuse('min_value', 'min_value is greater than max_value')
+      refuse(['min_value'], 'min_value is greater than max_value')
   })
 export type ParameterSpec = z.infer<typeof parameterSpec>
 
