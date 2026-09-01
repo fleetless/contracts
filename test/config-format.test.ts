@@ -140,6 +140,45 @@ describe('message template', () => {
     expect([...placeholderNames(treeWithNestedArray)].sort()).toEqual(['speed_x', 'speed_y', 'speed_z'])
   })
 
+  /**
+   * `safeParse`'s contract is to return, not to throw. The recursive version
+   * of `placeholderNames` broke it: 20 000 levels raised
+   * `RangeError: Maximum call stack size exceeded` and `publisherConfig`
+   * propagated it, so wave 1b's draft PUT would answer 500 where it meant
+   * 400. A flow-style YAML one-liner reaches that depth in ~120 KB.
+   */
+  it('walks a body far deeper than a call stack goes, without throwing', () => {
+    const deep = (levels: number) => {
+      let node: unknown = '${deep_speed}'
+      for (let i = 0; i < levels; i++) node = { nested: node }
+      return node
+    }
+    expect([...placeholderNames(deep(20_000))]).toEqual(['deep_speed'])
+    const r = publisherConfig.safeParse({
+      topic: '/cmd_vel',
+      type: 'geometry_msgs/msg/Twist',
+      message: deep(20_000),
+      failsafe: { timeout_ms: 500, message: deep(20_000) },
+      quiet_timeout_ms: 2000,
+    })
+    // It returns rather than throws, and it still sees the placeholder it
+    // had to walk 20 000 levels to find: the failsafe body carries one.
+    expect(r.success).toBe(false)
+    expect(!r.success && r.error.issues.map((i) => (i as { params?: { code?: string } }).params?.code)).toEqual([
+      'failsafe_has_parameters',
+    ])
+  })
+
+  it('terminates on a cyclic body, which YAML anchors can express', () => {
+    // `&a { b: *a }` resolves to an object holding itself. Trading recursion
+    // for an explicit stack turns an overflow into a hang unless the walk
+    // remembers where it has been, and a hang is the worse of the two.
+    const cyclic: Record<string, unknown> = { speed: '${linear_speed}' }
+    cyclic.self = cyclic
+    cyclic.list = [cyclic, { deeper: cyclic }]
+    expect([...placeholderNames(cyclic)]).toEqual(['linear_speed'])
+  })
+
   it('treats a bare word as a literal, never as a placeholder', () => {
     expect([...placeholderNames({ mode: 'linear_speed' })]).toEqual([])
     expect(PLACEHOLDER_RE.test('linear_speed')).toBe(false)
@@ -360,7 +399,7 @@ describe('document', () => {
   })
 })
 
-import { datapointAlert, publisherConfig as pubConfig } from '../src/index.js'
+import { datapointAlert } from '../src/index.js'
 
 describe('every refusal names its spec code', () => {
   /**
@@ -382,7 +421,7 @@ describe('every refusal names its spec code', () => {
     [
       'failsafe_has_parameters',
       () =>
-        pubConfig.safeParse({
+        publisherConfig.safeParse({
           topic: '/cmd_vel',
           type: 'geometry_msgs/msg/Twist',
           message: { linear: { x: 0 } },
@@ -417,7 +456,7 @@ describe('every refusal names its spec code', () => {
       failsafe: { timeout_ms: 500, message: '${stop_twist}' },
       quiet_timeout_ms: 2000,
     }
-    expect(pubConfig.safeParse(withRef).success).toBe(true)
+    expect(publisherConfig.safeParse(withRef).success).toBe(true)
     expect(datapointAlert.safeParse({ condition: { fire_at: 1 } }).success).toBe(true)
   })
 })

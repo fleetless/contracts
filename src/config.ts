@@ -370,25 +370,45 @@ export const messageRef = z.string().regex(PLACEHOLDER_RE)
  */
 export const messageBody = messageTemplate
 
-/** Every placeholder name in a template, at any depth. */
+/**
+ * Every placeholder name in a template, at any depth.
+ *
+ * **An explicit stack, not recursion, and the reason is `safeParse`'s
+ * contract.** This runs inside `publisherConfig`'s failsafe refinement, so a
+ * `RangeError: Maximum call stack size exceeded` did not stay here: it
+ * propagated out of `safeParse`, which is specified to return a result and
+ * not to throw. Measured on the recursive version — fine at 8 000 levels of
+ * nesting, throwing at 20 000 — and a flow-style YAML one-liner reaches that
+ * in about 120 KB of input. A draft PUT would have answered 500 where it
+ * meant 400.
+ *
+ * `seen` is not an optimisation. YAML anchors can express a cycle
+ * (`&a { b: *a }`), and the parser resolves an alias to the same object, so
+ * without it the loop that fixed the overflow would hang instead — the
+ * failure mode a stack trades for, made worse by being silent.
+ *
+ * The array branch is explicit, not necessary: `Object.values()` on an array
+ * yields the same elements. It is here so the walk reads as covering both
+ * shapes; a reader does not have to know that property of `Object.values`.
+ */
 export function placeholderNames(node: unknown, found = new Set<string>()): Set<string> {
-  if (typeof node === 'string') {
-    const m = PLACEHOLDER_RE.exec(node)
-    if (m) found.add(m[1]!)
-    return found
-  }
-  /**
-   * This branch is explicit, not necessary: `Object.values()` on an array yields
-   * the same elements, so removing it changes nothing. It is here so the recursion
-   * reads as covering both shapes; a reader does not have to know that property of
-   * `Object.values`.
-   */
-  if (Array.isArray(node)) {
-    for (const item of node) placeholderNames(item, found)
-    return found
-  }
-  if (node && typeof node === 'object') {
-    for (const value of Object.values(node)) placeholderNames(value, found)
+  const stack: unknown[] = [node]
+  const seen = new WeakSet<object>()
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (typeof current === 'string') {
+      const m = PLACEHOLDER_RE.exec(current)
+      if (m) found.add(m[1]!)
+      continue
+    }
+    if (!current || typeof current !== 'object') continue
+    if (seen.has(current)) continue
+    seen.add(current)
+    if (Array.isArray(current)) {
+      for (const item of current) stack.push(item)
+    } else {
+      for (const value of Object.values(current)) stack.push(value)
+    }
   }
   return found
 }
