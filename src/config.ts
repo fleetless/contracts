@@ -293,7 +293,21 @@ export const datapointNumeric = z.strictObject({
 })
 export type DatapointNumeric = z.infer<typeof datapointNumeric>
 
-/** `interval_seconds` absent means `RETENTION_INTERVAL_SECONDS_DEFAULT`. */
+/**
+ * `interval_seconds` absent means `RETENTION_INTERVAL_SECONDS_DEFAULT`.
+ *
+ * **`enabled` absent means off**, and that direction is the deliberate one.
+ * Stored points are what a customer is billed for, so a default that silently
+ * turned history on would start charging for a value nobody asked to keep. The
+ * cheap mistake is a developer noticing a datapoint has no history and
+ * switching it on; the expensive one is nobody noticing that everything has
+ * history. Absent-means-off is also what the cloud already does — this comment
+ * exists because it was doing it without anything saying so.
+ *
+ * Not spelled `.default(false)` for the same reason as every other default in
+ * this file: the document a developer wrote is the document that is stored,
+ * and a parse that inserts fields makes the round trip a lie.
+ */
 export const datapointRetention = z.strictObject({
   enabled: z.boolean().optional(),
   interval_seconds: z.number().int().min(1).max(3600).optional(),
