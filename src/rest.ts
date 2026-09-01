@@ -124,15 +124,41 @@ export type RobotDetailResponse = z.infer<typeof robotDetailResponse>
 /**
  * The editable configuration. `issues` is recomputed on every read and
  * write, so the editor never has to guess whether it may publish.
+ *
+ * **`source` is the author's text and `doc` is what it parses to.** Both are
+ * sent because they answer different questions: an editor renders the text a
+ * developer wrote, comments and key order intact, while every other consumer —
+ * the robot page, the MCP tools, the bridge frame — reads the parsed document
+ * and should never have to parse YAML to do it.
+ *
+ * `source` is never null. A draft exists from the moment a robot does, before
+ * anyone has typed anything; for that one the server renders the document
+ * instead, so a reader always has text to show and never has to handle an
+ * absent one.
  */
 export const configDraftResponse = z.object({
   doc: robotConfigDoc,
+  source: z.string(),
   updated_at: z.iso.datetime().nullable(),
   issues: z.array(validationIssue),
 })
 export type ConfigDraftResponse = z.infer<typeof configDraftResponse>
 
-export const putConfigDraftRequest = z.object({ doc: robotConfigDoc })
+/**
+ * A write carries the **text only**, and that is the point.
+ *
+ * If it carried both the text and the parsed document, the two could
+ * disagree — and a stored pair whose source does not parse to its document is
+ * not a state to handle, it is a defect. Sending only the source makes that
+ * unrepresentable on the wire: the server parses it, and there is exactly one
+ * account of what the configuration says.
+ *
+ * It also settles who owns parsing. The console refuses unparsable YAML before
+ * it sends, so a syntax error never reaches the server; the server decides
+ * everything about content. Two checks, and not two opinions about one
+ * question.
+ */
+export const putConfigDraftRequest = z.object({ source: z.string().max(1_000_000) })
 export type PutConfigDraftRequest = z.infer<typeof putConfigDraftRequest>
 
 /** Publishing freezes the draft into the next immutable version. */
@@ -152,10 +178,19 @@ export const configVersionsResponse = z.object({
 })
 export type ConfigVersionsResponse = z.infer<typeof configVersionsResponse>
 
+/**
+ * One published version, with the text it was published from.
+ *
+ * The text is what makes a version diff readable and a restore honest: a
+ * restore that returned only the document would hand back a configuration
+ * stripped of every comment the author wrote, which is the loss this format
+ * exists to prevent.
+ */
 export const configVersionResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
   doc: robotConfigDoc,
+  source: z.string(),
 })
 export type ConfigVersionResponse = z.infer<typeof configVersionResponse>
 

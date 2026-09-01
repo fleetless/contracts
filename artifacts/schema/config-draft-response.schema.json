@@ -741,6 +741,9 @@
       ],
       "additionalProperties": false
     },
+    "source": {
+      "type": "string"
+    },
     "updated_at": {
       "anyOf": [
         {
@@ -801,6 +804,7 @@
   },
   "required": [
     "doc",
+    "source",
     "updated_at",
     "issues"
   ],

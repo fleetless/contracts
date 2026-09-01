@@ -15,6 +15,7 @@ import {
   bridgeTypeDefinitions,
   robotDetailResponse,
   configDraftResponse,
+  putConfigDraftRequest,
   publishConfigResponse,
   introspectionResponse,
   datapointListResponse,
@@ -249,17 +250,36 @@ describe('REST shapes', () => {
     ).toBe(true)
   })
 
-  it('returns the draft together with its issues', () => {
+  it('returns the draft together with its issues and the text it was written as', () => {
     expect(
       configDraftResponse.safeParse({
         doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } },
+        source: 'fleetless: 1\n# the author wrote this\n',
         updated_at: '2026-08-10T12:02:00.000Z',
         issues: [],
       }).success,
     ).toBe(true)
     expect(
-      configDraftResponse.safeParse({ doc: { fleetless: 1 }, updated_at: null, issues: [] }).success,
+      configDraftResponse.safeParse({ doc: { fleetless: 1 }, source: 'fleetless: 1\n', updated_at: null, issues: [] })
+        .success,
     ).toBe(true)
+  })
+
+  it('refuses a draft response with no source — a reader always has text to show', () => {
+    // `source` is not optional on purpose. A draft exists from the moment a
+    // robot does, before anyone has typed anything, and for that one the
+    // server renders the document rather than sending nothing. Making it
+    // optional would push that decision onto every reader.
+    expect(
+      configDraftResponse.safeParse({ doc: { fleetless: 1 }, updated_at: null, issues: [] }).success,
+    ).toBe(false)
+  })
+
+  it('a write carries the text only, so source and document cannot disagree', () => {
+    expect(putConfigDraftRequest.safeParse({ source: 'fleetless: 1\n' }).success).toBe(true)
+    // Sending a parsed document instead is refused: two accounts of one
+    // configuration is the state this shape exists to make unrepresentable.
+    expect(putConfigDraftRequest.safeParse({ doc: { fleetless: 1 } }).success).toBe(false)
   })
 
   it('numbers published versions from one', () => {
