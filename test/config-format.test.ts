@@ -222,3 +222,42 @@ describe('camera', () => {
     expect(cameraConfig.safeParse({ source: ref, ...base }).success).toBe(false)
   })
 })
+
+import { robotConfigDoc, FLEETLESS_FORMAT_VERSION } from '../src/index.js'
+
+describe('document', () => {
+  it('requires the format marker and refuses any other value', () => {
+    expect(FLEETLESS_FORMAT_VERSION).toBe(1)
+    expect(robotConfigDoc.safeParse({ fleetless: 1 }).success).toBe(true)
+    expect(robotConfigDoc.safeParse({}).success).toBe(false)
+    expect(robotConfigDoc.safeParse({ fleetless: 2 }).success).toBe(false)
+  })
+
+  it('keys every section by name', () => {
+    const doc = {
+      fleetless: 1,
+      datapoints: { battery_soc: { topic: '/b', type: 'sensor_msgs/msg/BatteryState', field: 'percentage' } },
+    }
+    const parsed = robotConfigDoc.parse(doc)
+    expect(Object.keys(parsed.datapoints ?? {})).toEqual(['battery_soc'])
+  })
+
+  it('refuses an unknown section and an unknown key inside an entry', () => {
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoint: {} }).success).toBe(false)
+    expect(
+      robotConfigDoc.safeParse({
+        fleetless: 1,
+        datapoints: { a_b: { topic: '/b', type: 'std_msgs/msg/Bool', field: 'data', nope: 1 } },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('refuses an explicit null instead of an omission', () => {
+    expect(
+      robotConfigDoc.safeParse({
+        fleetless: 1,
+        datapoints: { a_b: { topic: '/b', type: 'std_msgs/msg/Bool', field: null } },
+      }).success,
+    ).toBe(false)
+  })
+})

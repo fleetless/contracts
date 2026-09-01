@@ -41,19 +41,22 @@ describe('config: three new kinds', () => {
     expect(parameterSpec.safeParse({ type: 'float32' }).success).toBe(true)
   })
 
-  it('keeps a datapoints-only document valid — actions/services/publishers default to empty', () => {
-    // Stored configurations are jsonb. A required field here would have
-    // invalidated every published version of every live robot on first read.
+  it('keeps a datapoints-only document valid — absent sections stay absent, not defaulted', () => {
+    // An absent section is `undefined`, never a default. `capped().optional()`
+    // means "not configured", and there is no live deployment to migrate.
     const w2 = {
-      datapoints: [{
-        topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
-        field: 'percentage', rate_throttle_hz: 2, numeric: { scale: 100, unit: '%' },
-      }],
+      fleetless: 1 as const,
+      datapoints: {
+        battery_percentage: {
+          topic: '/battery', type: 'sensor_msgs/msg/BatteryState',
+          field: 'percentage', rate_throttle_hz: 2, numeric: { scale: 100, unit: '%' },
+        },
+      },
     }
     const parsed = robotConfigDoc.parse(w2)
-    expect(parsed.actions).toEqual([])
-    expect(parsed.services).toEqual([])
-    expect(parsed.publishers).toEqual([])
+    expect(parsed.actions).toBeUndefined()
+    expect(parsed.services).toBeUndefined()
+    expect(parsed.publishers).toBeUndefined()
   })
 
   it('makes a publisher carry both timeouts — they are different promises', () => {

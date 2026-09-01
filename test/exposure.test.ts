@@ -54,8 +54,8 @@ describe('exposure model', () => {
   })
 
   it('carries a whole configuration as one document', () => {
-    expect(robotConfigDoc.safeParse({ datapoints: [DATAPOINT] }).success).toBe(true)
-    expect(robotConfigDoc.safeParse({ datapoints: [] }).success).toBe(true)
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoints: { battery_percentage: DATAPOINT } }).success).toBe(true)
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoints: {} }).success).toBe(true)
     expect(robotConfigDoc.safeParse({}).success).toBe(false)
   })
 
@@ -153,9 +153,9 @@ describe('introspection', () => {
 
 describe('bridge protocol', () => {
   it('pushes the published configuration, with version 0 meaning nothing published', () => {
-    expect(cloudConfig.safeParse({ type: 'config', version: 1, doc: { datapoints: [DATAPOINT] } }).success).toBe(true)
-    expect(cloudConfig.safeParse({ type: 'config', version: 0, doc: { datapoints: [] } }).success).toBe(true)
-    expect(cloudConfig.safeParse({ type: 'config', version: -1, doc: { datapoints: [] } }).success).toBe(false)
+    expect(cloudConfig.safeParse({ type: 'config', version: 1, doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } } }).success).toBe(true)
+    expect(cloudConfig.safeParse({ type: 'config', version: 0, doc: { fleetless: 1 } }).success).toBe(true)
+    expect(cloudConfig.safeParse({ type: 'config', version: -1, doc: { fleetless: 1 } }).success).toBe(false)
   })
 
   it('reports what was applied, with per-slug errors that do not fail the frame', () => {
@@ -252,13 +252,13 @@ describe('REST shapes', () => {
   it('returns the draft together with its issues', () => {
     expect(
       configDraftResponse.safeParse({
-        doc: { datapoints: [DATAPOINT] },
+        doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } },
         updated_at: '2026-08-10T12:02:00.000Z',
         issues: [],
       }).success,
     ).toBe(true)
     expect(
-      configDraftResponse.safeParse({ doc: { datapoints: [] }, updated_at: null, issues: [] }).success,
+      configDraftResponse.safeParse({ doc: { fleetless: 1 }, updated_at: null, issues: [] }).success,
     ).toBe(true)
   })
 

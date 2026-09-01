@@ -18,9 +18,9 @@ const CAM = {
 }
 
 describe('cameras', () => {
-  it('keeps a document written before cameras existed valid — they default to empty', () => {
-    const withoutCameras = { datapoints: [], actions: [], services: [], publishers: [] }
-    expect(robotConfigDoc.parse(withoutCameras).cameras).toEqual([])
+  it('keeps a document written before cameras existed valid — the section is simply absent', () => {
+    const withoutCameras = { fleetless: 1 as const }
+    expect(robotConfigDoc.parse(withoutCameras).cameras).toBeUndefined()
   })
 
   it('puts bandwidth in the configuration, not in a viewer request', () => {

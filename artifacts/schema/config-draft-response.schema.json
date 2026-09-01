@@ -5,10 +5,29 @@
     "doc": {
       "type": "object",
       "properties": {
+        "fleetless": {
+          "type": "number",
+          "const": 1
+        },
+        "messages": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {}
+        },
         "datapoints": {
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
               "topic": {
@@ -167,10 +186,14 @@
           }
         },
         "actions": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
               "ros_name": {
@@ -286,10 +309,14 @@
           }
         },
         "services": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
               "ros_name": {
@@ -405,10 +432,14 @@
           }
         },
         "publishers": {
-          "default": [],
-          "maxItems": 200,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
               "topic": {
@@ -556,10 +587,14 @@
           }
         },
         "cameras": {
-          "default": [],
-          "maxItems": 50,
-          "type": "array",
-          "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
             "type": "object",
             "properties": {
               "source": {
@@ -734,11 +769,7 @@
         }
       },
       "required": [
-        "datapoints",
-        "actions",
-        "services",
-        "publishers",
-        "cameras"
+        "fleetless"
       ],
       "additionalProperties": false
     },

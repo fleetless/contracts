@@ -28,21 +28,19 @@ import * as contracts from '../src/index.js'
 
 /** A published configuration from before descriptions existed — none anywhere. */
 const docWithoutDescriptions = {
-  datapoints: [
-    {
+  fleetless: 1 as const,
+  datapoints: {
+    battery_state: {
       topic: '/battery_state',
       type: 'sensor_msgs/msg/BatteryState',
       field: 'percentage',
       rate_throttle_hz: 1,
       numeric: { scale: 100, unit: '%' },
     },
-  ],
-  actions: [
-    { ros_name: '/dock', type: 'rx1_msgs/action/Dock' },
-  ],
-  services: [],
-  publishers: [],
-  cameras: [],
+  },
+  actions: {
+    dock: { ros_name: '/dock', type: 'rx1_msgs/action/Dock' },
+  },
 }
 
 describe('descriptions on the configuration', () => {
@@ -53,8 +51,8 @@ describe('descriptions on the configuration', () => {
    */
   it('a configuration document with no description anywhere still parses', () => {
     const parsed = robotConfigDoc.parse(docWithoutDescriptions)
-    expect(parsed.datapoints[0]!.description).toBeUndefined()
-    expect(parsed.actions[0]!.description).toBeUndefined()
+    expect(parsed.datapoints!.battery_state!.description).toBeUndefined()
+    expect(parsed.actions!.dock!.description).toBeUndefined()
   })
 
   /**
@@ -65,8 +63,8 @@ describe('descriptions on the configuration', () => {
    * pass whether or not `description` exists at all.
    */
   it.each([
-    ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints[0]! }],
-    ['action', actionConfig, { ...docWithoutDescriptions.actions[0]! }],
+    ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints.battery_state }],
+    ['action', actionConfig, { ...docWithoutDescriptions.actions.dock }],
     ['service', serviceConfig, { ros_name: '/reset', type: 'std_srvs/srv/Trigger' }],
     [
       'publisher',
@@ -108,7 +106,7 @@ describe('descriptions on the configuration', () => {
 
   /** The empty string would be a second spelling of "not described". */
   it('refuses an empty description rather than storing a second spelling of absent', () => {
-    expect(datapointConfig.safeParse({ ...docWithoutDescriptions.datapoints[0]!, description: '' }).success).toBe(false)
+    expect(datapointConfig.safeParse({ ...docWithoutDescriptions.datapoints.battery_state, description: '' }).success).toBe(false)
   })
 
   /**
@@ -121,11 +119,14 @@ describe('descriptions on the configuration', () => {
    * field into a default later.
    */
   it('the generated JSON Schema does not make description required', () => {
+    // Each section is now a record keyed by name — `additionalProperties`
+    // carries the entry schema, where `items` used to when sections were
+    // arrays.
     const schema = z.toJSONSchema(robotConfigDoc) as {
-      properties: Record<string, { items?: { required?: string[] } }>
+      properties: Record<string, { additionalProperties?: { required?: string[] } }>
     }
     for (const kind of ['datapoints', 'actions', 'services', 'publishers', 'cameras']) {
-      expect(schema.properties[kind]?.items?.required ?? []).not.toContain('description')
+      expect(schema.properties[kind]?.additionalProperties?.required ?? []).not.toContain('description')
     }
   })
 })

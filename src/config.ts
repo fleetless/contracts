@@ -451,24 +451,34 @@ export const cameraConfig = z.strictObject({
 export type CameraConfig = z.infer<typeof cameraConfig>
 
 /**
- * A whole robot configuration. One document per draft and per published
- * version. The kinds are sibling arrays, and **slugs are one namespace across
- * all of them** (§4.1) — which is what lets a role grant say
- * `{robot, slug}` without ever naming a kind.
+ * The format version of a `fleetless.yaml`. Deliberately not called
+ * `version`: the console counts published states with "v12 → v13", and two
+ * numbers called version would be the likeliest confusion in the format.
  */
-export const robotConfigDoc = z.object({
-  datapoints: z.array(datapointConfig).max(200),
-  /**
-   * The three kinds W4 adds default to empty so that **every configuration
-   * published before W4 still parses**. Stored documents are jsonb; a
-   * required field here would have invalidated live robots' published
-   * versions on the first read after deploy.
-   */
-  actions: z.array(actionConfig).max(200).default([]),
-  services: z.array(serviceConfig).max(200).default([]),
-  publishers: z.array(publisherConfig).max(200).default([]),
-  /** W5, defaulted for the same reason the W4 kinds were: stored jsonb. */
-  cameras: z.array(cameraConfig).max(50).default([]),
+export const FLEETLESS_FORMAT_VERSION = 1
+
+const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
+  z.record(slug, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
+
+/**
+ * A whole robot configuration — everything configurable about one robot.
+ *
+ * Every section is a mapping keyed by name, not a list of objects carrying
+ * their own name. A duplicate name is then a YAML syntax error rather than a
+ * rule somebody has to write, and the name reads as the entry's heading.
+ *
+ * Slugs remain ONE namespace across all five exposure sections (§4.1), which
+ * is what lets a role grant say `{robot, slug}` without naming a kind. That
+ * check spans sections and therefore lives in the cloud, not here.
+ */
+export const robotConfigDoc = z.strictObject({
+  fleetless: z.literal(FLEETLESS_FORMAT_VERSION),
+  messages: messageMap.optional(),
+  datapoints: capped(datapointConfig, 200, 'datapoints').optional(),
+  actions: capped(actionConfig, 200, 'actions').optional(),
+  services: capped(serviceConfig, 200, 'services').optional(),
+  publishers: capped(publisherConfig, 200, 'publishers').optional(),
+  cameras: capped(cameraConfig, 50, 'cameras').optional(),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 

@@ -111,6 +111,7 @@ export {
 } from './jobs.js'
 export type { JobActor, JobRunKind, JobRun, JobRunQuery, JobRunListResponse, JobRunSummary } from './jobs.js'
 export {
+  FLEETLESS_FORMAT_VERSION,
   RESERVED_SLUGS,
   parameterType,
   parameterSpec,
