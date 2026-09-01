@@ -51,8 +51,9 @@ import { alertSeverity } from './alerts.js'
  * spec's code, which zod passes through `safeParse` untouched. The cloud maps
  * an issue to a code and its repair by reading that field, never by matching
  * the message prose — a join nobody notices breaking. The one refusal without
- * a code is reversed `min_value`/`max_value` bounds: `invalid_range` was
- * deleted with `expected_range`, and no code replaced it.
+ * a code is a reversed pair of bounds — `min_value`/`max_value` on a
+ * parameter, `y_min`/`y_max` on a chart: `invalid_range` was deleted with
+ * `expected_range`, and no code replaced it.
  *
  * `robotConfigDoc` carries all six sections — messages, datapoints, actions,
  * services, publishers and cameras — plus, since FL-002, the alerts, the
@@ -188,10 +189,11 @@ export const parameterSpec = z
     if (p.default !== undefined && !matchesType(p.default))
       refuse(['default'], `default does not match type '${p.type}'`, 'value_type_mismatch')
     /**
-     * The one refusal in this file with no `params.code`, deliberately:
-     * `invalid_range` was deleted with `expected_range`, and reversed bounds
-     * are not one of the thirteen. Inventing a fourteenth code here would put
-     * a code in the contracts that the cloud's table does not know.
+     * One of the two refusals in this file with no `params.code`, the other
+     * being `datapointChart`'s: `invalid_range` was deleted with
+     * `expected_range`, and reversed bounds are not one of the thirteen.
+     * Inventing a fourteenth here would put a code in the contracts that the
+     * cloud's table does not know.
      */
     if (p.min_value !== undefined && p.max_value !== undefined && p.min_value > p.max_value)
       refuse(['min_value'], 'min_value is greater than max_value')
@@ -238,9 +240,32 @@ export const alertCondition = z
 export type AlertCondition = z.infer<typeof alertCondition>
 
 /**
+ * The four defaults the format names, as constants.
+ *
+ * **The fields stay `.optional()`, not `.default()`** — that argument is on
+ * `serviceDescription` above and has not changed: `.default()` publishes a
+ * field as *required* in the generated JSON Schema, and absence is the
+ * single spelling of "not set" in this format. What was missing is the
+ * number itself. Left only in prose, the cloud and the console each invent
+ * their own, and the two agree until one of them is edited. The house answer
+ * is a named constant — `ALERT_COOLDOWN_MINUTES_DEFAULT` in `alerts.ts` is
+ * the same shape — so a consumer applying a default reads it from here.
+ */
+export const ALERT_SEVERITY_DEFAULT = 'warning' satisfies z.infer<typeof alertSeverity>
+export const ALERT_ENABLED_DEFAULT = true
+/** How often a value is written to history — not how often it is sent. */
+export const RETENTION_INTERVAL_SECONDS_DEFAULT = 300
+/** The window a chart opens on, in minutes. Display only. */
+export const CHART_WINDOW_MINUTES_DEFAULT = 60
+
+/**
  * An alert's definition. Runtime state — whether it is firing, since when,
  * with what value — is NOT here: it lives in the database and survives a
  * restart, and it has no business in a versioned document.
+ *
+ * `severity` and `enabled` are absent-means-`ALERT_SEVERITY_DEFAULT` and
+ * absent-means-`ALERT_ENABLED_DEFAULT`; see those constants for why the
+ * default is not applied here.
  */
 export const datapointAlert = z.strictObject({
   condition: alertCondition,
@@ -248,6 +273,7 @@ export const datapointAlert = z.strictObject({
   name: z.string().min(1).max(120).optional(),
   enabled: z.boolean().optional(),
 })
+export type DatapointAlert = z.infer<typeof datapointAlert>
 
 /** Requires a numeric field — all four fields share that one precondition. */
 export const datapointNumeric = z.strictObject({
@@ -256,19 +282,38 @@ export const datapointNumeric = z.strictObject({
   unit: z.string().max(32).optional(),
   decimals: z.number().int().min(0).max(6).optional(),
 })
+export type DatapointNumeric = z.infer<typeof datapointNumeric>
 
+/** `interval_seconds` absent means `RETENTION_INTERVAL_SECONDS_DEFAULT`. */
 export const datapointRetention = z.strictObject({
   enabled: z.boolean().optional(),
   interval_seconds: z.number().int().min(1).max(3600).optional(),
   max_buffer_values: z.number().int().min(1).max(100_000).optional(),
 })
+export type DatapointRetention = z.infer<typeof datapointRetention>
 
-export const datapointChart = z.strictObject({
-  y_min: z.number().finite().optional(),
-  y_max: z.number().finite().optional(),
-  style: z.enum(['line', 'step']).optional(),
-  default_window_minutes: z.number().int().min(1).max(43_200).optional(),
-})
+/**
+ * Chart display, and display only. `default_window_minutes` absent means
+ * `CHART_WINDOW_MINUTES_DEFAULT`.
+ *
+ * The bounds are ordered here for the same reason `parameterSpec`'s are:
+ * `{y_min: 10, y_max: 1}` is a mistake nothing else catches. It used to be
+ * `invalid_range`'s job and that code was deleted with `expected_range`, so
+ * without this the document would carry a reversed axis all the way to a
+ * chart that renders empty.
+ */
+export const datapointChart = z
+  .strictObject({
+    y_min: z.number().finite().optional(),
+    y_max: z.number().finite().optional(),
+    style: z.enum(['line', 'step']).optional(),
+    default_window_minutes: z.number().int().min(1).max(43_200).optional(),
+  })
+  .superRefine((c, ctx) => {
+    if (c.y_min !== undefined && c.y_max !== undefined && c.y_min > c.y_max)
+      ctx.addIssue({ code: 'custom', path: ['y_min'], message: 'y_min is greater than y_max' })
+  })
+export type DatapointChart = z.infer<typeof datapointChart>
 
 /**
  * The ceiling lives here once. `rest.ts`'s `datapointDescriptor` reuses it,
@@ -505,6 +550,7 @@ export const cameraCredentials = z.strictObject({
   username: z.string().min(1).max(128).optional(),
   password: z.string().min(1).max(128).optional(),
 })
+export type CameraCredentials = z.infer<typeof cameraCredentials>
 
 /**
  * Where a camera's frames come from (spec §10 names four sources).
@@ -578,6 +624,19 @@ export const cameraSource = z.discriminatedUnion('kind', [
 export type CameraSource = z.infer<typeof cameraSource>
 
 /**
+ * How often a snapshot is captured, in seconds. Bounded below at one second
+ * because a snapshot is the *cheap* mode — a developer who wants motion wants
+ * live, and an interval faster than this is a live stream wearing a disguise.
+ *
+ * The bound lives here once, and `rest.ts`'s `cameraDescriptor` reuses it —
+ * the same treatment `rateThrottleHz` got, and for the same reason: the
+ * descriptor used to say `snapshot_interval_ms` while the document said
+ * seconds, so the cloud converted on one descriptor and not its sibling, with
+ * nothing in either file saying so.
+ */
+export const snapshotIntervalSeconds = z.number().int().min(1).max(3600)
+
+/**
  * A camera the robot exposes (spec §10).
  *
  * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
@@ -600,13 +659,7 @@ export const cameraConfig = z.strictObject({
   height: z.number().int().positive().max(4320),
   fps: z.number().int().positive().max(60),
   bitrate_kbps: z.number().int().positive().max(50_000),
-  /**
-   * How often a snapshot is captured, in seconds. Bounded below at one
-   * second because a snapshot is the *cheap* mode — a developer who wants
-   * motion wants live, and an interval faster than this is a live stream
-   * wearing a disguise.
-   */
-  snapshot_interval_seconds: z.number().int().min(1).max(3600),
+  snapshot_interval_seconds: snapshotIntervalSeconds,
   description: serviceDescription,
 })
 export type CameraConfig = z.infer<typeof cameraConfig>

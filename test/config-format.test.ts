@@ -264,6 +264,17 @@ describe('datapoint', () => {
     expect(alertCondition.safeParse({ fire_at: 'err', resolve_at: 'ok' }).success).toBe(false)
   })
 
+  it('refuses a reversed chart axis, the way a parameter refuses reversed bounds', () => {
+    // `invalid_range` was deleted with `expected_range`, so nothing
+    // downstream catches this any more. `{y_min: 10, y_max: 1}` used to parse
+    // and reach a chart that renders empty.
+    const chart = (c: object) => datapointConfig.safeParse({ ...base, field: 'percentage', chart: c })
+    expect(chart({ y_min: 0, y_max: 100 }).success).toBe(true)
+    expect(chart({ y_min: 10, y_max: 10 }).success).toBe(true)
+    expect(chart({ y_min: 10 }).success).toBe(true)
+    expect(chart({ y_min: 10, y_max: 1 }).success).toBe(false)
+  })
+
   it('carries no recipients, cooldown or notify_on_resolve on an alert', () => {
     const withAlert = {
       ...base, field: 'percentage',
@@ -458,5 +469,82 @@ describe('every refusal names its spec code', () => {
     }
     expect(publisherConfig.safeParse(withRef).success).toBe(true)
     expect(datapointAlert.safeParse({ condition: { fire_at: 1 } }).success).toBe(true)
+  })
+})
+
+import { cameraCredentials, datapointNumeric, datapointRetention, datapointChart } from '../src/index.js'
+import type {
+  CameraCredentials,
+  DatapointAlert,
+  DatapointChart,
+  DatapointNumeric,
+  DatapointRetention,
+} from '../src/index.js'
+import {
+  ALERT_SEVERITY_DEFAULT,
+  ALERT_ENABLED_DEFAULT,
+  RETENTION_INTERVAL_SECONDS_DEFAULT,
+  CHART_WINDOW_MINUTES_DEFAULT,
+} from '../src/index.js'
+
+describe('the defaults the format names', () => {
+  /**
+   * The fields stay `.optional()` — `.default()` would publish them as
+   * required in the JSON Schema, and absence is the only spelling of "not
+   * set" here. So the number has to live somewhere a consumer can read it,
+   * or the cloud and the console each invent one and the two agree only
+   * until somebody edits one of them.
+   */
+  it('exports each one as a constant, and leaves the field optional', () => {
+    expect(ALERT_SEVERITY_DEFAULT).toBe('warning')
+    expect(ALERT_ENABLED_DEFAULT).toBe(true)
+    expect(RETENTION_INTERVAL_SECONDS_DEFAULT).toBe(300)
+    expect(CHART_WINDOW_MINUTES_DEFAULT).toBe(60)
+
+    const parsed = datapointConfig.parse({
+      ...base,
+      field: 'percentage',
+      retention: {},
+      chart: {},
+      alerts: { low: { condition: { fire_at: 15, resolve_at: 18 } } },
+    })
+    expect(parsed.retention!.interval_seconds).toBeUndefined()
+    expect(parsed.chart!.default_window_minutes).toBeUndefined()
+    expect(parsed.alerts!.low!.severity).toBeUndefined()
+    expect(parsed.alerts!.low!.enabled).toBeUndefined()
+  })
+
+  it('keeps each default inside the bound its own field enforces', () => {
+    // A constant that its own field would refuse is worse than no constant.
+    expect(datapointConfig.safeParse({
+      ...base, field: 'percentage',
+      retention: { interval_seconds: RETENTION_INTERVAL_SECONDS_DEFAULT },
+      chart: { default_window_minutes: CHART_WINDOW_MINUTES_DEFAULT },
+      alerts: { low: { condition: { fire_at: 1 }, severity: ALERT_SEVERITY_DEFAULT, enabled: ALERT_ENABLED_DEFAULT } },
+    }).success).toBe(true)
+  })
+})
+
+describe('the document shapes the barrel test cannot see', () => {
+  /**
+   * `barrel.test.ts` compares runtime exports and says in its own header that
+   * `export type` is invisible to it. These five values had no type export at
+   * all, asymmetric with everything else in `config.ts` and undetectable by
+   * that check. Annotating each one here puts them under `pnpm typecheck`,
+   * which is the only thing that can see them — and vitest does not
+   * typecheck, so this test passing is not the assertion; `pnpm typecheck`
+   * accepting the file is.
+   */
+  it('exports a type beside each value', () => {
+    const alert: DatapointAlert = { condition: { fire_at: 1 }, severity: ALERT_SEVERITY_DEFAULT }
+    const numeric: DatapointNumeric = { scale: 2, unit: '%' }
+    const retention: DatapointRetention = { interval_seconds: RETENTION_INTERVAL_SECONDS_DEFAULT }
+    const chart: DatapointChart = { default_window_minutes: CHART_WINDOW_MINUTES_DEFAULT }
+    const credentials: CameraCredentials = { username: 'ops', password: 'hunter2' }
+    expect(datapointAlert.safeParse(alert).success).toBe(true)
+    expect(datapointNumeric.safeParse(numeric).success).toBe(true)
+    expect(datapointRetention.safeParse(retention).success).toBe(true)
+    expect(datapointChart.safeParse(chart).success).toBe(true)
+    expect(cameraCredentials.safeParse(credentials).success).toBe(true)
   })
 })

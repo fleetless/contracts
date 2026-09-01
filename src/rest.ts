@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName, wireTimestampMs } from './common.js'
-import { configState, rateThrottleHz, robotConfigDoc, validationIssue } from './config.js'
+import { configState, rateThrottleHz, robotConfigDoc, snapshotIntervalSeconds, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
 import { job } from './jobs.js'
 
@@ -861,7 +861,14 @@ export const cameraDescriptor = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   fps: z.number().int().positive(),
-  snapshot_interval_ms: z.number().int().positive(),
+  /**
+   * Seconds, as the document spells it, reusing `snapshotIntervalSeconds` so
+   * the 1–3600 bound is written once. It was `snapshot_interval_ms` after the
+   * document moved to seconds, which left the cloud converting the unit on
+   * this descriptor and not on `datapointDescriptor` beside it — the same
+   * drift `rateThrottleHz` was extracted to stop.
+   */
+  snapshot_interval_seconds: snapshotIntervalSeconds,
 })
 export type CameraDescriptor = z.infer<typeof cameraDescriptor>
 
