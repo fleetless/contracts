@@ -446,3 +446,53 @@ export const configState = z.object({
   applied_errors: z.array(applyError).nullable(),
 })
 export type ConfigState = z.infer<typeof configState>
+
+/**
+ * A message template: the goal, request or published message, written out in
+ * full. Literals are fixed; `${name}` is a hole a caller fills.
+ *
+ * The shape cannot be narrower than `unknown` here — it is the shape of an
+ * arbitrary ROS message, which only the robot's own type definition knows.
+ * What CAN be checked here is the placeholder grammar; everything else is
+ * checked in the cloud against the introspected type.
+ */
+export const messageTemplate = z.unknown()
+
+/** `${name}` and nothing else. A bare word is always a literal. */
+export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
+
+export const messageRef = z.string().regex(PLACEHOLDER_RE)
+
+/**
+ * Either a shared message by name, or an inline template. Position decides:
+ * directly after `message:` a `${name}` resolves to a shared message, inside
+ * a body it resolves to a parameter.
+ */
+export const messageBody = z.union([messageRef, messageTemplate])
+
+/** Every placeholder name in a template, at any depth. */
+export function placeholderNames(node: unknown, found = new Set<string>()): Set<string> {
+  if (typeof node === 'string') {
+    const m = PLACEHOLDER_RE.exec(node)
+    if (m) found.add(m[1]!)
+    return found
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) placeholderNames(item, found)
+    return found
+  }
+  if (node && typeof node === 'object') {
+    for (const value of Object.values(node)) placeholderNames(value, found)
+  }
+  return found
+}
+
+/**
+ * Reusable message bodies, keyed by name. A shared message may hold
+ * placeholders; whoever inserts it declares the parameters. It may NOT
+ * insert another — that excludes cycles and lets every check look at exactly
+ * one body instead of walking a reference tree.
+ */
+export const messageMap = z
+  .record(slug, messageTemplate)
+  .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })

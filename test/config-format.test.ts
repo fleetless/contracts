@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { slug, RESERVED_SLUGS, parameterSpec, parameterType } from '../src/index.js'
+import { slug, RESERVED_SLUGS, parameterSpec, parameterType, messageBody, messageRef, PLACEHOLDER_RE, placeholderNames, messageMap } from '../src/index.js'
 
 describe('name grammar', () => {
   it('accepts lowercase words joined by single underscores', () => {
@@ -54,5 +54,51 @@ describe('parameter', () => {
 
   it('refuses reversed bounds', () => {
     expect(parameterSpec.safeParse({ type: 'int32', min_value: 5, max_value: 1 }).success).toBe(false)
+  })
+})
+
+describe('message template', () => {
+  it('accepts an arbitrary tree of literals', () => {
+    expect(messageBody.safeParse({ linear: { x: 0.0, y: 0.0 }, frame_id: 'map' }).success).toBe(true)
+  })
+
+  it('accepts a reference to a shared message, and only in the exact ${name} form', () => {
+    expect(messageRef.safeParse('${stop_twist}').success).toBe(true)
+    expect(messageRef.safeParse('stop_twist').success).toBe(false)
+    expect(messageRef.safeParse('${Stop-Twist}').success).toBe(false)
+  })
+
+  it('finds every placeholder in a tree, at any depth', () => {
+    const tree = { linear: { x: '${linear_speed}', y: 0.0 }, angular: { z: '${angular_speed}' } }
+    expect([...placeholderNames(tree)].sort()).toEqual(['angular_speed', 'linear_speed'])
+  })
+
+  it('treats a bare word as a literal, never as a placeholder', () => {
+    expect([...placeholderNames({ mode: 'linear_speed' })]).toEqual([])
+    expect(PLACEHOLDER_RE.test('linear_speed')).toBe(false)
+  })
+
+  it('(break test: messageRef regex guard) refuses strings that do not match the placeholder pattern', () => {
+    // Test that the regex guard actually rejects invalid placeholder references
+    expect(messageRef.safeParse('${invalid-name}').success).toBe(false)
+    expect(messageRef.safeParse('${123}').success).toBe(false)
+    expect(messageRef.safeParse('${_underscore}').success).toBe(false)
+    expect(messageRef.safeParse('${}').success).toBe(false)
+  })
+
+  it('(break test: messageMap 200-message limit) refuses more than 200 shared messages', () => {
+    // Create a message map with 201 entries to test the limit guard
+    const tooMany: Record<string, unknown> = {}
+    for (let i = 0; i < 201; i++) {
+      tooMany[`msg_${i}`] = { value: i }
+    }
+    expect(messageMap.safeParse(tooMany).success).toBe(false)
+
+    // Create a map with exactly 200 entries to verify the boundary
+    const maxOk: Record<string, unknown> = {}
+    for (let i = 0; i < 200; i++) {
+      maxOk[`msg_${i}`] = { value: i }
+    }
+    expect(messageMap.safeParse(maxOk).success).toBe(true)
   })
 })
