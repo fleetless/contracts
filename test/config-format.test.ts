@@ -73,9 +73,33 @@ describe('message template', () => {
     expect([...placeholderNames(tree)].sort()).toEqual(['angular_speed', 'linear_speed'])
   })
 
+  it('finds placeholders in arrays, including arrays nested in objects', () => {
+    // Array at top level with placeholder
+    const treeWithTopArray = ['${speed_1}', 0.0, '${speed_2}']
+    expect([...placeholderNames(treeWithTopArray)].sort()).toEqual(['speed_1', 'speed_2'])
+
+    // Arrays nested inside objects
+    const treeWithNestedArray = {
+      speeds: ['${speed_x}', '${speed_y}', 0.0],
+      nested: { array: ['${speed_z}'] }
+    }
+    expect([...placeholderNames(treeWithNestedArray)].sort()).toEqual(['speed_x', 'speed_y', 'speed_z'])
+  })
+
   it('treats a bare word as a literal, never as a placeholder', () => {
     expect([...placeholderNames({ mode: 'linear_speed' })]).toEqual([])
     expect(PLACEHOLDER_RE.test('linear_speed')).toBe(false)
+  })
+
+  it('only matches anchored placeholders; embedded placeholders in longer text are literals', () => {
+    // messageRef must reject embedded placeholders
+    expect(messageRef.safeParse('prefix ${speed} suffix').success).toBe(false)
+    expect(messageRef.safeParse('${speed} suffix').success).toBe(false)
+    expect(messageRef.safeParse('prefix ${speed}').success).toBe(false)
+
+    // placeholderNames must not extract embedded placeholders
+    expect([...placeholderNames('prefix ${speed} suffix')]).toEqual([])
+    expect([...placeholderNames({ text: 'before ${speed} after' })]).toEqual([])
   })
 
   it('(break test: messageRef regex guard) refuses strings that do not match the placeholder pattern', () => {
