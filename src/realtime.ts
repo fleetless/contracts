@@ -404,7 +404,7 @@ export type LiveSessionEvent = z.infer<typeof liveSessionEvent>
 export const resourceHealthCleared = z.object({
   type: z.literal('resource_health_cleared'),
   robot_id: z.uuid(),
-  kind: z.enum(['camera', 'credential']),
+  kind: z.enum(['camera']),
   ref: z.string().min(1).max(64),
   facet: z.enum(['source', 'publish']),
   cleared_at_ms: z.number().int().nonnegative(),
@@ -414,7 +414,7 @@ export type ResourceHealthCleared = z.infer<typeof resourceHealthCleared>
 export const resourceHealthEvent = z.object({
   type: z.literal('resource_health'),
   robot_id: z.uuid(),
-  kind: z.enum(['camera', 'credential']),
+  kind: z.enum(['camera']),
   ref: z.string().min(1).max(64),
   /** Which of the two questions this entry answers — see `resourceHealthState.facet`. */
   facet: z.enum(['source', 'publish']),

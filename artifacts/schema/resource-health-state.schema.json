@@ -10,8 +10,7 @@
     "kind": {
       "type": "string",
       "enum": [
-        "camera",
-        "credential"
+        "camera"
       ]
     },
     "ref": {

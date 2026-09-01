@@ -1359,7 +1359,7 @@ export const RESOURCE_HEALTH_STATES = [
  */
 export const resourceHealthState = z.object({
   robot_id: z.uuid(),
-  kind: z.enum(['camera', 'credential']),
+  kind: z.enum(['camera']),
   /** The camera slug, or the credential name. */
   ref: z.string().min(1).max(64),
   /**
