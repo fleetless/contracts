@@ -207,6 +207,15 @@ export type BridgePong = z.infer<typeof bridgePong>
  * password here is in every published version, and those are immutable. The
  * bound on that decision is elsewhere and load-bearing — the publish audit
  * event and the org event stream must not carry the document body.
+ *
+ * **The bridge does not persist configuration.** It holds this frame in
+ * memory and is sent it again on every reconnect, and that is the only thing
+ * keeping camera passwords off the robot's disk. The retired side channel
+ * carried this warning with an escape hatch attached — cache the config, just
+ * exclude the `credentials` field. There is no such field now: the secrets are
+ * inside `doc`, so caching the configuration caches the passwords, with
+ * nothing left to leave out. The warning survives its own mechanism, narrower
+ * and harder to satisfy than when it was written.
  */
 export const cloudConfig = z.object({
   type: z.literal('config'),
