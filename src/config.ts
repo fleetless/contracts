@@ -47,11 +47,20 @@ import { alertSeverity } from './alerts.js'
  * index. Splitting them would put one rule here and its three siblings there
  * — the shape this file has twice had to undo.
  *
- * **Every refusal this file makes carries `params: { code }`** with the
- * spec's code, which zod passes through `safeParse` untouched. The cloud maps
- * an issue to a code and its repair by reading that field, never by matching
- * the message prose — a join nobody notices breaking. The one refusal without
- * a code is a reversed pair of bounds — `min_value`/`max_value` on a
+ * **Every refusal that answers one of the spec's codes carries
+ * `params: { code }`** with that code, which zod passes through `safeParse`
+ * untouched. The cloud maps an issue to a code and its repair by reading that
+ * field, never by matching the message prose — a join nobody notices
+ * breaking.
+ *
+ * Read the sentence narrowly, because a wider reading is false and was
+ * written here once. Plenty of refusals in this file carry no `params.code`,
+ * and correctly: the section caps (`parameterMap`'s fifty, `messageMap`'s two
+ * hundred), the camera device-path rules, and every refusal zod raises on its
+ * own — `unrecognized_keys` behind `unknown_key`, `too_big` behind
+ * `invalid_rate`. Those are not spec codes wearing a different hat; the cloud
+ * reaches them through zod's own issue codes. The one *spec* code with no
+ * `params` is a reversed pair of bounds — `min_value`/`max_value` on a
  * parameter, `y_min`/`y_max` on a chart: `invalid_range` was deleted with
  * `expected_range`, and no code replaced it.
  *
