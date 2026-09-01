@@ -206,6 +206,42 @@ export const parameterSpec = z
      */
     if (p.min_value !== undefined && p.max_value !== undefined && p.min_value > p.max_value)
       refuse(['min_value'], 'min_value is greater than max_value')
+
+    /**
+     * A default must satisfy the same constraints a caller's value must.
+     *
+     * Without this, a default is the one way past bounds that are otherwise
+     * the enforcement point — the spec calls `min_value`/`max_value` "the
+     * speed limit that actually holds", enforced in the cloud before anything
+     * reaches the robot. But a caller who simply omits the parameter gets the
+     * default, and the bridge fills it at the template walk without
+     * re-checking bounds, deliberately: a second enforcement point there
+     * would be the weaker of two policies. So `{min_value: -1, max_value: 1,
+     * default: 99}` published 99 to a robot with no layer objecting.
+     *
+     * No `params.code`, for the same reason as the reversed bounds above.
+     */
+    if (p.default !== undefined && matchesType(p.default)) {
+      const d = p.default
+      if (typeof d === 'number') {
+        if (p.min_value !== undefined && d < p.min_value)
+          refuse(['default'], `default ${d} is below min_value ${p.min_value}`)
+        if (p.max_value !== undefined && d > p.max_value)
+          refuse(['default'], `default ${d} is above max_value ${p.max_value}`)
+      }
+      if (p.enum !== undefined && !p.enum.some((v) => v === d))
+        refuse(['default'], 'default is not one of the enum entries')
+      if (p.regex !== undefined && typeof d === 'string') {
+        let re: RegExp | undefined
+        try {
+          re = new RegExp(p.regex)
+        } catch {
+          // An unparseable regex is its own problem and not this check's to
+          // report; skip rather than refuse the default for it.
+        }
+        if (re && !re.test(d)) refuse(['default'], 'default does not match regex')
+      }
+    }
   })
 export type ParameterSpec = z.infer<typeof parameterSpec>
 

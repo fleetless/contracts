@@ -548,3 +548,34 @@ describe('the document shapes the barrel test cannot see', () => {
     expect(cameraCredentials.safeParse(credentials).success).toBe(true)
   })
 })
+
+describe('a default must satisfy the constraints it was declared beside', () => {
+  // The one way past bounds that are otherwise the enforcement point. The
+  // spec calls min_value/max_value the speed limit that actually holds,
+  // checked in the cloud before anything reaches the robot — but a caller who
+  // omits the parameter gets the default, and the bridge fills it at the
+  // template walk without re-checking bounds, deliberately. So an
+  // out-of-range default published a value no caller could have sent.
+  it('refuses a default outside its numeric bounds', () => {
+    expect(parameterSpec.safeParse({ type: 'int32', min_value: -1, max_value: 1, default: 99 }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'float64', min_value: 0, max_value: 1, default: -5 }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'int32', min_value: -1, max_value: 1, default: 1 }).success).toBe(true)
+  })
+
+  it('refuses a default outside its enum', () => {
+    expect(parameterSpec.safeParse({ type: 'string', enum: ['a', 'b'], default: 'z' }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'string', enum: ['a', 'b'], default: 'a' }).success).toBe(true)
+  })
+
+  it('refuses a default its own regex rejects', () => {
+    expect(parameterSpec.safeParse({ type: 'string', regex: '^[a-z]+$', default: '123' }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'string', regex: '^[a-z]+$', default: 'abc' }).success).toBe(true)
+  })
+
+  it('reports the failure at the default, so a repair knows what to touch', () => {
+    const result = parameterSpec.safeParse({ type: 'int32', min_value: -1, max_value: 1, default: 99 })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues.some((i) => i.path.join('.') === 'default')).toBe(true)
+  })
+})
