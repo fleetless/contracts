@@ -272,8 +272,23 @@ export type DatapointConfig = z.infer<typeof datapointConfig>
  * arbitrary ROS message, which only the robot's own type definition knows.
  * What CAN be checked here is the placeholder grammar; everything else is
  * checked in the cloud against the introspected type.
+ *
+ * **`null` is refused, at every depth of this position.** Omission is the
+ * only spelling of "not set" in this format, and a bare `z.unknown()` made
+ * every message position the one place that also accepted the second
+ * spelling: `publishers.p.message: null`, `failsafe.message: null`,
+ * `actions.a.message: null` and `messages: {stop: null}` all parsed. Every
+ * other field gets this from its own type refusing `null`; this one has no
+ * type to get it from, so it says it here.
+ *
+ * The refusal is a refinement and therefore **invisible in the JSON Schema
+ * artifact**, which publishes this position as `{}`. The artifact says what
+ * the shape is, not what the parser refuses; a consumer that validates
+ * against the artifact instead of against this schema does not get it.
  */
-export const messageTemplate = z.unknown()
+export const messageTemplate = z.unknown().refine((v) => v !== null, {
+  message: 'null is not a message; omit the field instead',
+})
 
 /** `${name}` and nothing else. A bare word is always a literal. */
 export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
@@ -281,11 +296,27 @@ export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
 export const messageRef = z.string().regex(PLACEHOLDER_RE)
 
 /**
- * Either a shared message by name, or an inline template. Position decides:
- * directly after `message:` a `${name}` resolves to a shared message, inside
- * a body it resolves to a parameter.
+ * What may stand at a `message:` position: a shared message by name
+ * (`${name}`), or an inline template. Position decides which — directly after
+ * `message:` a `${name}` resolves to a shared message, inside a body it
+ * resolves to a parameter.
+ *
+ * **This is `messageTemplate`, not a union with `messageRef`, and that is a
+ * correction rather than a simplification.** It was written as
+ * `z.union([messageRef, messageTemplate])`, whose second member accepts
+ * everything the first does: the union could never refuse, never narrowed
+ * anything (`string | unknown` is `unknown`), and published as
+ * `anyOf: [{pattern: …}, {}]` — an artifact that claims a distinction no
+ * validator makes. The distinction is real but it is not a shape distinction:
+ * a `${name}` here means a reference and elsewhere means a parameter, and
+ * only the cloud can say whether that name is a defined message
+ * (`unknown_message`) or a nested one (`nested_message_reference`).
+ *
+ * `messageRef` stays exported as the predicate that decides it. It is what a
+ * consumer applies to a body to ask "is this a reference?"; it is not what
+ * validates one.
  */
-export const messageBody = z.union([messageRef, messageTemplate])
+export const messageBody = messageTemplate
 
 /** Every placeholder name in a template, at any depth. */
 export function placeholderNames(node: unknown, found = new Set<string>()): Set<string> {

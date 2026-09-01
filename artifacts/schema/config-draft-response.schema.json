@@ -206,15 +206,7 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
-              "message": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
-                  },
-                  {}
-                ]
-              },
+              "message": {},
               "parameters": {
                 "type": "object",
                 "propertyNames": {
@@ -329,15 +321,7 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
-              "message": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
-                  },
-                  {}
-                ]
-              },
+              "message": {},
               "parameters": {
                 "type": "object",
                 "propertyNames": {
@@ -452,15 +436,7 @@
                 "maxLength": 255,
                 "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
               },
-              "message": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
-                  },
-                  {}
-                ]
-              },
+              "message": {},
               "parameters": {
                 "type": "object",
                 "propertyNames": {
@@ -549,15 +525,7 @@
                     "exclusiveMinimum": 0,
                     "maximum": 60000
                   },
-                  "message": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
-                      },
-                      {}
-                    ]
-                  }
+                  "message": {}
                 },
                 "required": [
                   "timeout_ms",

@@ -302,4 +302,48 @@ describe('document', () => {
       }).success,
     ).toBe(false)
   })
+
+  it('refuses an explicit null at every message position, not only on a typed field', () => {
+    // The four positions a bare `z.unknown()` used to let `null` through, and
+    // the reason this test is not one line: omission is the only spelling of
+    // "not set", and a message position has no field type to enforce that for
+    // it. Each of these parsed before `messageTemplate` refused null.
+    const doc = (extra: object) => ({ fleetless: 1, ...extra })
+    const pub = (message: unknown, failsafeMessage: unknown) => ({
+      publishers: {
+        cmd_vel: {
+          topic: '/cmd_vel',
+          type: 'geometry_msgs/msg/Twist',
+          message,
+          failsafe: { timeout_ms: 500, message: failsafeMessage },
+          quiet_timeout_ms: 2000,
+        },
+      },
+    })
+    const stop = { linear: { x: 0 } }
+    expect(robotConfigDoc.safeParse(doc(pub(stop, stop))).success).toBe(true)
+    expect(robotConfigDoc.safeParse(doc(pub(null, stop))).success).toBe(false)
+    expect(robotConfigDoc.safeParse(doc(pub(stop, null))).success).toBe(false)
+    expect(
+      robotConfigDoc.safeParse(doc({ actions: { dock: { ros_name: '/dock', type: 'rx1_msgs/action/Dock', message: null } } })).success,
+    ).toBe(false)
+    expect(
+      robotConfigDoc.safeParse(doc({ services: { reset: { ros_name: '/reset', type: 'std_srvs/srv/Trigger', message: null } } })).success,
+    ).toBe(false)
+    expect(robotConfigDoc.safeParse(doc({ messages: { stop_twist: null } })).success).toBe(false)
+    expect(robotConfigDoc.safeParse(doc({ messages: { stop_twist: stop } })).success).toBe(true)
+  })
+
+  it('says what messageBody actually is: one shape, and messageRef is the predicate over it', () => {
+    // The union it used to be could not refuse anything — its second member
+    // accepted everything the first did — and published as
+    // `anyOf: [{pattern…}, {}]`. Position, not shape, decides whether a
+    // `${name}` here is a reference; that is the cloud's call and the
+    // artifact no longer implies otherwise.
+    expect(messageBody.safeParse('${stop_twist}').success).toBe(true)
+    expect(messageBody.safeParse('anything at all').success).toBe(true)
+    expect(messageBody.safeParse(null).success).toBe(false)
+    expect(messageRef.safeParse('${stop_twist}').success).toBe(true)
+    expect(messageRef.safeParse('anything at all').success).toBe(false)
+  })
 })
