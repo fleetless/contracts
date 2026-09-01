@@ -477,6 +477,12 @@ export function placeholderNames(node: unknown, found = new Set<string>()): Set<
     if (m) found.add(m[1]!)
     return found
   }
+  /**
+   * This branch is explicit, not necessary: `Object.values()` on an array yields
+   * the same elements, so removing it changes nothing. It is here so the recursion
+   * reads as covering both shapes; a reader does not have to know that property of
+   * `Object.values`.
+   */
   if (Array.isArray(node)) {
     for (const item of node) placeholderNames(item, found)
     return found
