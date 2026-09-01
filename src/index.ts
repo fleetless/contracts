@@ -112,7 +112,9 @@ export {
 export type { JobActor, JobRunKind, JobRun, JobRunQuery, JobRunListResponse, JobRunSummary } from './jobs.js'
 export {
   RESERVED_SLUGS,
+  parameterType,
   parameterSpec,
+  parameterMap,
   serviceDescription,
   parameterDescription,
   actionConfig,
@@ -123,7 +125,6 @@ export {
   datapointRange,
   datapointConfig,
   robotConfigDoc,
-  valueRule,
   validationIssue,
   configState,
   // W6
@@ -132,6 +133,7 @@ export {
 } from './config.js'
 export type { CameraSource } from './config.js'
 export type {
+  ParameterType,
   ParameterSpec,
   ActionConfig,
   ServiceConfig,
@@ -141,7 +143,6 @@ export type {
   DatapointRange,
   DatapointConfig,
   RobotConfigDoc,
-  ValueRule,
   ValidationIssue,
   ConfigState,
 } from './config.js'

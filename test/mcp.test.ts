@@ -105,9 +105,9 @@ describe('descriptions on the configuration', () => {
 
   it('a parameter carries its own description', () => {
     const parsed = parameterSpec.parse({
-      name: 'speed',
-      type: 'double',
-      rule: { min: 0, max: 1.5 },
+      type: 'float64',
+      min_value: 0,
+      max_value: 1.5,
       description: 'Metres per second. Above 1.0 the robot will not take corners.',
     })
     expect(parsed.description).toContain('Metres per second')

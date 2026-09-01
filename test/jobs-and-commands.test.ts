@@ -33,14 +33,14 @@ const ACTION = {
   slug: 'drive_to',
   ros_name: '/drive_to',
   type: 'example/action/DriveTo',
-  parameters: [{ name: 'speed', type: 'float32', rule: { min: 0, max: 1.5, required: true } }],
+  parameters: [{ type: 'float32', min_value: 0, max_value: 1.5 }],
 }
 
 describe('config: three new kinds', () => {
   it('carries actions, services and publishers beside datapoints', () => {
     expect(actionConfig.safeParse(ACTION).success).toBe(true)
-    expect(parameterSpec.safeParse({ name: 'speed', type: 'float32', rule: {} }).success).toBe(true)
-    expect(parameterSpec.safeParse({ name: 'Speed!', type: 'float32', rule: {} }).success).toBe(false)
+    expect(parameterSpec.safeParse({ type: 'float32', min_value: 0, max_value: 1.5 }).success).toBe(true)
+    expect(parameterSpec.safeParse({ type: 'float32' }).success).toBe(true)
   })
 
   it('keeps a datapoints-only document valid — actions/services/publishers default to empty', () => {

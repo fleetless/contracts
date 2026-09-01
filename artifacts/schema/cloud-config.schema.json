@@ -222,46 +222,62 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -270,10 +286,9 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "description": {
@@ -319,46 +334,62 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -367,10 +398,9 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "description": {
@@ -416,46 +446,62 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "name": {
-                      "type": "string",
-                      "maxLength": 255,
-                      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
-                    },
                     "type": {
                       "type": "string",
-                      "minLength": 1,
-                      "maxLength": 255
+                      "enum": [
+                        "bool",
+                        "byte",
+                        "char",
+                        "int8",
+                        "uint8",
+                        "int16",
+                        "uint16",
+                        "int32",
+                        "uint32",
+                        "int64",
+                        "uint64",
+                        "float32",
+                        "float64",
+                        "string",
+                        "wstring"
+                      ]
                     },
-                    "rule": {
-                      "type": "object",
-                      "properties": {
-                        "min": {
+                    "default": {
+                      "anyOf": [
+                        {
                           "type": "number"
                         },
-                        "max": {
-                          "type": "number"
-                        },
-                        "enum": {
-                          "minItems": 1,
-                          "type": "array",
-                          "items": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
-                          }
-                        },
-                        "pattern": {
+                        {
                           "type": "string"
                         },
-                        "required": {
+                        {
                           "type": "boolean"
                         }
+                      ]
+                    },
+                    "min_value": {
+                      "type": "number"
+                    },
+                    "max_value": {
+                      "type": "number"
+                    },
+                    "enum": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
                       }
+                    },
+                    "regex": {
+                      "type": "string",
+                      "minLength": 1
                     },
                     "description": {
                       "type": "string",
@@ -464,10 +510,9 @@
                     }
                   },
                   "required": [
-                    "name",
-                    "type",
-                    "rule"
-                  ]
+                    "type"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "timeout_ms": {

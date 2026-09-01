@@ -12,22 +12,6 @@ import { applyError, slug, rosName, rosTypeName, fieldPath } from './common.js'
  */
 
 /**
- * Parameter checks for actions, services and publishers (spec §4.4).
- *
- * Defined in W2 so the shape is settled and stored configurations stay
- * valid; **enforced in W4**, where parameters exist. There is deliberately
- * no evaluator in W2 — a rule engine without a caller is dead weight.
- */
-export const valueRule = z.object({
-  min: z.number().optional(),
-  max: z.number().optional(),
-  enum: z.array(z.union([z.string(), z.number()])).min(1).optional(),
-  pattern: z.string().optional(),
-  required: z.boolean().optional(),
-})
-export type ValueRule = z.infer<typeof valueRule>
-
-/**
  * What an exposed service *is*, in the developer's own words (§17).
  *
  * This is what an MCP tool description carries verbatim, so it is read by a
@@ -67,21 +51,66 @@ export const serviceDescription = z.string().min(1).max(2000).optional()
  */
 export const parameterDescription = z.string().min(1).max(500).optional()
 
+/** The ROS 2 primitive field types, spelled as ROS 2 spells them. */
+export const parameterType = z.enum([
+  'bool', 'byte', 'char',
+  'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64',
+  'float32', 'float64',
+  'string', 'wstring',
+])
+export type ParameterType = z.infer<typeof parameterType>
+
+const INTEGER_TYPES = new Set(['byte', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64'])
+const FLOAT_TYPES = new Set(['float32', 'float64'])
+const STRING_TYPES = new Set(['string', 'wstring'])
+
 /**
- * One parameter of an action, service or publisher, with the check the cloud
- * applies before anything reaches a robot (spec §4.4). `valueRule` was
- * defined in W2 and deliberately left unenforced until its subjects existed;
- * W4 is when they exist.
+ * One parameter a caller may fill in a message template.
+ *
+ * `type` is required and **not derived from the template position**, even
+ * though introspection usually knows it. The reason is the robot that has
+ * never connected: there is nothing to derive there, and that is exactly
+ * where the editor has to help most.
+ *
+ * Which constraints exist depends on the type, and a constraint on the wrong
+ * type is refused rather than silently inert. Floats deliberately have no
+ * `enum`: equality on floating point is unreliable, so an enumerated float
+ * list is a trap that only shows up in operation.
+ *
+ * There is no `required` field. A placeholder cannot be left unfilled, so
+ * "required" is exactly "has no `default`" — a second spelling of one fact
+ * is the defect this file has spent two waves removing.
  */
-export const parameterSpec = z.object({
-  /** Field path into the ROS request/goal/message — same grammar as a datapoint's. */
-  name: fieldPath,
-  /** The ROS type, for the console to render an input the developer recognises. */
-  type: z.string().min(1).max(255),
-  rule: valueRule,
-  description: parameterDescription,
-})
+export const parameterSpec = z
+  .strictObject({
+    type: parameterType,
+    default: z.union([z.number(), z.string(), z.boolean()]).optional(),
+    min_value: z.number().optional(),
+    max_value: z.number().optional(),
+    enum: z.array(z.union([z.string(), z.number()])).min(1).optional(),
+    regex: z.string().min(1).optional(),
+    description: parameterDescription,
+  })
+  .superRefine((p, ctx) => {
+    const numeric = INTEGER_TYPES.has(p.type) || FLOAT_TYPES.has(p.type)
+    const refuse = (path: string, why: string) =>
+      ctx.addIssue({ code: 'custom', path: [path], message: why })
+
+    if (!numeric && (p.min_value !== undefined || p.max_value !== undefined))
+      refuse('min_value', `min_value/max_value need a numeric type, not '${p.type}'`)
+    if (!STRING_TYPES.has(p.type) && p.regex !== undefined)
+      refuse('regex', `regex needs a string type, not '${p.type}'`)
+    if (p.enum !== undefined && !(INTEGER_TYPES.has(p.type) || STRING_TYPES.has(p.type)))
+      refuse('enum', `enum needs an integer or string type, not '${p.type}'`)
+    if (p.min_value !== undefined && p.max_value !== undefined && p.min_value > p.max_value)
+      refuse('min_value', 'min_value is greater than max_value')
+  })
 export type ParameterSpec = z.infer<typeof parameterSpec>
+
+/** Parameters of one entry, keyed by name. At most 50. */
+export const parameterMap = z
+  .record(slug, parameterSpec)
+  .refine((m) => Object.keys(m).length <= 50, { message: 'at most 50 parameters per entry' })
 
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
 export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure'] as const

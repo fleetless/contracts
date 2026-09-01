@@ -20,7 +20,7 @@ import {
   introspectionResponse,
   datapointListResponse,
   robotDetailsDoc,
-  valueRule,
+  parameterSpec,
   ERROR_CODES,
 } from '../src/index.js'
 
@@ -118,11 +118,15 @@ describe('exposure model', () => {
     ).toBe(true)
   })
 
-  it('defines the parameter rules without enforcing them yet', () => {
-    expect(valueRule.safeParse({}).success).toBe(true)
-    expect(valueRule.safeParse({ min: 0, max: 1, required: true }).success).toBe(true)
-    expect(valueRule.safeParse({ enum: ['left', 'right'] }).success).toBe(true)
-    expect(valueRule.safeParse({ enum: [] }).success).toBe(false)
+  it('defines parameter specs with type-driven constraints', () => {
+    // A numeric parameter with bounds
+    expect(parameterSpec.safeParse({ type: 'int32', min_value: 0, max_value: 1 }).success).toBe(true)
+    // A string parameter with an enum
+    expect(parameterSpec.safeParse({ type: 'string', enum: ['left', 'right'] }).success).toBe(true)
+    // An enum cannot be empty
+    expect(parameterSpec.safeParse({ type: 'string', enum: [] }).success).toBe(false)
+    // A parameter without a type is invalid
+    expect(parameterSpec.safeParse({ enum: ['left', 'right'] }).success).toBe(false)
   })
 })
 
