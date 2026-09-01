@@ -29,10 +29,9 @@ const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
 const NOW = '2026-08-11T06:00:00.000Z'
 
 const ACTION = {
-  slug: 'drive_to',
   ros_name: '/drive_to',
   type: 'example/action/DriveTo',
-  parameters: [{ type: 'float32', min_value: 0, max_value: 1.5 }],
+  parameters: { speed: { type: 'float32', min_value: 0, max_value: 1.5 } },
 }
 
 describe('config: three new kinds', () => {
@@ -59,12 +58,16 @@ describe('config: three new kinds', () => {
 
   it('makes a publisher carry both timeouts — they are different promises', () => {
     const pub = {
-      slug: 'drive', topic: '/cmd_vel', type: 'geometry_msgs/msg/Twist', parameters: [],
-      timeout_ms: 300, failsafe: { linear: { x: 0 }, angular: { z: 0 } }, quiet_timeout_ms: 2000,
+      topic: '/cmd_vel', type: 'geometry_msgs/msg/Twist',
+      message: { linear: { x: 0 }, angular: { z: 0 } },
+      failsafe: { timeout_ms: 300, message: { linear: { x: 0 }, angular: { z: 0 } } },
+      quiet_timeout_ms: 2000,
     }
     expect(publisherConfig.safeParse(pub).success).toBe(true)
     // A failsafe with no timeout would be a promise nothing keeps.
-    expect(publisherConfig.safeParse({ ...pub, timeout_ms: 0 }).success).toBe(false)
+    expect(
+      publisherConfig.safeParse({ ...pub, failsafe: { ...pub.failsafe, timeout_ms: 0 } }).success,
+    ).toBe(false)
     // Zero quiet timeout is legal: a publisher anyone may take over at once.
     expect(publisherConfig.safeParse({ ...pub, quiet_timeout_ms: 0 }).success).toBe(true)
   })

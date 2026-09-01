@@ -170,12 +170,6 @@
       "items": {
         "type": "object",
         "properties": {
-          "slug": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-          },
           "ros_name": {
             "type": "string",
             "maxLength": 255,
@@ -186,10 +180,24 @@
             "maxLength": 255,
             "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
           },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
+              },
+              {}
+            ]
+          },
           "parameters": {
-            "maxItems": 50,
-            "type": "array",
-            "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "additionalProperties": {
               "type": "object",
               "properties": {
                 "type": {
@@ -268,11 +276,10 @@
           }
         },
         "required": [
-          "slug",
           "ros_name",
-          "type",
-          "parameters"
-        ]
+          "type"
+        ],
+        "additionalProperties": false
       }
     },
     "services": {
@@ -282,12 +289,6 @@
       "items": {
         "type": "object",
         "properties": {
-          "slug": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-          },
           "ros_name": {
             "type": "string",
             "maxLength": 255,
@@ -298,10 +299,24 @@
             "maxLength": 255,
             "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
           },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
+              },
+              {}
+            ]
+          },
           "parameters": {
-            "maxItems": 50,
-            "type": "array",
-            "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "additionalProperties": {
               "type": "object",
               "properties": {
                 "type": {
@@ -380,11 +395,10 @@
           }
         },
         "required": [
-          "slug",
           "ros_name",
-          "type",
-          "parameters"
-        ]
+          "type"
+        ],
+        "additionalProperties": false
       }
     },
     "publishers": {
@@ -394,12 +408,6 @@
       "items": {
         "type": "object",
         "properties": {
-          "slug": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-          },
           "topic": {
             "type": "string",
             "maxLength": 255,
@@ -410,10 +418,24 @@
             "maxLength": 255,
             "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
           },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
+              },
+              {}
+            ]
+          },
           "parameters": {
-            "maxItems": 50,
-            "type": "array",
-            "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "additionalProperties": {
               "type": "object",
               "properties": {
                 "type": {
@@ -485,12 +507,30 @@
               "additionalProperties": false
             }
           },
-          "timeout_ms": {
-            "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 60000
+          "failsafe": {
+            "type": "object",
+            "properties": {
+              "timeout_ms": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 60000
+              },
+              "message": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
+                  },
+                  {}
+                ]
+              }
+            },
+            "required": [
+              "timeout_ms",
+              "message"
+            ],
+            "additionalProperties": false
           },
-          "failsafe": {},
           "quiet_timeout_ms": {
             "type": "integer",
             "minimum": 0,
@@ -503,14 +543,13 @@
           }
         },
         "required": [
-          "slug",
           "topic",
           "type",
-          "parameters",
-          "timeout_ms",
+          "message",
           "failsafe",
           "quiet_timeout_ms"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "cameras": {
@@ -520,12 +559,6 @@
       "items": {
         "type": "object",
         "properties": {
-          "slug": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-          },
           "source": {
             "oneOf": [
               {
@@ -550,7 +583,8 @@
                   "kind",
                   "topic",
                   "type"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -566,31 +600,34 @@
                     "pattern": "^rtsps?:\\/\\/"
                   },
                   "transport": {
-                    "default": "tcp",
                     "type": "string",
                     "enum": [
                       "tcp",
                       "udp"
                     ]
                   },
-                  "credentials_ref": {
-                    "default": null,
-                    "anyOf": [
-                      {
+                  "credentials": {
+                    "type": "object",
+                    "properties": {
+                      "username": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 64
+                        "maxLength": 128
                       },
-                      {
-                        "type": "null"
+                      "password": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
                       }
-                    ]
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "required": [
                   "kind",
                   "url"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -605,24 +642,28 @@
                     "maxLength": 2048,
                     "pattern": "^https?:\\/\\/"
                   },
-                  "credentials_ref": {
-                    "default": null,
-                    "anyOf": [
-                      {
+                  "credentials": {
+                    "type": "object",
+                    "properties": {
+                      "username": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 64
+                        "maxLength": 128
                       },
-                      {
-                        "type": "null"
+                      "password": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
                       }
-                    ]
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "required": [
                   "kind",
                   "url"
-                ]
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "object",
@@ -641,7 +682,8 @@
                 "required": [
                   "kind",
                   "device"
-                ]
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -665,10 +707,10 @@
             "exclusiveMinimum": 0,
             "maximum": 50000
           },
-          "snapshot_interval_ms": {
+          "snapshot_interval_seconds": {
             "type": "integer",
-            "minimum": 1000,
-            "maximum": 3600000
+            "minimum": 1,
+            "maximum": 3600
           },
           "description": {
             "type": "string",
@@ -677,14 +719,14 @@
           }
         },
         "required": [
-          "slug",
           "source",
           "width",
           "height",
           "fps",
           "bitrate_kbps",
-          "snapshot_interval_ms"
-        ]
+          "snapshot_interval_seconds"
+        ],
+        "additionalProperties": false
       }
     }
   },

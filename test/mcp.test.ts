@@ -38,7 +38,7 @@ const docWithoutDescriptions = {
     },
   ],
   actions: [
-    { slug: 'dock', ros_name: '/dock', type: 'rx1_msgs/action/Dock', parameters: [] },
+    { ros_name: '/dock', type: 'rx1_msgs/action/Dock' },
   ],
   services: [],
   publishers: [],
@@ -67,17 +67,15 @@ describe('descriptions on the configuration', () => {
   it.each([
     ['datapoint', datapointConfig, { ...docWithoutDescriptions.datapoints[0]! }],
     ['action', actionConfig, { ...docWithoutDescriptions.actions[0]! }],
-    ['service', serviceConfig, { slug: 'reset', ros_name: '/reset', type: 'std_srvs/srv/Trigger', parameters: [] }],
+    ['service', serviceConfig, { ros_name: '/reset', type: 'std_srvs/srv/Trigger' }],
     [
       'publisher',
       publisherConfig,
       {
-        slug: 'drive',
         topic: '/cmd_vel',
         type: 'geometry_msgs/msg/Twist',
-        parameters: [],
-        timeout_ms: 500,
-        failsafe: {},
+        message: { linear: { x: 0 }, angular: { z: 0 } },
+        failsafe: { timeout_ms: 500, message: { linear: { x: 0 }, angular: { z: 0 } } },
         quiet_timeout_ms: 2000,
       },
     ],
@@ -85,13 +83,12 @@ describe('descriptions on the configuration', () => {
       'camera',
       cameraConfig,
       {
-        slug: 'front',
         source: { kind: 'ros' as const, topic: '/image_raw', type: 'sensor_msgs/msg/Image' },
         width: 640,
         height: 480,
         fps: 10,
         bitrate_kbps: 800,
-        snapshot_interval_ms: 1000,
+        snapshot_interval_seconds: 1,
       },
     ],
   ])('%s carries a description through the parse', (_name, schema, base) => {

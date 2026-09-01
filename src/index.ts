@@ -138,8 +138,8 @@ export {
   validationIssue,
   configState,
   // W6
-  credentialRef,
   cameraSource,
+  cameraCredentials,
 } from './config.js'
 export type { CameraSource } from './config.js'
 export type {

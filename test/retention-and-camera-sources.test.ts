@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   cameraConfig,
   cameraSource,
-  cloudConfig,
   credentialListResponse,
   credentialSummary,
   credentialWriteRequest,
@@ -14,7 +13,7 @@ import {
 } from '../src/index.js'
 
 const ROS = { kind: 'ros', topic: '/image_raw', type: 'sensor_msgs/msg/Image' } as const
-const CAM = { slug: 'front', source: ROS, width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000 }
+const CAM = { source: ROS, width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5 }
 
 describe('camera sources', () => {
   it('makes an impossible camera unrepresentable, not merely invalid', () => {
@@ -37,9 +36,10 @@ describe('camera sources', () => {
     }
   })
 
-  it('defaults RTSP transport to tcp — udp loses frames silently on a congested link', () => {
+  it('leaves RTSP transport unset rather than default it — absent is not a second spelling of tcp', () => {
     const parsed = cameraSource.parse({ kind: 'rtsp', url: 'rtsp://cam.local/s' })
-    expect(parsed).toMatchObject({ transport: 'tcp', credentials_ref: null })
+    expect(parsed).not.toHaveProperty('transport')
+    expect(cameraSource.parse({ kind: 'rtsp', url: 'rtsp://cam.local/s', transport: 'udp' })).toMatchObject({ transport: 'udp' })
   })
 
   it('accepts a URL carrying userinfo — permitted, and warned about elsewhere', () => {
@@ -65,32 +65,22 @@ describe('camera sources', () => {
     expect(cameraSource.safeParse({ kind: 'mjpeg', url: 'https://cam/s.mjpg' }).success).toBe(true)
   })
 
-  it('references a shared credential by NAME, so nothing secret enters the document', () => {
-    const parsed = cameraSource.parse({ kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials_ref: 'site-nvr' })
-    expect(parsed).toMatchObject({ credentials_ref: 'site-nvr' })
-    expect(JSON.stringify(parsed)).not.toContain('password')
+  it('carries credentials inline, in the document — there is no named store any more', () => {
+    // 2026-09 redesign: the credential store is gone. A camera's password
+    // lives in `source.credentials`, in the document itself, and therefore
+    // in every published version. See `cameraCredentials`'s doc comment for
+    // the recorded objection and where its bound actually lives (the publish
+    // audit event and the org event stream must not carry the document body —
+    // covered in cloud/, not here).
+    const parsed = cameraSource.parse({
+      kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials: { username: 'admin', password: 'hunter2' },
+    })
+    expect(parsed).toMatchObject({ credentials: { username: 'admin', password: 'hunter2' } })
+    expect(cameraSource.safeParse({ kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials_ref: 'site-nvr' }).success).toBe(false)
   })
 })
 
-describe('credentials on the wire, not in the document', () => {
-  it('carries credentials as a sibling of doc, never inside it', () => {
-    const frame = cloudConfig.parse({
-      type: 'config',
-      version: 3,
-      doc: { datapoints: [], cameras: [{ ...CAM, source: { kind: 'rtsp', url: 'rtsp://cam/s', credentials_ref: 'site-nvr' } }] },
-      credentials: { 'site-nvr': { username: 'admin', password: 'hunter2' } },
-    })
-    expect(frame.credentials['site-nvr']?.password).toBe('hunter2')
-    // The document a developer writes, and which gets versioned and audited,
-    // must not be able to hold the secret at all.
-    expect(JSON.stringify(frame.doc)).not.toContain('hunter2')
-  })
-
-  it('defaults to no credentials, so a frame written before they existed still parses', () => {
-    const frame = cloudConfig.parse({ type: 'config', version: 0, doc: { datapoints: [] } })
-    expect(frame.credentials).toEqual({})
-  })
-
+describe('credentials on the wire', () => {
   it('never describes a password on a read surface', () => {
     const listed = credentialListResponse.parse({
       credentials: [{ name: 'site-nvr', username: 'admin', set: true, readable: true, used_by: [] }],

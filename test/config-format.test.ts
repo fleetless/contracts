@@ -179,3 +179,46 @@ describe('datapoint', () => {
     expect(datapointConfig.safeParse(withAlert).success).toBe(false)
   })
 })
+
+import { publisherConfig, cameraConfig } from '../src/index.js'
+
+describe('publisher', () => {
+  const ok = {
+    topic: '/cmd_vel',
+    type: 'geometry_msgs/msg/Twist',
+    message: { linear: { x: '${linear_speed}' } },
+    parameters: { linear_speed: { type: 'float64', min_value: -0.5, max_value: 0.5 } },
+    failsafe: { timeout_ms: 500, message: { linear: { x: 0.0 } } },
+    quiet_timeout_ms: 2000,
+  }
+
+  it('groups the timeout with the message it triggers', () => {
+    expect(publisherConfig.safeParse(ok).success).toBe(true)
+    const { failsafe, ...noFailsafe } = ok
+    expect(publisherConfig.safeParse(noFailsafe).success).toBe(false)
+    expect(publisherConfig.safeParse({ ...ok, timeout_ms: 500 }).success).toBe(false)
+  })
+
+  it('refuses a placeholder in the failsafe message', () => {
+    const bad = { ...ok, failsafe: { timeout_ms: 500, message: { linear: { x: '${linear_speed}' } } } }
+    expect(publisherConfig.safeParse(bad).success).toBe(false)
+  })
+})
+
+describe('camera', () => {
+  const base = { width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5 }
+
+  it('takes the snapshot interval in seconds, 1 to 3600', () => {
+    const src = { kind: 'ros', topic: '/cam', type: 'sensor_msgs/msg/Image' }
+    expect(cameraConfig.safeParse({ source: src, ...base }).success).toBe(true)
+    expect(cameraConfig.safeParse({ source: src, ...base, snapshot_interval_seconds: 3601 }).success).toBe(false)
+    expect(cameraConfig.safeParse({ source: src, ...base, snapshot_interval_ms: 5000 }).success).toBe(false)
+  })
+
+  it('carries credentials inline and no longer knows credentials_ref', () => {
+    const rtsp = { kind: 'rtsp', url: 'rtsp://cam/1', credentials: { username: 'ops', password: 'x' } }
+    expect(cameraConfig.safeParse({ source: rtsp, ...base }).success).toBe(true)
+    const ref = { kind: 'rtsp', url: 'rtsp://cam/1', credentials_ref: 'site' }
+    expect(cameraConfig.safeParse({ source: ref, ...base }).success).toBe(false)
+  })
+})

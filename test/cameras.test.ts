@@ -13,9 +13,8 @@ import {
 } from '../src/index.js'
 
 const CAM = {
-  slug: 'front',
   source: { kind: 'ros', topic: '/image_raw', type: 'sensor_msgs/msg/Image' },
-  width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_ms: 5000,
+  width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5,
 }
 
 describe('cameras', () => {
@@ -33,9 +32,10 @@ describe('cameras', () => {
   })
 
   it('refuses a snapshot interval that is really a video stream', () => {
-    // Snapshot is the cheap mode by design; sub-second is live in disguise.
-    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_ms: 1000 }).success).toBe(true)
-    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_ms: 200 }).success).toBe(false)
+    // Snapshot is the cheap mode by design; sub-second is live in disguise —
+    // and the unit is whole seconds, so there is nothing smaller than the floor.
+    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_seconds: 1 }).success).toBe(true)
+    expect(cameraConfig.safeParse({ ...CAM, snapshot_interval_seconds: 0 }).success).toBe(false)
   })
 
   it('carries capture time on a snapshot, so its age can always be stated', () => {

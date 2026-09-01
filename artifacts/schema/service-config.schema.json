@@ -2,12 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "slug": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
-    },
     "ros_name": {
       "type": "string",
       "maxLength": 255,
@@ -18,10 +12,24 @@
       "maxLength": 255,
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
     },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\$\\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\\}$"
+        },
+        {}
+      ]
+    },
     "parameters": {
-      "maxItems": 50,
-      "type": "array",
-      "items": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 63,
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
         "type": "object",
         "properties": {
           "type": {
@@ -100,9 +108,8 @@
     }
   },
   "required": [
-    "slug",
     "ros_name",
-    "type",
-    "parameters"
-  ]
+    "type"
+  ],
+  "additionalProperties": false
 }

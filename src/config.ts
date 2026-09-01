@@ -222,112 +222,140 @@ export const datapointConfig = z
 export type DatapointConfig = z.infer<typeof datapointConfig>
 
 /**
+ * A message template: the goal, request or published message, written out in
+ * full. Literals are fixed; `${name}` is a hole a caller fills.
+ *
+ * The shape cannot be narrower than `unknown` here — it is the shape of an
+ * arbitrary ROS message, which only the robot's own type definition knows.
+ * What CAN be checked here is the placeholder grammar; everything else is
+ * checked in the cloud against the introspected type.
+ */
+export const messageTemplate = z.unknown()
+
+/** `${name}` and nothing else. A bare word is always a literal. */
+export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
+
+export const messageRef = z.string().regex(PLACEHOLDER_RE)
+
+/**
+ * Either a shared message by name, or an inline template. Position decides:
+ * directly after `message:` a `${name}` resolves to a shared message, inside
+ * a body it resolves to a parameter.
+ */
+export const messageBody = z.union([messageRef, messageTemplate])
+
+/** Every placeholder name in a template, at any depth. */
+export function placeholderNames(node: unknown, found = new Set<string>()): Set<string> {
+  if (typeof node === 'string') {
+    const m = PLACEHOLDER_RE.exec(node)
+    if (m) found.add(m[1]!)
+    return found
+  }
+  /**
+   * This branch is explicit, not necessary: `Object.values()` on an array yields
+   * the same elements, so removing it changes nothing. It is here so the recursion
+   * reads as covering both shapes; a reader does not have to know that property of
+   * `Object.values`.
+   */
+  if (Array.isArray(node)) {
+    for (const item of node) placeholderNames(item, found)
+    return found
+  }
+  if (node && typeof node === 'object') {
+    for (const value of Object.values(node)) placeholderNames(value, found)
+  }
+  return found
+}
+
+/**
+ * Reusable message bodies, keyed by name. A shared message may hold
+ * placeholders; whoever inserts it declares the parameters. It may NOT
+ * insert another — that excludes cycles and lets every check look at exactly
+ * one body instead of walking a reference tree.
+ */
+export const messageMap = z
+  .record(slug, messageTemplate)
+  .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
+
+/**
  * An action the robot can be asked to perform (spec §4.2, §11.3). At most one
  * job runs per action slug; a second call is refused `busy`, and every
  * observer of the slug watches the same job.
  */
-export const actionConfig = z.object({
-  slug,
+export const actionConfig = z.strictObject({
   ros_name: rosName,
   type: rosTypeName,
-  parameters: z.array(parameterSpec).max(50),
+  message: messageBody.optional(),
+  parameters: parameterMap.optional(),
   description: serviceDescription,
 })
 export type ActionConfig = z.infer<typeof actionConfig>
 
 /** A ROS service call with validated parameters (spec §4.2). */
-export const serviceConfig = z.object({
-  slug,
+export const serviceConfig = z.strictObject({
   ros_name: rosName,
   type: rosTypeName,
-  parameters: z.array(parameterSpec).max(50),
+  message: messageBody.optional(),
+  parameters: parameterMap.optional(),
   description: serviceDescription,
 })
 export type ServiceConfig = z.infer<typeof serviceConfig>
 
 /**
- * A topic clients may publish to (spec §4.2, §6.4).
+ * A topic clients may publish to.
  *
- * The two timeouts are the whole safety story of this kind, and they are
- * different things:
+ * `failsafe` groups the deadline with the message it triggers, because the
+ * deadline exists for nothing else. The message must hold no placeholder:
+ * the bridge sends it with no caller present, so there would be nobody to
+ * fill one.
  *
- * - `timeout_ms` + `failsafe`: if client publishes stop arriving — including
- *   because the client crashed or lost its connection — **the bridge itself**
- *   publishes `failsafe` on the topic. This is the platform's safety
- *   primitive (§7.2); a cmd_vel publisher with a zero-twist failsafe is the
- *   canonical case.
- * - `quiet_timeout_ms`: how long a publisher must be silent before a
- *   *different* user may publish. Whoever publishes holds the publisher
- *   implicitly exclusive, with no session machinery.
+ * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
+ * before a *different* user may send.
  */
-export const publisherConfig = z.object({
-  slug,
+export const publisherConfig = z.strictObject({
   topic: rosName,
   type: rosTypeName,
-  parameters: z.array(parameterSpec).max(50),
-  timeout_ms: z.number().int().positive().max(60_000),
-  /** The message the bridge publishes on timeout. Shape is the ROS type's. */
-  failsafe: z.unknown(),
+  message: messageBody,
+  parameters: parameterMap.optional(),
+  failsafe: z
+    .strictObject({
+      timeout_ms: z.number().int().positive().max(60_000),
+      message: messageBody,
+    })
+    .refine((f) => placeholderNames(f.message).size === 0 || typeof f.message === 'string', {
+      message: 'the failsafe message must contain no placeholder',
+      path: ['message'],
+    }),
   quiet_timeout_ms: z.number().int().nonnegative().max(600_000),
   description: serviceDescription,
 })
 export type PublisherConfig = z.infer<typeof publisherConfig>
 
 /**
- * A camera the robot exposes (spec §10).
+ * Camera credentials, in the document. There is no separate store any more.
  *
- * W5 binds **ROS image topics**; RTSP, MJPEG and V4L2 are further source
- * adapters against this same shape and arrive in W6.
- *
- * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
- * developer's control over **the robot's own bandwidth**, which is why they
- * live in the configuration rather than in a viewer's request. A viewer never
- * gets to make a robot send more.
- *
- * The two modes are deliberately independent (§10):
- *
- * - **Snapshot** runs always, at `snapshot_interval_ms`, whether or not
- *   anyone is watching live. The cloud caches the one frame and serves every
- *   client from it, so a hundred pollers cost the robot exactly one image per
- *   interval.
- * - **Live** runs on demand and is refcounted in the cloud: the first viewer
- *   starts it, the last one ends it.
+ * This was decided against a recorded objection, and the objection stands: a
+ * password here is in every published version, and those are immutable. It
+ * cannot be removed from history and cannot be rotated without republishing.
+ * The bound on that decision is elsewhere and load-bearing — the publish
+ * audit event and the org event stream must not carry the document body.
  */
-/**
- * A reference to a named credential (§12), by **name**. Never a secret, so it
- * is safe everywhere a configuration document goes: version history, the
- * console, audit details, a log line.
- */
-export const credentialRef = z.string().min(1).max(64)
+export const cameraCredentials = z.strictObject({
+  username: z.string().min(1).max(128).optional(),
+  password: z.string().min(1).max(128).optional(),
+})
 
 /**
- * Where a camera's frames come from (§10 names four sources).
+ * Where a camera's frames come from (spec §10 names four sources).
  *
  * A discriminated union rather than optional fields, so an impossible camera
  * is **unrepresentable** rather than merely invalid — there is no way to
  * write an RTSP camera with a ROS topic, or a V4L2 device with a URL, and
  * therefore no validation rule to forget.
- *
- * `credentials_ref` names a shared credential; one site account typically
- * serves many cameras, across robots. Credentials themselves never appear
- * here — see `cloudConfig.credentials`, which carries them on the wire to the
- * robot and nowhere else.
- *
- * A URL **may** carry userinfo (`rtsp://user:pass@host`). It publishes, with
- * a `credentials_in_url` **warning**: that password becomes part of the
- * configuration document, so it lands in every published version and in the
- * audit log, and cannot be rotated without republishing. If both are present
- * the named credential wins, with a second warning — silently preferring one
- * would make a rotation appear not to work.
  */
 export const cameraSource = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('ros'),
-    topic: rosName,
-    /** `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage`. */
-    type: rosTypeName,
-  }),
-  z.object({
+  z.strictObject({ kind: z.literal('ros'), topic: rosName, type: rosTypeName }),
+  z.strictObject({
     kind: z.literal('rtsp'),
     /**
      * Scheme-constrained deliberately. The playbook drafted `z.string().url()`
@@ -343,16 +371,16 @@ export const cameraSource = z.discriminatedUnion('kind', [
      */
     url: z.string().min(1).max(2048).regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL'),
     /** TCP by default: UDP loses frames on a congested link, silently. */
-    transport: z.enum(['tcp', 'udp']).default('tcp'),
-    credentials_ref: credentialRef.nullable().default(null),
+    transport: z.enum(['tcp', 'udp']).optional(),
+    credentials: cameraCredentials.optional(),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('mjpeg'),
     /** `http:`/`https:` only — see the `rtsp` variant above for why. */
     url: z.string().min(1).max(2048).regex(/^https?:\/\//i, 'must be an http:// or https:// URL'),
-    credentials_ref: credentialRef.nullable().default(null),
+    credentials: cameraCredentials.optional(),
   }),
-  z.object({
+  z.strictObject({
     kind: z.literal('v4l2'),
     /**
      * e.g. `/dev/video0`, or a stable `/dev/v4l/by-id/...` symlink. Resolved
@@ -388,19 +416,36 @@ export const cameraSource = z.discriminatedUnion('kind', [
 ])
 export type CameraSource = z.infer<typeof cameraSource>
 
-export const cameraConfig = z.object({
-  slug,
+/**
+ * A camera the robot exposes (spec §10).
+ *
+ * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
+ * developer's control over **the robot's own bandwidth**, which is why they
+ * live in the configuration rather than in a viewer's request. A viewer never
+ * gets to make a robot send more.
+ *
+ * The two modes are deliberately independent (§10):
+ *
+ * - **Snapshot** runs always, at `snapshot_interval_seconds`, whether or not
+ *   anyone is watching live. The cloud caches the one frame and serves every
+ *   client from it, so a hundred pollers cost the robot exactly one image per
+ *   interval.
+ * - **Live** runs on demand and is refcounted in the cloud: the first viewer
+ *   starts it, the last one ends it.
+ */
+export const cameraConfig = z.strictObject({
   source: cameraSource,
   width: z.number().int().positive().max(7680),
   height: z.number().int().positive().max(4320),
   fps: z.number().int().positive().max(60),
   bitrate_kbps: z.number().int().positive().max(50_000),
   /**
-   * How often a snapshot is captured. Bounded below at one second because a
-   * snapshot is the *cheap* mode — a developer who wants motion wants live,
-   * and an interval faster than this is a live stream wearing a disguise.
+   * How often a snapshot is captured, in seconds. Bounded below at one
+   * second because a snapshot is the *cheap* mode — a developer who wants
+   * motion wants live, and an interval faster than this is a live stream
+   * wearing a disguise.
    */
-  snapshot_interval_ms: z.number().int().min(1000).max(3_600_000),
+  snapshot_interval_seconds: z.number().int().min(1).max(3600),
   description: serviceDescription,
 })
 export type CameraConfig = z.infer<typeof cameraConfig>
@@ -468,59 +513,3 @@ export const configState = z.object({
   applied_errors: z.array(applyError).nullable(),
 })
 export type ConfigState = z.infer<typeof configState>
-
-/**
- * A message template: the goal, request or published message, written out in
- * full. Literals are fixed; `${name}` is a hole a caller fills.
- *
- * The shape cannot be narrower than `unknown` here — it is the shape of an
- * arbitrary ROS message, which only the robot's own type definition knows.
- * What CAN be checked here is the placeholder grammar; everything else is
- * checked in the cloud against the introspected type.
- */
-export const messageTemplate = z.unknown()
-
-/** `${name}` and nothing else. A bare word is always a literal. */
-export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
-
-export const messageRef = z.string().regex(PLACEHOLDER_RE)
-
-/**
- * Either a shared message by name, or an inline template. Position decides:
- * directly after `message:` a `${name}` resolves to a shared message, inside
- * a body it resolves to a parameter.
- */
-export const messageBody = z.union([messageRef, messageTemplate])
-
-/** Every placeholder name in a template, at any depth. */
-export function placeholderNames(node: unknown, found = new Set<string>()): Set<string> {
-  if (typeof node === 'string') {
-    const m = PLACEHOLDER_RE.exec(node)
-    if (m) found.add(m[1]!)
-    return found
-  }
-  /**
-   * This branch is explicit, not necessary: `Object.values()` on an array yields
-   * the same elements, so removing it changes nothing. It is here so the recursion
-   * reads as covering both shapes; a reader does not have to know that property of
-   * `Object.values`.
-   */
-  if (Array.isArray(node)) {
-    for (const item of node) placeholderNames(item, found)
-    return found
-  }
-  if (node && typeof node === 'object') {
-    for (const value of Object.values(node)) placeholderNames(value, found)
-  }
-  return found
-}
-
-/**
- * Reusable message bodies, keyed by name. A shared message may hold
- * placeholders; whoever inserts it declares the parameters. It may NOT
- * insert another — that excludes cycles and lets every check look at exactly
- * one body instead of walking a reference tree.
- */
-export const messageMap = z
-  .record(slug, messageTemplate)
-  .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
