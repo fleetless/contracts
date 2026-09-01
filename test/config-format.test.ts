@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 import { slug, RESERVED_SLUGS, parameterSpec, parameterType, messageBody, messageRef, PLACEHOLDER_RE, placeholderNames, messageMap } from '../src/index.js'
+
+/**
+ * The spec code each refusal carries in `params`, in issue order.
+ *
+ * Reading the code rather than the message is the whole point of `params`:
+ * the cloud maps an issue to one of the thirteen codes and its repair by
+ * this field, so a test that asserted the prose instead would pass while the
+ * join the cloud actually uses was broken.
+ */
+const codesOf = (r: { success: false; error: z.ZodError }) =>
+  r.error.issues.map((i) => (i as { params?: { code?: string } }).params?.code)
 
 describe('name grammar', () => {
   it('accepts lowercase words joined by single underscores', () => {
@@ -50,14 +62,14 @@ describe('parameter', () => {
     // well-typed entry and gets that far.
     //
     // `.success` alone still would not be enough: with the guard gone the
-    // per-entry type check refuses the same document at `enum.0`. The path is
-    // what pins *this* rule, and it is the assertion that goes red when the
-    // guard is deleted (measured). The float case above is the one only this
-    // guard can refuse.
+    // per-entry type check refuses the same document at `enum.0`. The path
+    // and the code are what pin *this* rule, and they are what goes red when
+    // the guard is deleted (measured). The float case above is the one only
+    // this guard can refuse.
     const r = parameterSpec.safeParse({ type: 'bool', enum: ['a'] })
     expect(r.success).toBe(false)
     expect(!r.success && r.error.issues.map((i) => i.path.join('.'))).toEqual(['enum'])
-    expect(!r.success && r.error.issues[0]!.message).toContain('enum needs an integer or string type')
+    expect(!r.success && codesOf(r)).toEqual(['constraint_not_allowed_for_type'])
   })
 
   it('refuses a default that does not match the declared type', () => {
@@ -345,5 +357,67 @@ describe('document', () => {
     expect(messageBody.safeParse(null).success).toBe(false)
     expect(messageRef.safeParse('${stop_twist}').success).toBe(true)
     expect(messageRef.safeParse('anything at all').success).toBe(false)
+  })
+})
+
+import { datapointAlert, publisherConfig as pubConfig } from '../src/index.js'
+
+describe('every refusal names its spec code', () => {
+  /**
+   * Wave 1b maps a zod issue to one of the thirteen validation codes and to
+   * the repair the editor offers for it. Without `params.code` that mapping
+   * has to match the message prose — a join nobody notices breaking. These
+   * assertions are what makes it mechanical.
+   */
+  it.each([
+    ['constraint_not_allowed_for_type', () => parameterSpec.safeParse({ type: 'string', min_value: 1 })],
+    ['constraint_not_allowed_for_type', () => parameterSpec.safeParse({ type: 'int32', regex: '^a' })],
+    ['constraint_not_allowed_for_type', () => parameterSpec.safeParse({ type: 'float64', enum: [1.5] })],
+    ['value_type_mismatch', () => parameterSpec.safeParse({ type: 'int32', default: 'nope' })],
+    ['value_type_mismatch', () => parameterSpec.safeParse({ type: 'int32', enum: ['a'] })],
+    ['invalid_condition', () => alertCondition.safeParse({ fire_at: 15, resolve_at: 15 })],
+    ['invalid_condition', () => alertCondition.safeParse({ fire_at: true, resolve_at: 1 })],
+    ['requires_single_field', () => datapointConfig.safeParse({ ...base, numeric: { scale: 2 } })],
+    ['explicit_null', () => messageBody.safeParse(null)],
+    [
+      'failsafe_has_parameters',
+      () =>
+        pubConfig.safeParse({
+          topic: '/cmd_vel',
+          type: 'geometry_msgs/msg/Twist',
+          message: { linear: { x: 0 } },
+          failsafe: { timeout_ms: 500, message: { linear: { x: '${speed}' } } },
+          quiet_timeout_ms: 2000,
+        }),
+    ],
+  ])('%s', (code, run) => {
+    const r = run()
+    expect(r.success).toBe(false)
+    expect(!r.success && codesOf(r)).toEqual([code])
+  })
+
+  it('leaves exactly one refusal without a code, and it is the one with no code to give', () => {
+    // `invalid_range` was deleted with `expected_range`; reversed bounds are
+    // not one of the thirteen, and inventing a fourteenth here would put a
+    // code in the contracts that the cloud's table does not know.
+    const r = parameterSpec.safeParse({ type: 'int32', min_value: 5, max_value: 1 })
+    expect(r.success).toBe(false)
+    expect(!r.success && codesOf(r)).toEqual([undefined])
+  })
+
+  it('exempts a shared-message reference from the failsafe check, and says so', () => {
+    // A string at a `message:` position is a reference. Whether *that*
+    // message holds a placeholder is a question about another section, which
+    // this schema cannot see — so the referenced half of
+    // `failsafe_has_parameters` is the cloud's, by position and on purpose.
+    const withRef = {
+      topic: '/cmd_vel',
+      type: 'geometry_msgs/msg/Twist',
+      message: { linear: { x: 0 } },
+      failsafe: { timeout_ms: 500, message: '${stop_twist}' },
+      quiet_timeout_ms: 2000,
+    }
+    expect(pubConfig.safeParse(withRef).success).toBe(true)
+    expect(datapointAlert.safeParse({ condition: { fire_at: 1 } }).success).toBe(true)
   })
 })

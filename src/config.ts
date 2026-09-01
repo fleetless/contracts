@@ -14,6 +14,46 @@ import { alertSeverity } from './alerts.js'
  * configuration moves from draft to published, and how the cloud reports what
  * it refuses.
  *
+ * ## What this schema decides, and what it leaves to the cloud
+ *
+ * FL-002 names thirteen validation codes and this file implements some of
+ * them. The line was drawn four times while the format was written and never
+ * written down, so here it is.
+ *
+ * **Decided here** — everything a single entry, plus its own declared types,
+ * answers on its own: `unknown_key` (every object is `z.strictObject`),
+ * `explicit_null`, `invalid_rate` (`rateThrottleHz`),
+ * `requires_single_field`, `invalid_condition`,
+ * `constraint_not_allowed_for_type`, `value_type_mismatch` and
+ * `failsafe_has_parameters`. The name grammar comes with the key, and
+ * `duplicate_slug` and `duplicate_parameter` come with the mapping — a
+ * repeated key is a YAML syntax error before any schema sees it.
+ *
+ * **Left to the cloud**, for one of two reasons:
+ *
+ * - *It needs introspection.* `unknown_topic`, `unknown_field_path`,
+ *   `type_mismatch` and `requires_numeric_field` are all questions about the
+ *   robot's own message definitions. This schema has no robot.
+ * - *It spans sections, or documents.* `reserved_slug` and cross-section
+ *   `duplicate_slug` need the whole document; `undeclared_parameter`,
+ *   `unused_parameter`, `unknown_message` and `nested_message_reference` need
+ *   the index of declared names that `messages:` and each entry's
+ *   `parameters:` build together.
+ *
+ * `nested_message_reference` is the one worth naming explicitly, because it
+ * looks decidable here and is: a `messages:` entry whose whole body is
+ * `'${name}'` is a nested reference, full stop. It is the cloud's anyway, so
+ * that all four name-resolution codes are answered in one place against one
+ * index. Splitting them would put one rule here and its three siblings there
+ * — the shape this file has twice had to undo.
+ *
+ * **Every refusal this file makes carries `params: { code }`** with the
+ * spec's code, which zod passes through `safeParse` untouched. The cloud maps
+ * an issue to a code and its repair by reading that field, never by matching
+ * the message prose — a join nobody notices breaking. The one refusal without
+ * a code is reversed `min_value`/`max_value` bounds: `invalid_range` was
+ * deleted with `expected_range`, and no code replaced it.
+ *
  * `robotConfigDoc` carries all six sections — messages, datapoints, actions,
  * services, publishers and cameras — plus, since FL-002, the alerts, the
  * chart bounds and the camera credentials that used to live outside it.
@@ -112,8 +152,8 @@ export const parameterSpec = z
   })
   .superRefine((p, ctx) => {
     const numeric = INTEGER_TYPES.has(p.type) || FLOAT_TYPES.has(p.type)
-    const refuse = (path: (string | number)[], why: string) =>
-      ctx.addIssue({ code: 'custom', path, message: why })
+    const refuse = (path: (string | number)[], why: string, code?: string) =>
+      ctx.addIssue({ code: 'custom', path, message: why, ...(code ? { params: { code } } : {}) })
 
     /**
      * What a value of this parameter's declared type may look like on the
@@ -130,11 +170,11 @@ export const parameterSpec = z
     }
 
     if (!numeric && (p.min_value !== undefined || p.max_value !== undefined))
-      refuse(['min_value'], `min_value/max_value need a numeric type, not '${p.type}'`)
+      refuse(['min_value'], `min_value/max_value need a numeric type, not '${p.type}'`, 'constraint_not_allowed_for_type')
     if (!STRING_TYPES.has(p.type) && p.regex !== undefined)
-      refuse(['regex'], `regex needs a string type, not '${p.type}'`)
+      refuse(['regex'], `regex needs a string type, not '${p.type}'`, 'constraint_not_allowed_for_type')
     if (p.enum !== undefined && !(INTEGER_TYPES.has(p.type) || STRING_TYPES.has(p.type))) {
-      refuse(['enum'], `enum needs an integer or string type, not '${p.type}'`)
+      refuse(['enum'], `enum needs an integer or string type, not '${p.type}'`, 'constraint_not_allowed_for_type')
     } else if (p.enum !== undefined) {
       /**
        * Only reached when `enum` is allowed at all. A float `enum` is one
@@ -142,16 +182,16 @@ export const parameterSpec = z
        * pinned to a document that produces exactly it.
        */
       p.enum.forEach((v, i) => {
-        if (!matchesType(v)) refuse(['enum', i], `enum entry does not match type '${p.type}'`)
+        if (!matchesType(v)) refuse(['enum', i], `enum entry does not match type '${p.type}'`, 'value_type_mismatch')
       })
     }
     if (p.default !== undefined && !matchesType(p.default))
-      refuse(['default'], `default does not match type '${p.type}'`)
+      refuse(['default'], `default does not match type '${p.type}'`, 'value_type_mismatch')
     /**
-     * No spec code for this one, deliberately: `invalid_range` was deleted
-     * with `expected_range`, and reversed bounds are not one of the thirteen.
-     * It stays a plain `custom` refusal until something downstream needs to
-     * name it.
+     * The one refusal in this file with no `params.code`, deliberately:
+     * `invalid_range` was deleted with `expected_range`, and reversed bounds
+     * are not one of the thirteen. Inventing a fourteenth code here would put
+     * a code in the contracts that the cloud's table does not know.
      */
     if (p.min_value !== undefined && p.max_value !== undefined && p.min_value > p.max_value)
       refuse(['min_value'], 'min_value is greater than max_value')
@@ -181,9 +221,19 @@ export const alertCondition = z
   .superRefine((c, ctx) => {
     if (c.resolve_at === undefined) return
     if (typeof c.fire_at !== 'number')
-      ctx.addIssue({ code: 'custom', path: ['resolve_at'], message: 'resolve_at is only allowed when fire_at is a number' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resolve_at'],
+        message: 'resolve_at is only allowed when fire_at is a number',
+        params: { code: 'invalid_condition' },
+      })
     else if (c.resolve_at === c.fire_at)
-      ctx.addIssue({ code: 'custom', path: ['resolve_at'], message: 'resolve_at must differ from fire_at' })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resolve_at'],
+        message: 'resolve_at must differ from fire_at',
+        params: { code: 'invalid_condition' },
+      })
   })
 export type AlertCondition = z.infer<typeof alertCondition>
 
@@ -259,6 +309,7 @@ export const datapointConfig = z
           code: 'custom',
           path: [group],
           message: `${group} needs a single field; without 'field' the value is the whole message`,
+          params: { code: 'requires_single_field' },
         })
     }
   })
@@ -288,6 +339,7 @@ export type DatapointConfig = z.infer<typeof datapointConfig>
  */
 export const messageTemplate = z.unknown().refine((v) => v !== null, {
   message: 'null is not a message; omit the field instead',
+  params: { code: 'explicit_null' },
 })
 
 /** `${name}` and nothing else. A bare word is always a literal. */
@@ -383,6 +435,16 @@ export type ServiceConfig = z.infer<typeof serviceConfig>
  * the bridge sends it with no caller present, so there would be nobody to
  * fill one.
  *
+ * **What that check can and cannot see.** It refuses a placeholder written
+ * into an inline failsafe body. It does not refuse
+ * `failsafe: { message: '${anything}' }` — a string at a `message:` position
+ * is a *reference to a shared message*, and whether that message holds a
+ * placeholder is a question about another section of the document, which a
+ * schema over one publisher cannot answer. So `failsafe_has_parameters` is
+ * half here and half in the cloud, on purpose and by position rather than by
+ * accident: the inline half is decidable here, the referenced half is one of
+ * the name-resolution codes the file header assigns to the cloud.
+ *
  * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
  * before a *different* user may send.
  */
@@ -396,9 +458,14 @@ export const publisherConfig = z.strictObject({
       timeout_ms: z.number().int().positive().max(60_000),
       message: messageBody,
     })
-    .refine((f) => placeholderNames(f.message).size === 0 || typeof f.message === 'string', {
-      message: 'the failsafe message must contain no placeholder',
+    /**
+     * The string case is the exemption, not an oversight — see the paragraph
+     * above — so it is tested first, where it reads as one.
+     */
+    .refine((f) => typeof f.message === 'string' || placeholderNames(f.message).size === 0, {
+      message: 'the failsafe message must contain no placeholder: it is sent with no caller to fill one',
       path: ['message'],
+      params: { code: 'failsafe_has_parameters' },
     }),
   quiet_timeout_ms: z.number().int().nonnegative().max(600_000),
   description: serviceDescription,
