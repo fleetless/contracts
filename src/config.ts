@@ -769,10 +769,19 @@ export type PublisherConfig = z.infer<typeof publisherConfig>
  * The bound on that decision is elsewhere and load-bearing — the publish
  * audit event and the org event stream must not carry the document body.
  */
-export const cameraCredentials = z.strictObject({
-  username: z.string().min(1).max(128).optional(),
-  password: z.string().min(1).max(128).optional(),
-})
+export const cameraCredentials = z
+  .strictObject({
+    username: z.string().min(1).max(128).optional().meta({
+      description: 'The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.',
+      examples: ['ops'],
+    }),
+    password: z.string().min(1).max(128).optional().meta({
+      description: 'The password for `username`. **There is no secret store behind this**: the value written here is the value stored, so treat it as readable by everyone who may read this robot\'s configuration, now and in its history.',
+    }),
+  })
+  .meta({
+    description: 'Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it.',
+  })
 export type CameraCredentials = z.infer<typeof cameraCredentials>
 
 /**
@@ -784,9 +793,25 @@ export type CameraCredentials = z.infer<typeof cameraCredentials>
  * therefore no validation rule to forget.
  */
 export const cameraSource = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('ros'), topic: rosName, type: rosTypeName }),
   z.strictObject({
-    kind: z.literal('rtsp'),
+    kind: z.literal('ros').meta({
+      description: 'Selects the ROS image-topic source: this camera then carries `topic` and `type`, and no field of another kind.',
+    }),
+    topic: rosName.meta({
+      description: 'The ROS image topic the bridge subscribes to, as an absolute graph name. Clients never name it — they address the camera by its slug — so the topic can be renamed on the robot without an app changing.',
+      examples: ['/camera/image_raw'],
+    }),
+    type: rosTypeName.meta({
+      description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
+      examples: ['sensor_msgs/msg/Image'],
+    }),
+  }).meta({
+    description: 'Frames come from an image topic the robot already publishes. It is the only source the bridge **subscribes** to rather than opens, so it needs no URL, no device and nobody to authenticate to.',
+  }),
+  z.strictObject({
+    kind: z.literal('rtsp').meta({
+      description: 'Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`.',
+    }),
     /**
      * Scheme-constrained deliberately. The playbook drafted `z.string().url()`
      * here and the shipped contract was `z.string().min(1).max(2048)` — nobody
@@ -799,19 +824,44 @@ export const cameraSource = z.discriminatedUnion('kind', [
      * by intent. The bridge re-checks this too — a robot must not become a
      * file server because a validator changed.
      */
-    url: z.string().min(1).max(2048).regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL'),
+    url: z
+      .string()
+      .min(1)
+      .max(2048)
+      .regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL')
+      .meta({
+        description: 'Where the stream lives, reached from the robot rather than from the cloud. **`rtsp://` or `rtsps://` only** — the bridge opens this with a library that would equally honour `file:`, so an unconstrained URL would turn a configuration document into arbitrary file access on the robot. The bridge re-checks the scheme itself, so a validator that changed could not make a robot serve files.',
+        examples: ['rtsp://cam-1.plant.local/stream1'],
+      }),
     /** TCP by default: UDP loses frames on a congested link, silently. */
-    transport: z.enum(['tcp', 'udp']).optional(),
+    transport: z.enum(['tcp', 'udp']).optional().meta({
+      description: 'How the RTSP payload is carried. Omitted means `tcp`: `udp` loses frames on a congested link and loses them silently, so the result looks like a failing camera rather than like a choice made here.',
+    }),
     credentials: cameraCredentials.optional(),
+  }).meta({
+    description: 'Frames come from an RTSP stream the robot itself can reach — a network camera on its own LAN. The bridge opens the connection; the cloud never does, and never needs a route to the camera.',
   }),
   z.strictObject({
-    kind: z.literal('mjpeg'),
+    kind: z.literal('mjpeg').meta({
+      description: 'Selects the MJPEG-over-HTTP source: this camera then carries `url`, and optionally `credentials`.',
+    }),
     /** `http:`/`https:` only — see the `rtsp` variant above for why. */
-    url: z.string().min(1).max(2048).regex(/^https?:\/\//i, 'must be an http:// or https:// URL'),
+    url: z
+      .string()
+      .min(1)
+      .max(2048)
+      .regex(/^https?:\/\//i, 'must be an http:// or https:// URL')
+      .meta({
+        description: 'Where the stream lives. **`http://` or `https://` only** — as for the `rtsp` URL, the bridge opens it with a library that would also serve `file:`. Plain `http://` is permitted because these cameras usually sit on the robot\'s own network, but Basic credentials on such a URL then travel in the clear.',
+      }),
     credentials: cameraCredentials.optional(),
+  }).meta({
+    description: 'Frames come from an MJPEG stream over HTTP — one JPEG after another, the simplest network source there is. Unlike `rtsp` there is no `transport` to choose: it is HTTP, and any `credentials` therefore travel as HTTP Basic.',
   }),
   z.strictObject({
-    kind: z.literal('v4l2'),
+    kind: z.literal('v4l2').meta({
+      description: 'Selects the local capture-device source: this camera then carries `device` and nothing else — there is no network here and nobody to authenticate to.',
+    }),
     /**
      * e.g. `/dev/video0`, or a stable `/dev/v4l/by-id/...` symlink. Resolved
      * on the robot, never by the cloud.
@@ -841,7 +891,13 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .max(128)
       .regex(/^\/dev\/[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'must be a device path under /dev/')
       .refine((v) => !v.split('/').includes('..'), 'must not contain a `..` path segment')
-      .refine((v) => !v.endsWith('/'), 'must name a device, not a directory'),
+      .refine((v) => !v.endsWith('/'), 'must name a device, not a directory')
+      .meta({
+        description: 'The capture device, resolved on the robot and never by the cloud; a `/dev/v4l/by-id/...` symlink survives a reboot that renumbers `/dev/video0`. **Constrained to `/dev/`** — the string reaches OpenCV, which will just as happily open an ordinary video file or an `http://` URL and publish its pixels to the cloud. The bridge re-derives the same constraint rather than trusting the wire.',
+        examples: ['/dev/video0'],
+      }),
+  }).meta({
+    description: 'Frames come from a capture device attached to the robot itself, such as a USB camera on `/dev/video0`. Nothing leaves the robot to fetch them, and there is nothing to authenticate to, so this source takes no `credentials`.',
   }),
 ])
 export type CameraSource = z.infer<typeof cameraSource>
@@ -877,13 +933,33 @@ export const snapshotIntervalSeconds = z.number().int().min(1).max(3600)
  *   starts it, the last one ends it.
  */
 export const cameraConfig = z.strictObject({
-  source: cameraSource,
-  width: z.number().int().positive().max(7680),
-  height: z.number().int().positive().max(4320),
-  fps: z.number().int().positive().max(60),
-  bitrate_kbps: z.number().int().positive().max(50_000),
-  snapshot_interval_seconds: snapshotIntervalSeconds,
-  description: serviceDescription,
+  source: cameraSource.meta({
+    description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
+  }),
+  width: z.number().int().positive().max(7680).meta({
+    description: 'The width the bridge scales every frame to before sending, in pixels — what the bridge produces, not what the sensor captures. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed.',
+    examples: [1280],
+  }),
+  height: z.number().int().positive().max(4320).meta({
+    description: 'The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded.',
+    examples: [720],
+  }),
+  fps: z.number().int().positive().max(60).meta({
+    description: 'How many frames a second the bridge forwards, at most. It is a ceiling, not a clock: a camera that delivers ten frames a second stays at ten. Both modes read the same throttled pipeline, so this also bounds how fresh a snapshot can be.',
+    examples: [15],
+  }),
+  bitrate_kbps: z.number().int().positive().max(50_000).meta({
+    description: 'The ceiling for the **live** encoding, in kilobits per second — this is what bounds a watched camera against the robot\'s uplink. Snapshots are not covered by it: they are JPEGs under their own byte ceiling. Raising `width`, `height` or `fps` against a fixed bitrate buys blur, not detail.',
+    examples: [2000],
+  }),
+  snapshot_interval_seconds: snapshotIntervalSeconds.meta({
+    description: 'How often a still frame is captured, in seconds. **It runs whether or not anyone is watching**, unlike the live stream, which the cloud refcounts — first viewer starts it, last one ends it. The cloud caches the one frame and serves every reader from it, so a hundred pollers cost the robot exactly one image per interval.',
+    examples: [5],
+  }),
+  description: serviceDescription.meta({
+    description: 'What this camera shows, in the developer\'s own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. **A camera without one is exposed as no MCP tool**, as for actions, services and publishers. The tool it does produce serves the latest snapshot with its age; a live session is never a tool.',
+    examples: ['Forward-facing camera on the mast.'],
+  }),
 })
 export type CameraConfig = z.infer<typeof cameraConfig>
 

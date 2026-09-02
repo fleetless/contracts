@@ -94,7 +94,8 @@ const NODES: Array<[string, string[]]> = [
   ['an action', ['actions']],
   ['a service', ['services']],
   ['a publisher', ['publishers']],
-  ['a parameter', ['actions', 'parameters']]
+  ['a parameter', ['actions', 'parameters']],
+  ['a camera', ['cameras']]
 ]
 
 describe('every documented field carries a hover text', () => {
@@ -124,5 +125,34 @@ describe('every documented field carries a hover text', () => {
    */
   it.skip('leaves no field of the document without a hover text', () => {
     expect(undescribed(schema)).toEqual([])
+  })
+})
+
+/**
+ * `cameras.<slug>.source` is the one place in the format where the hover has
+ * work to do beyond documentation.
+ *
+ * A four-branch union exports as `oneOf`, and the yaml-language-server's
+ * message for a failing `oneOf` names no branch — typically "matches multiple
+ * schemas", pinned to the `source:` line rather than to the field that is
+ * wrong. The branch descriptions are what a developer reads instead, so this
+ * asserts one on **every branch** as well as on every field of every branch.
+ *
+ * `NODES` cannot cover this: `nodeAt` follows `properties`, a union has none,
+ * and the exhaustive walker above stays skipped until Task 6.
+ */
+describe('every camera source branch carries a hover text', () => {
+  it('describes each branch and each of its fields', () => {
+    const source = nodeAt(['cameras']).properties.source
+    const branches = source.oneOf ?? source.anyOf
+    expect(Array.isArray(branches), 'cameraSource no longer exports as a union').toBe(true)
+    expect(branches.length).toBe(4)
+    for (const branch of branches) {
+      const kind = branch.properties?.kind?.const ?? '(unknown kind)'
+      expect(typeof branch.description, `branch ${kind} has no description`).toBe('string')
+      for (const [key, value] of Object.entries<Record<string, any>>(branch.properties ?? {})) {
+        expect(typeof value.description, `branch ${kind} → ${key} has no description`).toBe('string')
+      }
+    }
   })
 })

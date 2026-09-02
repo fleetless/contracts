@@ -763,17 +763,26 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "const": "ros"
+                        "const": "ros",
+                        "description": "Selects the ROS image-topic source: this camera then carries `topic` and `type`, and no field of another kind."
                       },
                       "topic": {
                         "type": "string",
                         "maxLength": 255,
-                        "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$"
+                        "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$",
+                        "description": "The ROS image topic the bridge subscribes to, as an absolute graph name. Clients never name it — they address the camera by its slug — so the topic can be renamed on the robot without an app changing.",
+                        "examples": [
+                          "/camera/image_raw"
+                        ]
                       },
                       "type": {
                         "type": "string",
                         "maxLength": 255,
-                        "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+                        "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
+                        "description": "The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.",
+                        "examples": [
+                          "sensor_msgs/msg/Image"
+                        ]
                       }
                     },
                     "required": [
@@ -781,22 +790,29 @@
                       "topic",
                       "type"
                     ],
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Frames come from an image topic the robot already publishes. It is the only source the bridge **subscribes** to rather than opens, so it needs no URL, no device and nobody to authenticate to."
                   },
                   {
                     "type": "object",
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "const": "rtsp"
+                        "const": "rtsp",
+                        "description": "Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`."
                       },
                       "url": {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2048,
-                        "pattern": "^rtsps?:\\/\\/"
+                        "pattern": "^rtsps?:\\/\\/",
+                        "description": "Where the stream lives, reached from the robot rather than from the cloud. **`rtsp://` or `rtsps://` only** — the bridge opens this with a library that would equally honour `file:`, so an unconstrained URL would turn a configuration document into arbitrary file access on the robot. The bridge re-checks the scheme itself, so a validator that changed could not make a robot serve files.",
+                        "examples": [
+                          "rtsp://cam-1.plant.local/stream1"
+                        ]
                       },
                       "transport": {
+                        "description": "How the RTSP payload is carried. Omitted means `tcp`: `udp` loses frames on a congested link and loses them silently, so the result looks like a failing camera rather than like a choice made here.",
                         "type": "string",
                         "enum": [
                           "tcp",
@@ -807,109 +823,156 @@
                         "type": "object",
                         "properties": {
                           "username": {
+                            "description": "The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.",
+                            "examples": [
+                              "ops"
+                            ],
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128
                           },
                           "password": {
+                            "description": "The password for `username`. **There is no secret store behind this**: the value written here is the value stored, so treat it as readable by everyone who may read this robot's configuration, now and in its history.",
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128
                           }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
+                        "description": "Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it."
                       }
                     },
                     "required": [
                       "kind",
                       "url"
                     ],
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Frames come from an RTSP stream the robot itself can reach — a network camera on its own LAN. The bridge opens the connection; the cloud never does, and never needs a route to the camera."
                   },
                   {
                     "type": "object",
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "const": "mjpeg"
+                        "const": "mjpeg",
+                        "description": "Selects the MJPEG-over-HTTP source: this camera then carries `url`, and optionally `credentials`."
                       },
                       "url": {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 2048,
-                        "pattern": "^https?:\\/\\/"
+                        "pattern": "^https?:\\/\\/",
+                        "description": "Where the stream lives. **`http://` or `https://` only** — as for the `rtsp` URL, the bridge opens it with a library that would also serve `file:`. Plain `http://` is permitted because these cameras usually sit on the robot's own network, but Basic credentials on such a URL then travel in the clear."
                       },
                       "credentials": {
                         "type": "object",
                         "properties": {
                           "username": {
+                            "description": "The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.",
+                            "examples": [
+                              "ops"
+                            ],
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128
                           },
                           "password": {
+                            "description": "The password for `username`. **There is no secret store behind this**: the value written here is the value stored, so treat it as readable by everyone who may read this robot's configuration, now and in its history.",
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 128
                           }
                         },
-                        "additionalProperties": false
+                        "additionalProperties": false,
+                        "description": "Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it."
                       }
                     },
                     "required": [
                       "kind",
                       "url"
                     ],
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Frames come from an MJPEG stream over HTTP — one JPEG after another, the simplest network source there is. Unlike `rtsp` there is no `transport` to choose: it is HTTP, and any `credentials` therefore travel as HTTP Basic."
                   },
                   {
                     "type": "object",
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "const": "v4l2"
+                        "const": "v4l2",
+                        "description": "Selects the local capture-device source: this camera then carries `device` and nothing else — there is no network here and nobody to authenticate to."
                       },
                       "device": {
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 128,
-                        "pattern": "^\\/dev\\/[A-Za-z0-9][A-Za-z0-9._/-]*$"
+                        "pattern": "^\\/dev\\/[A-Za-z0-9][A-Za-z0-9._/-]*$",
+                        "description": "The capture device, resolved on the robot and never by the cloud; a `/dev/v4l/by-id/...` symlink survives a reboot that renumbers `/dev/video0`. **Constrained to `/dev/`** — the string reaches OpenCV, which will just as happily open an ordinary video file or an `http://` URL and publish its pixels to the cloud. The bridge re-derives the same constraint rather than trusting the wire.",
+                        "examples": [
+                          "/dev/video0"
+                        ]
                       }
                     },
                     "required": [
                       "kind",
                       "device"
                     ],
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Frames come from a capture device attached to the robot itself, such as a USB camera on `/dev/video0`. Nothing leaves the robot to fetch them, and there is nothing to authenticate to, so this source takes no `credentials`."
                   }
-                ]
+                ],
+                "description": "Where this camera's frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic."
               },
               "width": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 7680
+                "maximum": 7680,
+                "description": "The width the bridge scales every frame to before sending, in pixels — what the bridge produces, not what the sensor captures. It stands in the configuration and never in a viewer's request, so no client can make the robot encode a larger frame than the developer allowed.",
+                "examples": [
+                  1280
+                ]
               },
               "height": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 4320
+                "maximum": 4320,
+                "description": "The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded.",
+                "examples": [
+                  720
+                ]
               },
               "fps": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 60
+                "maximum": 60,
+                "description": "How many frames a second the bridge forwards, at most. It is a ceiling, not a clock: a camera that delivers ten frames a second stays at ten. Both modes read the same throttled pipeline, so this also bounds how fresh a snapshot can be.",
+                "examples": [
+                  15
+                ]
               },
               "bitrate_kbps": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 50000
+                "maximum": 50000,
+                "description": "The ceiling for the **live** encoding, in kilobits per second — this is what bounds a watched camera against the robot's uplink. Snapshots are not covered by it: they are JPEGs under their own byte ceiling. Raising `width`, `height` or `fps` against a fixed bitrate buys blur, not detail.",
+                "examples": [
+                  2000
+                ]
               },
               "snapshot_interval_seconds": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": 3600
+                "maximum": 3600,
+                "description": "How often a still frame is captured, in seconds. **It runs whether or not anyone is watching**, unlike the live stream, which the cloud refcounts — first viewer starts it, last one ends it. The cloud caches the one frame and serves every reader from it, so a hundred pollers cost the robot exactly one image per interval.",
+                "examples": [
+                  5
+                ]
               },
               "description": {
+                "description": "What this camera shows, in the developer's own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. **A camera without one is exposed as no MCP tool**, as for actions, services and publishers. The tool it does produce serves the latest snapshot with its age; a live session is never a tool.",
+                "examples": [
+                  "Forward-facing camera on the mast."
+                ],
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 2000
