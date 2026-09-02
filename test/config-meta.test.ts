@@ -91,6 +91,9 @@ const NODES: Array<[string, string[]]> = [
   ['datapoint.chart', ['datapoints', 'chart']],
   ['a datapoint alert', ['datapoints', 'alerts']],
   ['an alert condition', ['datapoints', 'alerts', 'condition']],
+  ['an action', ['actions']],
+  ['a service', ['services']],
+  ['a publisher', ['publishers']],
   ['a parameter', ['actions', 'parameters']]
 ]
 

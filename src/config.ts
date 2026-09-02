@@ -659,21 +659,39 @@ export const messageMap = z
  * observer of the slug watches the same job.
  */
 export const actionConfig = z.strictObject({
-  ros_name: rosName,
-  type: rosTypeName,
+  ros_name: rosName.meta({
+    description: 'The action server on the robot, as an absolute graph name — this is what the bridge sends the goal to. Clients never see it: they address this entry by its slug, so a server can be renamed on the robot without a single app changing.',
+    examples: ['/navigate_to_pose'],
+  }),
+  type: rosTypeName.meta({
+    description: 'The action type `ros_name` implements, with the `action` segment in the middle — `nav2_msgs/action/NavigateToPose`, never `nav2_msgs/NavigateToPose`. Declared rather than introspected, so an action can be configured for a robot that has never connected; the cloud checks it against the robot\'s own definitions only once one is there.',
+    examples: ['nav2_msgs/action/NavigateToPose'],
+  }),
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
-  description: serviceDescription,
+  description: serviceDescription.meta({
+    description: 'What this action does, in the developer\'s own words. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all** — a tool a model cannot understand is worse than no tool.',
+    examples: ['Drives to a target pose on the map.'],
+  }),
 })
 export type ActionConfig = z.infer<typeof actionConfig>
 
 /** A ROS service call with validated parameters (spec §4.2). */
 export const serviceConfig = z.strictObject({
-  ros_name: rosName,
-  type: rosTypeName,
+  ros_name: rosName.meta({
+    description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
+    examples: ['/reset_odometry'],
+  }),
+  type: rosTypeName.meta({
+    description: 'The service type `ros_name` implements, with the `srv` segment in the middle — `std_srvs/srv/Trigger`. A type whose request has no fields, like `Trigger`, needs neither `message` nor `parameters`: there is nothing to fill.',
+    examples: ['std_srvs/srv/Trigger'],
+  }),
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
-  description: serviceDescription,
+  description: serviceDescription.meta({
+    description: 'What this service does, in the developer\'s own words; **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot — and two apps cannot word it differently for two audiences.',
+    examples: ['Resets odometry to the origin.'],
+  }),
 })
 export type ServiceConfig = z.infer<typeof serviceConfig>
 
@@ -699,14 +717,25 @@ export type ServiceConfig = z.infer<typeof serviceConfig>
  * before a *different* user may send.
  */
 export const publisherConfig = z.strictObject({
-  topic: rosName,
-  type: rosTypeName,
+  topic: rosName.meta({
+    description: 'The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.',
+    examples: ['/cmd_vel'],
+  }),
+  type: rosTypeName.meta({
+    description: 'The message type of `topic`, spelled the way ROS 2 spells it, with the `msg` segment. It fixes the shape that `message` and `failsafe.message` must both fill, which is why one publisher carries one type and a second type needs a second publisher.',
+    examples: ['geometry_msgs/msg/Twist'],
+  }),
   message: messageBody,
   parameters: parameterMap.optional(),
   failsafe: z
     .strictObject({
-      timeout_ms: z.number().int().positive().max(60_000),
-      message: messageBody,
+      timeout_ms: z.number().int().positive().max(60_000).meta({
+        description: 'How long the bridge waits for the client\'s next send before sending the failsafe message itself, in milliseconds. The deadline runs **on the robot**, so it still fires when the link to the cloud is what failed — which is the case it exists for.',
+        examples: [500, 1000],
+      }),
+      message: messageBody.meta({
+        description: 'What the bridge sends once `timeout_ms` runs out — for a drive command, a zero twist. It must be safe in **every** state, because it is sent precisely when nobody is watching any more, and it may hold no placeholder: there is no caller left to fill one.',
+      }),
     })
     /**
      * The string case is the exemption, not an oversight — see the paragraph
@@ -716,9 +745,18 @@ export const publisherConfig = z.strictObject({
       message: 'the failsafe message must contain no placeholder: it is sent with no caller to fill one',
       path: ['message'],
       params: { code: 'failsafe_has_parameters' },
+    })
+    .meta({
+      description: 'What the bridge sends **by itself** once a client stops sending, and how long it waits first. This is the format\'s safety story in one field: a client that crashes, loses its connection or whose operator closes the window does not leave a robot driving. The message may hold no placeholder, inline or through a shared message — there is nobody left to fill one.',
     }),
-  quiet_timeout_ms: z.number().int().nonnegative().max(600_000),
-  description: serviceDescription,
+  quiet_timeout_ms: z.number().int().nonnegative().max(600_000).meta({
+    description: 'How long this publisher must stay silent before a **different** user may send to it. Whoever sends holds it implicitly exclusive, with no session and no lock, so this one number is the whole handover policy: too short and two operators fight over one robot, too long and a crashed client blocks it for everyone.',
+    examples: [2000],
+  }),
+  description: serviceDescription.meta({
+    description: 'What sending to this publisher does, in the developer\'s own words; as for actions and services, no description means no MCP tool. Worth writing as a warning as much as a label — this is the one exposure kind where a caller moves the robot, so what stops when the caller stops belongs in the sentence.',
+    examples: ['Velocity command. If sending stops, the robot stops.'],
+  }),
 })
 export type PublisherConfig = z.infer<typeof publisherConfig>
 

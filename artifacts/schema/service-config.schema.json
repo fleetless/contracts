@@ -5,12 +5,20 @@
     "ros_name": {
       "type": "string",
       "maxLength": 255,
-      "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$"
+      "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$",
+      "description": "The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.",
+      "examples": [
+        "/reset_odometry"
+      ]
     },
     "type": {
       "type": "string",
       "maxLength": 255,
-      "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+      "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
+      "description": "The service type `ros_name` implements, with the `srv` segment in the middle — `std_srvs/srv/Trigger`. A type whose request has no fields, like `Trigger`, needs neither `message` nor `parameters`: there is nothing to fill.",
+      "examples": [
+        "std_srvs/srv/Trigger"
+      ]
     },
     "message": {
       "description": "The message as it will be sent, written out in full: literals are fixed, `${name}` is a hole a caller fills, and a field written `0.0` is one no client can change. Directly after `message:` a `${name}` standing alone names a shared message instead; anywhere inside a body it is a parameter. `null` is refused **at every depth** — omitting a key is the only spelling of \"not set\"."
@@ -113,6 +121,10 @@
       "description": "The holes in this entry's `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error."
     },
     "description": {
+      "description": "What this service does, in the developer's own words; **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot — and two apps cannot word it differently for two audiences.",
+      "examples": [
+        "Resets odometry to the origin."
+      ],
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
