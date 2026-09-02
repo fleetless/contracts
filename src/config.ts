@@ -777,13 +777,13 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
  */
 export const robotConfigDoc = z.strictObject({
   fleetless: z.literal(FLEETLESS_FORMAT_VERSION).meta({
-    description: 'The format version, and the first line of the file. It says by which rules everything below is read; a file without it, or carrying a version this cloud does not know, is refused rather than half understood. It is deliberately not spelled `version` — the console counts published states as `v12 → v13`, and two numbers both called version would be the likeliest confusion the format could offer.',
+    description: 'The format version, and the first line of the file. It decides how everything below is read, so a file that omits it — or names a version this cloud does not know — is **refused rather than half understood**.',
   }),
   messages: messageMap.meta({
-    description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another** — that rules out cycles and lets every check look at exactly one body.',
+    description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another**, so a `${name}` inside a body is always a parameter and never a second message.',
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
-    description: 'Values the robot publishes. One datapoint is one field of one topic — or a whole topic — and never several topics; each entry also decides how often that value is sent, whether it outlives the moment in history, how it is charted and which alerts watch it. Keys are slugs, and **all five exposure sections share one namespace**, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'A value the robot publishes: one field of one topic, or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
     description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',

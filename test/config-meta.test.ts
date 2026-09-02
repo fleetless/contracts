@@ -44,6 +44,44 @@ function nodeAt(path: string[]): Record<string, any> {
   return here
 }
 
+/**
+ * Every property anywhere in the document that carries no usable
+ * `description`, as dotted paths.
+ *
+ * `nodeAt` follows `properties` and nothing else, and **a union has no
+ * `properties`**: `cameras.<slug>.source` is a four-branch `oneOf` holding
+ * twelve leaves, and `parameters.<slug>.default` and `.enum` are `anyOf`s.
+ * A `.meta()` on the wrapper alone would leave all of those blank while every
+ * entry in `NODES` stayed green — the instrument would be unable to enter the
+ * state it exists to detect.
+ *
+ * So this walker enters everything the format can express: `properties`,
+ * `additionalProperties` (`<slug>`), `items` (`[]`), and every branch of
+ * `oneOf` / `anyOf` / `allOf` (`#0`, `#1`, …). Measured 2026-09-02: the export
+ * inlines everything, no `$ref`, so the walk terminates.
+ */
+function undescribed(node: Record<string, any>, path = ''): string[] {
+  const under = (part: string) => (path === '' ? part.replace(/^\./, '') : `${path}${part}`)
+  const described = (value: Record<string, any>) =>
+    typeof value.description === 'string' && value.description.trim().length > 0
+
+  const missing: string[] = []
+  for (const [key, value] of Object.entries<Record<string, any>>(node.properties ?? {})) {
+    const here = under(`.${key}`)
+    if (!described(value)) missing.push(here)
+    missing.push(...undescribed(value, here))
+  }
+  if (node.additionalProperties && typeof node.additionalProperties === 'object')
+    missing.push(...undescribed(node.additionalProperties, under('.<slug>')))
+  if (node.items && typeof node.items === 'object')
+    missing.push(...undescribed(node.items, under('[]')))
+  for (const keyword of ['oneOf', 'anyOf', 'allOf'] as const) {
+    const branches: Array<Record<string, any>> = node[keyword] ?? []
+    branches.forEach((branch, i) => missing.push(...undescribed(branch, under(`#${i}`))))
+  }
+  return missing
+}
+
 /** Node label → the path that reaches it from the document root. */
 const NODES: Array<[string, string[]]> = [
   ['the document root', []]
@@ -61,4 +99,20 @@ describe('every documented field carries a hover text', () => {
       }
     })
   }
+
+  /**
+   * Skipped until Task 6 of this wave, when the document is complete: tasks
+   * 2–5 have yet to describe the rest of the format, so this is red by
+   * construction until they land. **Unskip it in Task 6** — it is the only
+   * assertion that covers a union branch, and `NODES` cannot replace it.
+   *
+   * Run once unskipped on 2026-09-02 before being skipped, so that "skipped"
+   * is not indistinguishable from "cannot fail": it listed **89** paths,
+   * 16 of them inside `oneOf` branches that `nodeAt` cannot reach at all —
+   * `cameras.<slug>.source#0.topic`, `cameras.<slug>.source#1.credentials.password`,
+   * `cameras.<slug>.source#3.device`.
+   */
+  it.skip('leaves no field of the document without a hover text', () => {
+    expect(undescribed(schema)).toEqual([])
+  })
 })
