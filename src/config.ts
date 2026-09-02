@@ -156,7 +156,7 @@ export const parameterSpec = z
       description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
     }),
     default: z.union([z.number(), z.string(), z.boolean()]).meta({
-      description: 'The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
+      description: 'The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
     }).optional(),
     min_value: z.number().meta({
       description: 'The lowest value a caller may send; numeric types only. It is **enforced in the cloud, before anything reaches the robot** — this is where a speed limit actually holds, rather than in the app that is supposed to respect it.',
@@ -754,7 +754,7 @@ export const publisherConfig = z.strictObject({
     examples: [2000],
   }),
   description: serviceDescription.meta({
-    description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. Worth writing as a warning as much as a label: this is the one exposure kind where a caller moves the robot.',
+    description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.',
     examples: ['Velocity command. If sending stops, the robot stops.'],
   }),
 })

@@ -35,7 +35,7 @@
           "type": "boolean"
         }
       ],
-      "description": "The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
+      "description": "The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
     },
     "min_value": {
       "type": "number",

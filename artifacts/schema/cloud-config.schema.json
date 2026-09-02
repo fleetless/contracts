@@ -353,7 +353,7 @@
                           "type": "boolean"
                         }
                       ],
-                      "description": "The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
+                      "description": "The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
                     },
                     "min_value": {
                       "type": "number",
@@ -500,7 +500,7 @@
                           "type": "boolean"
                         }
                       ],
-                      "description": "The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
+                      "description": "The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
                     },
                     "min_value": {
                       "type": "number",
@@ -647,7 +647,7 @@
                           "type": "boolean"
                         }
                       ],
-                      "description": "The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
+                      "description": "The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
                     },
                     "min_value": {
                       "type": "number",
@@ -734,7 +734,7 @@
                 ]
               },
               "description": {
-                "description": "What sending to this publisher does, in the developer's own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. Worth writing as a warning as much as a label: this is the one exposure kind where a caller moves the robot.",
+                "description": "What sending to this publisher does, in the developer's own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.",
                 "examples": [
                   "Velocity command. If sending stops, the robot stops."
                 ],
