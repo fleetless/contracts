@@ -776,13 +776,27 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
  * check spans sections and therefore lives in the cloud, not here.
  */
 export const robotConfigDoc = z.strictObject({
-  fleetless: z.literal(FLEETLESS_FORMAT_VERSION),
-  messages: messageMap.optional(),
-  datapoints: capped(datapointConfig, 200, 'datapoints').optional(),
-  actions: capped(actionConfig, 200, 'actions').optional(),
-  services: capped(serviceConfig, 200, 'services').optional(),
-  publishers: capped(publisherConfig, 200, 'publishers').optional(),
-  cameras: capped(cameraConfig, 50, 'cameras').optional(),
+  fleetless: z.literal(FLEETLESS_FORMAT_VERSION).meta({
+    description: 'The format version, and the first line of the file. It says by which rules everything below is read; a file without it, or carrying a version this cloud does not know, is refused rather than half understood. It is deliberately not spelled `version` — the console counts published states as `v12 → v13`, and two numbers both called version would be the likeliest confusion the format could offer.',
+  }),
+  messages: messageMap.meta({
+    description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another** — that rules out cycles and lets every check look at exactly one body.',
+  }).optional(),
+  datapoints: capped(datapointConfig, 200, 'datapoints').meta({
+    description: 'Values the robot publishes. One datapoint is one field of one topic — or a whole topic — and never several topics; each entry also decides how often that value is sent, whether it outlives the moment in history, how it is charted and which alerts watch it. Keys are slugs, and **all five exposure sections share one namespace**, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+  }).optional(),
+  actions: capped(actionConfig, 200, 'actions').meta({
+    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+  }).optional(),
+  services: capped(serviceConfig, 200, 'services').meta({
+    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service is short and reports **no progress**, so there is no job to observe while it runs. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+  }).optional(),
+  publishers: capped(publisherConfig, 200, 'publishers').meta({
+    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+  }).optional(),
+  cameras: capped(cameraConfig, 50, 'cameras').meta({
+    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+  }).optional(),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 

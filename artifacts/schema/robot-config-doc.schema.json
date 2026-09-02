@@ -4,7 +4,8 @@
   "properties": {
     "fleetless": {
       "type": "number",
-      "const": 1
+      "const": 1,
+      "description": "The format version, and the first line of the file. It says by which rules everything below is read; a file without it, or carrying a version this cloud does not know, is refused rather than half understood. It is deliberately not spelled `version` — the console counts published states as `v12 → v13`, and two numbers both called version would be the likeliest confusion the format could offer."
     },
     "messages": {
       "type": "object",
@@ -14,7 +15,8 @@
         "maxLength": 63,
         "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
       },
-      "additionalProperties": {}
+      "additionalProperties": {},
+      "description": "Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another** — that rules out cycles and lets every check look at exactly one body."
     },
     "datapoints": {
       "type": "object",
@@ -180,7 +182,8 @@
           "type"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Values the robot publishes. One datapoint is one field of one topic — or a whole topic — and never several topics; each entry also decides how often that value is sent, whether it outlives the moment in history, how it is charted and which alerts watch it. Keys are slugs, and **all five exposure sections share one namespace**, which is what lets a role grant say `{robot, slug}` without naming a kind."
     },
     "actions": {
       "type": "object",
@@ -295,7 +298,8 @@
           "type"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind."
     },
     "services": {
       "type": "object",
@@ -410,7 +414,8 @@
           "type"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service is short and reports **no progress**, so there is no job to observe while it runs. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind."
     },
     "publishers": {
       "type": "object",
@@ -549,7 +554,8 @@
           "quiet_timeout_ms"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind."
     },
     "cameras": {
       "type": "object",
@@ -730,7 +736,8 @@
           "snapshot_interval_seconds"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind."
     }
   },
   "required": [
