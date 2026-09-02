@@ -97,7 +97,10 @@
                   },
                   "offset": {
                     "type": "number",
-                    "description": "A constant the robot adds after `scale` (`value * scale + offset`), for a value whose zero sits in the wrong place. Like `scale` it is applied before sending, so history stores the converted value and a later correction cannot reach what is already stored."
+                    "description": "A constant the robot adds after `scale` (`value * scale + offset`), for a value whose zero sits in the wrong place. Like `scale` it is applied before sending, so history stores the converted value and a later correction cannot reach what is already stored.",
+                    "examples": [
+                      -273.15
+                    ]
                   },
                   "unit": {
                     "type": "string",

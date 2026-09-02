@@ -342,6 +342,7 @@ export const datapointNumeric = z.strictObject({
   }).optional(),
   offset: z.number().meta({
     description: 'A constant the robot adds after `scale` (`value * scale + offset`), for a value whose zero sits in the wrong place. Like `scale` it is applied before sending, so history stores the converted value and a later correction cannot reach what is already stored.',
+    examples: [-273.15],
   }).optional(),
   unit: z.string().max(32).meta({
     description: 'The unit of the value **after** `scale` and `offset`, not the robot\'s own. It is shown beside the value and appended to the MCP tool description, so a model does not have to guess whether 15 means percent, volts or minutes.',
