@@ -19,7 +19,6 @@ import {
   robotDeletionSummary,
   resourceHealthState,
   resourceHealthListResponse,
-  credentialSummary,
   RESOURCE_HEALTH_STATES,
 } from '../src/rest.js'
 import { resourceHealthEvent } from '../src/realtime.js'
@@ -147,12 +146,5 @@ describe('health', () => {
     }
     expect(bridgeCameraState.safeParse(
       { type: 'camera_state', slug: 'front', publishing: false, error: null, observed_at_ms: 1786522606705, request_id: null }).success).toBe(false)
-  })
-
-  it('keeps "a password is stored" apart from "we can still decrypt it"', () => {
-    const unreadable = credentialSummary.parse({
-      name: 'site-cams', username: 'camuser', set: true, readable: false, used_by: [],
-    })
-    expect([unreadable.set, unreadable.readable]).toEqual([true, false])
   })
 })

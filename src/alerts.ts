@@ -100,10 +100,8 @@ export type AlertState = z.infer<typeof alertState>
 /**
  * One alert row, definition and runtime state together — the runtime fields
  * (`state`, `state_since`, `last_value`) are DB-held so they survive a cloud
- * restart, and are read-only from every client's point of view: they never
- * appear on `createAlertRequest` or `patchAlertRequest` (pinned by
- * `alerts-shapes.test.ts` — a `PATCH` naming `state` is rejected by
- * `.strict()`, not silently ignored).
+ * restart, and are read-only from every client's point of view: nothing
+ * writes them from outside the cloud's own evaluator.
  *
  * **`Row` is a name the shape outgrew**, kept only to keep it apart from
  * `config.ts`'s `datapointAlert`, which is the definition an author writes.
@@ -144,81 +142,10 @@ export const datapointAlertRow = z.object({
    */
   last_value: z.unknown().nullable(),
   created_at: z.iso.datetime(),
-  /**
-   * Whether this alert's `slug` is absent from the robot's published
-   * config. Computed on read, not stored — it would otherwise need its own
-   * write path kept in sync with every publish — and true for an absent
-   * slug the same way a missing key reads as "not there" — **except when
-   * the robot has no published config at all** (never published, or a
-   * draft only): that case marks NOTHING orphaned, deliberately, not the
-   * naive reading of "absent from an empty set". A robot pre-first-publish
-   * has no config yet for a slug to be absent *from*, and a developer's
-   * freshly created alert against their own unpublished draft must not
-   * read as broken. Set only by `GET /api/robots/:id/alerts`; absent
-   * (never `false`) from `createAlertRequest`/`patchAlertRequest`
-   * responses and from `orgFiringAlertsResponse`, which have no
-   * published-config context to compute it against at their call sites.
-   * Optional, not required, so those other shapes — which share this same
-   * entity — stay valid without carrying a field that does not apply to
-   * them.
-   */
-  orphaned: z.boolean().optional(),
 })
 export type DatapointAlertRow = z.infer<typeof datapointAlertRow>
 
-/**
- * `POST /api/robots/:id/alerts`. `robot_id` comes from the path, never the
- * body (the usual split — see `renameSlugRequest`'s sibling shapes). No
- * `id` and none of the three runtime-state fields: those are the cloud's to
- * assign, and a caller-supplied `state` would let a client fabricate a
- * firing alert that never fired.
- *
- * `enabled` defaults to `true` — a created alert is active unless the caller
- * says otherwise, which is the common case rather than the exceptional one.
- *
- * The three mail fields it used to accept went with the mail path in FL-002
- * wave 4; see `datapointAlertRow`.
- *
- * **The cloud no longer serves this route**, nor the `PATCH` below: since
- * FL-002 an alert is a key in the published document, and `routes/alerts.ts`
- * is read-only. Both shapes are kept only until their last consumer — the
- * console's alerts tab — is removed with the rest of the per-node editing
- * surface; a request built from either one answers 404 today.
- */
-export const createAlertRequest = z
-  .object({
-    slug,
-    name: z.string().min(1).max(120),
-    enabled: z.boolean().default(true),
-    severity: alertSeverity,
-    condition: alertRowCondition,
-  })
-  .strict()
-export type CreateAlertRequest = z.infer<typeof createAlertRequest>
-
-/**
- * `PATCH /api/robots/:id/alerts/:alertId`. Every definition field is
- * optional (a caller changes one thing at a time — flip `enabled`, tighten
- * `threshold`), and `slug` is **absent**, not merely un-required: an alert's
- * slug does not travel through this route at all. The one case that moves
- * it — a datapoint rename — is the atomic slug-rename transaction touching
- * the row server-side, not a developer-issued PATCH.
- *
- * `state`/`state_since`/`last_value` are never accepted here — pinned by
- * `alerts-shapes.test.ts` — for the same reason they are absent from
- * `createAlertRequest`.
- */
-export const patchAlertRequest = z
-  .object({
-    name: z.string().min(1).max(120).optional(),
-    enabled: z.boolean().optional(),
-    severity: alertSeverity.optional(),
-    condition: alertRowCondition.optional(),
-  })
-  .strict()
-export type PatchAlertRequest = z.infer<typeof patchAlertRequest>
-
-/** `GET /api/robots/:id/alerts` — the one route that sets `datapointAlertRow.orphaned` on every entry. */
+/** `GET /api/robots/:id/alerts`. */
 export const alertListResponse = z.object({
   alerts: z.array(datapointAlertRow),
 })
@@ -228,9 +155,7 @@ export type AlertListResponse = z.infer<typeof alertListResponse>
  * `GET /api/org/alerts?state=firing` — feeds the overview's "open issues"
  * tile and the fleet grid's per-robot badge (D3). Org-scoped and
  * cross-robot, so each entry carries `robot_name` alongside the alert: the
- * overview has no robot context of its own to join against. Never sets
- * `orphaned` — this route has no per-robot published-config context to
- * compute it against, and the shape's own doc comment says so.
+ * overview has no robot context of its own to join against.
  */
 export const orgFiringAlertsResponse = z.object({
   alerts: z.array(datapointAlertRow.extend({ robot_name: z.string().min(1).max(63) })),

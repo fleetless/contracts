@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   alertRowCondition as alertCondition,
   datapointAlertRow as datapointAlert,
-  createAlertRequest,
-  patchAlertRequest,
   alertListResponse,
   orgFiringAlertsResponse,
   datapointDisplay,
@@ -100,22 +98,6 @@ describe('datapointAlert — the entity, definition + runtime state together', (
     expect(parsed.condition).toMatchObject({ resolve_hysteresis: 0 })
   })
 
-  it('orphaned is optional — an entity without it still parses (create/patch responses, org firing endpoint)', () => {
-    const parsed = datapointAlert.parse(VALID_ALERT)
-    expect(parsed.orphaned).toBeUndefined()
-  })
-
-  it('orphaned is accepted when boolean, in both directions', () => {
-    expect(datapointAlert.parse({ ...VALID_ALERT, orphaned: true }).orphaned).toBe(true)
-    expect(datapointAlert.parse({ ...VALID_ALERT, orphaned: false }).orphaned).toBe(false)
-  })
-
-  it('orphaned rejects a non-boolean value rather than coercing it', () => {
-    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: 'true' }).success).toBe(false)
-    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: 1 }).success).toBe(false)
-    expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: null }).success).toBe(false)
-  })
-
   // FL-002 wave 4 removed the mail path. This shape is a plain `z.object`,
   // which strips unknown keys rather than refusing them, so the pin has to be
   // on the parsed output: a caller still sending the old fields gets them
@@ -130,92 +112,6 @@ describe('datapointAlert — the entity, definition + runtime state together', (
     expect(parsed).not.toHaveProperty('cooldown_minutes')
     expect(parsed).not.toHaveProperty('recipients')
     expect(parsed).not.toHaveProperty('notify_on_resolve')
-  })
-})
-
-describe('createAlertRequest — strict, no id/state fields, defaults', () => {
-  const BASE = {
-    slug: 'battery_voltage',
-    name: 'Battery low',
-    severity: 'warning' as const,
-    condition: { kind: 'below' as const, threshold: 20 },
-  }
-
-  it('accepts the minimal shape and fills defaults', () => {
-    const parsed = createAlertRequest.parse(BASE)
-    expect(parsed.enabled).toBe(true)
-  })
-
-  it('rejects a name over 120 characters', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, name: 'a'.repeat(121) }).success).toBe(false)
-  })
-
-  it('rejects an above condition with no threshold', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, condition: { kind: 'above' } }).success).toBe(false)
-  })
-
-  it('rejects an equals condition with an object value', () => {
-    expect(
-      createAlertRequest.safeParse({ ...BASE, condition: { kind: 'equals', value: { bad: true } } }).success,
-    ).toBe(false)
-  })
-
-  it('rejects a negative resolve_hysteresis', () => {
-    expect(
-      createAlertRequest.safeParse({
-        ...BASE,
-        condition: { kind: 'below', threshold: 20, resolve_hysteresis: -1 },
-      }).success,
-    ).toBe(false)
-  })
-
-  it('is strict: an id alongside otherwise-valid fields is rejected', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, id: ALERT }).success).toBe(false)
-  })
-
-  it('is strict: a caller-supplied state alongside otherwise-valid fields is rejected', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, state: 'firing' }).success).toBe(false)
-  })
-
-  // The mail path is gone (FL-002 wave 4), and this shape is `.strict()` —
-  // so a caller still sending a mail setting is refused outright rather than
-  // having it silently dropped. That is the direction to want: a request
-  // asking for mail should fail, not appear to have been honoured.
-  it('rejects the three mail fields it used to accept', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 15 }).success).toBe(false)
-    expect(createAlertRequest.safeParse({ ...BASE, recipients: [] }).success).toBe(false)
-    expect(createAlertRequest.safeParse({ ...BASE, notify_on_resolve: true }).success).toBe(false)
-  })
-})
-
-describe('patchAlertRequest — strict, every definition field optional, never state', () => {
-  it('accepts an empty patch and a single-field patch', () => {
-    expect(patchAlertRequest.safeParse({}).success).toBe(true)
-    expect(patchAlertRequest.safeParse({ enabled: false }).success).toBe(true)
-  })
-
-  it('rejects a state key alongside a valid field — the load-bearing pin: runtime state never travels through this route', () => {
-    expect(patchAlertRequest.safeParse({ enabled: false, state: 'firing' }).success).toBe(false)
-  })
-
-  it('also rejects state_since and last_value', () => {
-    expect(patchAlertRequest.safeParse({ state_since: null }).success).toBe(false)
-    expect(patchAlertRequest.safeParse({ last_value: 42 }).success).toBe(false)
-  })
-
-  it('rejects slug — immutable through this route; only the rename transaction moves it', () => {
-    expect(patchAlertRequest.safeParse({ slug: 'other_slug' }).success).toBe(false)
-  })
-
-  it('validates condition when present', () => {
-    expect(patchAlertRequest.safeParse({ condition: { kind: 'above', threshold: 5 } }).success).toBe(true)
-    expect(patchAlertRequest.safeParse({ condition: { kind: 'above' } }).success).toBe(false)
-  })
-
-  it('rejects the three mail fields it used to accept — same reasoning as createAlertRequest', () => {
-    expect(patchAlertRequest.safeParse({ cooldown_minutes: 15 }).success).toBe(false)
-    expect(patchAlertRequest.safeParse({ recipients: [] }).success).toBe(false)
-    expect(patchAlertRequest.safeParse({ notify_on_resolve: true }).success).toBe(false)
   })
 })
 
@@ -240,11 +136,6 @@ describe('slugUsageResponse — alert_count (D5): the rename dialog counts alert
 describe('alertListResponse / orgFiringAlertsResponse', () => {
   it('alertListResponse wraps a list of alerts', () => {
     expect(alertListResponse.parse({ alerts: [VALID_ALERT] }).alerts).toHaveLength(1)
-  })
-
-  it('alertListResponse accepts orphaned on an entry — the shape this route actually sends', () => {
-    const parsed = alertListResponse.parse({ alerts: [{ ...VALID_ALERT, orphaned: true }] })
-    expect(parsed.alerts[0]!.orphaned).toBe(true)
   })
 
   it('orgFiringAlertsResponse requires robot_name alongside every alert field', () => {

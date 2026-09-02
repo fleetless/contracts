@@ -120,8 +120,6 @@ import {
 import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
 import {
   datapointAlertRow,
-  createAlertRequest,
-  patchAlertRequest,
   alertListResponse,
   orgFiringAlertsResponse,
   datapointDisplay,
@@ -162,9 +160,6 @@ import {
   orgQuotas,
   orgQuotaUsage,
   orgQuotaUsageCounts,
-  credentialSummary,
-  credentialListResponse,
-  credentialWriteRequest,
   robotDeletionSummary,
   resourceHealthState,
   resourceHealthListResponse,
@@ -196,7 +191,7 @@ export const exportedSchemas = {
   'camera-list-response': cameraListResponse,
   'live-session-response': liveSessionResponse,
   'snapshot-meta-response': snapshotMetaResponse,
-  // W6 — retention, history, quotas, credentials, camera sources.
+  // W6 — retention, history, quotas, camera sources.
   'camera-source': cameraSource,
   'history-query': historyQuery,
   'history-samples-response': historySamplesResponse,
@@ -204,9 +199,6 @@ export const exportedSchemas = {
   'org-quotas': orgQuotas,
   'org-quota-usage': orgQuotaUsage,
   'org-quota-usage-counts': orgQuotaUsageCounts,
-  'credential-summary': credentialSummary,
-  'credential-list-response': credentialListResponse,
-  'credential-write-request': credentialWriteRequest,
   // W6a — deletion and the resource-health channel.
   'robot-deletion-summary': robotDeletionSummary,
   'resource-health-state': resourceHealthState,
@@ -353,8 +345,6 @@ export const exportedSchemas = {
   // `alertSeverity` and `alertState` are not registered on their own —
   // embedded fields, the same call already made for `datapointRate`.
   'datapoint-alert-row': datapointAlertRow,
-  'create-alert-request': createAlertRequest,
-  'patch-alert-request': patchAlertRequest,
   'alert-list-response': alertListResponse,
   'org-firing-alerts-response': orgFiringAlertsResponse,
   'datapoint-display': datapointDisplay,
@@ -465,12 +455,12 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'put-app-group-request', 'put-assignment-request', 'tier-change-request',
   'put-group-oidc-provider-request', 'impersonation-choice',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
-  'credential-write-request', 'history-query', 'invoke-request', 'publish-request',
+  'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
   'patch-org-request', 'patch-auth-me-request',
   'patch-robot-request', 'rename-slug-request',
-  'create-alert-request', 'patch-alert-request', 'put-datapoint-display-request',
+  'put-datapoint-display-request',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -491,7 +481,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'mcp-tool-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',
   'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',
-  'org-quota-usage-counts', 'credential-summary', 'credential-list-response',
+  'org-quota-usage-counts',
   'robot-deletion-summary', 'resource-health-state', 'resource-health-list-response',
   'validation-issue', 'config-state', 'ros-graph', 'type-definition', 'robot',
   'create-robot-response', 'exposure-counts', 'robot-list-item', 'robot-list-response', 'datapoint-value',
