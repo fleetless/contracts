@@ -174,7 +174,7 @@ export const parameterSpec = z
       examples: ['^[a-z_]+$'],
     }).optional(),
     description: parameterDescription.meta({
-      description: 'What this parameter means, in the developer\'s own words. It travels into the MCP tool\'s input schema beside the bounds, so it is read by a model that has never seen this robot: `type` and the bounds say what the value *is*, and this is the only place that says what it *does*.',
+      description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the MCP tool\'s input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
     }),
   })
   .superRefine((p, ctx) => {
@@ -670,7 +670,7 @@ export const actionConfig = z.strictObject({
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
   description: serviceDescription.meta({
-    description: 'What this action does, in the developer\'s own words. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all** — a tool a model cannot understand is worse than no tool.',
+    description: 'What this action does, in the developer\'s own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all**.',
     examples: ['Drives to a target pose on the map.'],
   }),
 })
@@ -689,7 +689,7 @@ export const serviceConfig = z.strictObject({
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
   description: serviceDescription.meta({
-    description: 'What this service does, in the developer\'s own words; **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot — and two apps cannot word it differently for two audiences.',
+    description: 'What this service does, in the developer\'s own words. The robot does nothing with it — the readers are the console and MCP clients, and **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.',
     examples: ['Resets odometry to the origin.'],
   }),
 })
@@ -754,7 +754,7 @@ export const publisherConfig = z.strictObject({
     examples: [2000],
   }),
   description: serviceDescription.meta({
-    description: 'What sending to this publisher does, in the developer\'s own words; as for actions and services, no description means no MCP tool. Worth writing as a warning as much as a label — this is the one exposure kind where a caller moves the robot, so what stops when the caller stops belongs in the sentence.',
+    description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. Worth writing as a warning as much as a label: this is the one exposure kind where a caller moves the robot.',
     examples: ['Velocity command. If sending stops, the robot stops.'],
   }),
 })

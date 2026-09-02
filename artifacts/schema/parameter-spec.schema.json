@@ -75,7 +75,7 @@
       ]
     },
     "description": {
-      "description": "What this parameter means, in the developer's own words. It travels into the MCP tool's input schema beside the bounds, so it is read by a model that has never seen this robot: `type` and the bounds say what the value *is*, and this is the only place that says what it *does*.",
+      "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
       "type": "string",
       "minLength": 1,
       "maxLength": 500
