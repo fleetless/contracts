@@ -55,10 +55,23 @@ function nodeAt(path: string[]): Record<string, any> {
  * entry in `NODES` stayed green — the instrument would be unable to enter the
  * state it exists to detect.
  *
- * So this walker enters everything the format can express: `properties`,
- * `additionalProperties` (`<slug>`), `items` (`[]`), and every branch of
- * `oneOf` / `anyOf` / `allOf` (`#0`, `#1`, …). Measured 2026-09-02: the export
- * inlines everything, no `$ref`, so the walk terminates.
+ * So this walker enters `properties`, `additionalProperties` (`<slug>`),
+ * `items` (`[]`), and every branch of `oneOf` / `anyOf` / `allOf` (`#0`, `#1`,
+ * …). Measured 2026-09-02: the export inlines everything, no `$ref`, so the
+ * walk terminates; it reaches 96 properties, 16 of them inside a union branch.
+ *
+ * **What it cannot see.** It does not enter `patternProperties`,
+ * `prefixItems`, `not` or `if` — none of which today's export contains, so the
+ * four paths above are exhaustive *for this document* and adding handling for
+ * the others now would guard nothing. Introducing one to the format — a zod
+ * tuple exports as `prefixItems`, which is the plausible one — means teaching
+ * this walker about it in the same change. It would otherwise walk past the
+ * new field **silently**, which is the exact failure this test exists to close,
+ * one level out.
+ *
+ * The `items` recursion is a live path but asserts nothing today: all three
+ * arrays in the format are `enum[]` holding scalars, so it reaches 0
+ * properties. It is here for the first array of objects the format grows.
  */
 function undescribed(node: Record<string, any>, path = ''): string[] {
   const under = (part: string) => (path === '' ? part.replace(/^\./, '') : `${path}${part}`)
