@@ -27,7 +27,8 @@
       "description": "A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.",
       "examples": [
         "voltage",
-        "pose.position.x"
+        "pose.position.x",
+        "ranges[0]"
       ]
     },
     "rate_throttle_hz": {

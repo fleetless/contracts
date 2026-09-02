@@ -470,7 +470,7 @@ export const datapointConfig = z
     }),
     field: fieldPath.meta({
       description: 'A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
-      examples: ['voltage', 'pose.position.x'],
+      examples: ['voltage', 'pose.position.x', 'ranges[0]'],
     }).optional(),
     rate_throttle_hz: rateThrottleHz.meta({
       description: 'A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot\'s bandwidth is genuinely saved.',
