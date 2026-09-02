@@ -579,3 +579,44 @@ describe('a default must satisfy the constraints it was declared beside', () => 
     expect(result.error.issues.some((i) => i.path.join('.') === 'default')).toBe(true)
   })
 })
+
+describe('an explicit null inside a message body', () => {
+  // The hole a previous round measured its way past. Every other field is
+  // .optional() rather than .nullable(), so zod refuses null at each for
+  // free — but a message body is z.unknown(), so nothing below its top is
+  // typed at all. Six cases were tried, all shallow, and the check that
+  // would have caught this was deleted on the strength of them.
+  it('is refused at depth, not only at the position itself', () => {
+    const publisher = (message: unknown) => ({
+      fleetless: 1 as const,
+      publishers: {
+        drive: {
+          topic: '/cmd_vel',
+          type: 'geometry_msgs/msg/Twist',
+          message,
+          failsafe: { timeout_ms: 500, message: {} },
+          quiet_timeout_ms: 0,
+        },
+      },
+    })
+    expect(robotConfigDoc.safeParse(publisher(null)).success).toBe(false)
+    expect(robotConfigDoc.safeParse(publisher({ linear: { x: null } })).success).toBe(false)
+    expect(robotConfigDoc.safeParse(publisher({ ranges: [1, null] })).success).toBe(false)
+    expect(robotConfigDoc.safeParse(publisher({ linear: { x: 0 } })).success).toBe(true)
+  })
+
+  it('is refused at depth in a shared message too', () => {
+    const doc = { fleetless: 1 as const, messages: { stop: { linear: { x: null } } } }
+    expect(robotConfigDoc.safeParse(doc).success).toBe(false)
+  })
+
+  it('returns rather than hanging on a cyclic template', () => {
+    // A YAML anchor can produce one, and a developer can write it. The walk
+    // uses an explicit stack and a seen-set for this; recursion would not
+    // return.
+    const body: Record<string, unknown> = { x: 0 }
+    body.self = body
+    const doc = { fleetless: 1 as const, messages: { loop: body } }
+    expect(() => robotConfigDoc.safeParse(doc)).not.toThrow()
+  })
+})

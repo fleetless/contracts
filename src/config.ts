@@ -441,8 +441,40 @@ export type DatapointConfig = z.infer<typeof datapointConfig>
  * the shape is, not what the parser refuses; a consumer that validates
  * against the artifact instead of against this schema does not get it.
  */
-export const messageTemplate = z.unknown().refine((v) => v !== null, {
-  message: 'null is not a message; omit the field instead',
+/**
+ * Whether a template holds an explicit `null` anywhere inside it.
+ *
+ * At **any depth**, and the depth is the whole point. Every other field in
+ * this file is `.optional()` rather than `.nullable()`, so zod refuses `null`
+ * at each of them for free. A message body is the one exception — it is
+ * `z.unknown()`, because a template can be any shape a ROS message can — so
+ * nothing below the top of it is checked by the type at all.
+ *
+ * That gap was measured and missed once already: a top-level `message: null`
+ * was refused while `message: { linear: { x: null } }` parsed clean, and a
+ * check written to catch exactly this was deleted on the strength of six test
+ * cases, none of which reached inside a body.
+ *
+ * Walked with an explicit stack and a seen-set, not recursion: a YAML anchor
+ * can make a template both very deep and genuinely cyclic, and a developer can
+ * legitimately write one.
+ */
+function holdsExplicitNull(node: unknown): boolean {
+  const stack: unknown[] = [node]
+  const seen = new WeakSet<object>()
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (current === null) return true
+    if (typeof current !== 'object') continue
+    if (seen.has(current)) continue
+    seen.add(current)
+    stack.push(...(Array.isArray(current) ? current : Object.values(current)))
+  }
+  return false
+}
+
+export const messageTemplate = z.unknown().refine((v) => !holdsExplicitNull(v), {
+  message: 'null is not a value; omit the key instead',
   params: { code: 'explicit_null' },
 })
 
