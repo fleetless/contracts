@@ -5,24 +5,43 @@
     "topic": {
       "type": "string",
       "maxLength": 255,
-      "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$"
+      "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$",
+      "description": "The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.",
+      "examples": [
+        "/battery"
+      ]
     },
     "type": {
       "type": "string",
       "maxLength": 255,
-      "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$"
+      "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
+      "description": "The message type carried by `topic`, spelled the way ROS 2 spells it. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot's own message definitions only once one is there.",
+      "examples": [
+        "sensor_msgs/msg/BatteryState"
+      ]
     },
     "field": {
       "type": "string",
       "maxLength": 255,
-      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$"
+      "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])*(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])*)*$",
+      "description": "A dotted path into the message naming the single value this datapoint carries. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.",
+      "examples": [
+        "voltage",
+        "pose.position.x"
+      ]
     },
     "rate_throttle_hz": {
       "type": "number",
       "minimum": 0,
-      "maximum": 20
+      "maximum": 20,
+      "description": "A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot's bandwidth is genuinely saved.",
+      "examples": [
+        2,
+        0.5
+      ]
     },
     "description": {
+      "description": "Prose about what this value is, for whoever meets it in the console later. It is cloud only and never reaches the robot, so editing it costs a new version but pushes nothing to the bridge. Omission is the only way to say nothing; an empty string is refused.",
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
@@ -31,65 +50,104 @@
       "type": "object",
       "properties": {
         "scale": {
-          "type": "number"
+          "type": "number",
+          "description": "A factor the robot multiplies the raw value by before sending it (`value * scale + offset`). The arithmetic happens once, at the source, so REST, realtime and history can never disagree about a number.",
+          "examples": [
+            100
+          ]
         },
         "offset": {
-          "type": "number"
+          "type": "number",
+          "description": "A constant the robot adds after `scale` (`value * scale + offset`), for a value whose zero sits in the wrong place. Like `scale` it is applied before sending, so history stores the converted value and a later correction cannot reach what is already stored."
         },
         "unit": {
           "type": "string",
-          "maxLength": 32
+          "maxLength": 32,
+          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and appended to the MCP tool description, so a model does not have to guess whether 15 means percent, volts or minutes.",
+          "examples": [
+            "%"
+          ]
         },
         "decimals": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 6
+          "maximum": 6,
+          "description": "How many decimal places every display of the value uses — tile, chart, detail page and MCP output alike. Presentation only: the stored value keeps the precision it arrived with.",
+          "examples": [
+            1
+          ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers; `unit` and `decimals` never leave the cloud."
     },
     "retention": {
       "type": "object",
       "properties": {
         "enabled": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it."
         },
         "interval_seconds": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 3600
+          "maximum": 3600,
+          "description": "How often a value is written to history, in seconds. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.",
+          "examples": [
+            300,
+            60
+          ]
         },
         "max_buffer_values": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 100000
+          "maximum": 100000,
+          "description": "How many values the robot holds while the bridge is disconnected, to be pushed once it reconnects. The catch-up runs behind live telemetry and job results at a limited rate, so closing a gap never delays the present; without it the series simply has a gap, which is an honest answer.",
+          "examples": [
+            5000
+          ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only."
     },
     "chart": {
       "type": "object",
       "properties": {
         "y_min": {
-          "type": "number"
+          "type": "number",
+          "description": "A fixed floor for the chart's y axis; omitted, the axis scales to the data. `0` is a real floor and is read as `0`, never as unset.",
+          "examples": [
+            0
+          ]
         },
         "y_max": {
-          "type": "number"
+          "type": "number",
+          "description": "A fixed ceiling for the chart's y axis; omitted, the axis scales to the data. It may not sit below `y_min`: a reversed pair is refused here because nothing downstream catches it, and the chart would render empty.",
+          "examples": [
+            100
+          ]
         },
         "style": {
           "type": "string",
           "enum": [
             "line",
             "step"
-          ]
+          ],
+          "description": "How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed."
         },
         "default_window_minutes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 43200
+          "maximum": 43200,
+          "description": "How far back the chart reaches when it is first opened, in minutes. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.",
+          "examples": [
+            1440
+          ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value and no alert, and it never reaches the robot."
     },
     "alerts": {
       "type": "object",
@@ -116,38 +174,55 @@
                   {
                     "type": "boolean"
                   }
+                ],
+                "description": "The value at which the alert starts firing. Alone it is an **equality**: it fires while the value equals `fire_at` and is ok again as soon as it differs, which is what makes a boolean or a string condition meaningful. Adding `resolve_at` turns it into a threshold instead.",
+                "examples": [
+                  15,
+                  true
                 ]
               },
               "resolve_at": {
-                "type": "number"
+                "type": "number",
+                "description": "The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis: it makes the condition a threshold, whose direction follows from which of the two values is higher, rather than an equality test; without a gap a value sitting on the line flips on every sample.",
+                "examples": [
+                  18
+                ]
               }
             },
             "required": [
               "fire_at"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state."
           },
           "severity": {
             "type": "string",
             "enum": [
               "warning",
               "error"
-            ]
+            ],
+            "description": "How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown."
           },
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 120
+            "maxLength": 120,
+            "description": "A human-readable label shown wherever this alert appears, in place of its bare key. It is not the alert's identity — the key is — so the label can be reworded freely, while changing the key deletes one alert and creates another.",
+            "examples": [
+              "Battery low"
+            ]
           },
           "enabled": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether this alert is evaluated at all. Absent means on, the opposite of `retention.enabled`: an alert that is written down watches unless it is explicitly switched off, which is how one is silenced without losing the key that identifies it."
           }
         },
         "required": [
           "condition"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Alerts watching this value, keyed by name; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
     }
   },
   "required": [

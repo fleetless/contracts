@@ -262,8 +262,14 @@ export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure
  */
 export const alertCondition = z
   .strictObject({
-    fire_at: z.union([z.number().finite(), z.string(), z.boolean()]),
-    resolve_at: z.number().finite().optional(),
+    fire_at: z.union([z.number().finite(), z.string(), z.boolean()]).meta({
+      description: 'The value at which the alert starts firing. Alone it is an **equality**: it fires while the value equals `fire_at` and is ok again as soon as it differs, which is what makes a boolean or a string condition meaningful. Adding `resolve_at` turns it into a threshold instead.',
+      examples: [15, true],
+    }),
+    resolve_at: z.number().finite().meta({
+      description: 'The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis: it makes the condition a threshold, whose direction follows from which of the two values is higher, rather than an equality test; without a gap a value sitting on the line flips on every sample.',
+      examples: [18],
+    }).optional(),
   })
   .superRefine((c, ctx) => {
     if (c.resolve_at === undefined) return
@@ -312,19 +318,39 @@ export const CHART_WINDOW_MINUTES_DEFAULT = 60
  * default is not applied here.
  */
 export const datapointAlert = z.strictObject({
-  condition: alertCondition,
-  severity: alertSeverity.optional(),
-  name: z.string().min(1).max(120).optional(),
-  enabled: z.boolean().optional(),
+  condition: alertCondition.meta({
+    description: 'When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state.',
+  }),
+  severity: alertSeverity.meta({
+    description: 'How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown.',
+  }).optional(),
+  name: z.string().min(1).max(120).meta({
+    description: 'A human-readable label shown wherever this alert appears, in place of its bare key. It is not the alert\'s identity — the key is — so the label can be reworded freely, while changing the key deletes one alert and creates another.',
+    examples: ['Battery low'],
+  }).optional(),
+  enabled: z.boolean().meta({
+    description: 'Whether this alert is evaluated at all. Absent means on, the opposite of `retention.enabled`: an alert that is written down watches unless it is explicitly switched off, which is how one is silenced without losing the key that identifies it.',
+  }).optional(),
 })
 export type DatapointAlert = z.infer<typeof datapointAlert>
 
 /** Requires a numeric field — all four fields share that one precondition. */
 export const datapointNumeric = z.strictObject({
-  scale: z.number().optional(),
-  offset: z.number().optional(),
-  unit: z.string().max(32).optional(),
-  decimals: z.number().int().min(0).max(6).optional(),
+  scale: z.number().meta({
+    description: 'A factor the robot multiplies the raw value by before sending it (`value * scale + offset`). The arithmetic happens once, at the source, so REST, realtime and history can never disagree about a number.',
+    examples: [100],
+  }).optional(),
+  offset: z.number().meta({
+    description: 'A constant the robot adds after `scale` (`value * scale + offset`), for a value whose zero sits in the wrong place. Like `scale` it is applied before sending, so history stores the converted value and a later correction cannot reach what is already stored.',
+  }).optional(),
+  unit: z.string().max(32).meta({
+    description: 'The unit of the value **after** `scale` and `offset`, not the robot\'s own. It is shown beside the value and appended to the MCP tool description, so a model does not have to guess whether 15 means percent, volts or minutes.',
+    examples: ['%'],
+  }).optional(),
+  decimals: z.number().int().min(0).max(6).meta({
+    description: 'How many decimal places every display of the value uses — tile, chart, detail page and MCP output alike. Presentation only: the stored value keeps the precision it arrived with.',
+    examples: [1],
+  }).optional(),
 })
 export type DatapointNumeric = z.infer<typeof datapointNumeric>
 
@@ -344,9 +370,17 @@ export type DatapointNumeric = z.infer<typeof datapointNumeric>
  * and a parse that inserts fields makes the round trip a lie.
  */
 export const datapointRetention = z.strictObject({
-  enabled: z.boolean().optional(),
-  interval_seconds: z.number().int().min(1).max(3600).optional(),
-  max_buffer_values: z.number().int().min(1).max(100_000).optional(),
+  enabled: z.boolean().meta({
+    description: 'Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it.',
+  }).optional(),
+  interval_seconds: z.number().int().min(1).max(3600).meta({
+    description: 'How often a value is written to history, in seconds. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.',
+    examples: [300, 60],
+  }).optional(),
+  max_buffer_values: z.number().int().min(1).max(100_000).meta({
+    description: 'How many values the robot holds while the bridge is disconnected, to be pushed once it reconnects. The catch-up runs behind live telemetry and job results at a limited rate, so closing a gap never delays the present; without it the series simply has a gap, which is an honest answer.',
+    examples: [5000],
+  }).optional(),
 })
 export type DatapointRetention = z.infer<typeof datapointRetention>
 
@@ -362,10 +396,21 @@ export type DatapointRetention = z.infer<typeof datapointRetention>
  */
 export const datapointChart = z
   .strictObject({
-    y_min: z.number().finite().optional(),
-    y_max: z.number().finite().optional(),
-    style: z.enum(['line', 'step']).optional(),
-    default_window_minutes: z.number().int().min(1).max(43_200).optional(),
+    y_min: z.number().finite().meta({
+      description: 'A fixed floor for the chart\'s y axis; omitted, the axis scales to the data. `0` is a real floor and is read as `0`, never as unset.',
+      examples: [0],
+    }).optional(),
+    y_max: z.number().finite().meta({
+      description: 'A fixed ceiling for the chart\'s y axis; omitted, the axis scales to the data. It may not sit below `y_min`: a reversed pair is refused here because nothing downstream catches it, and the chart would render empty.',
+      examples: [100],
+    }).optional(),
+    style: z.enum(['line', 'step']).meta({
+      description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
+    }).optional(),
+    default_window_minutes: z.number().int().min(1).max(43_200).meta({
+      description: 'How far back the chart reaches when it is first opened, in minutes. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
+      examples: [1440],
+    }).optional(),
   })
   .superRefine((c, ctx) => {
     if (c.y_min !== undefined && c.y_max !== undefined && c.y_min > c.y_max)
@@ -394,15 +439,37 @@ export const rateThrottleHz = z.number().nonnegative().max(20)
  */
 export const datapointConfig = z
   .strictObject({
-    topic: rosName,
-    type: rosTypeName,
-    field: fieldPath.optional(),
-    rate_throttle_hz: rateThrottleHz.optional(),
-    description: serviceDescription,
-    numeric: datapointNumeric.optional(),
-    retention: datapointRetention.optional(),
-    chart: datapointChart.optional(),
-    alerts: z.record(slug, datapointAlert).optional(),
+    topic: rosName.meta({
+      description: 'The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.',
+      examples: ['/battery'],
+    }),
+    type: rosTypeName.meta({
+      description: 'The message type carried by `topic`, spelled the way ROS 2 spells it. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
+      examples: ['sensor_msgs/msg/BatteryState'],
+    }),
+    field: fieldPath.meta({
+      description: 'A dotted path into the message naming the single value this datapoint carries. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
+      examples: ['voltage', 'pose.position.x'],
+    }).optional(),
+    rate_throttle_hz: rateThrottleHz.meta({
+      description: 'A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot\'s bandwidth is genuinely saved.',
+      examples: [2, 0.5],
+    }).optional(),
+    description: serviceDescription.meta({
+      description: 'Prose about what this value is, for whoever meets it in the console later. It is cloud only and never reaches the robot, so editing it costs a new version but pushes nothing to the bridge. Omission is the only way to say nothing; an empty string is refused.',
+    }),
+    numeric: datapointNumeric.meta({
+      description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers; `unit` and `decimals` never leave the cloud.',
+    }).optional(),
+    retention: datapointRetention.meta({
+      description: 'What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.',
+    }).optional(),
+    chart: datapointChart.meta({
+      description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value and no alert, and it never reaches the robot.',
+    }).optional(),
+    alerts: z.record(slug, datapointAlert).meta({
+      description: 'Alerts watching this value, keyed by name; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
+    }).optional(),
   })
   .superRefine((d, ctx) => {
     if (d.field !== undefined) return

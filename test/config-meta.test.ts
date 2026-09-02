@@ -84,7 +84,13 @@ function undescribed(node: Record<string, any>, path = ''): string[] {
 
 /** Node label → the path that reaches it from the document root. */
 const NODES: Array<[string, string[]]> = [
-  ['the document root', []]
+  ['the document root', []],
+  ['a datapoint', ['datapoints']],
+  ['datapoint.numeric', ['datapoints', 'numeric']],
+  ['datapoint.retention', ['datapoints', 'retention']],
+  ['datapoint.chart', ['datapoints', 'chart']],
+  ['a datapoint alert', ['datapoints', 'alerts']],
+  ['an alert condition', ['datapoints', 'alerts', 'condition']]
 ]
 
 describe('every documented field carries a hover text', () => {
