@@ -112,18 +112,21 @@ describe('every documented field carries a hover text', () => {
   }
 
   /**
-   * Skipped until Task 6 of this wave, when the document is complete: tasks
-   * 2–5 have yet to describe the rest of the format, so this is red by
-   * construction until they land. **Unskip it in Task 6** — it is the only
-   * assertion that covers a union branch, and `NODES` cannot replace it.
+   * The list above says what someone remembered. This says what is true.
    *
-   * Run once unskipped on 2026-09-02 before being skipped, so that "skipped"
-   * is not indistinguishable from "cannot fail": it listed **89** paths,
-   * 16 of them inside `oneOf` branches that `nodeAt` cannot reach at all —
-   * `cameras.<slug>.source#0.topic`, `cameras.<slug>.source#1.credentials.password`,
-   * `cameras.<slug>.source#3.device`.
+   * `NODES` cannot catch what nobody added to it, and `nodeAt` cannot enter a
+   * union at all — so this is the only assertion that reaches a branch leaf
+   * such as `cameras.<slug>.source#3.device`.
+   *
+   * Written and run in Task 1's fix round on 2026-09-02, where it listed **89**
+   * undescribed paths, 16 of them inside `oneOf` branches; it was then skipped
+   * because the rest of the wave had yet to describe the document. Unskipped in
+   * Task 6, where it was also seen to go red twice on purpose — once on a plain
+   * field (`datapoints.<slug>.numeric.unit`) and once on a branch leaf
+   * (`cameras.<slug>.source#3.device`) — so that "green" here is a measurement
+   * and not an instrument that cannot fail.
    */
-  it.skip('leaves no field of the document without a hover text', () => {
+  it('leaves no field of the document without a hover text', () => {
     expect(undescribed(schema)).toEqual([])
   })
 })
