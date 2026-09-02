@@ -267,7 +267,7 @@ export const alertCondition = z
       examples: [15, true],
     }),
     resolve_at: z.number().finite().meta({
-      description: 'The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis: it makes the condition a threshold, whose direction follows from which of the two values is higher, rather than an equality test; without a gap a value sitting on the line flips on every sample.',
+      description: 'The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis, and it makes the condition a threshold whose direction follows from which of the two values is higher. Without a gap a value sitting on the line flips on every sample.',
       examples: [18],
     }).optional(),
   })
@@ -457,19 +457,19 @@ export const datapointConfig = z
       examples: [2, 0.5],
     }).optional(),
     description: serviceDescription.meta({
-      description: 'Prose about what this value is, for whoever meets it in the console later. It is cloud only and never reaches the robot, so editing it costs a new version but pushes nothing to the bridge. Omission is the only way to say nothing; an empty string is refused.',
+      description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all. Omission is the only way to say nothing; an empty string is refused.',
     }),
     numeric: datapointNumeric.meta({
-      description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers; `unit` and `decimals` never leave the cloud.',
+      description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
     }).optional(),
     retention: datapointRetention.meta({
       description: 'What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.',
     }).optional(),
     chart: datapointChart.meta({
-      description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value and no alert, and it never reaches the robot.',
+      description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration.',
     }).optional(),
     alerts: z.record(slug, datapointAlert).meta({
-      description: 'Alerts watching this value, keyed by name; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
+      description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
     }).optional(),
   })
   .superRefine((d, ctx) => {

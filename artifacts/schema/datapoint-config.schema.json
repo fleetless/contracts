@@ -41,7 +41,7 @@
       ]
     },
     "description": {
-      "description": "Prose about what this value is, for whoever meets it in the console later. It is cloud only and never reaches the robot, so editing it costs a new version but pushes nothing to the bridge. Omission is the only way to say nothing; an empty string is refused.",
+      "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all. Omission is the only way to say nothing; an empty string is refused.",
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
@@ -82,7 +82,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers; `unit` and `decimals` never leave the cloud."
+      "description": "Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration."
     },
     "retention": {
       "type": "object",
@@ -150,7 +150,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value and no alert, and it never reaches the robot."
+      "description": "How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration."
     },
     "alerts": {
       "type": "object",
@@ -186,7 +186,7 @@
               },
               "resolve_at": {
                 "type": "number",
-                "description": "The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis: it makes the condition a threshold, whose direction follows from which of the two values is higher, rather than an equality test; without a gap a value sitting on the line flips on every sample.",
+                "description": "The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis, and it makes the condition a threshold whose direction follows from which of the two values is higher. Without a gap a value sitting on the line flips on every sample.",
                 "examples": [
                   18
                 ]
@@ -225,7 +225,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "Alerts watching this value, keyed by name; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
+      "description": "Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
     }
   },
   "required": [
