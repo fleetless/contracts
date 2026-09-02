@@ -98,33 +98,13 @@
           "additionalProperties": false
         }
       ]
-    },
-    "cooldown_minutes": {
-      "default": 15,
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 10080
-    },
-    "recipients": {
-      "maxItems": 20,
-      "type": "array",
-      "items": {
-        "type": "string",
-        "format": "email",
-        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-      }
-    },
-    "notify_on_resolve": {
-      "default": false,
-      "type": "boolean"
     }
   },
   "required": [
     "slug",
     "name",
     "severity",
-    "condition",
-    "recipients"
+    "condition"
   ],
   "additionalProperties": false
 }

@@ -115,23 +115,6 @@
               }
             ]
           },
-          "cooldown_minutes": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 10080
-          },
-          "recipients": {
-            "maxItems": 20,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "email",
-              "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
-            }
-          },
-          "notify_on_resolve": {
-            "type": "boolean"
-          },
           "state": {
             "type": "string",
             "enum": [
@@ -176,9 +159,6 @@
           "enabled",
           "severity",
           "condition",
-          "cooldown_minutes",
-          "recipients",
-          "notify_on_resolve",
           "state",
           "state_since",
           "last_value",

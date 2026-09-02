@@ -293,8 +293,7 @@ export type AlertCondition = z.infer<typeof alertCondition>
  * single spelling of "not set" in this format. What was missing is the
  * number itself. Left only in prose, the cloud and the console each invent
  * their own, and the two agree until one of them is edited. The house answer
- * is a named constant — `ALERT_COOLDOWN_MINUTES_DEFAULT` in `alerts.ts` is
- * the same shape — so a consumer applying a default reads it from here.
+ * is a named constant, so a consumer applying a default reads it from here.
  */
 export const ALERT_SEVERITY_DEFAULT = 'warning' satisfies z.infer<typeof alertSeverity>
 export const ALERT_ENABLED_DEFAULT = true

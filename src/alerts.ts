@@ -14,10 +14,17 @@ import { slug } from './common.js'
  * is `config.ts`'s `datapointAlert`, nested under the datapoint it watches;
  * the chart bounds are `datapointChart`. They therefore take effect on
  * publish rather than immediately, and in exchange every change to them is
- * versioned, comparable and revertible. What is left here is the stored row
- * and the REST surface still serving it — both exist through wave 4, which
- * deletes them. The runtime state stays wherever the definition goes: it
- * belongs in the database and has no business in a versioned document.
+ * versioned, comparable and revertible. The runtime state stays wherever the
+ * definition goes: it belongs in the database and has no business in a
+ * versioned document.
+ *
+ * **What is left here is the read surface**, which FL-002 wave 4 kept rather
+ * than deleted: `GET /api/robots/:id/alerts` and `GET /api/org/alerts` still
+ * answer with the definition joined to its state, and the shapes below are
+ * what they answer with. What wave 4 did remove is the mail path — the fields
+ * `cooldown_minutes`, `recipients` and `notify_on_resolve`, and the two
+ * bounds that guarded them. No alert can send mail, so nothing here describes
+ * one.
  */
 
 /**
@@ -45,12 +52,19 @@ import { slug } from './common.js'
  * the "parse silently and mean nothing" failure the paragraph above already
  * argued against, just one layer further in.
  *
- * **`Row` names the stored row, not the document.** `config.ts`'s own
- * `alertCondition` is the definition nested inside a datapoint — a different
- * shape for a different question (`fire_at`/`resolve_at` rather than
- * `kind`/`threshold`/`resolve_hysteresis`). This one and `datapointAlertRow`
- * below are retired in wave 4, once the document is the only place an alert
- * is defined.
+ * **`Row` distinguishes this from the document's own condition.**
+ * `config.ts`'s `alertCondition` is what an author writes inside a datapoint —
+ * a different shape for a different question (`fire_at`/`resolve_at` rather
+ * than `kind`/`threshold`/`resolve_hysteresis`). This one is what the
+ * evaluator switches on and what the read routes answer with; the cloud
+ * derives it from the document (`alert-definitions.ts`'s `toRowCondition`) and
+ * derives it nowhere else.
+ *
+ * **It was renamed for a wave 4 deletion that did not happen**, and the name
+ * is kept because the distinction it draws is still needed: two condition
+ * shapes coexist, and only one of them is authored. Nothing is stored under
+ * this shape any more — the database keeps runtime state only — so read `Row`
+ * as "the derived one", not as "the persisted one".
  */
 export const alertRowCondition = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -83,13 +97,6 @@ export type AlertSeverity = z.infer<typeof alertSeverity>
 export const alertState = z.enum(['ok', 'firing'])
 export type AlertState = z.infer<typeof alertState>
 
-/** Mail throttle: at most one firing mail per alert per this many minutes. Events themselves are never throttled — only mail (D2). */
-export const ALERT_COOLDOWN_MINUTES_DEFAULT = 15
-/** A week. Not a documented product decision — a sanity ceiling so a typo (`15000`) doesn't silently mean "never mails again" rather than failing loudly. */
-export const ALERT_COOLDOWN_MINUTES_MAX = 10_080
-/** Fan-out bound, the same discipline as the other per-alert bounds in this file — a mistyped mailing list should fail validation, not become an incident. */
-export const ALERT_RECIPIENTS_MAX = 20
-
 /**
  * One alert row, definition and runtime state together — the runtime fields
  * (`state`, `state_since`, `last_value`) are DB-held so they survive a cloud
@@ -98,10 +105,16 @@ export const ALERT_RECIPIENTS_MAX = 20
  * `alerts-shapes.test.ts` — a `PATCH` naming `state` is rejected by
  * `.strict()`, not silently ignored).
  *
- * **`Row`, because this is the stored row** — id, ownership, runtime state
- * and mail settings together. The document's own alert (`config.ts`'s
- * `datapointAlert`) is definition only, nested under its datapoint, and
- * sends no mail. Both exist through wave 4, which deletes this one.
+ * **`Row` is a name the shape outgrew**, kept only to keep it apart from
+ * `config.ts`'s `datapointAlert`, which is the definition an author writes.
+ * Nothing is stored in this shape: the definition comes out of the published
+ * document and the runtime state out of `datapoint_alert_state`, and the
+ * cloud joins the two per request (`routes/alerts.ts`'s `toWire`).
+ *
+ * **It carried three mail settings — `cooldown_minutes`, `recipients` and
+ * `notify_on_resolve` — and FL-002 wave 4 removed them with the mail path.**
+ * The format has no mail fields, so no alert could be configured to send one;
+ * the three had nothing behind them well before they were deleted.
  */
 export const datapointAlertRow = z.object({
   id: z.uuid(),
@@ -111,14 +124,6 @@ export const datapointAlertRow = z.object({
   enabled: z.boolean(),
   severity: alertSeverity,
   condition: alertRowCondition,
-  cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX),
-  /**
-   * Prefilled with the creating developer by the console, not by this
-   * schema. **An empty list is a valid, meaningful state** — "no mail" — not
-   * an omission this shape should refuse. Capped at `ALERT_RECIPIENTS_MAX`.
-   */
-  recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
-  notify_on_resolve: z.boolean(),
   state: alertState,
   /** `null` only until the first evaluation writes a state; every alert is created `ok` (D2), so in practice this is set from creation onward. */
   state_since: z.iso.datetime().nullable(),
@@ -169,8 +174,16 @@ export type DatapointAlertRow = z.infer<typeof datapointAlertRow>
  * firing alert that never fired.
  *
  * `enabled` defaults to `true` — a created alert is active unless the caller
- * says otherwise, matching `notify_on_resolve`'s and `cooldown_minutes`'s
- * defaults below being the common case, not the exceptional one.
+ * says otherwise, which is the common case rather than the exceptional one.
+ *
+ * The three mail fields it used to accept went with the mail path in FL-002
+ * wave 4; see `datapointAlertRow`.
+ *
+ * **The cloud no longer serves this route**, nor the `PATCH` below: since
+ * FL-002 an alert is a key in the published document, and `routes/alerts.ts`
+ * is read-only. Both shapes are kept only until their last consumer — the
+ * console's alerts tab — is removed with the rest of the per-node editing
+ * surface; a request built from either one answers 404 today.
  */
 export const createAlertRequest = z
   .object({
@@ -179,9 +192,6 @@ export const createAlertRequest = z
     enabled: z.boolean().default(true),
     severity: alertSeverity,
     condition: alertRowCondition,
-    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).default(ALERT_COOLDOWN_MINUTES_DEFAULT),
-    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
-    notify_on_resolve: z.boolean().default(false),
   })
   .strict()
 export type CreateAlertRequest = z.infer<typeof createAlertRequest>
@@ -204,9 +214,6 @@ export const patchAlertRequest = z
     enabled: z.boolean().optional(),
     severity: alertSeverity.optional(),
     condition: alertRowCondition.optional(),
-    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).optional(),
-    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX).optional(),
-    notify_on_resolve: z.boolean().optional(),
   })
   .strict()
 export type PatchAlertRequest = z.infer<typeof patchAlertRequest>

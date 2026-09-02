@@ -26,9 +26,6 @@ const VALID_ALERT = {
   enabled: true,
   severity: 'warning' as const,
   condition: { kind: 'below' as const, threshold: 20 },
-  cooldown_minutes: 15,
-  recipients: ['dev@example.com'],
-  notify_on_resolve: false,
   state: 'ok' as const,
   state_since: null,
   last_value: null,
@@ -119,13 +116,20 @@ describe('datapointAlert — the entity, definition + runtime state together', (
     expect(datapointAlert.safeParse({ ...VALID_ALERT, orphaned: null }).success).toBe(false)
   })
 
-  it('caps recipients at ALERT_RECIPIENTS_MAX (20)', () => {
-    expect(datapointAlert.safeParse({ ...VALID_ALERT, recipients: Array(20).fill('dev@example.com') }).success).toBe(
-      true,
-    )
-    expect(datapointAlert.safeParse({ ...VALID_ALERT, recipients: Array(21).fill('dev@example.com') }).success).toBe(
-      false,
-    )
+  // FL-002 wave 4 removed the mail path. This shape is a plain `z.object`,
+  // which strips unknown keys rather than refusing them, so the pin has to be
+  // on the parsed output: a caller still sending the old fields gets them
+  // dropped, and no reader can be handed a mail setting that means nothing.
+  it('no longer carries the three mail fields', () => {
+    const parsed = datapointAlert.parse({
+      ...VALID_ALERT,
+      cooldown_minutes: 15,
+      recipients: ['dev@example.com'],
+      notify_on_resolve: true,
+    })
+    expect(parsed).not.toHaveProperty('cooldown_minutes')
+    expect(parsed).not.toHaveProperty('recipients')
+    expect(parsed).not.toHaveProperty('notify_on_resolve')
   })
 })
 
@@ -135,13 +139,10 @@ describe('createAlertRequest — strict, no id/state fields, defaults', () => {
     name: 'Battery low',
     severity: 'warning' as const,
     condition: { kind: 'below' as const, threshold: 20 },
-    recipients: ['dev@example.com'],
   }
 
   it('accepts the minimal shape and fills defaults', () => {
     const parsed = createAlertRequest.parse(BASE)
-    expect(parsed.cooldown_minutes).toBe(15)
-    expect(parsed.notify_on_resolve).toBe(false)
     expect(parsed.enabled).toBe(true)
   })
 
@@ -168,14 +169,6 @@ describe('createAlertRequest — strict, no id/state fields, defaults', () => {
     ).toBe(false)
   })
 
-  it('rejects a recipient that is not an email address', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, recipients: ['not-an-email'] }).success).toBe(false)
-  })
-
-  it('accepts an empty recipients list — "no mail" is a valid state, not an omission', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, recipients: [] }).success).toBe(true)
-  })
-
   it('is strict: an id alongside otherwise-valid fields is rejected', () => {
     expect(createAlertRequest.safeParse({ ...BASE, id: ALERT }).success).toBe(false)
   })
@@ -184,18 +177,14 @@ describe('createAlertRequest — strict, no id/state fields, defaults', () => {
     expect(createAlertRequest.safeParse({ ...BASE, state: 'firing' }).success).toBe(false)
   })
 
-  it('rejects a 21st recipient — fan-out bound, ALERT_RECIPIENTS_MAX', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, recipients: Array(20).fill('dev@example.com') }).success).toBe(
-      true,
-    )
-    expect(createAlertRequest.safeParse({ ...BASE, recipients: Array(21).fill('dev@example.com') }).success).toBe(
-      false,
-    )
-  })
-
-  it('rejects cooldown_minutes over a week (10080) — a sanity ceiling, not a product decision', () => {
-    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 10_080 }).success).toBe(true)
-    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 10_081 }).success).toBe(false)
+  // The mail path is gone (FL-002 wave 4), and this shape is `.strict()` —
+  // so a caller still sending a mail setting is refused outright rather than
+  // having it silently dropped. That is the direction to want: a request
+  // asking for mail should fail, not appear to have been honoured.
+  it('rejects the three mail fields it used to accept', () => {
+    expect(createAlertRequest.safeParse({ ...BASE, cooldown_minutes: 15 }).success).toBe(false)
+    expect(createAlertRequest.safeParse({ ...BASE, recipients: [] }).success).toBe(false)
+    expect(createAlertRequest.safeParse({ ...BASE, notify_on_resolve: true }).success).toBe(false)
   })
 })
 
@@ -223,12 +212,10 @@ describe('patchAlertRequest — strict, every definition field optional, never s
     expect(patchAlertRequest.safeParse({ condition: { kind: 'above' } }).success).toBe(false)
   })
 
-  it('rejects cooldown_minutes over the week ceiling when present', () => {
-    expect(patchAlertRequest.safeParse({ cooldown_minutes: 10_081 }).success).toBe(false)
-  })
-
-  it('rejects a 21st recipient when present', () => {
-    expect(patchAlertRequest.safeParse({ recipients: Array(21).fill('dev@example.com') }).success).toBe(false)
+  it('rejects the three mail fields it used to accept — same reasoning as createAlertRequest', () => {
+    expect(patchAlertRequest.safeParse({ cooldown_minutes: 15 }).success).toBe(false)
+    expect(patchAlertRequest.safeParse({ recipients: [] }).success).toBe(false)
+    expect(patchAlertRequest.safeParse({ notify_on_resolve: true }).success).toBe(false)
   })
 })
 
