@@ -42,6 +42,21 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'Pose..x' }).success).toBe(false)
   })
 
+  it('indexes at most one array level per segment, because ROS has no nested arrays', () => {
+    // ROS 2 IDL has float64[], float64[3], float64[<=10] — and no float64[][].
+    // A second index on a segment can denote nothing, and the bridge has always
+    // raised FieldPathError for it; the grammar used to disagree (FL-004).
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'ranges[0][1]' }).success).toBe(false)
+    // The regex carries two index groups — the first segment's and every later
+    // one's — so a fix that touches only the first leaves this one open.
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'pose.points[0][1]' }).success).toBe(false)
+    // One index per segment, on any number of segments, stays legal.
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'ranges[0]' }).success).toBe(true)
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'poses[0].pose.position.x' }).success).toBe(true)
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'percentage' }).success).toBe(true)
+    expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'pose.position.x' }).success).toBe(true)
+  })
+
   it('insists on absolute ROS names and ROS 2 type names', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, topic: 'battery' }).success).toBe(false)
     expect(datapointConfig.safeParse({ ...DATAPOINT, topic: '/ns/battery' }).success).toBe(true)

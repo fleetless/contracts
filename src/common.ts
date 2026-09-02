@@ -47,15 +47,24 @@ export const rosTypeName = z
   .regex(/^[a-z][a-z0-9_]*\/(?:msg|srv|action)\/[A-Za-z][A-Za-z0-9]*$/)
 
 /**
- * A path into a message: dot-separated field names with optional array
- * indices, e.g. `percentage`, `pose.position.x`, `ranges[0]`. `null` in a
- * datapoint config means *the whole message* (spec §4.2: one field or one
- * whole topic — never several topics).
+ * A path into a message: dot-separated field names, each carrying **at most
+ * one** array index, e.g. `percentage`, `pose.position.x`, `ranges[0]`,
+ * `poses[0].pose.position.x`. `null` in a datapoint config means *the whole
+ * message* (spec §4.2: one field or one whole topic — never several topics).
+ *
+ * One index per segment is not a preference but the shape of the target: ROS 2
+ * IDL has `float64[]`, `float64[3]` and `float64[<=10]`, and no nested or
+ * multi-dimensional arrays at all. A second index on one segment — `a[0][1]` —
+ * could therefore denote nothing on any message that exists. The bridge has
+ * always refused it (`sampling.py`'s `FieldPathError`, *"ROS has no nested
+ * arrays"*); this grammar said otherwise until FL-004, so a hand-written or
+ * AI-generated document could pass the cloud and then fail at the robot as a
+ * `config_applied` error — the latest and worst place to learn it.
  */
 export const fieldPath = z
   .string()
   .max(255)
-  .regex(/^[a-z_][a-z0-9_]*(?:\[\d+\])*(?:\.[a-z_][a-z0-9_]*(?:\[\d+\])*)*$/)
+  .regex(/^[a-z_][a-z0-9_]*(?:\[\d+\])?(?:\.[a-z_][a-z0-9_]*(?:\[\d+\])?)*$/)
 
 /**
  * A unix-millisecond instant as a **query string** actually carries it, bounded
