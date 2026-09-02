@@ -469,7 +469,7 @@ export const datapointConfig = z
       examples: ['sensor_msgs/msg/BatteryState'],
     }),
     field: fieldPath.meta({
-      description: 'A dotted path into the message naming the single value this datapoint carries. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
+      description: 'A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
       examples: ['voltage', 'pose.position.x'],
     }).optional(),
     rate_throttle_hz: rateThrottleHz.meta({
