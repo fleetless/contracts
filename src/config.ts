@@ -772,7 +772,7 @@ export type PublisherConfig = z.infer<typeof publisherConfig>
 export const cameraCredentials = z
   .strictObject({
     username: z.string().min(1).max(128).optional().meta({
-      description: 'The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.',
+      description: 'The account name the camera expects. For MJPEG the bridge sends a real HTTP `Authorization: Basic` header and leaves the URL untouched. RTSP offers no such channel through ffmpeg, so there the name goes inside the connect URL instead — built fresh for that one call and never written back into the stored document.',
       examples: ['ops'],
     }),
     password: z.string().min(1).max(128).optional().meta({
@@ -860,7 +860,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('v4l2').meta({
-      description: 'Selects the local capture-device source: this camera then carries `device` and nothing else — there is no network here and nobody to authenticate to.',
+      description: 'Selects the local capture-device source: this camera then carries `device` and nothing else.',
     }),
     /**
      * e.g. `/dev/video0`, or a stable `/dev/v4l/by-id/...` symlink. Resolved

@@ -832,7 +832,7 @@
                         "type": "object",
                         "properties": {
                           "username": {
-                            "description": "The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.",
+                            "description": "The account name the camera expects. For MJPEG the bridge sends a real HTTP `Authorization: Basic` header and leaves the URL untouched. RTSP offers no such channel through ffmpeg, so there the name goes inside the connect URL instead — built fresh for that one call and never written back into the stored document.",
                             "examples": [
                               "ops"
                             ],
@@ -877,7 +877,7 @@
                         "type": "object",
                         "properties": {
                           "username": {
-                            "description": "The account name the camera expects. The bridge sends it when it opens the stream — as RTSP `Authorization: Basic`, or as HTTP Basic for an MJPEG URL.",
+                            "description": "The account name the camera expects. For MJPEG the bridge sends a real HTTP `Authorization: Basic` header and leaves the URL untouched. RTSP offers no such channel through ffmpeg, so there the name goes inside the connect URL instead — built fresh for that one call and never written back into the stored document.",
                             "examples": [
                               "ops"
                             ],
@@ -909,7 +909,7 @@
                       "kind": {
                         "type": "string",
                         "const": "v4l2",
-                        "description": "Selects the local capture-device source: this camera then carries `device` and nothing else — there is no network here and nobody to authenticate to."
+                        "description": "Selects the local capture-device source: this camera then carries `device` and nothing else."
                       },
                       "device": {
                         "type": "string",
