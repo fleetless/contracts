@@ -63,7 +63,11 @@ function nodeAt(path: string[]): Record<string, any> {
  * **What it cannot see.** It does not enter `patternProperties`,
  * `prefixItems`, `not` or `if` — none of which today's export contains, so the
  * four paths above are exhaustive *for this document* and adding handling for
- * the others now would guard nothing. Introducing one to the format — a zod
+ * the others now would guard nothing. It also walks past `propertyNames`,
+ * which the export does contain (10 occurrences, measured 2026-09-02); that
+ * one is safe to skip by construction rather than by absence — it constrains
+ * a key against the slug pattern and can never hold a `properties` map, so
+ * there is no described-or-not field beneath it. Introducing one to the format — a zod
  * tuple exports as `prefixItems`, which is the plausible one — means teaching
  * this walker about it in the same change. It would otherwise walk past the
  * new field **silently**, which is the exact failure this test exists to close,

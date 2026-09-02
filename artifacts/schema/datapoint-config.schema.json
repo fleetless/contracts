@@ -15,7 +15,7 @@
       "type": "string",
       "maxLength": 255,
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
-      "description": "The message type carried by `topic`, spelled the way ROS 2 spells it. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot's own message definitions only once one is there.",
+      "description": "The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot's own message definitions only once one is there.",
       "examples": [
         "sensor_msgs/msg/BatteryState"
       ]
@@ -41,7 +41,7 @@
       ]
     },
     "description": {
-      "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all. Omission is the only way to say nothing; an empty string is refused.",
+      "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
@@ -95,7 +95,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 3600,
-          "description": "How often a value is written to history, in seconds. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.",
+          "description": "How often a value is written to history, in seconds; absent means `300`. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.",
           "examples": [
             300,
             60
@@ -143,7 +143,7 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 43200,
-          "description": "How far back the chart reaches when it is first opened, in minutes. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.",
+          "description": "How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.",
           "examples": [
             1440
           ]

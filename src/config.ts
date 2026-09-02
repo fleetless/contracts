@@ -395,7 +395,7 @@ export const datapointRetention = z.strictObject({
     description: 'Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it.',
   }).optional(),
   interval_seconds: z.number().int().min(1).max(3600).meta({
-    description: 'How often a value is written to history, in seconds. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.',
+    description: 'How often a value is written to history, in seconds; absent means `300`. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.',
     examples: [300, 60],
   }).optional(),
   max_buffer_values: z.number().int().min(1).max(100_000).meta({
@@ -429,7 +429,7 @@ export const datapointChart = z
       description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
     }).optional(),
     default_window_minutes: z.number().int().min(1).max(43_200).meta({
-      description: 'How far back the chart reaches when it is first opened, in minutes. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
+      description: 'How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
       examples: [1440],
     }).optional(),
   })
@@ -465,7 +465,7 @@ export const datapointConfig = z
       examples: ['/battery'],
     }),
     type: rosTypeName.meta({
-      description: 'The message type carried by `topic`, spelled the way ROS 2 spells it. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
+      description: 'The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
       examples: ['sensor_msgs/msg/BatteryState'],
     }),
     field: fieldPath.meta({
@@ -477,7 +477,7 @@ export const datapointConfig = z
       examples: [2, 0.5],
     }).optional(),
     description: serviceDescription.meta({
-      description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all. Omission is the only way to say nothing; an empty string is refused.',
+      description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
     }),
     numeric: datapointNumeric.meta({
       description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
@@ -937,7 +937,7 @@ export const cameraConfig = z.strictObject({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
   }),
   width: z.number().int().positive().max(7680).meta({
-    description: 'The width the bridge scales every frame to before sending, in pixels — what the bridge produces, not what the sensor captures. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed.',
+    description: 'The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed.',
     examples: [1280],
   }),
   height: z.number().int().positive().max(4320).meta({
@@ -992,19 +992,19 @@ export const robotConfigDoc = z.strictObject({
     description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another**, so a `${name}` inside a body is always a parameter and never a second message.',
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
-    description: 'A value the robot publishes: one field of one topic, or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
-    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
-    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service is short and reports **no progress**, so there is no job to observe while it runs. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
-    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
-    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind.',
+    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
   }).optional(),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
