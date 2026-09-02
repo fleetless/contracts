@@ -20,7 +20,8 @@
         "float64",
         "string",
         "wstring"
-      ]
+      ],
+      "description": "The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored."
     },
     "default": {
       "anyOf": [
@@ -33,13 +34,22 @@
         {
           "type": "boolean"
         }
-      ]
+      ],
+      "description": "The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked."
     },
     "min_value": {
-      "type": "number"
+      "type": "number",
+      "description": "The lowest value a caller may send; numeric types only. It is **enforced in the cloud, before anything reaches the robot** — this is where a speed limit actually holds, rather than in the app that is supposed to respect it.",
+      "examples": [
+        -0.5
+      ]
     },
     "max_value": {
-      "type": "number"
+      "type": "number",
+      "description": "The highest value a caller may send; numeric types only, and it may not sit below `min_value`. A reversed pair is refused at parse time, because nothing downstream catches it and every call would then fail against a bound no value can satisfy.",
+      "examples": [
+        0.5
+      ]
     },
     "enum": {
       "minItems": 1,
@@ -53,13 +63,19 @@
             "type": "number"
           }
         ]
-      }
+      },
+      "description": "The complete set of values a caller may send. Integer and string types only — **never a float**, because equality on floating point is unreliable and an enumerated float list is a trap that only shows up in operation. Every entry must match `type`, and a `default` must be one of them."
     },
     "regex": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "A pattern the value must match; string types only. It is compiled as a JavaScript regular expression and is **not anchored**, so `[a-z]+` accepts any value that merely contains a lowercase run — a pattern meant to cover the whole value writes its own `^` and `$`.",
+      "examples": [
+        "^[a-z_]+$"
+      ]
     },
     "description": {
+      "description": "What this parameter means, in the developer's own words. It travels into the MCP tool's input schema beside the bounds, so it is read by a model that has never seen this robot: `type` and the bounds say what the value *is*, and this is the only place that says what it *does*.",
       "type": "string",
       "minLength": 1,
       "maxLength": 500

@@ -152,13 +152,30 @@ const STRING_TYPES = new Set(['string', 'wstring'])
  */
 export const parameterSpec = z
   .strictObject({
-    type: parameterType,
-    default: z.union([z.number(), z.string(), z.boolean()]).optional(),
-    min_value: z.number().optional(),
-    max_value: z.number().optional(),
-    enum: z.array(z.union([z.string(), z.number()])).min(1).optional(),
-    regex: z.string().min(1).optional(),
-    description: parameterDescription,
+    type: parameterType.meta({
+      description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
+    }),
+    default: z.union([z.number(), z.string(), z.boolean()]).meta({
+      description: 'The value used when a caller omits this parameter, and the only way to make it optional: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
+    }).optional(),
+    min_value: z.number().meta({
+      description: 'The lowest value a caller may send; numeric types only. It is **enforced in the cloud, before anything reaches the robot** — this is where a speed limit actually holds, rather than in the app that is supposed to respect it.',
+      examples: [-0.5],
+    }).optional(),
+    max_value: z.number().meta({
+      description: 'The highest value a caller may send; numeric types only, and it may not sit below `min_value`. A reversed pair is refused at parse time, because nothing downstream catches it and every call would then fail against a bound no value can satisfy.',
+      examples: [0.5],
+    }).optional(),
+    enum: z.array(z.union([z.string(), z.number()])).min(1).meta({
+      description: 'The complete set of values a caller may send. Integer and string types only — **never a float**, because equality on floating point is unreliable and an enumerated float list is a trap that only shows up in operation. Every entry must match `type`, and a `default` must be one of them.',
+    }).optional(),
+    regex: z.string().min(1).meta({
+      description: 'A pattern the value must match; string types only. It is compiled as a JavaScript regular expression and is **not anchored**, so `[a-z]+` accepts any value that merely contains a lowercase run — a pattern meant to cover the whole value writes its own `^` and `$`.',
+      examples: ['^[a-z_]+$'],
+    }).optional(),
+    description: parameterDescription.meta({
+      description: 'What this parameter means, in the developer\'s own words. It travels into the MCP tool\'s input schema beside the bounds, so it is read by a model that has never seen this robot: `type` and the bounds say what the value *is*, and this is the only place that says what it *does*.',
+    }),
   })
   .superRefine((p, ctx) => {
     const numeric = INTEGER_TYPES.has(p.type) || FLOAT_TYPES.has(p.type)
@@ -249,6 +266,9 @@ export type ParameterSpec = z.infer<typeof parameterSpec>
 export const parameterMap = z
   .record(slug, parameterSpec)
   .refine((m) => Object.keys(m).length <= 50, { message: 'at most 50 parameters per entry' })
+  .meta({
+    description: 'The holes in this entry\'s `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error.',
+  })
 
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
 export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure'] as const
@@ -543,12 +563,16 @@ function holdsExplicitNull(node: unknown): boolean {
 export const messageTemplate = z.unknown().refine((v) => !holdsExplicitNull(v), {
   message: 'null is not a value; omit the key instead',
   params: { code: 'explicit_null' },
+}).meta({
+  description: 'The message as it will be sent, written out in full: literals are fixed, `${name}` is a hole a caller fills, and a field written `0.0` is one no client can change. Directly after `message:` a `${name}` standing alone names a shared message instead; anywhere inside a body it is a parameter. `null` is refused **at every depth** — omitting a key is the only spelling of "not set".',
 })
 
 /** `${name}` and nothing else. A bare word is always a literal. */
 export const PLACEHOLDER_RE = /^\$\{([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\}$/
 
-export const messageRef = z.string().regex(PLACEHOLDER_RE)
+export const messageRef = z.string().regex(PLACEHOLDER_RE).meta({
+  description: 'A reference to a shared message: `${name}` and nothing else, which is what separates a reference from a literal — a bare word stays a literal even when it happens to match a declared name. Whether that name is declared, and whether it points at a body holding a second reference, are questions about the whole document and are answered in the cloud.',
+})
 
 /**
  * What may stand at a `message:` position: a shared message by name
@@ -625,6 +649,9 @@ export function placeholderNames(node: unknown, found = new Set<string>()): Set<
 export const messageMap = z
   .record(slug, messageTemplate)
   .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
+  .meta({
+    description: 'Reusable message bodies, keyed by name. A body is inserted by writing `${name}` directly after `message:`, may hold placeholders of its own, and **may not insert another** — which rules out cycles and lets every check look at exactly one body.',
+  })
 
 /**
  * An action the robot can be asked to perform (spec §4.2, §11.3). At most one

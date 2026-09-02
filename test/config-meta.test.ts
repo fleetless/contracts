@@ -90,7 +90,8 @@ const NODES: Array<[string, string[]]> = [
   ['datapoint.retention', ['datapoints', 'retention']],
   ['datapoint.chart', ['datapoints', 'chart']],
   ['a datapoint alert', ['datapoints', 'alerts']],
-  ['an alert condition', ['datapoints', 'alerts', 'condition']]
+  ['an alert condition', ['datapoints', 'alerts', 'condition']],
+  ['a parameter', ['actions', 'parameters']]
 ]
 
 describe('every documented field carries a hover text', () => {
