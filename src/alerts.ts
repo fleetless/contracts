@@ -14,10 +14,17 @@ import { slug } from './common.js'
  * is `config.ts`'s `datapointAlert`, nested under the datapoint it watches;
  * the chart bounds are `datapointChart`. They therefore take effect on
  * publish rather than immediately, and in exchange every change to them is
- * versioned, comparable and revertible. What is left here is the stored row
- * and the REST surface still serving it — both exist through wave 4, which
- * deletes them. The runtime state stays wherever the definition goes: it
- * belongs in the database and has no business in a versioned document.
+ * versioned, comparable and revertible. The runtime state stays wherever the
+ * definition goes: it belongs in the database and has no business in a
+ * versioned document.
+ *
+ * **What is left here is the read surface**, which FL-002 wave 4 kept rather
+ * than deleted: `GET /api/robots/:id/alerts` and `GET /api/org/alerts` still
+ * answer with the definition joined to its state, and the shapes below are
+ * what they answer with. What wave 4 did remove is the mail path — the fields
+ * `cooldown_minutes`, `recipients` and `notify_on_resolve`, and the two
+ * bounds that guarded them. No alert can send mail, so nothing here describes
+ * one.
  */
 
 /**
@@ -45,12 +52,19 @@ import { slug } from './common.js'
  * the "parse silently and mean nothing" failure the paragraph above already
  * argued against, just one layer further in.
  *
- * **`Row` names the stored row, not the document.** `config.ts`'s own
- * `alertCondition` is the definition nested inside a datapoint — a different
- * shape for a different question (`fire_at`/`resolve_at` rather than
- * `kind`/`threshold`/`resolve_hysteresis`). This one and `datapointAlertRow`
- * below are retired in wave 4, once the document is the only place an alert
- * is defined.
+ * **`Row` distinguishes this from the document's own condition.**
+ * `config.ts`'s `alertCondition` is what an author writes inside a datapoint —
+ * a different shape for a different question (`fire_at`/`resolve_at` rather
+ * than `kind`/`threshold`/`resolve_hysteresis`). This one is what the
+ * evaluator switches on and what the read routes answer with; the cloud
+ * derives it from the document (`alert-definitions.ts`'s `toRowCondition`) and
+ * derives it nowhere else.
+ *
+ * **It was renamed for a wave 4 deletion that did not happen**, and the name
+ * is kept because the distinction it draws is still needed: two condition
+ * shapes coexist, and only one of them is authored. Nothing is stored under
+ * this shape any more — the database keeps runtime state only — so read `Row`
+ * as "the derived one", not as "the persisted one".
  */
 export const alertRowCondition = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -83,25 +97,22 @@ export type AlertSeverity = z.infer<typeof alertSeverity>
 export const alertState = z.enum(['ok', 'firing'])
 export type AlertState = z.infer<typeof alertState>
 
-/** Mail throttle: at most one firing mail per alert per this many minutes. Events themselves are never throttled — only mail (D2). */
-export const ALERT_COOLDOWN_MINUTES_DEFAULT = 15
-/** A week. Not a documented product decision — a sanity ceiling so a typo (`15000`) doesn't silently mean "never mails again" rather than failing loudly. */
-export const ALERT_COOLDOWN_MINUTES_MAX = 10_080
-/** Fan-out bound, the same discipline as the other per-alert bounds in this file — a mistyped mailing list should fail validation, not become an incident. */
-export const ALERT_RECIPIENTS_MAX = 20
-
 /**
  * One alert row, definition and runtime state together — the runtime fields
  * (`state`, `state_since`, `last_value`) are DB-held so they survive a cloud
- * restart, and are read-only from every client's point of view: they never
- * appear on `createAlertRequest` or `patchAlertRequest` (pinned by
- * `alerts-shapes.test.ts` — a `PATCH` naming `state` is rejected by
- * `.strict()`, not silently ignored).
+ * restart, and are read-only from every client's point of view: nothing
+ * writes them from outside the cloud's own evaluator.
  *
- * **`Row`, because this is the stored row** — id, ownership, runtime state
- * and mail settings together. The document's own alert (`config.ts`'s
- * `datapointAlert`) is definition only, nested under its datapoint, and
- * sends no mail. Both exist through wave 4, which deletes this one.
+ * **`Row` is a name the shape outgrew**, kept only to keep it apart from
+ * `config.ts`'s `datapointAlert`, which is the definition an author writes.
+ * Nothing is stored in this shape: the definition comes out of the published
+ * document and the runtime state out of `datapoint_alert_state`, and the
+ * cloud joins the two per request (`routes/alerts.ts`'s `toWire`).
+ *
+ * **It carried three mail settings — `cooldown_minutes`, `recipients` and
+ * `notify_on_resolve` — and FL-002 wave 4 removed them with the mail path.**
+ * The format has no mail fields, so no alert could be configured to send one;
+ * the three had nothing behind them well before they were deleted.
  */
 export const datapointAlertRow = z.object({
   id: z.uuid(),
@@ -111,14 +122,6 @@ export const datapointAlertRow = z.object({
   enabled: z.boolean(),
   severity: alertSeverity,
   condition: alertRowCondition,
-  cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX),
-  /**
-   * Prefilled with the creating developer by the console, not by this
-   * schema. **An empty list is a valid, meaningful state** — "no mail" — not
-   * an omission this shape should refuse. Capped at `ALERT_RECIPIENTS_MAX`.
-   */
-  recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
-  notify_on_resolve: z.boolean(),
   state: alertState,
   /** `null` only until the first evaluation writes a state; every alert is created `ok` (D2), so in practice this is set from creation onward. */
   state_since: z.iso.datetime().nullable(),
@@ -139,79 +142,10 @@ export const datapointAlertRow = z.object({
    */
   last_value: z.unknown().nullable(),
   created_at: z.iso.datetime(),
-  /**
-   * Whether this alert's `slug` is absent from the robot's published
-   * config. Computed on read, not stored — it would otherwise need its own
-   * write path kept in sync with every publish — and true for an absent
-   * slug the same way a missing key reads as "not there" — **except when
-   * the robot has no published config at all** (never published, or a
-   * draft only): that case marks NOTHING orphaned, deliberately, not the
-   * naive reading of "absent from an empty set". A robot pre-first-publish
-   * has no config yet for a slug to be absent *from*, and a developer's
-   * freshly created alert against their own unpublished draft must not
-   * read as broken. Set only by `GET /api/robots/:id/alerts`; absent
-   * (never `false`) from `createAlertRequest`/`patchAlertRequest`
-   * responses and from `orgFiringAlertsResponse`, which have no
-   * published-config context to compute it against at their call sites.
-   * Optional, not required, so those other shapes — which share this same
-   * entity — stay valid without carrying a field that does not apply to
-   * them.
-   */
-  orphaned: z.boolean().optional(),
 })
 export type DatapointAlertRow = z.infer<typeof datapointAlertRow>
 
-/**
- * `POST /api/robots/:id/alerts`. `robot_id` comes from the path, never the
- * body (the usual split — see `renameSlugRequest`'s sibling shapes). No
- * `id` and none of the three runtime-state fields: those are the cloud's to
- * assign, and a caller-supplied `state` would let a client fabricate a
- * firing alert that never fired.
- *
- * `enabled` defaults to `true` — a created alert is active unless the caller
- * says otherwise, matching `notify_on_resolve`'s and `cooldown_minutes`'s
- * defaults below being the common case, not the exceptional one.
- */
-export const createAlertRequest = z
-  .object({
-    slug,
-    name: z.string().min(1).max(120),
-    enabled: z.boolean().default(true),
-    severity: alertSeverity,
-    condition: alertRowCondition,
-    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).default(ALERT_COOLDOWN_MINUTES_DEFAULT),
-    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX),
-    notify_on_resolve: z.boolean().default(false),
-  })
-  .strict()
-export type CreateAlertRequest = z.infer<typeof createAlertRequest>
-
-/**
- * `PATCH /api/robots/:id/alerts/:alertId`. Every definition field is
- * optional (a caller changes one thing at a time — flip `enabled`, tighten
- * `threshold`), and `slug` is **absent**, not merely un-required: an alert's
- * slug does not travel through this route at all. The one case that moves
- * it — a datapoint rename — is the atomic slug-rename transaction touching
- * the row server-side, not a developer-issued PATCH.
- *
- * `state`/`state_since`/`last_value` are never accepted here — pinned by
- * `alerts-shapes.test.ts` — for the same reason they are absent from
- * `createAlertRequest`.
- */
-export const patchAlertRequest = z
-  .object({
-    name: z.string().min(1).max(120).optional(),
-    enabled: z.boolean().optional(),
-    severity: alertSeverity.optional(),
-    condition: alertRowCondition.optional(),
-    cooldown_minutes: z.number().int().min(1).max(ALERT_COOLDOWN_MINUTES_MAX).optional(),
-    recipients: z.array(z.email()).max(ALERT_RECIPIENTS_MAX).optional(),
-    notify_on_resolve: z.boolean().optional(),
-  })
-  .strict()
-export type PatchAlertRequest = z.infer<typeof patchAlertRequest>
-
-/** `GET /api/robots/:id/alerts` — the one route that sets `datapointAlertRow.orphaned` on every entry. */
+/** `GET /api/robots/:id/alerts`. */
 export const alertListResponse = z.object({
   alerts: z.array(datapointAlertRow),
 })
@@ -221,9 +155,7 @@ export type AlertListResponse = z.infer<typeof alertListResponse>
  * `GET /api/org/alerts?state=firing` — feeds the overview's "open issues"
  * tile and the fleet grid's per-robot badge (D3). Org-scoped and
  * cross-robot, so each entry carries `robot_name` alongside the alert: the
- * overview has no robot context of its own to join against. Never sets
- * `orphaned` — this route has no per-robot published-config context to
- * compute it against, and the shape's own doc comment says so.
+ * overview has no robot context of its own to join against.
  */
 export const orgFiringAlertsResponse = z.object({
   alerts: z.array(datapointAlertRow.extend({ robot_name: z.string().min(1).max(63) })),

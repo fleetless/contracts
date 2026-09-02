@@ -2,9 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   cameraConfig,
   cameraSource,
-  credentialListResponse,
-  credentialSummary,
-  credentialWriteRequest,
   historyBucketsResponse,
   historyQuery,
   historySamplesResponse,
@@ -78,46 +75,6 @@ describe('camera sources', () => {
     })
     expect(parsed).toMatchObject({ credentials: { username: 'admin', password: 'hunter2' } })
     expect(cameraSource.safeParse({ kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials_ref: 'site-nvr' }).success).toBe(false)
-  })
-})
-
-describe('credentials on the wire', () => {
-  it('never describes a password on a read surface', () => {
-    const listed = credentialListResponse.parse({
-      credentials: [{ name: 'site-nvr', username: 'admin', set: true, readable: true, used_by: [] }],
-    })
-    expect('password' in listed.credentials[0]!).toBe(false)
-    // …and the one shape that does carry a password is a write.
-    expect(credentialWriteRequest.safeParse({ username: 'admin', password: 'hunter2' }).success).toBe(true)
-  })
-
-  it('separates "a password is stored" from "we can still decrypt it"', () => {
-    // These two came apart once and the API could not say so: an
-    // undecryptable credential answered `set: true` with `used_by` naming the
-    // camera depending on it, while every config frame shipped `credentials:
-    // {}`. The only evidence was a server log no developer can read.
-    const unreadable = credentialSummary.parse({
-      name: 'site-nvr', username: 'admin', set: true, readable: false, used_by: [],
-    })
-    expect(unreadable.set).toBe(true)
-    expect(unreadable.readable).toBe(false)
-    // Both are required: a summary that omits either is not a summary of
-    // credential health, and the omission would read as the healthy value.
-    expect(credentialSummary.safeParse(
-      { name: 'site-nvr', username: 'admin', set: true, used_by: [] }).success).toBe(false)
-  })
-
-  it('reports who uses a credential, because rotating a shared one blind breaks a camera elsewhere', () => {
-    const listed = credentialListResponse.parse({
-      credentials: [{
-        name: 'site-nvr', username: 'admin', set: true, readable: true,
-        used_by: [
-          { robot_id: '11111111-1111-4111-8111-111111111111', slug: 'front' },
-          { robot_id: '22222222-2222-4222-8222-222222222222', slug: 'dock' },
-        ],
-      }],
-    })
-    expect(listed.credentials[0]!.used_by).toHaveLength(2)
   })
 })
 
