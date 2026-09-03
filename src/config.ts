@@ -73,6 +73,56 @@ import { alertSeverity } from './alerts.js'
  */
 
 /**
+ * One of the format's own parameter holes, `${name}`, written so that it
+ * survives a `defaultSnippets` insert. **The backslash is load-bearing and is
+ * not a typo to tidy away.**
+ *
+ * The two syntaxes collide. `defaultSnippets` bodies are inserted as LSP
+ * snippets, where `${1:front}` is a tab stop and `${speed}` is a *variable* —
+ * and an unknown variable is not left alone. Measured against
+ * monaco-editor 0.52.2's own `SnippetParser`, which is what the console runs:
+ *
+ * | body holds | the editor inserts |
+ * |---|---|
+ * | `x: ${speed}` | `x: ` — the hole is **deleted**, silently |
+ * | `x: \${speed}` | `x: ${speed}` |
+ *
+ * yaml-language-server emits body strings verbatim (`stringifyObject`'s
+ * replacer only strips a leading `^` and quotes `true`/`false`), so nothing
+ * between here and the snippet engine escapes it for us. A body that writes a
+ * parameter unescaped therefore offers a developer a publisher whose message
+ * has lost the very value a caller was meant to fill, which parses and is
+ * wrong — the worst available outcome for a hint the developer trusts.
+ */
+const param = (name: string) => `\\\${${name}}`
+
+/** A snippet as authored: what the picker shows, and the block it inserts. */
+type Snippet = { label: string, description: string, body: Record<string, unknown> }
+
+/**
+ * The same skeleton, offered one level out — at the section rather than at the
+ * entry.
+ *
+ * A section body is its entry body under one slug key: `datapoints:` offers
+ * `{ battery: … }`, and `battery: ▮` offers the `…`. Both positions are real
+ * and both were silent, but they are **one skeleton**, so each is authored once
+ * as a `Snippet` constant and wrapped here for the section — never copied.
+ * Two copies of one skeleton is the drift this wave caught three times in three
+ * reviews: a body inventing a value its sibling had already answered, under a
+ * label that still agreed. `config-snippets.test.ts` deep-compares the two
+ * positions rather than trusting this.
+ *
+ * **The slug key belongs to the wrapper, not to the skeleton**, because it
+ * differs per snippet — `battery_voltage` for a plain datapoint, `battery` for
+ * the numeric one. It therefore takes tab stop `${1}`, and an entry body's own
+ * stops are numbered from `${2}` throughout. At the entry position that leaves
+ * no `${1}` at all, which costs nothing: the editor visits tab stops in
+ * ascending order and does not require them to start at one.
+ */
+const underSlug = (slugKey: string, snippet: Snippet): Snippet =>
+  ({ ...snippet, body: { [slugKey]: snippet.body } })
+
+/**
  * What an exposed service *is*, in the developer's own words (§17).
  *
  * This is what an MCP tool description carries verbatim, so it is read by a
@@ -124,6 +174,57 @@ export type ParameterType = z.infer<typeof parameterType>
 const INTEGER_TYPES = new Set(['byte', 'char', 'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32', 'int64', 'uint64'])
 const FLOAT_TYPES = new Set(['float32', 'float64'])
 const STRING_TYPES = new Set(['string', 'wstring'])
+
+/**
+ * One hole a caller fills, authored once for the two positions it is offered
+ * from: `parameters:` (under `underSlug`) and the value of one entry below it.
+ *
+ * `type` is a placeholder default rather than a choice, unlike the camera
+ * source's `type`, and for two reasons that are **not** "the editor offers the
+ * fifteen here anyway". It does not: after the insert this position holds
+ * `float64` as a selected tab stop, and Monaco does not open the suggest widget
+ * over one — nor as the developer types over the selection, since an unquoted
+ * YAML scalar tokenizes as `string` and the editor's default
+ * `quickSuggestions.strings` is false. The fifteen are an explicit Ctrl+Space
+ * away.
+ *
+ * The reasons that do hold: fifteen options is a list that would have to be
+ * maintained beside the enum, and the enum is the format's own answer — a
+ * snippet must not fork it, and any shorter list is a subset presented as the
+ * set. And a wrong pick here **is** reported: `type_mismatch` checks the
+ * declared type against the type at the template position, which is the half of
+ * the rule that settles it. That is the difference from the camera `type`,
+ * where a wrong pick is accepted by every layer and the bridge then delivers no
+ * frames with nothing objecting.
+ *
+ * The bounds are the point of the block — the field descriptions call them
+ * where a speed limit actually holds — so they are in the skeleton, at
+ * `min_value`/`max_value`'s own `examples`. They are coupled to `type`: tabbing
+ * `float64` to `string` makes them `constraint_not_allowed_for_type`, one line
+ * below the pick, in a message that names the value just chosen. That is
+ * deliberate, where omitting the bounds would leave the format's one
+ * enforcement point out of the hint that introduces it. **When the developer
+ * meets it is not today**: this is a `superRefine`, so it is not in the JSON
+ * Schema export and monaco-yaml cannot see it — until the console validates
+ * against `robotConfigDoc` itself, the refusal arrives on save rather than
+ * under the cursor.
+ *
+ * No `default`, so the parameter is required: `default` is the one field here
+ * with no `examples`, and "has no default" is the format's spelling of
+ * required, which is the honest thing for a skeleton to start from. That every
+ * declared parameter must also appear in the `message` is a question about the
+ * whole entry and is the cloud's, not this schema's.
+ */
+const PARAMETER_SNIPPET: Snippet = {
+  label: 'a parameter, with its bounds',
+  description: 'One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.',
+  body: {
+    type: '${2:float64}',
+    min_value: -0.5,
+    max_value: 0.5,
+    description: '${3:What a caller is choosing when they set this.}',
+  },
+}
 
 /**
  * One parameter a caller may fill in a message template.
@@ -260,6 +361,13 @@ export const parameterSpec = z
       }
     }
   })
+  /**
+   * The value position of one entry — `speed: ▮` under `parameters:`. It is
+   * reached by a developer adding a **second** parameter by hand, which the
+   * section snippet never covers: that one fires on the empty `parameters:` and
+   * not again.
+   */
+  .meta({ defaultSnippets: [PARAMETER_SNIPPET] })
 export type ParameterSpec = z.infer<typeof parameterSpec>
 
 /** Parameters of one entry, keyed by name. At most 50. */
@@ -278,54 +386,11 @@ export const parameterMap = z
      * this comes apart is somebody later giving one section a `parameters:`
      * snippet of its own.
      *
-     * `type` is a placeholder default rather than a choice, unlike the camera
-     * source's `type`, and for two reasons that are **not** "the editor offers
-     * the fifteen here anyway". It does not: after the insert this position
-     * holds `float64` as a selected tab stop, and Monaco does not open the
-     * suggest widget over one — nor as the developer types over the selection,
-     * since an unquoted YAML scalar tokenizes as `string` and the editor's
-     * default `quickSuggestions.strings` is false. The fifteen are an explicit
-     * Ctrl+Space away.
-     *
-     * The reasons that do hold: fifteen options is a list that would have to be
-     * maintained beside the enum, and the enum is the format's own answer — a
-     * snippet must not fork it, and any shorter list is a subset presented as
-     * the set. And a wrong pick here **is** reported: `type_mismatch` checks
-     * the declared type against the type at the template position, which is
-     * the half of the rule that settles it. That is the difference from the
-     * camera `type`, where a wrong pick is accepted by every layer and the
-     * bridge then delivers no frames with nothing objecting.
-     *
-     * The bounds are the point of the block — the field descriptions call them
-     * where a speed limit actually holds — so they are in the skeleton, at
-     * `min_value`/`max_value`'s own `examples`. They are coupled to `type`:
-     * tabbing `float64` to `string` makes them `constraint_not_allowed_for_type`,
-     * one line below the pick, in a message that names the value just chosen.
-     * That is deliberate, where omitting the bounds would leave the format's
-     * one enforcement point out of the hint that introduces it. **When the
-     * developer meets it is not today**: this is a `superRefine`, so it is not
-     * in the JSON Schema export and monaco-yaml cannot see it — until the
-     * console validates against `robotConfigDoc` itself, the refusal arrives
-     * on save rather than under the cursor.
-     *
-     * No `default`, so the parameter is required: `default` is the one field
-     * here with no `examples`, and "has no default" is the format's spelling
-     * of required, which is the honest thing for a skeleton to start from.
-     * That every declared parameter must also appear in the `message` is a
-     * question about the whole entry and is the cloud's, not this schema's.
+     * The body is `PARAMETER_SNIPPET` under its slug key — the same skeleton
+     * the entry position below offers, and the reasons behind every value in
+     * it are written there.
      */
-    defaultSnippets: [{
-      label: 'a parameter, with its bounds',
-      description: 'One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.',
-      body: {
-        '${1:speed}': {
-          type: '${2:float64}',
-          min_value: -0.5,
-          max_value: 0.5,
-          description: '${3:What a caller is choosing when they set this.}',
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:speed}', PARAMETER_SNIPPET)],
   })
 
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
@@ -387,6 +452,33 @@ export const RETENTION_INTERVAL_SECONDS_DEFAULT = 300
 export const CHART_WINDOW_MINUTES_DEFAULT = 60
 
 /**
+ * One whole alert, authored once for the two positions it is offered from:
+ * `alerts:` (under `underSlug`) and the value of one entry below it.
+ *
+ * **The body carries a condition.** `condition` is `datapointAlert`'s only
+ * required field, so a skeleton that stopped at the key would insert a document
+ * the format refuses — the one outcome worse than offering nothing, because the
+ * developer trusts the hint. It is also one decision for a reader: an alert
+ * without a condition is not a partial alert, it is nothing. The separate
+ * snippets on `condition` itself still earn their place — they are what a
+ * developer gets when they come back to an existing alert and rewrite the
+ * threshold, where this one is never offered.
+ *
+ * `severity` is left out: it is optional, absent means `warning`, and it
+ * changes no behaviour at all. Writing it would add a line that decides
+ * nothing. `enabled` likewise — absent means on, which is what an alert
+ * somebody just wrote is for.
+ */
+const ALERT_SNIPPET: Snippet = {
+  label: 'an alert, with its condition',
+  description: 'One whole alert: the label shown in place of its key, and the threshold with the gap that keeps it from flipping on every sample.',
+  body: {
+    condition: { fire_at: 15, resolve_at: 18 },
+    name: '${2:Battery low}',
+  },
+}
+
+/**
  * An alert's definition. Runtime state — whether it is firing, since when,
  * with what value — is NOT here: it lives in the database and survives a
  * restart, and it has no business in a versioned document.
@@ -446,6 +538,13 @@ export const datapointAlert = z.strictObject({
   enabled: z.boolean().meta({
     description: 'Whether this alert is evaluated at all. Absent means on, the opposite of `retention.enabled`: an alert that is written down watches unless it is explicitly switched off, which is how one is silenced without losing the key that identifies it.',
   }).optional(),
+}).meta({
+  /**
+   * The value position of one entry — `battery_low: ▮` under `alerts:`, which
+   * is where a developer adding a **second** alert by hand stands. The section
+   * snippet fires on the empty `alerts:` and never again.
+   */
+  defaultSnippets: [ALERT_SNIPPET],
 })
 export type DatapointAlert = z.infer<typeof datapointAlert>
 
@@ -553,6 +652,53 @@ export const rateThrottleHz = z.number().nonnegative().max(20)
  * ceiling is 20: an app's surface has no use for more, and a control loop
  * belongs on a tool that reads at the robot.
  */
+/**
+ * One value the robot publishes, authored once for the two positions it is
+ * offered from: `datapoints:` (under `underSlug`) and the value of one entry
+ * below it. The four required-to-be-useful fields and nothing else; everything
+ * optional arrives by ordinary key completion, which works and never stopped.
+ */
+const DATAPOINT_SNIPPET: Snippet = {
+  label: 'a datapoint',
+  description: 'One value the robot publishes: one field of one topic.',
+  body: {
+    topic: '${2:/battery}',
+    type: '${3:sensor_msgs/msg/BatteryState}',
+    field: '${4:voltage}',
+    description: '${5:What this value is, for whoever meets it in the console.}',
+  },
+}
+
+/**
+ * The same, with the three sub-blocks a plain datapoint leaves out — what the
+ * number means, what is kept of it, and how it is drawn.
+ *
+ * `chart.style` is the literal `line` and not the choice the `chart:` node
+ * itself offers: this body is a battery percentage, where `line` is not a
+ * guess.
+ */
+const NUMERIC_DATAPOINT_SNIPPET: Snippet = {
+  label: 'a numeric datapoint, with history and a chart',
+  description: 'A number with its unit, what is kept of it and how it is drawn — the blocks a plain datapoint leaves out.',
+  body: {
+    topic: '${2:/battery}',
+    type: '${3:sensor_msgs/msg/BatteryState}',
+    field: '${4:percentage}',
+    description: '${5:What this value is, for whoever meets it in the console.}',
+    /**
+     * The quotes inside `unit` are part of the inserted text and are not
+     * decoration. A body string is written into the document verbatim, and `%`
+     * is a YAML directive indicator: measured with `yaml` 2.9.0, `unit: %` is a
+     * **syntax error** ("Plain value cannot start with directive indicator
+     * character %") while `unit: "%"` parses to `%`. Nothing between here and
+     * the buffer quotes a scalar for us.
+     */
+    numeric: { scale: 100, unit: '"%"', decimals: 1 },
+    retention: { enabled: true, interval_seconds: 300 },
+    chart: { y_min: 0, y_max: 100, style: 'line' },
+  },
+}
+
 export const datapointConfig = z
   .strictObject({
     topic: rosName.meta({
@@ -669,31 +815,12 @@ export const datapointConfig = z
     alerts: z.record(slug, datapointAlert).meta({
       description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
       /**
-       * **The body carries a whole alert, condition included.** `condition` is
-       * `datapointAlert`'s only required field, so a skeleton that stopped at
-       * the key would insert a document the format refuses — the one outcome
-       * worse than offering nothing, because the developer trusts the hint.
-       * It is also one decision for a reader: an alert without a condition is
-       * not a partial alert, it is nothing. The separate snippets on
-       * `condition` itself still earn their place — they are what a developer
-       * gets when they come back to an existing alert and rewrite the
-       * threshold, where this one is never offered.
-       *
-       * `severity` is left out: it is optional, absent means `warning`, and it
-       * changes no behaviour at all. Writing it would add a line that decides
-       * nothing. `enabled` likewise — absent means on, which is what an alert
-       * somebody just wrote is for.
+       * The body is `ALERT_SNIPPET` under its slug key — the same skeleton the
+       * entry position offers, and the reasons behind every value in it are
+       * written there. **The key is in the wrapper**, and it is the alert's
+       * identity: renaming it is a delete plus a create.
        */
-      defaultSnippets: [{
-        label: 'an alert, with its condition',
-        description: 'One whole alert: the key that is its identity, the label shown in its place, and the threshold with the gap that keeps it from flipping on every sample.',
-        body: {
-          '${1:battery_low}': {
-            condition: { fire_at: 15, resolve_at: 18 },
-            name: '${2:Battery low}',
-          },
-        },
-      }],
+      defaultSnippets: [underSlug('${1:battery_low}', ALERT_SNIPPET)],
     }).optional(),
   })
   .superRefine((d, ctx) => {
@@ -708,6 +835,13 @@ export const datapointConfig = z
         })
     }
   })
+  /**
+   * The value position of one entry — `battery: ▮` under `datapoints:`, where a
+   * developer adding a **second** datapoint by hand stands. Both skeletons the
+   * section offers, in the same order, so the choice between a plain value and
+   * a fully-equipped one is the same choice at both positions.
+   */
+  .meta({ defaultSnippets: [DATAPOINT_SNIPPET, NUMERIC_DATAPOINT_SNIPPET] })
 export type DatapointConfig = z.infer<typeof datapointConfig>
 
 /**
@@ -850,8 +984,43 @@ export function placeholderNames(node: unknown, found = new Set<string>()): Set<
  * insert another — that excludes cycles and lets every check look at exactly
  * one body instead of walking a reference tree.
  */
+/**
+ * One shared message body, authored once for the two positions it is offered
+ * from: `messages:` (under `underSlug`) and the value of one entry below it.
+ *
+ * `param()` and not a bare `${speed}` — the backslash is why the hole survives
+ * the insert; see `param` for the measurement.
+ */
+const SHARED_MESSAGE_SNIPPET: Snippet = {
+  label: 'a shared message',
+  description: 'One reusable body, with one parameter hole in it.',
+  body: {
+    linear: { x: param('speed') },
+    angular: { z: 0 },
+  },
+}
+
+/**
+ * The value position of one shared message — `drive: ▮` under `messages:`.
+ *
+ * **This is a clone of `messageTemplate` and not `messageTemplate` itself,
+ * deliberately.** `messageBody` *is* `messageTemplate`, the same instance, so a
+ * `defaultSnippets` written onto it would also reach `message:` under an
+ * action, a service and a publisher — where the body below is a zero twist
+ * offered as the skeleton for a nav2 goal, which is worse than the silence it
+ * replaced. Those three positions take arbitrary content shaped by the entry's
+ * own ROS type, and nothing here knows it. `.meta()` clones rather than
+ * mutating (measured), so `messageTemplate` is untouched; its `description` is
+ * carried over rather than restated, because a second copy of that paragraph is
+ * a second thing to keep true.
+ */
+const sharedMessageBody = messageTemplate.meta({
+  ...messageTemplate.meta(),
+  defaultSnippets: [SHARED_MESSAGE_SNIPPET],
+})
+
 export const messageMap = z
-  .record(slug, messageTemplate)
+  .record(slug, sharedMessageBody)
   .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
   .meta({
     description: 'Reusable message bodies, keyed by name. A body is inserted by writing `${name}` directly after `message:`, may hold placeholders of its own, and **may not insert another** — which rules out cycles and lets every check look at exactly one body.',
@@ -862,6 +1031,22 @@ export const messageMap = z
  * job runs per action slug; a second call is refused `busy`, and every
  * observer of the slug watches the same job.
  */
+/**
+ * One action, authored once for the two positions it is offered from:
+ * `actions:` (under `underSlug`) and the value of one entry below it. The three
+ * required fields at the node's own `examples`; `message` and `parameters`
+ * depend on the action type and are left to key completion.
+ */
+const ACTION_SNIPPET: Snippet = {
+  label: 'an action',
+  description: 'One thing the robot does on request, reported as a job with progress.',
+  body: {
+    ros_name: '${2:/navigate_to_pose}',
+    type: '${3:nav2_msgs/action/NavigateToPose}',
+    description: '${4:Drives to a target pose on the map.}',
+  },
+}
+
 export const actionConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The action server on the robot, as an absolute graph name — this is what the bridge sends the goal to. Clients never see it: they address this entry by its slug, so a server can be renamed on the robot without a single app changing.',
@@ -877,10 +1062,29 @@ export const actionConfig = z.strictObject({
     description: 'What this action does, in the developer\'s own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all**.',
     examples: ['Drives to a target pose on the map.'],
   }),
+}).meta({
+  /** The value position of one entry — `navigate: ▮` under `actions:`. */
+  defaultSnippets: [ACTION_SNIPPET],
 })
 export type ActionConfig = z.infer<typeof actionConfig>
 
 /** A ROS service call with validated parameters (spec §4.2). */
+/**
+ * One service, authored once for the two positions it is offered from:
+ * `services:` (under `underSlug`) and the value of one entry below it. The
+ * example is `Trigger`, whose request has no fields — so `message` and
+ * `parameters` are genuinely absent rather than merely left out.
+ */
+const SERVICE_SNIPPET: Snippet = {
+  label: 'a service',
+  description: 'One request, one reply, no progress in between.',
+  body: {
+    ros_name: '${2:/reset_odometry}',
+    type: '${3:std_srvs/srv/Trigger}',
+    description: '${4:Resets odometry to the origin.}',
+  },
+}
+
 export const serviceConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
@@ -896,6 +1100,9 @@ export const serviceConfig = z.strictObject({
     description: 'What this service does, in the developer\'s own words. The robot does nothing with it — the readers are the console and MCP clients, and **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.',
     examples: ['Resets odometry to the origin.'],
   }),
+}).meta({
+  /** The value position of one entry — `reset_odometry: ▮` under `services:`. */
+  defaultSnippets: [SERVICE_SNIPPET],
 })
 export type ServiceConfig = z.infer<typeof serviceConfig>
 
@@ -920,6 +1127,42 @@ export type ServiceConfig = z.infer<typeof serviceConfig>
  * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
  * before a *different* user may send.
  */
+/**
+ * One publisher, authored once for the two positions it is offered from:
+ * `publishers:` (under `underSlug`) and the value of one entry below it.
+ *
+ * This is the one skeleton in the file that carries every part of the format at
+ * once — a fixed message with two holes, the parameters that declare them, and
+ * the failsafe — because a publisher with any of them missing is a publisher
+ * the format refuses. `failsafe` is required and its message may hold no
+ * placeholder: it is sent with no caller left to fill one.
+ */
+const PUBLISHER_SNIPPET: Snippet = {
+  label: 'a publisher, with its parameters and its failsafe',
+  description: 'A topic clients may send to: what is fixed, what a caller fills, and what the bridge sends by itself once the caller falls silent.',
+  body: {
+    topic: '${2:/cmd_vel}',
+    type: '${3:geometry_msgs/msg/Twist}',
+    message: {
+      linear: { x: param('speed') },
+      angular: { z: param('turn') },
+    },
+    parameters: {
+      speed: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
+      turn: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
+    },
+    failsafe: {
+      timeout_ms: 500,
+      message: {
+        linear: { x: 0 },
+        angular: { z: 0 },
+      },
+    },
+    quiet_timeout_ms: 2000,
+    description: '${4:Velocity command. If sending stops, the robot stops.}',
+  },
+}
+
 export const publisherConfig = z.strictObject({
   topic: rosName.meta({
     description: 'The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.',
@@ -986,6 +1229,9 @@ export const publisherConfig = z.strictObject({
     description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.',
     examples: ['Velocity command. If sending stops, the robot stops.'],
   }),
+}).meta({
+  /** The value position of one entry — `drive: ▮` under `publishers:`. */
+  defaultSnippets: [PUBLISHER_SNIPPET],
 })
 export type PublisherConfig = z.infer<typeof publisherConfig>
 
@@ -1265,6 +1511,29 @@ export const snapshotIntervalSeconds = z.number().int().min(1).max(3600)
  * - **Live** runs on demand and is refcounted in the cloud: the first viewer
  *   starts it, the last one ends it.
  */
+/**
+ * One camera, authored once for the two positions it is offered from:
+ * `cameras:` (under `underSlug`) and the value of one entry below it.
+ *
+ * Every field of `cameraConfig` except `description` is required, so the body
+ * carries all of them; the four `source` kinds each offer their own skeleton at
+ * `source:` itself, and `v4l2` is the one here because a device path is the
+ * only source a robot can be assumed to have without a network.
+ */
+const CAMERA_SNIPPET: Snippet = {
+  label: 'a camera',
+  description: 'A complete camera entry with every required field.',
+  body: {
+    source: { kind: 'v4l2', device: '${2:/dev/video0}' },
+    width: 1280,
+    height: 720,
+    fps: 15,
+    bitrate_kbps: 2000,
+    snapshot_interval_seconds: 5,
+    description: '${3:Forward-facing camera on the mast.}',
+  },
+}
+
 export const cameraConfig = z.strictObject({
   source: cameraSource.meta({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
@@ -1293,6 +1562,9 @@ export const cameraConfig = z.strictObject({
     description: 'What this camera shows, in the developer\'s own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. **A camera without one is exposed as no MCP tool**, as for actions, services and publishers. The tool it does produce serves the latest snapshot with its age; a live session is never a tool.',
     examples: ['Forward-facing camera on the mast.'],
   }),
+}).meta({
+  /** The value position of one entry — `front: ▮` under `cameras:`. */
+  defaultSnippets: [CAMERA_SNIPPET],
 })
 export type CameraConfig = z.infer<typeof cameraConfig>
 
@@ -1305,30 +1577,6 @@ export const FLEETLESS_FORMAT_VERSION = 1
 
 const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
   z.record(slug, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
-
-/**
- * One of the format's own parameter holes, `${name}`, written so that it
- * survives a `defaultSnippets` insert. **The backslash is load-bearing and is
- * not a typo to tidy away.**
- *
- * The two syntaxes collide. `defaultSnippets` bodies are inserted as LSP
- * snippets, where `${1:front}` is a tab stop and `${speed}` is a *variable* —
- * and an unknown variable is not left alone. Measured against
- * monaco-editor 0.52.2's own `SnippetParser`, which is what the console runs:
- *
- * | body holds | the editor inserts |
- * |---|---|
- * | `x: ${speed}` | `x: ` — the hole is **deleted**, silently |
- * | `x: \${speed}` | `x: ${speed}` |
- *
- * yaml-language-server emits body strings verbatim (`stringifyObject`'s
- * replacer only strips a leading `^` and quotes `true`/`false`), so nothing
- * between here and the snippet engine escapes it for us. A body that writes a
- * parameter unescaped therefore offers a developer a publisher whose message
- * has lost the very value a caller was meant to fill, which parses and is
- * wrong — the worst available outcome for a hint the developer trusts.
- */
-const param = (name: string) => `\\\${${name}}`
 
 /**
  * A whole robot configuration — everything configurable about one robot.
@@ -1347,133 +1595,30 @@ export const robotConfigDoc = z.strictObject({
   }),
   messages: messageMap.meta({
     description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another**, so a `${name}` inside a body is always a parameter and never a second message.',
-    defaultSnippets: [{
-      label: 'a shared message',
-      description: 'One named body, with one parameter hole in it.',
-      body: {
-        '${1:drive}': {
-          linear: { x: param('speed') },
-          angular: { z: 0 },
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:drive}', SHARED_MESSAGE_SNIPPET)],
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
     description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
     defaultSnippets: [
-      {
-        label: 'a datapoint',
-        description: 'One value the robot publishes: one field of one topic.',
-        body: {
-          '${1:battery_voltage}': {
-            topic: '${2:/battery}',
-            type: '${3:sensor_msgs/msg/BatteryState}',
-            field: '${4:voltage}',
-            description: '${5:What this value is, for whoever meets it in the console.}',
-          },
-        },
-      },
-      {
-        label: 'a numeric datapoint, with history and a chart',
-        description: 'A number with its unit, what is kept of it and how it is drawn — the blocks a plain datapoint leaves out.',
-        body: {
-          '${1:battery}': {
-            topic: '${2:/battery}',
-            type: '${3:sensor_msgs/msg/BatteryState}',
-            field: '${4:percentage}',
-            description: '${5:What this value is, for whoever meets it in the console.}',
-            /**
-             * The quotes inside `unit` are part of the inserted text and are
-             * not decoration. A body string is written into the document
-             * verbatim, and `%` is a YAML directive indicator: measured with
-             * `yaml` 2.9.0, `unit: %` is a **syntax error** ("Plain value
-             * cannot start with directive indicator character %") while
-             * `unit: "%"` parses to `%`. Nothing between here and the buffer
-             * quotes a scalar for us.
-             */
-            numeric: { scale: 100, unit: '"%"', decimals: 1 },
-            retention: { enabled: true, interval_seconds: 300 },
-            chart: { y_min: 0, y_max: 100, style: 'line' },
-          },
-        },
-      },
+      underSlug('${1:battery_voltage}', DATAPOINT_SNIPPET),
+      underSlug('${1:battery}', NUMERIC_DATAPOINT_SNIPPET),
     ],
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
     description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
-    defaultSnippets: [{
-      label: 'an action',
-      description: 'One thing the robot does on request, reported as a job with progress.',
-      body: {
-        '${1:navigate}': {
-          ros_name: '${2:/navigate_to_pose}',
-          type: '${3:nav2_msgs/action/NavigateToPose}',
-          description: '${4:Drives to a target pose on the map.}',
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:navigate}', ACTION_SNIPPET)],
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
     description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
-    defaultSnippets: [{
-      label: 'a service',
-      description: 'One request, one reply, no progress in between.',
-      body: {
-        '${1:reset_odometry}': {
-          ros_name: '${2:/reset_odometry}',
-          type: '${3:std_srvs/srv/Trigger}',
-          description: '${4:Resets odometry to the origin.}',
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:reset_odometry}', SERVICE_SNIPPET)],
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
     description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
-    defaultSnippets: [{
-      label: 'a publisher, with its parameters and its failsafe',
-      description: 'A topic clients may send to: what is fixed, what a caller fills, and what the bridge sends by itself once the caller falls silent.',
-      body: {
-        '${1:drive}': {
-          topic: '${2:/cmd_vel}',
-          type: '${3:geometry_msgs/msg/Twist}',
-          message: {
-            linear: { x: param('speed') },
-            angular: { z: param('turn') },
-          },
-          parameters: {
-            speed: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
-            turn: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
-          },
-          failsafe: {
-            timeout_ms: 500,
-            message: {
-              linear: { x: 0 },
-              angular: { z: 0 },
-            },
-          },
-          quiet_timeout_ms: 2000,
-          description: '${4:Velocity command. If sending stops, the robot stops.}',
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:drive}', PUBLISHER_SNIPPET)],
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
     description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
-    defaultSnippets: [{
-      label: 'a camera',
-      description: 'A complete camera entry with every required field.',
-      body: {
-        '${1:front}': {
-          source: { kind: 'v4l2', device: '${2:/dev/video0}' },
-          width: 1280,
-          height: 720,
-          fps: 15,
-          bitrate_kbps: 2000,
-          snapshot_interval_seconds: 5,
-          description: '${3:Forward-facing camera on the mast.}',
-        },
-      },
-    }],
+    defaultSnippets: [underSlug('${1:front}', CAMERA_SNIPPET)],
   }).optional(),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>

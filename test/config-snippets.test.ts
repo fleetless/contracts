@@ -352,3 +352,100 @@ describe('every nested object offers a skeleton', () => {
     ).toBe(1)
   })
 })
+
+/**
+ * The value position of a map **entry** — `battery: ▮` under `datapoints:`,
+ * `front: ▮` under `cameras:`.
+ *
+ * The 135-position sweep that started this wave emitted a value probe for each
+ * of a node's **keys**, and a map entry is not a key, so it never asked this
+ * question anywhere. Measured in a browser on 2026-09-03, after three tasks of
+ * this wave had already shipped: eight positions, every one silent — the same
+ * shape as `source: ▮`, which is the complaint the whole feature came out of.
+ *
+ * A developer reaches these by writing the section, accepting its snippet, and
+ * then adding a **second** entry by hand: the section snippet fires once, on
+ * the empty section, and never again.
+ */
+describe('every map entry offers a whole entry', () => {
+  /** A datapoint with a `field`, which `alerts` requires. */
+  function datapointDoc(extra: Record<string, unknown>): unknown {
+    return {
+      fleetless: 1,
+      datapoints: { battery: { topic: '/battery', type: 'sensor_msgs/msg/BatteryState', field: 'percentage', ...extra } },
+    }
+  }
+
+  /**
+   * Each row carries the document that puts the entry where it belongs, for the
+   * reason the nested table above does: an alert entry needs a datapoint with a
+   * `field` around it, and a parameter entry needs an action around it. A body
+   * judged in isolation never meets either.
+   */
+  const ENTRIES: Array<[string, string[], (body: unknown) => unknown]> = [
+    ['a shared message', ['messages', '<slug>'], (body) => ({ fleetless: 1, messages: { drive: body } })],
+    ['a datapoint', ['datapoints', '<slug>'], (body) => ({ fleetless: 1, datapoints: { battery: body } })],
+    ['an action', ['actions', '<slug>'], (body) => ({ fleetless: 1, actions: { navigate: body } })],
+    ['a service', ['services', '<slug>'], (body) => ({ fleetless: 1, services: { reset_odometry: body } })],
+    ['a publisher', ['publishers', '<slug>'], (body) => ({ fleetless: 1, publishers: { drive: body } })],
+    ['a camera', ['cameras', '<slug>'], (body) => ({ fleetless: 1, cameras: { front: body } })],
+    ['an alert', ['datapoints', '<slug>', 'alerts', '<slug>'], (body) => datapointDoc({ alerts: { battery_low: body } })],
+    ['a parameter', ['actions', '<slug>', 'parameters', '<slug>'], (body) => ({
+      fleetless: 1,
+      actions: { navigate: { ros_name: '/navigate_to_pose', type: 'nav2_msgs/action/NavigateToPose', parameters: { speed: body } } },
+    })],
+  ]
+
+  for (const [label, path, wrap] of ENTRIES) {
+    it(label, () => {
+      const snippets = nodeAt(path).defaultSnippets
+      expect(Array.isArray(snippets), `${path.join('.')} carries no defaultSnippets`).toBe(true)
+      expect(snippets.length).toBeGreaterThan(0)
+      for (const snippet of snippets) {
+        expect(typeof snippet.label, `${label} snippet has no label`).toBe('string')
+        expect(snippet.label.trim().length).toBeGreaterThan(0)
+        expect(snippet.body, `${label} snippet has no body`).toBeTypeOf('object')
+        const parsed = robotConfigDoc.safeParse(wrap(fill(snippet.body)))
+        expect(
+          parsed.success,
+          `${label} snippet "${snippet.label}" does not parse: ${JSON.stringify(parsed.error?.issues)}`,
+        ).toBe(true)
+      }
+    })
+  }
+
+  /**
+   * The two positions are one authored skeleton, asserted rather than believed.
+   *
+   * A section body is its entry body under one slug key — `{ '${1:battery}':
+   * ENTRY }` against `ENTRY` — so a deep comparison of the two is what says the
+   * pair still comes from one constant. Three reviews in this wave have caught
+   * the same drift: a second copy of a skeleton inventing a value its sibling
+   * had already answered. Copying is what produces that, and the labels agree
+   * across a copy, so the **body** is what has to be compared.
+   *
+   * The whole array, index by index: an entry position that grew a second
+   * snippet the section does not offer is the same divergence one step later.
+   */
+  const PAIRS: Array<[string, string[]]> = [
+    ['messages', ['messages']],
+    ['datapoints', ['datapoints']],
+    ['actions', ['actions']],
+    ['services', ['services']],
+    ['publishers', ['publishers']],
+    ['cameras', ['cameras']],
+    ['alerts', ['datapoints', '<slug>', 'alerts']],
+    ['parameters', ['actions', '<slug>', 'parameters']],
+  ]
+
+  it.each(PAIRS)('a %s section snippet and its entry snippet are one skeleton', (_label, sectionPath) => {
+    const fromSection = nodeAt(sectionPath).defaultSnippets
+    const fromEntry = nodeAt([...sectionPath, '<slug>']).defaultSnippets
+    expect(fromEntry.length, 'the section and the entry offer a different number of skeletons').toBe(fromSection.length)
+    fromSection.forEach((snippet: any, i: number) => {
+      const keys = Object.keys(snippet.body)
+      expect(keys.length, `the section body is not one slug key: ${JSON.stringify(keys)}`).toBe(1)
+      expect(snippet.body[keys[0]!], `snippet ${i} has been edited apart from its entry`).toEqual(fromEntry[i].body)
+    })
+  })
+})
