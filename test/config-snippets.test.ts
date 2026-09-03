@@ -50,20 +50,38 @@ describe('every section offers a whole entry', () => {
    * placeholder substitution. The format's own parameter syntax is `${name}`,
    * which the snippet engine reads as a variable it cannot resolve and
    * **deletes** — measured against monaco-editor 0.52.2's own `SnippetParser`:
-   * `x: ${speed}` inserts `x: `, `x: \${speed}` inserts `x: ${speed}`. So every
-   * format placeholder in a body is written escaped, and what this test parses
-   * is therefore what the editor actually inserts rather than what the body
-   * literally holds.
+   * `x: ${speed}` inserts `x: `, `x: \${speed}` inserts `x: ${speed}`.
    *
-   * **What this test still cannot see, stated rather than implied away.** It
-   * walks the body as an object; the editor writes it out as YAML text first,
-   * and a body string is emitted with no quoting of any kind. A scalar that
-   * YAML refuses unquoted — `%` is the one in this file, a directive
-   * indicator — therefore breaks the insert while passing here, because the
-   * object never became text. That gap was closed once by measurement
-   * (rendering every body through yaml-language-server's own
-   * `stringifyObject`, monaco's `SnippetParser` and a real YAML parser); it is
-   * not closed by this file, which would need both of those as dependencies.
+   * ## What this test decides, and what it cannot
+   *
+   * It decides that a body's **values as authored** are values the format
+   * accepts. It does **not** decide that the document the editor inserts is
+   * one the format accepts, and a green here is not evidence of that. Three
+   * ways the two come apart, all live:
+   *
+   * - `fill()` undoes snippet syntax and **not YAML quoting**. The numeric
+   *   datapoint's `unit` is authored `'"%"'` — quotes included, deliberately,
+   *   because a bare `%` is a YAML directive indicator that breaks the insert
+   *   — so this test checks a **three-character** string while the editor
+   *   inserts `unit: "%"` and the document ends up holding `%`. Both spellings
+   *   satisfy `z.string().max(32)`, which is the only reason this passes.
+   *   Narrow that field and this test would go red on the value the editor
+   *   really produces, or green on one it cannot.
+   * - A body scalar whose text YAML refuses unquoted passes here and breaks
+   *   the insert. This walk sees an object; the editor writes text first, and
+   *   yaml-language-server emits body strings **verbatim**, quoting nothing.
+   * - Nothing here sees what the console does to the schema on the way. It
+   *   maps the export before handing it to monaco-yaml, and a body is an
+   *   ordinary object to a walk that does not know what `defaultSnippets` is.
+   *
+   * Reproducing any of that here would mean a second model of somebody else's
+   * pipeline, and a pipeline model that skips a stage does not say "I cannot
+   * tell" — it says OK. So it is not modelled here. The check that sees all
+   * three is the round trip in `console/test/monaco-yaml-config.test.ts`,
+   * which asserts over the **actual options object** handed to monaco-yaml:
+   * every `defaultSnippets` body in it inserts a document `robotConfigDoc`
+   * accepts. That is where a claim about the insert belongs; this file's claim
+   * stops at the values.
    */
   it('inserts a document the format accepts', () => {
     const fill = (node: unknown): unknown => {
