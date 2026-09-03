@@ -73,22 +73,50 @@ describe('a refusal says what is wrong', () => {
 const schema = z.toJSONSchema(robotConfigDoc, { io: 'input' }) as Record<string, any>
 
 /**
- * Every `pattern` in the document, as a dotted path, with its node — the same
- * walk `config-messages.test.ts` uses, and for the same reason: a hand-kept
- * list of pattern positions has never once been complete on its first try.
+ * Every node of the exported document, visited once — **one traversal, both
+ * callers**.
+ *
+ * The first round of this task had two walks over the same schema that
+ * disagreed about which keywords exist: the pattern walk followed
+ * `propertyNames`, the examples walk did not. Measured, an
+ * `examples: ['NOT a slug']` on `mapKey` — a map-key position, holding a value
+ * the format itself refuses — left the whole file green, because the table walk
+ * never found the node, so there was no row, so nothing parsed it. Two walks
+ * over one schema that disagree about which nodes exist is the same defect the
+ * missing-key sweep below exists to close, one level up. There is now one list
+ * of keywords and one place to add to it.
+ *
+ * `countBlind` is the guard on that list, borrowed from
+ * `config-messages.test.ts`: it descends into every object and array there is,
+ * knowing no keyword at all, so a node reached only by a keyword nobody thought
+ * of (`prefixItems`, a `$defs` behind a `$ref`) makes the two counts disagree.
+ * A tally of 24 out of an unknown total looks exactly like 24 out of 24.
  */
-function collectPatterns(node: any, path = '', out: Map<string, any> = new Map()) {
+function eachNode(node: any, visit: (path: string, node: any) => void, path = '') {
+  if (!node || typeof node !== 'object') return
+  visit(path, node)
+  for (const [key, value] of Object.entries<any>(node.properties ?? {})) eachNode(value, visit, `${path}.${key}`)
+  if (node.additionalProperties && typeof node.additionalProperties === 'object') eachNode(node.additionalProperties, visit, `${path}.<slug>`)
+  if (node.propertyNames && typeof node.propertyNames === 'object') eachNode(node.propertyNames, visit, `${path}{key}`)
+  if (node.items && typeof node.items === 'object') eachNode(node.items, visit, `${path}[]`)
+  for (const kw of ['oneOf', 'anyOf', 'allOf']) (node[kw] ?? []).forEach((b: any, i: number) => eachNode(b, visit, `${path}#${i}`))
+}
+
+/** The same tally, reached by descending into everything and knowing nothing. */
+function countBlind(node: any, out = { patterns: 0, examples: 0 }) {
   if (!node || typeof node !== 'object') return out
-  if (typeof node.pattern === 'string') out.set(path, node)
-  for (const [key, value] of Object.entries<any>(node.properties ?? {})) collectPatterns(value, `${path}.${key}`, out)
-  if (node.additionalProperties && typeof node.additionalProperties === 'object') collectPatterns(node.additionalProperties, `${path}.<slug>`, out)
-  if (node.propertyNames && typeof node.propertyNames === 'object') collectPatterns(node.propertyNames, `${path}{key}`, out)
-  if (node.items && typeof node.items === 'object') collectPatterns(node.items, `${path}[]`, out)
-  for (const kw of ['oneOf', 'anyOf', 'allOf']) (node[kw] ?? []).forEach((b: any, i: number) => collectPatterns(b, `${path}#${i}`, out))
+  if (typeof node.pattern === 'string') out.patterns += 1
+  if (Array.isArray(node.examples)) out.examples += 1
+  for (const value of Object.values(node)) countBlind(value, out)
   return out
 }
 
-const patternNodes = collectPatterns(schema)
+const patternNodes = new Map<string, any>()
+const exampledPaths: string[] = []
+eachNode(schema, (path, node) => {
+  if (typeof node.pattern === 'string') patternNodes.set(path, node)
+  if (Array.isArray(node.examples)) exampledPaths.push(path)
+})
 
 /** A minimal entry of each kind that the format accepts as it stands. */
 const DATAPOINT = { topic: '/battery', type: 'sensor_msgs/msg/BatteryState' }
@@ -172,6 +200,143 @@ describe('one rule, one sentence', () => {
 })
 
 /**
+ * Every required key of the document, deleted one at a time.
+ *
+ * **This is the guard the first round of this task did not write, and its
+ * absence is how the defect it now catches shipped.** The pattern requirement
+ * and the examples requirement were each guarded by a walk over the exported
+ * schema; the missing-key requirement was guarded by one hand-picked document —
+ * the camera from the brief — which happened to sit on the part of the format
+ * that worked. Green over a fraction, and unable to say so. Six objects in
+ * `src/config.ts` were written `z\n  .strictObject({`, so `z.strictObject` never
+ * appeared on one line and a `grep` for it found only the comments; twelve
+ * conversions read as eighteen, and eleven required keys — including
+ * `datapoints.<slug>.topic` and `.type`, the commonest entry in the format —
+ * still said `Invalid input: expected string, received undefined`, which is the
+ * string design §1.5 quotes as unusable.
+ *
+ * So the count is not typed here. It falls out of the enumeration: a walk of
+ * the exported schema's `required` arrays paired with a fully-populated
+ * document, `oneOf` branches resolved by their discriminator so all four camera
+ * sources are reached. A required key added to the format later is swept the
+ * day it exists.
+ */
+
+/**
+ * A document with every section, every optional field, and one camera per
+ * source kind — so that deleting any single required key is the only thing
+ * wrong with it.
+ */
+const PARAMETER_FULL = { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0, description: 'What a caller is choosing when they set this.' }
+const CAMERA_REST = { width: 640, height: 480, fps: 10, bitrate_kbps: 500, snapshot_interval_seconds: 5, description: 'Forward-facing camera on the mast.' }
+const FIXTURE: Record<string, any> = {
+  fleetless: 1,
+  messages: { stop: { linear: { x: 0 } } },
+  datapoints: {
+    battery: {
+      topic: '/battery',
+      type: 'sensor_msgs/msg/BatteryState',
+      field: 'percentage',
+      rate_throttle_hz: 2,
+      description: 'What this value is, for whoever meets it in the console.',
+      numeric: { scale: 100, offset: 0, unit: '%', decimals: 1 },
+      retention: { enabled: true, interval_seconds: 300, max_buffer_values: 5000 },
+      chart: { y_min: 0, y_max: 100, style: 'line', default_window_minutes: 60 },
+      alerts: { low: { condition: { fire_at: 15, resolve_at: 18 }, severity: 'warning', name: 'Battery low', enabled: true } },
+    },
+  },
+  actions: { navigate: { ...ACTION, message: { pose: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Drives to a target pose on the map.' } },
+  services: { reset: { ...SERVICE, message: { a: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Resets odometry to the origin.' } },
+  publishers: { drive: { ...PUBLISHER, parameters: { speed: PARAMETER_FULL }, description: 'Velocity command. If sending stops, the robot stops.' } },
+  cameras: {
+    cam_ros: { source: { kind: 'ros', topic: '/camera/image_raw', type: 'sensor_msgs/msg/Image' }, ...CAMERA_REST },
+    cam_rtsp: { source: { kind: 'rtsp', url: 'rtsp://cam-1.plant.local/stream1', transport: 'tcp', credentials: { username: 'ops', password: 'secret' } }, ...CAMERA_REST },
+    cam_mjpeg: { source: { kind: 'mjpeg', url: 'http://cam-1.plant.local/video.mjpg', credentials: { username: 'ops', password: 'secret' } }, ...CAMERA_REST },
+    cam_v4l2: { source: { kind: 'v4l2', device: '/dev/video0' }, ...CAMERA_REST },
+  },
+}
+
+/**
+ * The branch of a union the document actually took, found by its discriminator.
+ *
+ * A union of scalars — `parameters.<slug>.default`, an `enum` entry — has no
+ * discriminator and carries no required key below it, so there is nothing to
+ * resolve and `{}` is the honest answer. A union that *does* hold a required
+ * key and that nothing matched is a hole in this walk, and throws rather than
+ * being skipped: a required key the sweep silently never reached would be
+ * exactly the failure this whole block exists to close.
+ */
+function branchTaken(node: any, value: unknown): any {
+  const branches = node.oneOf ?? node.anyOf
+  if (!Array.isArray(branches)) return node
+  for (const branch of branches)
+    for (const [key, sub] of Object.entries<any>(branch.properties ?? {}))
+      if (sub.const !== undefined && (value as any)?.[key] === sub.const) return branch
+  if (branches.some((b: any) => Array.isArray(b.required) && b.required.length > 0))
+    throw new Error(`a union with required keys that the fixture does not enter: ${JSON.stringify(value).slice(0, 80)}`)
+  return {}
+}
+
+/** Every required key of the document, as the path of the object holding it. */
+function requiredPositions(node: any, value: any, path: string[] = [], out: Array<{ path: string[], key: string }> = []) {
+  if (!node || typeof node !== 'object' || value === undefined) return out
+  const here = branchTaken(node, value)
+  for (const key of here.required ?? []) out.push({ path, key })
+  for (const [key, sub] of Object.entries<any>(here.properties ?? {})) requiredPositions(sub, value?.[key], [...path, key], out)
+  if (here.additionalProperties && typeof here.additionalProperties === 'object')
+    for (const key of Object.keys(value ?? {})) requiredPositions(here.additionalProperties, value[key], [...path, key], out)
+  return out
+}
+
+const REQUIRED = requiredPositions(schema, FIXTURE)
+
+/** The fixture with exactly one key removed. */
+function without(path: string[], key: string): unknown {
+  const copy = structuredClone(FIXTURE)
+  let here: any = copy
+  for (const step of path) here = here[step]
+  delete here[key]
+  return copy
+}
+
+describe('a required key that is absent names itself', () => {
+  it('the fixture is accepted before anything is deleted', () => {
+    // Without this the sweep below could be measuring a document that was
+    // already refused, and every row would pass for the wrong reason.
+    const parsed = robotConfigDoc.safeParse(FIXTURE)
+    expect(parsed.success ? [] : parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)).toEqual([])
+  })
+
+  it('found the required-key positions the document has', () => {
+    // Not a number anybody typed: it falls out of the walk. It is asserted so
+    // that a walk which came back empty — or which stopped entering a section —
+    // fails here rather than passing vacuously over nothing.
+    expect(REQUIRED.length).toBe(52)
+    expect(new Set(REQUIRED.map((r) => r.path.join('.'))).size).toBe(19)
+  })
+
+  for (const { path, key } of REQUIRED) {
+    const at = [...path, key].join('.')
+    it(`${at} says its own name`, () => {
+      const parsed = robotConfigDoc.safeParse(without(path, key))
+      expect(parsed.success, `${at} is not actually required`).toBe(false)
+      if (parsed.success) return
+      // The issue can land on the key itself or on the object that wanted it;
+      // both are the same finding, and a union reports at the discriminator.
+      const mine = parsed.error.issues.filter((issue) => {
+        const p = issue.path.join('.')
+        return p === at || p === path.join('.')
+      })
+      expect(mine.length, `no issue at ${at}`).toBeGreaterThan(0)
+      expect(
+        mine.some((issue) => issue.message.includes(key)),
+        `${at} is refused with: ${mine.map((i) => `[${i.code}] ${i.message}`).join(' || ')}`,
+      ).toBe(true)
+    })
+  }
+})
+
+/**
  * Every `examples` in the format, by path, with its entries parsed.
  *
  * Item 3 of the design run had **no assertion at any layer**, and the standing
@@ -187,9 +352,10 @@ describe('one rule, one sentence', () => {
 /** Walk to a node by the path a value takes: `.key`, `.<slug>`, `#branch`. */
 function nodeAt(path: string): Record<string, any> {
   let here: any = schema
-  for (const step of path.split('.').slice(1)) {
+  for (const step of path.replace(/\{key\}/g, '.{key}').split('.').slice(1)) {
     const [name, ...branches] = step.split('#')
     if (name === '<slug>') here = here.additionalProperties
+    else if (name === '{key}') here = here.propertyNames
     else here = here.properties?.[name]
     if (here === undefined) throw new Error(`no schema node at ${path} (stopped at "${step}")`)
     for (const branch of branches) here = (here.oneOf ?? here.anyOf)[Number(branch)]
@@ -208,10 +374,10 @@ function zodAt(path: string): any {
     return s
   }
   let here: any = unwrap(robotConfigDoc)
-  for (const step of path.split('.').slice(1)) {
+  for (const step of path.replace(/\{key\}/g, '.{key}').split('.').slice(1)) {
     const [name, ...branches] = step.split('#')
     const def = here._zod.def
-    here = unwrap(name === '<slug>' ? def.valueType : def.shape[name])
+    here = unwrap(name === '<slug>' ? def.valueType : name === '{key}' ? def.keyType : def.shape[name])
     if (here === undefined) throw new Error(`no zod node at ${path} (stopped at "${step}")`)
     for (const branch of branches) here = unwrap(here._zod.def.options[Number(branch)])
   }
@@ -278,20 +444,15 @@ const EXAMPLED = [
   '.cameras.<slug>.source#3.device',
 ]
 
-/** Every path carrying an `examples`, found by walking rather than by listing. */
-function collectExamples(node: any, path = '', out: string[] = []): string[] {
-  if (!node || typeof node !== 'object') return out
-  if (Array.isArray(node.examples)) out.push(path)
-  for (const [key, value] of Object.entries<any>(node.properties ?? {})) collectExamples(value, `${path}.${key}`, out)
-  if (node.additionalProperties && typeof node.additionalProperties === 'object') collectExamples(node.additionalProperties, `${path}.<slug>`, out)
-  if (node.items && typeof node.items === 'object') collectExamples(node.items, `${path}[]`, out)
-  for (const kw of ['oneOf', 'anyOf', 'allOf']) (node[kw] ?? []).forEach((b: any, i: number) => collectExamples(b, `${path}#${i}`, out))
-  return out
-}
-
 describe('every example the editor offers', () => {
   it('the table names exactly the positions that carry one', () => {
-    expect(collectExamples(schema).sort()).toEqual([...EXAMPLED].sort())
+    expect([...exampledPaths].sort()).toEqual([...EXAMPLED].sort())
+  })
+
+  it('the keyword walker reached every pattern and every example there is', () => {
+    const blind = countBlind(schema)
+    expect(blind.patterns, 'a pattern sits behind a keyword `eachNode` does not follow').toBe(patternNodes.size)
+    expect(blind.examples, 'an examples sits behind a keyword `eachNode` does not follow').toBe(exampledPaths.length)
   })
 
   for (const path of EXAMPLED) {
@@ -335,4 +496,31 @@ describe('the accepted language is unchanged', () => {
   ]
   for (const [i, value] of ACCEPTED.entries()) it(`accepts #${i}`, () => expect(robotConfigDoc.safeParse(value).success).toBe(true))
   for (const [i, value] of REFUSED.entries()) it(`refuses #${i}`, () => expect(robotConfigDoc.safeParse(value).success).toBe(false))
+
+  /**
+   * **The one input whose verdict this task moved, recorded rather than
+   * smuggled.** `message` is `z.unknown()`, which accepts `undefined`, so zod
+   * marks the key required and raises its own `expected nonoptional, received
+   * undefined` — an issue it attributes to neither the field nor the object, so
+   * no error map can reach it and the key could not be named. `z.nonoptional`
+   * puts a schema there that can carry a sentence, and it also refuses a key
+   * that is *present* holding `undefined`, which zod's internal check accepted.
+   *
+   * That input cannot arrive: `JSON.stringify` drops an undefined-valued key,
+   * so nothing over HTTP carries it, and YAML's `message:` yields `null`, which
+   * `explicit_null` refused before and refuses now (both measured). The only
+   * way to build it is an in-process TypeScript call — where being refused is
+   * the correct answer, since a publisher without a template is what the
+   * required key exists to prevent. Everything else in the format is unmoved:
+   * 278 exported schemas under both `io` modes and an 89-document corpus are
+   * identical to the revision before this task apart from this one row.
+   */
+  it('refuses a required key present as an explicit undefined', () => {
+    expect(robotConfigDoc.safeParse({ fleetless: 1, publishers: { drive: { ...PUBLISHER, message: undefined } } }).success).toBe(false)
+  })
+
+  it('and that input is unreachable through JSON', () => {
+    const shipped = JSON.parse(JSON.stringify({ fleetless: 1, publishers: { drive: { ...PUBLISHER, message: undefined } } }))
+    expect(Object.hasOwn(shipped.publishers.drive, 'message')).toBe(false)
+  })
 })

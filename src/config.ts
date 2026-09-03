@@ -158,6 +158,36 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
 /**
  * One field, carrying the sentence it says when it is absent.
  *
+ * **Three shapes of "this key is not here", and the first version of this
+ * helper caught one of them.** A walk over every required key of a fully
+ * populated document — `config-zod-messages.test.ts`, which is the guard that
+ * found it — says the format has 52 required-key positions and that 14 were
+ * still answering in zod's words:
+ *
+ * - `invalid_type`, the ordinary case: a string, a number, an object.
+ * - `invalid_value` from a `z.literal` or a `z.enum`. A missing `fleetless:`
+ *   said `Invalid input: expected 1`; a parameter without a `type` recited all
+ *   fifteen ROS primitives.
+ * - `invalid_union`. `alertCondition.fire_at` said `Invalid input` and nothing
+ *   else, and a camera source without `kind` said `Invalid discriminator value`
+ *   — where the input is not `undefined` at all but the object that lacks the
+ *   key, which is why that branch is tested separately.
+ *
+ * So the rule is the fact rather than the code: **a required field whose input
+ * is absent is a missing key, whatever zod calls the refusal.** For a value
+ * present as an explicit `undefined` — reachable from the SDK, never from YAML
+ * or JSON — the sentence reads as "missing", which is what the format means by
+ * it: omission is this format's only spelling of "not set".
+ *
+ * **`z.unknown()` needs a wrapper before it can be given a sentence at all.**
+ * It accepts `undefined`, so zod marks the key required and raises its own
+ * `expected nonoptional, received undefined` — an issue it attributes to
+ * neither the field nor the object, so no error map of ours is consulted
+ * (measured). `z.nonoptional` puts a schema there that can carry one, and it
+ * changes nothing else: the JSON Schema and the inferred type are both
+ * byte-identical either way (measured, zod 4.4.3), and a field that is
+ * genuinely optional is `.optional()` and is skipped here.
+ *
  * `clone` is the only way to add an `error` to a schema that is already built,
  * and **it drops the schema's registry entry** — its `description`, its
  * `examples`, every annotation this wave added, all of which live in
@@ -169,6 +199,22 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
  * silently emptied every hover in the format would be the worst available way
  * to improve one message.
  *
+ * Two residuals, neither reachable in this file today and both worth knowing
+ * before it grows: `{ ...def }` is a shallow spread and `def.shape` is a
+ * **getter**, so the spread resolves every nested shape at module-eval time —
+ * a `z.lazy` or a forward reference added later would be resolved here before
+ * its cycle closed, and the JSON Schema export could still look identical. And
+ * the copied registry entry is the resolved merge with no parent link, so a
+ * `.meta()` called on an original field *after* `strictObject` consumed it
+ * would not reach the copy inside the document. Neither is reachable here, and
+ * not by inspection: this module evaluates top to bottom, so a forward
+ * reference in any shape would be a `ReferenceError` at import rather than a
+ * subtle export — the module loading at all is the measurement. The one
+ * `z.lazy` in `contracts` is `introspection.ts`'s `typeField`, which no shape
+ * in this file holds. And every `.meta()` here is applied before the shape is
+ * handed over, which is what the file reads like and what the export
+ * comparison would show if it were not.
+ *
  * The inherited `error` is kept and deferred to, so this composes with a
  * field that already carries one rather than replacing it.
  */
@@ -176,17 +222,37 @@ const saysItIsMissing = <T extends z.core.$ZodType>(field: T): T => {
   const meta = z.globalRegistry.get(field)
   const def = { ...(field as unknown as { _zod: { def: Record<string, unknown> } })._zod.def }
   const inherited = def.error
-  def.error = (issue: z.core.$ZodRawIssue): string | undefined => {
+  const carrier = def.type === 'optional' || !(field as unknown as z.ZodType).safeParse(undefined).success
+    ? field
+    : (z.nonoptional(field as unknown as z.ZodType) as unknown as T)
+  const carrierDef = carrier === field
+    ? def
+    : { ...(carrier as unknown as { _zod: { def: Record<string, unknown> } })._zod.def }
+  carrierDef.error = (issue: z.core.$ZodRawIssue): string | undefined => {
     const key = issue.path?.[issue.path.length - 1]
-    if (issue.code === 'invalid_type' && issue.input === undefined && typeof key === 'string')
-      return `Missing required key \`${key}\`.`
+    if (typeof key === 'string' && absent(issue, key)) return `Missing required key \`${key}\`.`
     return typeof inherited === 'function' ? inherited(issue) : (inherited as string | undefined)
   }
-  const cloned = (field as unknown as { clone: (d: unknown) => T }).clone(def)
+  const cloned = (carrier as unknown as { clone: (d: unknown) => T }).clone(carrierDef)
   if (meta !== undefined) z.globalRegistry.add(cloned, meta)
   return cloned
 }
 
+/**
+ * Whether an issue is one field's way of saying the key is not there.
+ *
+ * The second arm is the discriminated union: zod hands its error map the whole
+ * object and points the path at the discriminator, so `input` is not
+ * `undefined` and the first arm cannot see it. `Object.hasOwn` rather than
+ * `in`, on this project's own rule — a document's keys are chosen by a
+ * developer, and `constructor` satisfies the slug grammar.
+ */
+const absent = (issue: z.core.$ZodRawIssue, key: string): boolean =>
+  issue.input === undefined
+  || (issue.code === 'invalid_union'
+    && typeof issue.input === 'object'
+    && issue.input !== null
+    && !Object.hasOwn(issue.input, key))
 
 /** Each field of a shape, carrying the sentence it says when it is missing. */
 const namesItsAbsence = <T extends z.ZodRawShape>(shape: T): T =>
@@ -208,8 +274,26 @@ const namesItsAbsence = <T extends z.ZodRawShape>(shape: T): T =>
  * an `error` on the containing object is never consulted for it; measured on
  * zod 4.4.3, an error map on the object saw no such issue at all. So the
  * sentence is attached to every field of every shape, here, in one place,
- * rather than at the thirteen objects and hundred-odd fields it would
+ * rather than at the eighteen objects and hundred-odd fields it would
  * otherwise have to be remembered at.
+ *
+ * **How "every" is enforced, because the first version of this comment said
+ * "every" and was wrong.** Six of the eighteen objects were written
+ * `z\n  .strictObject({`, so `z.strictObject` never appeared on one line and a
+ * `grep` for it returned only prose. Twelve conversions read as eighteen, and
+ * eleven required keys — `datapoints.<slug>.topic` and `.type` among them,
+ * which is the commonest entry in the whole format — went on reciting the
+ * sentence §1.5 calls unusable. The claim was in the source, which is what the
+ * next person reads.
+ *
+ * What makes it true now is not this paragraph. It is
+ * `config-zod-messages.test.ts`'s *"a required key that is absent names
+ * itself"*: a walk of the exported schema's `required` arrays against a
+ * fully-populated document, `oneOf` branches resolved by their discriminator,
+ * deleting one key at a time and asserting the message names it. It reaches 52
+ * positions across 19 objects, and the count comes out of the walk rather than
+ * off a list — a required key added to the format later is swept the day it
+ * exists, and an object that skips this helper is red before it is merged.
  */
 const strictObject = <T extends z.ZodRawShape>(shape: T) => z.strictObject(namesItsAbsence(shape))
 
@@ -445,59 +529,58 @@ const PARAMETER_SNIPPET: Snippet = {
  * "required" is exactly "has no `default`" — a second spelling of one fact
  * is the defect this file has spent two waves removing.
  */
-export const parameterSpec = z
-  .strictObject({
-    type: parameterType.meta({
-      description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
-      /**
-       * One sentence per value. The field's own paragraph is already the
-       * hover; these answer the different question the editor asks when the
-       * cursor is on **one** offer — what is this type, and what does choosing
-       * it allow. Written for the value, so `int32` states its range and
-       * `string` says it is the type a `regex` may constrain.
-       */
-      enumDescriptions: describeValues(parameterType.options, {
-        bool: 'A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.',
-        byte: 'One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.',
-        char: 'A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.',
-        int8: 'A whole number from `-128` to `127`.',
-        uint8: 'A whole number from `0` to `255`.',
-        int16: 'A whole number from `-32768` to `32767`.',
-        uint16: 'A whole number from `0` to `65535`.',
-        int32: 'A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.',
-        uint32: 'A whole number from `0` to `4294967295`.',
-        int64: 'A whole number from `-9223372036854775808` to `9223372036854775807`.',
-        uint64: 'A whole number from `0` to `18446744073709551615`.',
-        float32: 'A single-precision number, roughly seven significant digits.',
-        float64: 'A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.',
-        string: 'Text, carried as UTF-8. One of the two types a `regex` may constrain.',
-        wstring: 'Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms.',
-      }),
+export const parameterSpec = strictObject({
+  type: parameterType.meta({
+    description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
+    /**
+     * One sentence per value. The field's own paragraph is already the
+     * hover; these answer the different question the editor asks when the
+     * cursor is on **one** offer — what is this type, and what does choosing
+     * it allow. Written for the value, so `int32` states its range and
+     * `string` says it is the type a `regex` may constrain.
+     */
+    enumDescriptions: describeValues(parameterType.options, {
+      bool: 'A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.',
+      byte: 'One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.',
+      char: 'A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.',
+      int8: 'A whole number from `-128` to `127`.',
+      uint8: 'A whole number from `0` to `255`.',
+      int16: 'A whole number from `-32768` to `32767`.',
+      uint16: 'A whole number from `0` to `65535`.',
+      int32: 'A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.',
+      uint32: 'A whole number from `0` to `4294967295`.',
+      int64: 'A whole number from `-9223372036854775808` to `9223372036854775807`.',
+      uint64: 'A whole number from `0` to `18446744073709551615`.',
+      float32: 'A single-precision number, roughly seven significant digits.',
+      float64: 'A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.',
+      string: 'Text, carried as UTF-8. One of the two types a `regex` may constrain.',
+      wstring: 'Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms.',
     }),
-    default: z.union([z.number(), z.string(), z.boolean()]).meta({
-      description: 'The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
-    }).optional(),
-    min_value: z.number().meta({
-      description: 'The lowest value a caller may send; numeric types only. It is **enforced in the cloud, before anything reaches the robot** — this is where a speed limit actually holds, rather than in the app that is supposed to respect it.',
-      examples: [-0.5],
-    }).optional(),
-    max_value: z.number().meta({
-      description: 'The highest value a caller may send; numeric types only, and it may not sit below `min_value`. A reversed pair is refused at parse time, because nothing downstream catches it and every call would then fail against a bound no value can satisfy.',
-      examples: [0.5],
-    }).optional(),
-    enum: z.array(z.union([z.string(), z.number()])).min(1).meta({
-      description: 'The complete set of values a caller may send. Integer and string types only — **never a float**, because equality on floating point is unreliable and an enumerated float list is a trap that only shows up in operation. Every entry must match `type`, and a `default` must be one of them.',
-    }).optional(),
-    regex: z.string().min(1).meta({
-      description: 'A pattern the value must match; string types only. It is compiled as a JavaScript regular expression and is **not anchored**, so `[a-z]+` accepts any value that merely contains a lowercase run — a pattern meant to cover the whole value writes its own `^` and `$`.',
-      examples: ['^[a-z_]+$'],
-    }).optional(),
-    description: parameterDescription.meta({
-      description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the MCP tool\'s input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
-      /** The sentence `PARAMETER_SNIPPET` already places here, verbatim. */
-      examples: ['What a caller is choosing when they set this.'],
-    }),
-  })
+  }),
+  default: z.union([z.number(), z.string(), z.boolean()]).meta({
+    description: 'The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
+  }).optional(),
+  min_value: z.number().meta({
+    description: 'The lowest value a caller may send; numeric types only. It is **enforced in the cloud, before anything reaches the robot** — this is where a speed limit actually holds, rather than in the app that is supposed to respect it.',
+    examples: [-0.5],
+  }).optional(),
+  max_value: z.number().meta({
+    description: 'The highest value a caller may send; numeric types only, and it may not sit below `min_value`. A reversed pair is refused at parse time, because nothing downstream catches it and every call would then fail against a bound no value can satisfy.',
+    examples: [0.5],
+  }).optional(),
+  enum: z.array(z.union([z.string(), z.number()])).min(1).meta({
+    description: 'The complete set of values a caller may send. Integer and string types only — **never a float**, because equality on floating point is unreliable and an enumerated float list is a trap that only shows up in operation. Every entry must match `type`, and a `default` must be one of them.',
+  }).optional(),
+  regex: z.string().min(1).meta({
+    description: 'A pattern the value must match; string types only. It is compiled as a JavaScript regular expression and is **not anchored**, so `[a-z]+` accepts any value that merely contains a lowercase run — a pattern meant to cover the whole value writes its own `^` and `$`.',
+    examples: ['^[a-z_]+$'],
+  }).optional(),
+  description: parameterDescription.meta({
+    description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the MCP tool\'s input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
+    /** The sentence `PARAMETER_SNIPPET` already places here, verbatim. */
+    examples: ['What a caller is choosing when they set this.'],
+  }),
+})
   .superRefine((p, ctx) => {
     const numeric = INTEGER_TYPES.has(p.type) || FLOAT_TYPES.has(p.type)
     const refuse = (path: (string | number)[], why: string, code?: string) =>
@@ -622,17 +705,16 @@ export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure
  * is therefore mandatory for thresholds — a value sitting exactly on a
  * threshold with no gap flips on every sample.
  */
-export const alertCondition = z
-  .strictObject({
-    fire_at: z.union([z.number().finite(), z.string(), z.boolean()]).meta({
-      description: 'The value at which the alert starts firing. Alone it is an **equality**: it fires while the value equals `fire_at` and is ok again as soon as it differs, which is what makes a boolean or a string condition meaningful. Adding `resolve_at` turns it into a threshold instead.',
-      examples: [15, true],
-    }),
-    resolve_at: z.number().finite().meta({
-      description: 'The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis, and it makes the condition a threshold whose direction follows from which of the two values is higher. Without a gap a value sitting on the line flips on every sample.',
-      examples: [18],
-    }).optional(),
-  })
+export const alertCondition = strictObject({
+  fire_at: z.union([z.number().finite(), z.string(), z.boolean()]).meta({
+    description: 'The value at which the alert starts firing. Alone it is an **equality**: it fires while the value equals `fire_at` and is ok again as soon as it differs, which is what makes a boolean or a string condition meaningful. Adding `resolve_at` turns it into a threshold instead.',
+    examples: [15, true],
+  }),
+  resolve_at: z.number().finite().meta({
+    description: 'The value at which a firing alert becomes ok again — allowed only when `fire_at` is a number, and it **must differ from it**. That gap is the hysteresis, and it makes the condition a threshold whose direction follows from which of the two values is higher. Without a gap a value sitting on the line flips on every sample.',
+    examples: [18],
+  }).optional(),
+})
   .superRefine((c, ctx) => {
     if (c.resolve_at === undefined) return
     if (typeof c.fire_at !== 'number')
@@ -838,28 +920,27 @@ export type DatapointRetention = z.infer<typeof datapointRetention>
  */
 const chartStyle = z.enum(['line', 'step'])
 
-export const datapointChart = z
-  .strictObject({
-    y_min: z.number().finite().meta({
-      description: 'A fixed floor for the chart\'s y axis; omitted, the axis scales to the data. `0` is a real floor and is read as `0`, never as unset.',
-      examples: [0],
-    }).optional(),
-    y_max: z.number().finite().meta({
-      description: 'A fixed ceiling for the chart\'s y axis; omitted, the axis scales to the data. It may not sit below `y_min`: a reversed pair is refused here because nothing downstream catches it, and the chart would render empty.',
-      examples: [100],
-    }).optional(),
-    style: chartStyle.meta({
-      description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
-      enumDescriptions: describeValues(chartStyle.options, {
-        line: 'Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.',
-        step: 'Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported.',
-      }),
-    }).optional(),
-    default_window_minutes: z.number().int().min(1).max(43_200).meta({
-      description: 'How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
-      examples: [1440],
-    }).optional(),
-  })
+export const datapointChart = strictObject({
+  y_min: z.number().finite().meta({
+    description: 'A fixed floor for the chart\'s y axis; omitted, the axis scales to the data. `0` is a real floor and is read as `0`, never as unset.',
+    examples: [0],
+  }).optional(),
+  y_max: z.number().finite().meta({
+    description: 'A fixed ceiling for the chart\'s y axis; omitted, the axis scales to the data. It may not sit below `y_min`: a reversed pair is refused here because nothing downstream catches it, and the chart would render empty.',
+    examples: [100],
+  }).optional(),
+  style: chartStyle.meta({
+    description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
+    enumDescriptions: describeValues(chartStyle.options, {
+      line: 'Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.',
+      step: 'Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported.',
+    }),
+  }).optional(),
+  default_window_minutes: z.number().int().min(1).max(43_200).meta({
+    description: 'How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
+    examples: [1440],
+  }).optional(),
+})
   .superRefine((c, ctx) => {
     if (c.y_min !== undefined && c.y_max !== undefined && c.y_min > c.y_max)
       ctx.addIssue({ code: 'custom', path: ['y_min'], message: 'y_min is greater than y_max' })
@@ -932,141 +1013,140 @@ const NUMERIC_DATAPOINT_SNIPPET: Snippet = {
  * ceiling is 20: an app's surface has no use for more, and a control loop
  * belongs on a tool that reads at the robot.
  */
-export const datapointConfig = z
-  .strictObject({
-    topic: rosName.meta({
-      description: 'The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.',
-      patternErrorMessage: ROS_NAME_RULE,
-      examples: ['/battery'],
-    }),
-    type: rosTypeName.meta({
-      description: 'The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
-      patternErrorMessage: ROS_TYPE_NAME_RULE,
-      examples: ['sensor_msgs/msg/BatteryState'],
-    }),
-    field: fieldPath.meta({
-      description: 'A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
-      patternErrorMessage: FIELD_PATH_RULE,
-      examples: ['voltage', 'pose.position.x', 'ranges[0]'],
-    }).optional(),
-    rate_throttle_hz: rateThrottleHz.meta({
-      description: 'A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot\'s bandwidth is genuinely saved.',
-      examples: [2, 0.5],
-    }).optional(),
-    description: serviceDescription.meta({
-      description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
-      /**
-       * The sentence both datapoint snippets already place here, verbatim. Its
-       * four siblings — an action's, a service's, a publisher's, a camera's —
-       * each carry the sentence from their own snippet body, so this position
-       * was the one description in the format offering nothing; a second wording
-       * invented here would have been the drift instead.
-       */
-      examples: ['What this value is, for whoever meets it in the console.'],
-    }),
-    numeric: datapointNumeric.meta({
-      description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
-      /**
-       * The quotes inside `unit` are inserted text, not decoration, for the
-       * reason spelled out on the `datapoints` snippet below: a body string is
-       * written to the buffer verbatim and a bare `%` is a YAML directive
-       * indicator, so `unit: %` is a syntax error where `unit: "%"` parses.
-       *
-       * **`offset` is not in the body, and that is a choice rather than an
-       * oversight.** All four fields carry `examples`, but they were authored
-       * per field and from two different conversions: `scale: 100` with
-       * `unit: '%'` is a 0..1 fraction shown as a percentage, while
-       * `offset: -273.15` is kelvin as celsius. A body holding both would
-       * insert arithmetic that means nothing and that a developer has to
-       * unpick before it means anything. The rule this file follows is that a
-       * skeleton carries what a developer opening the block almost certainly
-       * wants, at the node's own example values; the remaining keys arrive by
-       * ordinary key completion, which works here and never stopped working —
-       * the position that was silent is the *value* after `numeric:`.
-       */
-      defaultSnippets: [{
-        label: 'a unit, and the arithmetic that produces it',
-        description: 'A 0..1 fraction sent as a percentage to one decimal. `scale` is applied on the robot before sending, so history stores the converted value and a later correction cannot reach what is already stored.',
-        body: { scale: 100, unit: '"%"', decimals: 1 },
-      }],
-    }).optional(),
-    retention: datapointRetention.meta({
-      description: 'What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.',
-      /**
-       * `enabled: true` is the only value that makes opening this block mean
-       * anything — absent already means off, so a skeleton inserting `false`
-       * would be a block that does nothing. It is a boolean and carries no
-       * `examples`; the direction comes from the schema comment above, which
-       * says why absent-means-off is the deliberate one.
-       *
-       * `interval_seconds: 300` restates the format's own default, on purpose:
-       * stored points are what a customer is billed for, so this is the direct
-       * lever on what a robot costs, and a developer who never sees the field
-       * never tunes it.
-       *
-       * **This body carries `max_buffer_values` and the composite `datapoints`
-       * snippet's `retention:` does not, deliberately.** The two answer
-       * different questions and the difference is the answer to each: the
-       * composite says *what a datapoint looks like*, where retention is one
-       * of three sub-blocks and the robot-side buffer is a tuning detail that
-       * would bury the shape it is there to show; this node is reached only by
-       * a developer who has written `retention:` and asked what goes in it, and
-       * for that question the buffer is a third of the answer. Neither is the
-       * corrected version of the other.
-       */
-      defaultSnippets: [{
-        label: 'history, on, with its interval and buffer',
-        description: 'Writes this value to the time series every 300 seconds and holds 5000 points on the robot while the bridge is away. Stored points are billed, so both numbers are worth choosing rather than inheriting.',
-        body: { enabled: true, interval_seconds: 300, max_buffer_values: 5000 },
-      }],
-    }).optional(),
-    chart: datapointChart.meta({
-      description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration.',
-      /**
-       * `style` is a **choice**, not a literal, for the reason the camera
-       * source's `type` is one: the format offers a closed pair, the right
-       * answer depends on what the datapoint is, and the snippet cannot know.
-       * Its own description says the two are not a matter of taste — `line`
-       * claims the value moved evenly between two samples, `step` holds and
-       * jumps, and `step` is the only honest drawing for a mode, a switch or a
-       * counter. A snippet that picked `line` would draw values that never
-       * existed, and nothing would object: both are valid, no diagnostic
-       * fires, and the chart looks plausible.
-       *
-       * `Choice.toString()` is the first option, so a developer who tabs past
-       * this gets `line`, which is right for the continuous values most charts
-       * carry; one who opens the picker sees that `step` exists at all.
-       *
-       * The composite snippet on `datapoints` writes `style: 'line'` as a
-       * literal and stays that way — its body is a battery percentage, where
-       * `line` is not a guess.
-       *
-       * **`default_window_minutes` is left out, on the same rule that leaves
-       * `offset` out of `numeric` above**, and it is said here so that the two
-       * omissions read alike: it has its own `examples` (`1440`) and this
-       * node's description names it, but it is the one field of the four that
-       * decides nothing about the drawing — absent means 60, a viewer may look
-       * further whatever it says, and nothing about what is stored follows from
-       * it. Key completion offers it inside the block the moment anyone wants
-       * it; the position that was silent is the *value* after `chart:`.
-       */
-      defaultSnippets: [{
-        label: 'axis bounds, and how two samples are joined',
-        description: 'A fixed 0..100 axis rather than one that scales to the data, and a choice between interpolating and stepping between samples — which is not a matter of taste.',
-        body: { y_min: 0, y_max: 100, style: '${1|line,step|}' },
-      }],
-    }).optional(),
-    alerts: slugKeyed(datapointAlert).meta({
-      description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
-      /**
-       * The body is `ALERT_SNIPPET` under its slug key — the same skeleton the
-       * entry position offers, and the reasons behind every value in it are
-       * written there. **The key is in the wrapper**, and it is the alert's
-       * identity: renaming it is a delete plus a create.
-       */
-      defaultSnippets: [underSlug('${1:battery_low}', ALERT_SNIPPET)],
-    }).optional(),
-  })
+export const datapointConfig = strictObject({
+  topic: rosName.meta({
+    description: 'The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.',
+    patternErrorMessage: ROS_NAME_RULE,
+    examples: ['/battery'],
+  }),
+  type: rosTypeName.meta({
+    description: 'The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
+    patternErrorMessage: ROS_TYPE_NAME_RULE,
+    examples: ['sensor_msgs/msg/BatteryState'],
+  }),
+  field: fieldPath.meta({
+    description: 'A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
+    patternErrorMessage: FIELD_PATH_RULE,
+    examples: ['voltage', 'pose.position.x', 'ranges[0]'],
+  }).optional(),
+  rate_throttle_hz: rateThrottleHz.meta({
+    description: 'A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot\'s bandwidth is genuinely saved.',
+    examples: [2, 0.5],
+  }).optional(),
+  description: serviceDescription.meta({
+    description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
+    /**
+     * The sentence both datapoint snippets already place here, verbatim. Its
+     * four siblings — an action's, a service's, a publisher's, a camera's —
+     * each carry the sentence from their own snippet body, so this position
+     * was the one description in the format offering nothing; a second wording
+     * invented here would have been the drift instead.
+     */
+    examples: ['What this value is, for whoever meets it in the console.'],
+  }),
+  numeric: datapointNumeric.meta({
+    description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
+    /**
+     * The quotes inside `unit` are inserted text, not decoration, for the
+     * reason spelled out on the `datapoints` snippet below: a body string is
+     * written to the buffer verbatim and a bare `%` is a YAML directive
+     * indicator, so `unit: %` is a syntax error where `unit: "%"` parses.
+     *
+     * **`offset` is not in the body, and that is a choice rather than an
+     * oversight.** All four fields carry `examples`, but they were authored
+     * per field and from two different conversions: `scale: 100` with
+     * `unit: '%'` is a 0..1 fraction shown as a percentage, while
+     * `offset: -273.15` is kelvin as celsius. A body holding both would
+     * insert arithmetic that means nothing and that a developer has to
+     * unpick before it means anything. The rule this file follows is that a
+     * skeleton carries what a developer opening the block almost certainly
+     * wants, at the node's own example values; the remaining keys arrive by
+     * ordinary key completion, which works here and never stopped working —
+     * the position that was silent is the *value* after `numeric:`.
+     */
+    defaultSnippets: [{
+      label: 'a unit, and the arithmetic that produces it',
+      description: 'A 0..1 fraction sent as a percentage to one decimal. `scale` is applied on the robot before sending, so history stores the converted value and a later correction cannot reach what is already stored.',
+      body: { scale: 100, unit: '"%"', decimals: 1 },
+    }],
+  }).optional(),
+  retention: datapointRetention.meta({
+    description: 'What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.',
+    /**
+     * `enabled: true` is the only value that makes opening this block mean
+     * anything — absent already means off, so a skeleton inserting `false`
+     * would be a block that does nothing. It is a boolean and carries no
+     * `examples`; the direction comes from the schema comment above, which
+     * says why absent-means-off is the deliberate one.
+     *
+     * `interval_seconds: 300` restates the format's own default, on purpose:
+     * stored points are what a customer is billed for, so this is the direct
+     * lever on what a robot costs, and a developer who never sees the field
+     * never tunes it.
+     *
+     * **This body carries `max_buffer_values` and the composite `datapoints`
+     * snippet's `retention:` does not, deliberately.** The two answer
+     * different questions and the difference is the answer to each: the
+     * composite says *what a datapoint looks like*, where retention is one
+     * of three sub-blocks and the robot-side buffer is a tuning detail that
+     * would bury the shape it is there to show; this node is reached only by
+     * a developer who has written `retention:` and asked what goes in it, and
+     * for that question the buffer is a third of the answer. Neither is the
+     * corrected version of the other.
+     */
+    defaultSnippets: [{
+      label: 'history, on, with its interval and buffer',
+      description: 'Writes this value to the time series every 300 seconds and holds 5000 points on the robot while the bridge is away. Stored points are billed, so both numbers are worth choosing rather than inheriting.',
+      body: { enabled: true, interval_seconds: 300, max_buffer_values: 5000 },
+    }],
+  }).optional(),
+  chart: datapointChart.meta({
+    description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration.',
+    /**
+     * `style` is a **choice**, not a literal, for the reason the camera
+     * source's `type` is one: the format offers a closed pair, the right
+     * answer depends on what the datapoint is, and the snippet cannot know.
+     * Its own description says the two are not a matter of taste — `line`
+     * claims the value moved evenly between two samples, `step` holds and
+     * jumps, and `step` is the only honest drawing for a mode, a switch or a
+     * counter. A snippet that picked `line` would draw values that never
+     * existed, and nothing would object: both are valid, no diagnostic
+     * fires, and the chart looks plausible.
+     *
+     * `Choice.toString()` is the first option, so a developer who tabs past
+     * this gets `line`, which is right for the continuous values most charts
+     * carry; one who opens the picker sees that `step` exists at all.
+     *
+     * The composite snippet on `datapoints` writes `style: 'line'` as a
+     * literal and stays that way — its body is a battery percentage, where
+     * `line` is not a guess.
+     *
+     * **`default_window_minutes` is left out, on the same rule that leaves
+     * `offset` out of `numeric` above**, and it is said here so that the two
+     * omissions read alike: it has its own `examples` (`1440`) and this
+     * node's description names it, but it is the one field of the four that
+     * decides nothing about the drawing — absent means 60, a viewer may look
+     * further whatever it says, and nothing about what is stored follows from
+     * it. Key completion offers it inside the block the moment anyone wants
+     * it; the position that was silent is the *value* after `chart:`.
+     */
+    defaultSnippets: [{
+      label: 'axis bounds, and how two samples are joined',
+      description: 'A fixed 0..100 axis rather than one that scales to the data, and a choice between interpolating and stepping between samples — which is not a matter of taste.',
+      body: { y_min: 0, y_max: 100, style: '${1|line,step|}' },
+    }],
+  }).optional(),
+  alerts: slugKeyed(datapointAlert).meta({
+    description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
+    /**
+     * The body is `ALERT_SNIPPET` under its slug key — the same skeleton the
+     * entry position offers, and the reasons behind every value in it are
+     * written there. **The key is in the wrapper**, and it is the alert's
+     * identity: renaming it is a delete plus a create.
+     */
+    defaultSnippets: [underSlug('${1:battery_low}', ALERT_SNIPPET)],
+  }).optional(),
+})
   .superRefine((d, ctx) => {
     if (d.field !== undefined) return
     for (const group of ['numeric', 'chart', 'alerts'] as const) {
@@ -1435,16 +1515,15 @@ export const publisherConfig = strictObject({
   }),
   message: messageBody,
   parameters: parameterMap.optional(),
-  failsafe: z
-    .strictObject({
-      timeout_ms: z.number().int().positive().max(60_000).meta({
-        description: 'How long the bridge waits for the client\'s next send before sending the failsafe message itself, in milliseconds. The deadline runs **on the robot**, so it still fires when the link to the cloud is what failed — which is the case it exists for.',
-        examples: [500, 1000],
-      }),
-      message: messageBody.meta({
-        description: 'What the bridge sends once `timeout_ms` runs out — for a drive command, a zero twist. It must be safe in **every** state, because it is sent precisely when nobody is watching any more, and it may hold no placeholder: there is no caller left to fill one.',
-      }),
-    })
+  failsafe: strictObject({
+    timeout_ms: z.number().int().positive().max(60_000).meta({
+      description: 'How long the bridge waits for the client\'s next send before sending the failsafe message itself, in milliseconds. The deadline runs **on the robot**, so it still fires when the link to the cloud is what failed — which is the case it exists for.',
+      examples: [500, 1000],
+    }),
+    message: messageBody.meta({
+      description: 'What the bridge sends once `timeout_ms` runs out — for a drive command, a zero twist. It must be safe in **every** state, because it is sent precisely when nobody is watching any more, and it may hold no placeholder: there is no caller left to fill one.',
+    }),
+  })
     /**
      * The string case is the exemption, not an oversight — see the paragraph
      * above — so it is tested first, where it reads as one.
@@ -1505,16 +1584,15 @@ export type PublisherConfig = z.infer<typeof publisherConfig>
  * The bound on that decision is elsewhere and load-bearing — the publish
  * audit event and the org event stream must not carry the document body.
  */
-export const cameraCredentials = z
-  .strictObject({
-    username: z.string().min(1).max(128).optional().meta({
-      description: 'The account name the camera expects. For MJPEG the bridge sends a real HTTP `Authorization: Basic` header and leaves the URL untouched. RTSP offers no such channel through ffmpeg, so there the name goes inside the connect URL instead — built fresh for that one call and never written back into the stored document.',
-      examples: ['ops'],
-    }),
-    password: z.string().min(1).max(128).optional().meta({
-      description: 'The password for `username`. **There is no secret store behind this**: the value written here is the value stored, so treat it as readable by everyone who may read this robot\'s configuration, now and in its history.',
-    }),
-  })
+export const cameraCredentials = strictObject({
+  username: z.string().min(1).max(128).optional().meta({
+    description: 'The account name the camera expects. For MJPEG the bridge sends a real HTTP `Authorization: Basic` header and leaves the URL untouched. RTSP offers no such channel through ffmpeg, so there the name goes inside the connect URL instead — built fresh for that one call and never written back into the stored document.',
+    examples: ['ops'],
+  }),
+  password: z.string().min(1).max(128).optional().meta({
+    description: 'The password for `username`. **There is no secret store behind this**: the value written here is the value stored, so treat it as readable by everyone who may read this robot\'s configuration, now and in its history.',
+  }),
+})
   .meta({
     description: 'Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it.',
     defaultSnippets: [{
