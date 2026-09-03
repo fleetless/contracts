@@ -161,7 +161,7 @@ export function formatPath(path: readonly PropertyKey[]): string {
   if (path.length === 0) return DOCUMENT_ROOT_PATH
   return path.reduce<string>((acc, segment, index) => {
     if (typeof segment === 'number') return `${acc}[${segment}]`
-    const written = isBlank(segment) ? JSON.stringify(segment) : String(segment)
+    const written = isBlank(segment) ? quoteBlank(segment) : String(segment)
     // Indexed rather than `acc === ''`: "first segment" used to be detected as
     // "nothing written yet", which is how an empty first segment came to be
     // dropped entirely — `formatPath(['', 'a'])` was `'a'`, a path naming a
@@ -170,6 +170,28 @@ export function formatPath(path: readonly PropertyKey[]): string {
     // happens to produce is the shape this file exists to avoid.
     return index === 0 ? written : `${acc}.${written}`
   }, '')
+}
+
+/**
+ * The quoted spelling of a blank segment: its JSON string literal, with every
+ * zero-width character written as a `\uXXXX` escape.
+ *
+ * `JSON.stringify` escapes the C0 controls and nothing else, so a zero-width
+ * space came back as itself and `"\u200b"` rendered as two quote marks with
+ * nothing between them — visible as *a* blank key, but indistinguishable from
+ * `""`, and so not findable. The bar this function's caller set itself is that
+ * the developer can search their own file for the path, and `\uXXXX` is a JSON
+ * escape *and* a YAML double-quoted escape, so the quoted form stays a valid
+ * YAML spelling of exactly the key complained about while naming which
+ * invisible character it is. Astral format characters are left as
+ * `JSON.stringify` wrote them: `\uXXXX` cannot spell them and their surrogate
+ * pair already round-trips.
+ */
+function quoteBlank(segment: string): string {
+  return JSON.stringify(segment).replace(/\p{Cf}/gu, (char) => {
+    const code = char.codePointAt(0)!
+    return code > 0xffff ? char : `\\u${code.toString(16).padStart(4, '0')}`
+  })
 }
 
 /**

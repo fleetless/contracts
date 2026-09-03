@@ -313,21 +313,35 @@ describe('formatPath and splitFormatPath', () => {
   it('counts a zero-width character as rendering as nothing, which `trim` does not', () => {
     // `String.prototype.trim` removes Unicode White_Space, and none of these
     // are White_Space — they are format characters. Measured: with `isBlank`
-    // spelled `segment.trim() === ''`, every assertion in this test fails,
-    // because the segment is written bare and a bare zero-width character is
-    // a path segment the developer sees as nothing at all. That is the same
-    // defect the quoting exists to close, one character class over.
-    expect(formatPath(['\u200b'])).toBe('"\u200b"')
-    expect(formatPath(['datapoints', 'battery_soc', '\ufeff'])).toBe('datapoints.battery_soc."\ufeff"')
+    // spelled `segment.trim() === ''`, the first assertion below fails,
+    // because the segment is then written bare and a bare zero-width
+    // character is a path segment the developer sees as nothing at all — at
+    // the end of a path, as a trailing `.`, which is the exact shape this
+    // wave fixed for the empty key.
+    //
+    // The expectations are written as escapes in the SOURCE too, deliberately:
+    // a test whose expected string held a literal U+200B would be a test
+    // nobody reviewing it could read, about invisibility.
+    expect(formatPath(['\u200b'])).toBe('"\\u200b"')
+    expect(formatPath(['datapoints', 'battery_soc', '\ufeff'])).toBe('datapoints.battery_soc."\\ufeff"')
 
-    // Mixed with real whitespace, and mixed with each other.
-    expect(formatPath([' \u200b\u2060 '])).toBe('" \u200b\u2060 "')
+    // Mixed with real whitespace, and mixed with each other. The whitespace
+    // stays literal — it is `trim`'s business and it is already spellable.
+    expect(formatPath([' \u200b\u2060 '])).toBe('" \\u200b\\u2060 "')
+
+    // The escape, not the bare character, is the point: `"\u200b"` and `""`
+    // are the same two visible characters, so a path that merely quoted would
+    // say "a blank key" without saying WHICH, and the bar this set itself is
+    // that the developer can search their own file for the path. `\uXXXX` is
+    // a YAML double-quoted escape as well as a JSON one.
+    expect(formatPath(['\u200b'])).not.toBe('"\u200b"')
 
     // A name with something to read in it stays bare, zero-width neighbours
     // and all: the test is "renders as nothing", not "contains an oddity".
     expect(formatPath(['a\u200bb'])).toBe('a\u200bb')
 
-    // And they round-trip, because `unquoteBlank` asks the same predicate.
+    // And they round-trip, because `unquoteBlank` asks the same predicate and
+    // `JSON.parse` reads the escape back.
     for (const segment of ['\u200b', '\ufeff', ' \u200b\u2060 ']) {
       expect(splitFormatPath(formatPath(['datapoints', 'x', segment]))).toEqual(['datapoints', 'x', segment])
     }
