@@ -11,13 +11,17 @@ import type { ValidationIssue } from './config.js'
  * this and then disagreed with the server about what is wrong would be worse
  * than a console that said nothing (spec D3).
  *
- * **Two copies exist while you are reading this, and that is the thing this
- * module exists to prevent.** The cloud cannot import a specifier it has not
- * pinned, so its own copy of `schemaIssues`, `refusal`, `slugOf`,
- * `formatPath` and `valueAt` stays until **wave 2 task 8** re-pins contracts,
- * deletes them and imports these. Until that lands, this project has the
- * second door D3 forbids — named here so the window cannot be forgotten
- * rather than left to be rediscovered.
+ * **The second door D3 forbids existed for one wave, and closed in wave 2
+ * task 8** (cloud `a307e18`, 2026-09-03). The cloud cannot import a specifier
+ * it has not pinned, so its own copy of `schemaIssues`, `refusal`, `slugOf`,
+ * `formatPath` and `valueAt` stood from wave 1, when this module landed here,
+ * until that re-pin deleted them and imported these. The window is recorded
+ * rather than dropped because it cost a live bug while it was open: the
+ * cloud's own `formatPath` wrote a blank path segment as the empty string,
+ * which `validationIssue.path`'s `min(1)` refuses, so a draft containing
+ * `"": 3` rode a 200 whose whole body the console's `safeParse` then dropped.
+ * Anything else that lands in contracts ahead of its consumer's pin opens the
+ * same window.
  */
 
 /**
@@ -41,10 +45,11 @@ export const DOCUMENT_ROOT_PATH = '(document)'
  * `messages:` is deliberately not among them: its names are their own
  * namespace.
  *
- * `cloud/src/config-sections.ts` holds the same list today and drives the
- * cloud's iteration over sections. Wave 2 task 8, which deletes the cloud's
- * copy of the mapper, should make that file import this constant rather than
- * keep a second spelling of the list.
+ * `cloud/src/config-sections.ts` re-exports this constant and drives the
+ * cloud's iteration over sections from it; the console reads it directly
+ * (`useConfigRepairs.ts`). It was spelled out separately in all three until
+ * wave 2 task 8 (cloud `a307e18`, 2026-09-03) — this is the only spelling
+ * since.
  */
 export const EXPOSURE_SECTIONS = ['datapoints', 'actions', 'services', 'publishers', 'cameras'] as const
 export type ExposureSection = (typeof EXPOSURE_SECTIONS)[number]
@@ -128,8 +133,9 @@ function slugOf(path: readonly PropertyKey[]): string | null {
  *
  * **A segment that would render as nothing is written quoted instead.** The
  * last segment of an `unrecognized_keys` or `invalid_key` path is a key the
- * *developer* wrote, and YAML lets that key be empty (`"": 3`) or nothing but
- * whitespace. Rendered bare, such a key produced a path a reader cannot act
+ * *developer* wrote, and YAML lets that key be empty (`"": 3`), nothing but
+ * whitespace, or — see `isBlank` — nothing but characters that occupy no
+ * width. Rendered bare, such a key produced a path a reader cannot act
  * on — and at the root it produced the empty string, which
  * `validationIssue.path` (`z.string().min(1)`) refuses. That was the cloud
  * publishing a finding that fails the cloud's own contract for findings, and
@@ -166,9 +172,25 @@ export function formatPath(path: readonly PropertyKey[]): string {
   }, '')
 }
 
-/** A name with nothing in it to read: empty, or whitespace all the way through. */
+/**
+ * A name with nothing in it to read: empty, whitespace all the way through, or
+ * made of characters that occupy no width.
+ *
+ * `trim()` alone is not the test, and that gap was real rather than
+ * theoretical: `trim()` removes Unicode `White_Space`, and a zero-width space
+ * (`U+200B`) is not white space — it is a format character (`Cf`), as are
+ * `U+200C`–`U+200F`, the word joiner `U+2060` and a stray BOM `U+FEFF`. A key
+ * spelled with one of those rendered bare and therefore rendered as nothing,
+ * which is the exact defect quoting exists to close, one character class over.
+ * Format characters are stripped before the trim so both classes, and any
+ * mixture of them, reach the same answer.
+ *
+ * This is the **only** spelling of "blank" in this file. `unquoteBlank` asks
+ * the same question on the way back and must get the same answer, or a path
+ * `formatPath` quoted stops round-tripping.
+ */
 function isBlank(segment: PropertyKey): segment is string {
-  return typeof segment === 'string' && segment.trim() === ''
+  return typeof segment === 'string' && segment.replace(/\p{Cf}/gu, '').trim() === ''
 }
 
 /**
@@ -247,7 +269,7 @@ function unquoteBlank(chunk: string): string | null {
   } catch {
     return null
   }
-  return typeof value === 'string' && value.trim() === '' ? value : null
+  return typeof value === 'string' && isBlank(value) ? value : null
 }
 
 /**

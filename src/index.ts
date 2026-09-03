@@ -182,8 +182,9 @@ export type {
 } from './config.js'
 /**
  * FL-005 — the one account of what is wrong with a document, shared by the
- * cloud and the console. See `config-issues.ts`'s header for the window in
- * which the cloud still holds a second copy.
+ * cloud and the console. The cloud held a second copy for one wave; it was
+ * deleted in wave 2 task 8 (cloud `a307e18`, 2026-09-03). See
+ * `config-issues.ts`'s header for what that window cost.
  */
 export {
   DOCUMENT_ROOT_PATH,

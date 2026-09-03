@@ -310,6 +310,29 @@ describe('formatPath and splitFormatPath', () => {
     expect(formatPath([' a '])).toBe(' a ')
   })
 
+  it('counts a zero-width character as rendering as nothing, which `trim` does not', () => {
+    // `String.prototype.trim` removes Unicode White_Space, and none of these
+    // are White_Space — they are format characters. Measured: with `isBlank`
+    // spelled `segment.trim() === ''`, every assertion in this test fails,
+    // because the segment is written bare and a bare zero-width character is
+    // a path segment the developer sees as nothing at all. That is the same
+    // defect the quoting exists to close, one character class over.
+    expect(formatPath(['\u200b'])).toBe('"\u200b"')
+    expect(formatPath(['datapoints', 'battery_soc', '\ufeff'])).toBe('datapoints.battery_soc."\ufeff"')
+
+    // Mixed with real whitespace, and mixed with each other.
+    expect(formatPath([' \u200b\u2060 '])).toBe('" \u200b\u2060 "')
+
+    // A name with something to read in it stays bare, zero-width neighbours
+    // and all: the test is "renders as nothing", not "contains an oddity".
+    expect(formatPath(['a\u200bb'])).toBe('a\u200bb')
+
+    // And they round-trip, because `unquoteBlank` asks the same predicate.
+    for (const segment of ['\u200b', '\ufeff', ' \u200b\u2060 ']) {
+      expect(splitFormatPath(formatPath(['datapoints', 'x', segment]))).toEqual(['datapoints', 'x', segment])
+    }
+  })
+
   it('reads back every path formatPath writes from segments containing no . or [', () => {
     // The property that actually holds, asserted over the shapes a real issue
     // path has: section, slug, key, and an index on a sequence.
