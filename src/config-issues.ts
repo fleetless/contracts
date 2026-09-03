@@ -73,7 +73,9 @@ export type ExposureSection = (typeof EXPOSURE_SECTIONS)[number]
  * - `invalid_type` **where the value at that path is `null`** is
  *   `explicit_null`. The condition is checked against the parsed value and
  *   not against the message, which says "received null" — see above. Zod 4
- *   does not carry the input on the issue, so the value is navigated to.
+ *   does not carry the input on the issue, so the value is navigated to. The
+ *   sentence differs at the document root, where there is no key to remove:
+ *   see `EMPTY_DOCUMENT_MESSAGE`.
  *
  * Everything else keeps zod's own code. Those are refusals with no FL-002
  * code — a reversed `min_value`/`max_value` pair, a section over its cap, a
@@ -97,18 +99,34 @@ export function schemaIssues(value: unknown, issues: readonly SchemaIssue[]): Va
     if (typeof declared === 'string') return [refusal(issue.path, declared, issue.message)]
 
     if (issue.code === 'invalid_type' && valueAt(value, issue.path) === null) {
-      return [
-        refusal(
-          issue.path,
-          'explicit_null',
-          'This key is null. Omission is the only spelling of "not set" in this format — remove the key instead.',
-        ),
-      ]
+      return [refusal(issue.path, 'explicit_null', issue.path.length === 0 ? EMPTY_DOCUMENT_MESSAGE : NULL_KEY_MESSAGE)]
     }
 
     return [refusal(issue.path, issue.code, issue.message)]
   })
 }
+
+const NULL_KEY_MESSAGE = 'This key is null. Omission is the only spelling of "not set" in this format — remove the key instead.'
+
+/**
+ * The same refusal at the document root, where **there is no key**.
+ *
+ * The whole document is the null: the file is empty, holds nothing but
+ * comments, or says `null` / `~` outright. All four reach `robotConfigDoc` as
+ * a genuine `invalid_type` on `null` at the empty path, so the code is right —
+ * but the sentence for a null *key* told the developer to remove a key that
+ * does not exist, and "select all, delete" is the commonest way anybody gets
+ * here. Since FL-005 D2 stores the draft rather than refusing it, that
+ * sentence is what the FINDINGS panel shows persistently for an emptied
+ * editor, where it used to ride a one-shot 422 nobody read.
+ *
+ * It names the smallest legal document rather than only saying what is wrong,
+ * because at this path there is no line to jump to and no repair to offer —
+ * `repairsFor`'s `explicit_null` branch looks the path up in the text and
+ * finds nothing, correctly. The sentence is the entire remedy the developer
+ * gets.
+ */
+const EMPTY_DOCUMENT_MESSAGE = 'There is no document in this file — it is empty, holds only comments, or is an explicit null. A fleetless configuration is a mapping, and the smallest one is the single line "fleetless: 1".'
 
 function refusal(path: readonly PropertyKey[], code: string, message: string): ValidationIssue {
   return { path: formatPath(path), slug: slugOf(path), code, message, severity: 'error' }

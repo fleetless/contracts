@@ -76,6 +76,43 @@ describe('the seven codes the schema decides, mapped rather than re-checked', ()
     )
   })
 
+  /**
+   * **The commonest way anybody reaches a doc-less draft**: select all,
+   * delete, save. The file, a comments-only file, `null` and `~` all parse to
+   * the same `null` and all reach `robotConfigDoc` as one `invalid_type` at
+   * the empty path — measured, all four, before this was written.
+   *
+   * The code is right and stays; the sentence was the one for a null *key*,
+   * and at this path there is no key. Asserted on the message rather than only
+   * on the code, which is the assertion that could not see the defect: the
+   * code was `explicit_null` before and after, and since FL-005 D2 stores the
+   * draft rather than refusing it, this sentence is what the FINDINGS panel
+   * shows an emptied editor persistently.
+   */
+  it('explicit_null at the document root says there is no document, not that a key is null', () => {
+    const issues = refusalIssues(null)
+    expect(issues).toEqual(ONE('explicit_null', DOCUMENT_ROOT_PATH))
+    expect(issues[0]!.message).toContain('There is no document in this file')
+    expect(issues[0]!.message).toContain('fleetless: 1')
+    // Not the null-key sentence, which tells the developer to remove a key
+    // that does not exist. Named against it: the two are only distinguishable
+    // if this sentence is not that sentence.
+    expect(issues[0]!.message).not.toContain('remove the key instead')
+
+    // `null`, not falsy: `undefined` keeps zod's own `invalid_type`, and that
+    // is deliberate rather than an oversight. A YAML parse never produces
+    // `undefined` — an empty file, a comments-only file, `null` and `~` all
+    // produce `null` — so widening the guard would put this sentence on a
+    // state no document reaches.
+    expect(refusalIssues(undefined)).toEqual(ONE('invalid_type', DOCUMENT_ROOT_PATH))
+
+    // And a null KEY still gets the key sentence — the split is on the path,
+    // so a fix that simply replaced the message would show up here.
+    const nulledKey = refusalIssues({ fleetless: 1, datapoints: null })
+    expect(nulledKey[0]!.message).toContain('remove the key instead')
+    expect(nulledKey[0]!.message).not.toContain('There is no document in this file')
+  })
+
   it('constraint_not_allowed_for_type: min_value on a string parameter', () => {
     expect(
       refusalIssues({
