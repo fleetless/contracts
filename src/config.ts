@@ -783,7 +783,7 @@ export const cameraCredentials = z
     description: 'Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it.',
     defaultSnippets: [{
       label: 'username and password',
-      description: 'Both fields, in clear text — which is what this block is. The password default is deliberately not a password: `CHANGE-ME` is a value no camera will accept, so tabbing past it fails loudly rather than storing something plausible forever.',
+      description: 'Both fields, in clear text — which is what this block is. The password default is deliberately not a password: `CHANGE-ME` is stored like any other value, but it is **visible** rather than plausible, so a reviewer reading the diff sees it and the camera rejects it at connect time — where a default that looked like a password would simply be published and kept.',
       /**
        * `CHANGE-ME`, and not a plausible-looking password, because of what the
        * comment above this schema records: a published version is immutable,
@@ -791,6 +791,11 @@ export const cameraCredentials = z
        * without republishing. This snippet is the one thing in the file that
        * could manufacture such a version by itself — a developer who tabs past
        * the placeholder publishes whatever the default was.
+       *
+       * What `CHANGE-ME` buys is **visibility, not a refusal**. It is stored
+       * exactly like any other value; nothing at publish time objects. What it
+       * does is fail at the camera, at connect time, and read wrong to anyone
+       * looking at the diff — where a plausible default is published and kept.
        *
        * The two alternatives were both worse. A plausible default (`secret`)
        * reads in a diff like a value somebody chose, so nobody looks twice. A
@@ -847,16 +852,34 @@ export const cameraSource = z.discriminatedUnion('kind', [
       label: 'ros — an image topic the robot already publishes',
       description: 'Subscribes to a topic that is already there; nothing is opened and there is nobody to authenticate to.',
       /**
-       * `type` is written out rather than offered as a tab stop: for a raw
-       * camera the format effectively fixes it, and the one alternative —
-       * `sensor_msgs/msg/CompressedImage`, for a camera that encodes itself —
-       * is named in the field's own hover, which is where a developer who
-       * needs it is looking.
+       * `type` is a **choice**, not a literal, and that is a correction: it was
+       * written out on the rule that a field the format fixes is written out,
+       * and `type` is not such a field. Its own description names two values
+       * and says which applies when — `Image` for raw frames,
+       * `CompressedImage` for a camera that encodes itself. A snippet that
+       * picks one picks wrong for half the cameras, and picks it invisibly:
+       * `rosTypeName` accepts either, publish accepts either, no diagnostic
+       * fires anywhere, and the bridge then subscribes with the wrong type and
+       * delivers no frames. A snippet supplying a wrong answer where it could
+       * have supplied a question is this project's *check that cannot fire*,
+       * arriving through a hint the developer trusts.
+       *
+       * `kind: 'ros'` stays a literal, because the branch really does fix it.
+       *
+       * Measured through the actual pipeline rather than assumed, because
+       * choice syntax is the one construct here that three layers must each
+       * pass through unharmed: yaml-language-server's `stringifyObject` emits
+       * the body verbatim, and monaco-editor 0.52.2's `SnippetParser` parses
+       * `${2|a,b|}` into a placeholder carrying both options whose
+       * `toString()` — the text on the buffer before anyone chooses — is the
+       * first one. So a developer who tabs past this gets a document
+       * byte-identical to the literal it replaced, and one who opens the
+       * picker gets `CompressedImage`; both parse.
        */
       body: {
         kind: 'ros',
         topic: '${1:/camera/image_raw}',
-        type: 'sensor_msgs/msg/Image',
+        type: '${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage|}',
       },
     }],
   }),

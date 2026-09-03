@@ -22,6 +22,72 @@ function nodeAt(path: string[]): Record<string, any> {
  */
 const SECTIONS = ['messages', 'datapoints', 'actions', 'services', 'publishers', 'cameras']
 
+/**
+ * A snippet body with its snippet syntax undone, so that the values it was
+ * authored from can be judged against the format.
+ *
+ * **One helper, used by every assertion in this file.** There were three
+ * copies of this walk and they had already diverged — two of them had lost the
+ * `\$` un-escape — which is how the next fix lands in one copy and the other
+ * two keep saying OK.
+ *
+ * Four syntaxes are undone, and each one is a way a green here would otherwise
+ * mean nothing:
+ *
+ * - `${1:front}` — a placeholder with a default becomes its default.
+ * - `$1` — a bare placeholder becomes the **empty string**, which several
+ *   fields legitimately refuse; a snippet whose body needs a value must
+ *   therefore supply one as a default.
+ * - `${1|a,b|}` — a **choice** becomes its first option, because that is what
+ *   the editor inserts for a developer who tabs past it. Measured against
+ *   monaco-editor 0.52.2's own `SnippetParser`: it parses the body's
+ *   `${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage|}` into a
+ *   placeholder carrying both options, and `toString()` — the text on the
+ *   buffer before anyone chooses — is `sensor_msgs/msg/Image`.
+ * - `\$` is undone **last**, and it is the reason this is a walk rather than a
+ *   plain placeholder substitution. The format's own parameter syntax is
+ *   `${name}`, which the snippet engine reads as a variable it cannot resolve
+ *   and **deletes** — measured against the same `SnippetParser`: `x: ${speed}`
+ *   inserts `x: `, `x: \${speed}` inserts `x: ${speed}`.
+ */
+function fill(node: unknown): unknown {
+  if (typeof node === 'string') {
+    return node
+      .replace(/\$\{\d+\|([^|}]*)\|\}/g, (_m, options: string) => options.split(',')[0]!)
+      .replace(/\$\{\d+:([^}]*)\}/g, '$1')
+      .replace(/\$\d+/g, '')
+      .replace(/\\\$/g, '$')
+  }
+  if (Array.isArray(node)) return node.map(fill)
+  if (node && typeof node === 'object') {
+    return Object.fromEntries(Object.entries(node).map(([k, v]) => [String(fill(k)), fill(v)]))
+  }
+  return node
+}
+
+/**
+ * Every assertion in this file runs on `fill()`'s output, so a `fill()` that
+ * quietly stops undoing one of the four syntaxes makes all of them green and
+ * meaningless at once. It is the one thing here that has to be checked
+ * directly rather than through what it feeds.
+ */
+describe('the snippet stripper undoes what the editor resolves', () => {
+  it.each([
+    ['a placeholder with a default', '${1:front}', 'front'],
+    ['a bare placeholder', 'x$1', 'x'],
+    ['a choice, which inserts its first option', '${1|tcp,udp|}', 'tcp'],
+    ['a choice holding slashes', '${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage|}', 'sensor_msgs/msg/Image'],
+    ['an escaped parameter, which the editor inserts literally', '\\${speed}', '${speed}'],
+    ['a URL built from two placeholders', 'rtsp://${1:host}/${2:stream1}', 'rtsp://host/stream1'],
+  ])('%s', (_what, authored, inserted) => {
+    expect(fill(authored)).toBe(inserted)
+  })
+
+  it('walks keys and nested values, not just top-level strings', () => {
+    expect(fill({ '${1:front}': { a: ['$2', { b: '${3:deep}' }] } })).toEqual({ front: { a: ['', { b: 'deep' }] } })
+  })
+})
+
 describe('every section offers a whole entry', () => {
   for (const section of SECTIONS) {
     it(section, () => {
@@ -41,16 +107,8 @@ describe('every section offers a whole entry', () => {
    * a body that inserts a document the format then refuses — which is worse
    * than offering nothing, because the developer trusts it.
    *
-   * Placeholders are stripped first: `${1:front}` is snippet syntax, not a
-   * value. A placeholder with a default becomes its default; a bare `$1`
-   * becomes an empty string, which several fields legitimately refuse — so a
-   * snippet whose body needs a value must supply one as a default.
-   *
-   * `\$` is stripped last, and it is the reason this walk is not a plain
-   * placeholder substitution. The format's own parameter syntax is `${name}`,
-   * which the snippet engine reads as a variable it cannot resolve and
-   * **deletes** — measured against monaco-editor 0.52.2's own `SnippetParser`:
-   * `x: ${speed}` inserts `x: `, `x: \${speed}` inserts `x: ${speed}`.
+   * `fill()` above undoes the snippet syntax first; what that walk handles, and
+   * why each part of it is load-bearing, is documented there.
    *
    * ## What this test decides, and what it cannot
    *
@@ -73,6 +131,15 @@ describe('every section offers a whole entry', () => {
    * - Nothing here sees what the console does to the schema on the way. It
    *   maps the export before handing it to monaco-yaml, and a body is an
    *   ordinary object to a walk that does not know what `defaultSnippets` is.
+   * - **A snippet syntax `fill()` does not undo passes straight through into
+   *   `safeParse`, as literal text.** Choice placeholders were exactly this
+   *   until the four camera sources needed one: no regex here matched
+   *   `${1|a,b|}`, so a field with a pattern (`topic`, `url`, `device`) would
+   *   have gone red on the raw syntax — noisily, and for the wrong reason —
+   *   while any plain bounded string (`description`, `unit`, `username`) went
+   *   **green on a value the editor can never insert**. That is the shape to
+   *   watch for: this list grows by one every time the bodies learn a syntax
+   *   the walk does not.
    *
    * Reproducing any of that here would mean a second model of somebody else's
    * pipeline, and a pipeline model that skips a stage does not say "I cannot
@@ -84,19 +151,6 @@ describe('every section offers a whole entry', () => {
    * stops at the values.
    */
   it('is authored from values the format accepts', () => {
-    const fill = (node: unknown): unknown => {
-      if (typeof node === 'string') {
-        return node
-          .replace(/\$\{\d+:([^}]*)\}/g, '$1')
-          .replace(/\$\d+/g, '')
-          .replace(/\\\$/g, '$')
-      }
-      if (Array.isArray(node)) return node.map(fill)
-      if (node && typeof node === 'object') {
-        return Object.fromEntries(Object.entries(node).map(([k, v]) => [String(fill(k)), fill(v)]))
-      }
-      return node
-    }
     for (const section of SECTIONS) {
       for (const snippet of nodeAt([section]).defaultSnippets) {
         const doc = { fleetless: 1, [section]: fill(snippet.body) }
@@ -143,7 +197,7 @@ describe('every camera source offers its own skeleton', () => {
   it('each source snippet is a camera the format accepts', () => {
     const branches = source().oneOf ?? source().anyOf
     for (const branch of branches) {
-      const body = JSON.parse(JSON.stringify(branch.defaultSnippets[0].body).replace(/\$\{\d+:([^}"]*)\}/g, '$1').replace(/\$\d+/g, ''))
+      const body = fill(branch.defaultSnippets[0].body)
       const doc = {
         fleetless: 1,
         cameras: { front: { source: body, width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5 } }
@@ -163,9 +217,7 @@ describe('every camera source offers its own skeleton', () => {
      * the branch body — so without this it would be the only snippet in the
      * wave whose values nothing judged.
      */
-    const credentials = JSON.parse(
-      JSON.stringify(rtsp.properties.credentials.defaultSnippets[0].body).replace(/\$\{\d+:([^}"]*)\}/g, '$1').replace(/\$\d+/g, ''),
-    )
+    const credentials = fill(rtsp.properties.credentials.defaultSnippets[0].body)
     const doc = {
       fleetless: 1,
       cameras: {
