@@ -280,6 +280,28 @@ describe('REST shapes', () => {
     ).toBe(true)
   })
 
+  it('carries a null document for a draft that is valid YAML but not a fleetless document', () => {
+    // FL-005 D2: a draft is saved whenever it parses as YAML, so a draft can
+    // exist whose text is not a `robotConfigDoc` at all. That draft has no
+    // document, and `null` is how it says so.
+    expect(
+      configDraftResponse.safeParse({
+        doc: null,
+        source: 'just: a: mapping\n',
+        updated_at: '2026-09-03T09:00:00.000Z',
+        issues: [],
+      }).success,
+    ).toBe(true)
+  })
+
+  it('refuses a draft response that has neither a document nor a source', () => {
+    // The one pair that cannot occur. `source` is not nullable at all, so a
+    // reader that finds no document still has the text that produced it.
+    expect(
+      configDraftResponse.safeParse({ doc: null, source: null, updated_at: null, issues: [] }).success,
+    ).toBe(false)
+  })
+
   it('refuses a draft response with no source — a reader always has text to show', () => {
     // `source` is not optional on purpose. A draft exists from the moment a
     // robot does, before anyone has typed anything, and for that one the

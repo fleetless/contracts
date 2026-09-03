@@ -131,13 +131,29 @@ export type RobotDetailResponse = z.infer<typeof robotDetailResponse>
  * the robot page, the MCP tools, the bridge frame — reads the parsed document
  * and should never have to parse YAML to do it.
  *
- * `source` is never null. A draft exists from the moment a robot does, before
- * anyone has typed anything; for that one the server renders the document
- * instead, so a reader always has text to show and never has to handle an
- * absent one.
+ * **`doc` is null when the text is valid YAML but not a fleetless document.**
+ * A draft is saved whenever it parses as YAML; publish is the gate that asks
+ * for a document. So a stored draft can genuinely have no document, and `null`
+ * says exactly that: *this text does not currently parse to a configuration*.
+ * It does **not** mean "nothing is configured" — the last published version is
+ * untouched — and a reader that renders a tree from `doc` has to tell those two
+ * apart before it draws anything.
+ *
+ * The alternative was to put the raw parsed YAML value in `doc`. It was
+ * rejected because a reader could then no longer tell whether what it holds is
+ * a document: every consumer would have to re-validate to find out, and the one
+ * that forgot would render a stranger's mapping as a configuration. `null`
+ * forces the question at the point of reading.
+ *
+ * `source` is never null, and that is what makes the pair `doc: null,
+ * source: null` unrepresentable here rather than merely discouraged. A draft
+ * exists from the moment a robot does, before anyone has typed anything; for
+ * that one the server renders the document instead, so a reader always has text
+ * to show and — when there is no document — always has the text that failed to
+ * become one.
  */
 export const configDraftResponse = z.object({
-  doc: robotConfigDoc,
+  doc: robotConfigDoc.nullable(),
   source: z.string(),
   updated_at: z.iso.datetime().nullable(),
   issues: z.array(validationIssue),
