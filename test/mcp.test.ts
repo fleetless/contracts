@@ -7,16 +7,8 @@ import {
   createAppRequest,
   datapointConfig,
   ERROR_CODES,
-  MCP_OMISSION_REASONS,
   MCP_PROTOCOL_VERSION,
   MCP_ENDPOINT_PATH,
-  MCP_TOOL_NAME_MAX,
-  mcpRobotKey,
-  mcpRobotKeys,
-  mcpToolName,
-  mcpToolNamePattern,
-  mcpToolPreview,
-  mcpToolPreviewResponse,
   parameterSpec,
   publisherConfig,
   serviceDescription,
@@ -25,6 +17,13 @@ import {
   updateAppRequest,
 } from '../src/index.js'
 import * as contracts from '../src/index.js'
+import {
+  mcpExposure,
+  mcpRobotDatasheet,
+  mcpRolePreviewResponse,
+  MCP_ASSET_LINK_PATH,
+  MCP_ASSET_LINK_TTL_MS,
+} from '../src/mcp.js'
 
 /** A published configuration from before descriptions existed — none anywhere. */
 const docWithoutDescriptions = {
@@ -181,7 +180,7 @@ describe('the app-level MCP switch is gone (2026-08-29)', () => {
   })
 })
 
-describe('tool naming', () => {
+describe('the central endpoint', () => {
   it('speaks the revision the stable SDK ships', () => {
     expect(MCP_PROTOCOL_VERSION).toBe('2025-11-25')
   })
@@ -200,115 +199,77 @@ describe('tool naming', () => {
     // an export nobody imports today is an export somebody imports tomorrow.
     expect(Object.keys(contracts)).not.toContain('mcpEndpointPath')
   })
-
-  /**
-   * The names have to survive the longest legal slug, or the bound is
-   * decorative. `slug` is bounded at 63; re-derived here rather than read.
-   */
-  it('a name built from the longest legal slug stays inside MCP bounds and charset', () => {
-    const longest = 'a'.repeat(63)
-    const name = mcpToolName(mcpRobotKey('3f2504e0-4f89-41d3-9a0c-0305e82c3301'), longest)
-    expect(name.length).toBeLessThanOrEqual(MCP_TOOL_NAME_MAX)
-    expect(name).toMatch(mcpToolNamePattern)
-  })
-
-  it('keys every robot distinctly, and splits back apart', () => {
-    const ids = [
-      '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-      '3f2504e0-4f89-41d3-9a0c-0305e82c3302',
-      'b1de7a55-0000-4000-8000-000000000000',
-    ]
-    const keys = mcpRobotKeys(ids)
-    expect(new Set(keys.values()).size).toBe(3)
-    expect(mcpToolName(keys.get(ids[0]!)!, 'dock').split('__')).toEqual([keys.get(ids[0]!), 'dock'])
-  })
-
-  /**
-   * **The widening branch, exercised rather than asserted about.** Two ids
-   * sharing their first twelve hex characters are what the 48-bit argument
-   * says will not happen; a claim that cannot be tested is a claim nobody has
-   * checked. Constructed deliberately, so the fallback runs.
-   */
-  it('widens every key together when two twelve-character prefixes collide', () => {
-    const a = '3f2504e04f89-41d3-9a0c-0305e82c3301'.replace('3f2504e04f89', '3f2504e0-4f89')
-    const collide = ['3f2504e0-4f89-41d3-9a0c-000000000001', '3f2504e0-4f89-41d3-9a0c-000000000002']
-    const keys = mcpRobotKeys(collide)
-    expect(new Set(keys.values()).size).toBe(2)
-    // Widened: not the twelve-character form either of them would have had.
-    expect(keys.get(collide[0]!)).not.toBe(mcpRobotKey(collide[0]!))
-    expect(keys.get(collide[0]!)!.length).toBe(33)
-    expect(a).toBeTruthy()
-  })
 })
 
-describe('the console preview', () => {
-  const tool = {
-    name: 'r3f2504e04f89__dock',
-    title: 'RX1 · dock',
-    description: 'Drives the robot onto its charging dock and waits for contact.',
-    robot_id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-    slug: 'dock',
-    kind: 'action' as const,
-    input_schema: { type: 'object', properties: {} },
-  }
+const ROBOT = '0b7d2a4e-1c6f-4d3a-9e8b-2f1a3c4d5e6f'
+const ROLE = '1c8e3b5f-2d7a-4e4b-8f9c-3a2b4c5d6e7f'
 
-  it('carries the tool, its schema, and the omissions with their reasons', () => {
-    const parsed = mcpToolPreviewResponse.parse({
-      role_id: '00000000-0000-4000-8000-000000000009',
-      tools: [tool],
-      omitted: [
-        {
-          robot_id: tool.robot_id,
-          slug: 'battery',
-          reason: 'no_description',
-          message: 'Grant is in place; the datapoint has no description, so no tool is generated.',
-        },
+describe('mcp datasheet contracts', () => {
+  it('accepts a datasheet with one exposure of each kind', () => {
+    const sheet = mcpRobotDatasheet.parse({
+      robot_id: ROBOT,
+      robot_name: 'RX1',
+      capabilities: { action_history: true, assets: false },
+      exposures: [
+        { slug: 'battery', kind: 'datapoint', description: 'Battery charge.', unit: '%', input_schema: null },
+        { slug: 'dock', kind: 'action', description: null, unit: null, input_schema: { type: 'object', properties: {} } },
+        { slug: 'front', kind: 'camera', description: 'Front camera.', unit: null, input_schema: null },
       ],
     })
-    expect(parsed.tools[0]!.name).toMatch(mcpToolNamePattern)
-    expect(parsed.omitted[0]!.reason).toBe('no_description')
+    expect(sheet.exposures).toHaveLength(3)
   })
 
-  it('refuses a tool name a client would reject', () => {
-    expect(mcpToolPreview.safeParse({ ...tool, name: 'RX1/dock' }).success).toBe(false)
+  /**
+   * **The `datapoint` control is what makes this an assertion about `kind`.**
+   * Without it the refusal is guarded by nothing: `slug` is bounded at two
+   * characters, so a one-character slug made `safeParse` false whatever the
+   * kind said. Measured — widening `mcpToolKind` to admit `stream` left the
+   * single-`safeParse` version of this test green.
+   */
+  it('refuses an exposure whose kind is not one of the five', () => {
+    const sheet = (kind: string) => ({
+      robot_id: ROBOT, robot_name: 'RX1', capabilities: { action_history: false, assets: false },
+      exposures: [{ slug: 'front', kind, description: null, unit: null, input_schema: null }],
+    })
+    expect(mcpRobotDatasheet.safeParse(sheet('stream')).success).toBe(false)
+    expect(mcpRobotDatasheet.safeParse(sheet('datapoint')).success).toBe(true)
   })
 
-  it('every omission reason is a non-empty known string', () => {
-    expect(MCP_OMISSION_REASONS.length).toBeGreaterThan(0)
-    for (const r of MCP_OMISSION_REASONS) expect(r).toMatch(/^[a-z_]+$/)
-  })
-})
-
-/**
- * **The two description bounds are related, and the relationship is the
- * invariant — not either number.** `serviceDescription` bounds what a human
- * writes; `mcpToolPreview.description` bounds what the generator produces from
- * it, which is that text plus folded-in unit, range and camera prose. Both
- * reviewers measured the overflow independently (2036–2068 against a 2000
- * bound), and the route returns its body without parsing, so the cloud served
- * a document its own contract rejected and nothing said a word.
- *
- * This test exists so the next person who notices "two different maxima, that
- * looks untidy" finds out why before making them equal.
- */
-describe('the generated description has room to be generated in', () => {
-  const humanMax = 2000
-  const generated = mcpToolPreview.shape.description
-
-  it('accepts a maximal human description plus what the generator appends', () => {
-    const appended = ' Unit: %. Plausible range: 0 to 100.'
-    expect(generated.safeParse('x'.repeat(humanMax) + appended).success).toBe(true)
+  it('a role preview is a list of datasheets keyed by role', () => {
+    const r = mcpRolePreviewResponse.parse({ role_id: ROLE, robots: [] })
+    expect(r.robots).toEqual([])
   })
 
-  it('still refuses something no generator could produce', () => {
-    expect(generated.safeParse('x'.repeat(8000)).success).toBe(false)
+  it('names the asset-link route and its lifetime', () => {
+    expect(MCP_ASSET_LINK_PATH).toBe('/api/asset-links')
+    expect(MCP_ASSET_LINK_TTL_MS).toBe(15 * 60 * 1000)
   })
 
-  /** The claim `serviceDescription` itself makes, re-derived rather than read. */
-  it('the human bound really is the smaller of the two', () => {
-    expect(serviceDescription.safeParse('x'.repeat(humanMax)).success).toBe(true)
-    expect(serviceDescription.safeParse('x'.repeat(humanMax + 1)).success).toBe(false)
-    expect(generated.safeParse('x'.repeat(humanMax + 1)).success).toBe(true)
+  /**
+   * **The two description bounds are now equal, and that is a change of
+   * meaning rather than a tidy-up.** The retired `mcpToolPreview.description`
+   * was bounded at 4000 because the generator folded a datapoint's unit and
+   * range into the developer's own 2000-character text, and the response
+   * overflowed its own contract when it did not. An exposure carries the
+   * developer's description **verbatim** and `unit` as a field of its own, so
+   * there is nothing left to fold in and nothing left to leave room for.
+   *
+   * The old file warned the next reader not to make these two numbers agree.
+   * This test is why they now may — it fails if an exposure ever stops
+   * accepting exactly what a developer is allowed to write.
+   */
+  it('carries a maximal developer description verbatim', () => {
+    const exposure = { slug: 'battery', kind: 'datapoint' as const, unit: '%', input_schema: null }
+    const longest = 'x'.repeat(2000)
+    expect(serviceDescription.safeParse(longest).success).toBe(true)
+    expect(mcpExposure.safeParse({ ...exposure, description: longest }).success).toBe(true)
+    expect(mcpExposure.safeParse({ ...exposure, description: longest + 'x' }).success).toBe(false)
+  })
+
+  it('no longer exports the per-slug tool-name derivation or the omission taxonomy', () => {
+    for (const name of ['mcpRobotKey', 'mcpRobotKeys', 'mcpToolName', 'MCP_TOOL_NAME_SEPARATOR', 'MCP_OMISSION_REASONS', 'mcpToolPreview', 'mcpOmission', 'mcpToolPreviewResponse']) {
+      expect((contracts as Record<string, unknown>)[name], name).toBeUndefined()
+    }
   })
 })
 

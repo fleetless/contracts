@@ -146,7 +146,7 @@ import {
   bridgeAssetProgress,
 } from '../src/protocol.js'
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
-import { mcpToolPreview, mcpToolPreviewResponse } from '../src/mcp.js'
+import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
@@ -166,11 +166,13 @@ import {
 } from '../src/rest.js'
 
 export const exportedSchemas = {
-  // W7c — the MCP server. REST-only shapes: the bridge has no MCP surface at
-  // all, so these are here for the same reason the other REST responses are —
-  // "every wire schema", one map, no second place to look.
-  'mcp-tool-preview': mcpToolPreview,
-  'mcp-tool-preview-response': mcpToolPreviewResponse,
+  // FL-006 — the MCP server's datasheet. REST-only shapes: the bridge has no
+  // MCP surface at all, so these are here for the same reason the other REST
+  // responses are — "every wire schema", one map, no second place to look.
+  // They replaced W7c's `mcp-tool-preview` pair when the per-slug tool
+  // preview gave way to a fixed catalog.
+  'mcp-robot-datasheet': mcpRobotDatasheet,
+  'mcp-role-preview-response': mcpRolePreviewResponse,
   // W7 — assets. The three bridge<->cloud frames belong here for the reason
   // stated below: the bridge validates against these files, so a frame absent
   // from this map is a frame it cannot check. The bytes themselves never ride
@@ -456,7 +458,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'put-group-oidc-provider-request', 'impersonation-choice',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
   'history-query', 'invoke-request', 'publish-request',
-  'role-permissions', 'mcp-tool-preview', 'job-run-query', 'job-run-summary-query',
+  'role-permissions', 'job-run-query', 'job-run-summary-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
   'patch-org-request', 'patch-auth-me-request',
   'patch-robot-request', 'rename-slug-request',
@@ -478,7 +480,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
-  'mcp-tool-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
+  'mcp-robot-datasheet', 'mcp-role-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',
   'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',
   'org-quota-usage-counts',

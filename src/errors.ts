@@ -471,14 +471,15 @@ export const ERROR_CODES = [
    */
   'mcp_disabled',
   /**
-   * A slug that exists, and no tool for it — because the role does not grant
-   * it, or because it produces none (see `MCP_OMISSION_REASONS`).
+   * A tool the caller cannot use on this robot — because the role grants
+   * neither the slug it needs nor the capability behind it.
    *
    * **Deliberately one code for both**, on the same reasoning that widened
    * `identity_not_provisioned` in W7b: to a developer holding the console,
-   * `omitted[]` carries the distinction with its reason attached, so a second
-   * code would split an outcome nobody acts on differently. To anyone else the
-   * two must be indistinguishable anyway — §3.3.
+   * the role's datasheet (`mcpRobotDatasheet`) already lists every exposure
+   * the role does grant, so a second code would split an outcome nobody acts
+   * on differently. To anyone else the two must be indistinguishable anyway —
+   * §3.3.
    */
   'tool_not_available',
   // W9 — capabilities.
