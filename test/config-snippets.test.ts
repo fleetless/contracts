@@ -83,7 +83,7 @@ describe('every section offers a whole entry', () => {
    * accepts. That is where a claim about the insert belongs; this file's claim
    * stops at the values.
    */
-  it('inserts a document the format accepts', () => {
+  it('is authored from values the format accepts', () => {
     const fill = (node: unknown): unknown => {
       if (typeof node === 'string') {
         return node
