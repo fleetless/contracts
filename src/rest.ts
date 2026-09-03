@@ -164,15 +164,23 @@ export type ConfigDraftResponse = z.infer<typeof configDraftResponse>
  * A write carries the **text only**, and that is the point.
  *
  * If it carried both the text and the parsed document, the two could
- * disagree — and a stored pair whose source does not parse to its document is
- * not a state to handle, it is a defect. Sending only the source makes that
- * unrepresentable on the wire: the server parses it, and there is exactly one
- * account of what the configuration says.
+ * disagree. Sending only the source makes that unrepresentable on the wire:
+ * the server parses it, and there is exactly one account of what the
+ * configuration says.
  *
- * It also settles who owns parsing. The console refuses unparsable YAML before
- * it sends, so a syntax error never reaches the server; the server decides
- * everything about content. Two checks, and not two opinions about one
- * question.
+ * It also settles who owns parsing, and **FL-005 D2 moved that line**. The
+ * sentence here used to read that the console refuses unparsable YAML before it
+ * sends, so a syntax error never reaches the server. That is no longer the
+ * rule: the **server** refuses text that is not valid YAML, with the line and
+ * column, and stores everything else — including valid YAML that is not a
+ * fleetless document, which comes back with `doc: null` and its issues. The
+ * console checks as you type so the answer is immediate; the server checks
+ * because it is the one that decides. Two checks of one question, and the
+ * server's is the one that binds.
+ *
+ * The pair that used to be called a defect — a stored source that does not
+ * parse to its stored document — is now a **represented state**: no document at
+ * all. See `configDraftResponse` above.
  */
 export const putConfigDraftRequest = z.object({ source: z.string().max(1_000_000) })
 export type PutConfigDraftRequest = z.infer<typeof putConfigDraftRequest>
