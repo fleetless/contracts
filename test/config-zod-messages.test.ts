@@ -499,28 +499,53 @@ describe('the accepted language is unchanged', () => {
 
   /**
    * **The one input whose verdict this task moved, recorded rather than
-   * smuggled.** `message` is `z.unknown()`, which accepts `undefined`, so zod
-   * marks the key required and raises its own `expected nonoptional, received
-   * undefined` — an issue it attributes to neither the field nor the object, so
-   * no error map can reach it and the key could not be named. `z.nonoptional`
-   * puts a schema there that can carry a sentence, and it also refuses a key
-   * that is *present* holding `undefined`, which zod's internal check accepted.
+   * smuggled — and the reasoning that made it acceptable, so that a later
+   * reader can re-run it rather than take it on trust.**
    *
-   * That input cannot arrive: `JSON.stringify` drops an undefined-valued key,
-   * so nothing over HTTP carries it, and YAML's `message:` yields `null`, which
-   * `explicit_null` refused before and refuses now (both measured). The only
-   * way to build it is an in-process TypeScript call — where being refused is
-   * the correct answer, since a publisher without a template is what the
-   * required key exists to prevent. Everything else in the format is unmoved:
-   * 278 exported schemas under both `io` modes and an 89-document corpus are
-   * identical to the revision before this task apart from this one row.
+   * `message` is `z.unknown()`, which accepts `undefined`, so zod marks the key
+   * required and raises its own `expected nonoptional, received undefined` — an
+   * issue it attributes to neither the field nor the object, so no error map
+   * can reach it and the key could not be named. `z.nonoptional` puts a schema
+   * there that can carry a sentence. It also refuses a key that is *present*
+   * holding `undefined`, which zod's internal check accepted, and that is a
+   * change to what the format accepts inside a task whose whole constraint was
+   * not to make one. It was ruled in deliberately (André, 2026-09-03) on the
+   * strength of the three measurements below, because the alternative is two of
+   * the worst messages in the format on a field developers write by hand.
+   *
+   * **The premise, stated so it can be checked rather than assumed.** A
+   * document reaches `robotConfigDoc` by three routes, and none can carry a key
+   * that is present holding `undefined`:
+   *
+   * | route | measurement |
+   * |---|---|
+   * | JSON, over HTTP | `JSON.stringify` drops an undefined-valued key — asserted below, not described |
+   * | YAML, from the editor | `yaml` 2.9.0 parses `message:` to `null`, which `explicit_null` refused before this task and refuses after it |
+   * | jsonb, read back from Postgres | jsonb's value types are exactly the six JSON ones — `array, boolean, null, number, object, string` — and `'{"a": undefined}'::jsonb` is a parse error, *Token "undefined" is invalid*. An absent key reads back as SQL `NULL`, which is not a jsonb value at all. Measured on PostgreSQL 16.14 |
+   *
+   * **What would make this false.** A fourth entry point that can carry a
+   * present-but-undefined key — an in-process TypeScript caller building the
+   * document by hand is the one that exists today, and for that caller being
+   * refused is the correct answer, since a publisher with no template is what
+   * the required key exists to prevent. If a route ever appears where the
+   * distinction is meaningful, **these assertions are the thing to re-decide,
+   * not the thing to delete**: they are the recorded basis of a ruling, and a
+   * puzzling assertion with no premise written beside it is one somebody
+   * removes.
    */
   it('refuses a required key present as an explicit undefined', () => {
     expect(robotConfigDoc.safeParse({ fleetless: 1, publishers: { drive: { ...PUBLISHER, message: undefined } } }).success).toBe(false)
   })
 
-  it('and that input is unreachable through JSON', () => {
-    const shipped = JSON.parse(JSON.stringify({ fleetless: 1, publishers: { drive: { ...PUBLISHER, message: undefined } } }))
+  it('and no route into the format can carry one', () => {
+    const built = { fleetless: 1, publishers: { drive: { ...PUBLISHER, message: undefined } } }
+    // JSON, which is also how the document is written to and read from jsonb:
+    // `undefined` is not a JSON value, so the key does not survive the trip.
+    const shipped = JSON.parse(JSON.stringify(built))
     expect(Object.hasOwn(shipped.publishers.drive, 'message')).toBe(false)
+    // And what does survive is a document the format still accepts or refuses
+    // for its own reasons — never for this one.
+    expect(robotConfigDoc.safeParse(shipped).success).toBe(false)
+    expect(robotConfigDoc.safeParse(JSON.parse(JSON.stringify({ ...built, publishers: { drive: PUBLISHER } }))).success).toBe(true)
   })
 })

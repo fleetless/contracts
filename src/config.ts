@@ -175,18 +175,29 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
  *
  * So the rule is the fact rather than the code: **a required field whose input
  * is absent is a missing key, whatever zod calls the refusal.** For a value
- * present as an explicit `undefined` — reachable from the SDK, never from YAML
- * or JSON — the sentence reads as "missing", which is what the format means by
- * it: omission is this format's only spelling of "not set".
+ * present as an explicit `undefined` the sentence reads as "missing", which is
+ * what the format means by it: omission is this format's only spelling of "not
+ * set".
  *
  * **`z.unknown()` needs a wrapper before it can be given a sentence at all.**
  * It accepts `undefined`, so zod marks the key required and raises its own
  * `expected nonoptional, received undefined` — an issue it attributes to
  * neither the field nor the object, so no error map of ours is consulted
- * (measured). `z.nonoptional` puts a schema there that can carry one, and it
- * changes nothing else: the JSON Schema and the inferred type are both
- * byte-identical either way (measured, zod 4.4.3), and a field that is
- * genuinely optional is `.optional()` and is skipped here.
+ * (measured). `z.nonoptional` puts a schema there that can carry one. The JSON
+ * Schema and the inferred type are byte-identical either way (measured, zod
+ * 4.4.3), and a field that is genuinely optional is `.optional()` and is
+ * skipped here — but it is **not** behaviourally free, and that is the one
+ * place this task changed what the format accepts: a required key *present*
+ * holding `undefined` is now refused where zod's internal check accepted it.
+ *
+ * That was ruled in deliberately rather than noticed later, because no route
+ * into this format can carry such a key — JSON drops it, YAML's `message:`
+ * yields `null`, and jsonb cannot represent it — and because the alternative
+ * leaves `expected nonoptional, received undefined` on `message`, a field
+ * developers write by hand. The three measurements, and the condition that
+ * would make them false, are written where they are asserted:
+ * `config-zod-messages.test.ts`, *"and no route into the format can carry
+ * one"*. Read that before changing this line.
  *
  * `clone` is the only way to add an `error` to a schema that is already built,
  * and **it drops the schema's registry entry** — its `description`, its
