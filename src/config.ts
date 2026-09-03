@@ -783,10 +783,32 @@ export const cameraCredentials = z
     description: 'Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it.',
     defaultSnippets: [{
       label: 'username and password',
-      description: 'Both fields, in clear text — which is what this block is. Neither may be the empty string, so both placeholders carry a default.',
+      description: 'Both fields, in clear text — which is what this block is. The password default is deliberately not a password: `CHANGE-ME` is a value no camera will accept, so tabbing past it fails loudly rather than storing something plausible forever.',
+      /**
+       * `CHANGE-ME`, and not a plausible-looking password, because of what the
+       * comment above this schema records: a published version is immutable,
+       * so a password written here cannot be removed from history or rotated
+       * without republishing. This snippet is the one thing in the file that
+       * could manufacture such a version by itself — a developer who tabs past
+       * the placeholder publishes whatever the default was.
+       *
+       * The two alternatives were both worse. A plausible default (`secret`)
+       * reads in a diff like a value somebody chose, so nobody looks twice. A
+       * bare `$2` inserts the empty string, which `min(1)` refuses — that is
+       * loud, but it makes this the only snippet in the format that knowingly
+       * inserts an invalid document, and the guard that says none of them do
+       * would need an exception carved for it. A guard with an exception is not
+       * a guard. So the default stays valid and stays obviously wrong: no
+       * camera accepts it, and no reviewer reads past it.
+       *
+       * Both fields are `.optional()` — a bare `{}` parses — so nothing forces
+       * a default here at all. It is offered because a developer who opened
+       * this block wants both fields, and the snippet exists to save them the
+       * typing, not to decide anything.
+       */
       body: {
         username: '${1:ops}',
-        password: '${2:secret}',
+        password: '${2:CHANGE-ME}',
       },
     }],
   })
