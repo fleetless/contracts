@@ -219,6 +219,16 @@ describe('mcp datasheet contracts', () => {
     expect(sheet.exposures).toHaveLength(3)
   })
 
+  /** One valid exposure and one valid datasheet, so a test can break exactly one thing. */
+  const EXPOSURE = { slug: 'front', kind: 'camera', description: null, unit: null, input_schema: null }
+  const datasheet = (overrides: Record<string, unknown> = {}) => ({
+    robot_id: ROBOT,
+    robot_name: 'RX1',
+    capabilities: { action_history: false, assets: false },
+    exposures: [EXPOSURE],
+    ...overrides,
+  })
+
   /**
    * **The `datapoint` control is what makes this an assertion about `kind`.**
    * Without it the refusal is guarded by nothing: `slug` is bounded at two
@@ -227,17 +237,30 @@ describe('mcp datasheet contracts', () => {
    * single-`safeParse` version of this test green.
    */
   it('refuses an exposure whose kind is not one of the five', () => {
-    const sheet = (kind: string) => ({
-      robot_id: ROBOT, robot_name: 'RX1', capabilities: { action_history: false, assets: false },
-      exposures: [{ slug: 'front', kind, description: null, unit: null, input_schema: null }],
-    })
-    expect(mcpRobotDatasheet.safeParse(sheet('stream')).success).toBe(false)
-    expect(mcpRobotDatasheet.safeParse(sheet('datapoint')).success).toBe(true)
+    const withKind = (kind: string) => datasheet({ exposures: [{ ...EXPOSURE, kind }] })
+    expect(mcpRobotDatasheet.safeParse(withKind('stream')).success).toBe(false)
+    expect(mcpRobotDatasheet.safeParse(withKind('datapoint')).success).toBe(true)
   })
 
+  /**
+   * **The element type, not merely the array.** `robots: []` on its own is a
+   * claim about nothing — the first failure mode in this project's own list.
+   * Measured: substituting `z.array(z.unknown())` for
+   * `z.array(mcpRobotDatasheet)` in `mcpRolePreviewResponse` left every test
+   * in this file green.
+   *
+   * So a valid datasheet must pass and two differently-broken ones must not:
+   * a bad `kind`, which is two levels down inside an exposure, and a missing
+   * `capabilities`, which is the datasheet's own required object. One example
+   * would only prove that *something* is checked at whichever depth it broke.
+   */
   it('a role preview is a list of datasheets keyed by role', () => {
-    const r = mcpRolePreviewResponse.parse({ role_id: ROLE, robots: [] })
-    expect(r.robots).toEqual([])
+    const preview = (robots: unknown[]) => mcpRolePreviewResponse.safeParse({ role_id: ROLE, robots })
+    expect(mcpRolePreviewResponse.parse({ role_id: ROLE, robots: [] }).robots).toEqual([])
+    expect(preview([datasheet()]).success).toBe(true)
+    expect(preview([datasheet({ exposures: [{ ...EXPOSURE, kind: 'stream' }] })]).success).toBe(false)
+    const { capabilities: _dropped, ...withoutCapabilities } = datasheet()
+    expect(preview([withoutCapabilities]).success).toBe(false)
   })
 
   it('names the asset-link route and its lifetime', () => {
@@ -262,6 +285,9 @@ describe('mcp datasheet contracts', () => {
     const exposure = { slug: 'battery', kind: 'datapoint' as const, unit: '%', input_schema: null }
     const longest = 'x'.repeat(2000)
     expect(serviceDescription.safeParse(longest).success).toBe(true)
+    // The human bound is the claim this test rests on, so it is re-derived in
+    // both directions rather than read off the comment above.
+    expect(serviceDescription.safeParse(longest + 'x').success).toBe(false)
     expect(mcpExposure.safeParse({ ...exposure, description: longest }).success).toBe(true)
     expect(mcpExposure.safeParse({ ...exposure, description: longest + 'x' }).success).toBe(false)
   })
