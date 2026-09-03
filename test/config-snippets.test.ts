@@ -487,3 +487,297 @@ describe('every map entry offers a whole entry', () => {
     expect(entry.description, 'this node and the `message:` position no longer read one description').toBe(nodeAt(['actions', '<slug>', 'message']).description)
   })
 })
+
+/**
+ * ## The guarantee is a walk, not a table
+ *
+ * Every `describe` above asserts a hand-written table, and a table catches only
+ * what somebody remembered. This wave has already paid for that once: the
+ * 135-position sweep the design is built on generated a value probe from each
+ * of a node's **keys**, so it never asked what a map entry offers, and it
+ * reported a number that sounded exhaustive. The eight silent positions found
+ * when somebody finally asked are the `describe` directly above this one.
+ *
+ * So the guarantee is a walk over the exported schema. `config-meta.test.ts`
+ * carries the same lesson for descriptions, in the comment above its
+ * `undescribed` walker.
+ *
+ * ### What counts as a position a skeleton belongs at
+ *
+ * A node needs `defaultSnippets` iff a value position can land on it — it is
+ * reached as the **value of a key** or as a **map entry** — *and* what may be
+ * written there is a mapping: an object with `properties`, a map
+ * (`additionalProperties` is an object), or a union all of whose branches are
+ * such. That is what the developer cannot guess and the editor otherwise
+ * answers with words scraped out of their own document.
+ *
+ * Three things the definition deliberately excludes, each from a measurement:
+ *
+ * - **A scalar union is not such a node.** `condition.fire_at` is
+ *   `number | string | boolean` and a parameter's `default` is the same union.
+ *   The language service already offers `true`/`false` at those positions —
+ *   measured — so a walker that lists them is implemented wrongly, and the
+ *   walker is what to fix, not the schema.
+ * - **A union counts as covered when every branch carries a skeleton.**
+ *   `cameras.<slug>.source` has nothing on the union node and one snippet on
+ *   each of its four branches, which is deliberate: a label cannot then drift
+ *   from the branch it describes. A walker that looks only at the union node
+ *   calls the wave's headline fix uncovered.
+ * - **An array item is not a value position.** `parameters.<slug>.enum` is the
+ *   only array in the format and its items are scalars; the walk descends
+ *   through it to keep the tree complete and classifies nothing there.
+ *
+ * ### The nodes whose schema constrains nothing
+ *
+ * Five value positions export as annotation only — a `description` and nothing
+ * else. They are the one zod schema the format reuses for message bodies, and
+ * they accept arbitrary content, so the editor is as silent there as at any
+ * object node. Four of them get no skeleton because there is nothing to offer;
+ * the fifth, `messages.<slug>`, gained one in this wave. They are the same zod
+ * schema, so the list below is **audited by the walk rather than copied from
+ * the source**: the walk states which five positions are schema-free, and this
+ * file states which of them may stay silent. A sixth appearing anywhere in the
+ * format goes red and asks for the decision to be made rather than inherited.
+ */
+describe('every value position a skeleton belongs at carries one', () => {
+  type Node = Record<string, any>
+
+  /**
+   * The keys a JSON Schema node may carry that say nothing about what values
+   * are legal. A node holding only these constrains nothing: anything at all,
+   * an object included, may be written where it stands.
+   */
+  const ANNOTATION_ONLY = new Set([
+    '$comment', 'default', 'defaultSnippets', 'deprecated', 'description',
+    'examples', 'markdownDescription', 'readOnly', 'title', 'writeOnly',
+  ])
+
+  function branchesOf(node: Node): Node[] | null {
+    const branches = node.oneOf ?? node.anyOf
+    return Array.isArray(branches) && branches.length > 0 ? branches : null
+  }
+
+  /** An object, a map, or a union all of whose branches are one of those. */
+  function holdsAMapping(node: Node): boolean {
+    if (node.properties && typeof node.properties === 'object') return true
+    if (node.additionalProperties && typeof node.additionalProperties === 'object') return true
+    const branches = branchesOf(node)
+    return branches ? branches.every(holdsAMapping) : false
+  }
+
+  function constrainsNothing(node: Node): boolean {
+    return Object.keys(node).every((key) => ANNOTATION_ONLY.has(key))
+  }
+
+  /**
+   * A union carries its skeletons on its branches, and that is the placement
+   * this wave chose, so it counts as covered when **every** branch carries one.
+   * `every` over a list that cannot be empty: `branchesOf` returns null for an
+   * empty array, so this cannot pass by vacuity.
+   */
+  function carriesSkeleton(node: Node): boolean {
+    if (Array.isArray(node.defaultSnippets) && node.defaultSnippets.length > 0) return true
+    const branches = branchesOf(node)
+    return branches ? branches.every(carriesSkeleton) : false
+  }
+
+  /** `source` becomes `source(rtsp)`: a branch is the same position, read one way. */
+  function intoBranch(path: string[], branch: Node, index: number): string[] {
+    const kind = branch.properties?.kind?.const ?? String(index)
+    return [...path.slice(0, -1), `${path[path.length - 1] ?? ''}(${kind})`]
+  }
+
+  /**
+   * Every value position in the exported schema, sorted into exactly three
+   * buckets. The third exists so that nothing can fall out of the walk
+   * unclassified: a node that is neither a mapping nor annotation-only is
+   * asserted below to be a scalar, so a fourth shape appearing in the format
+   * is a failure rather than a silence.
+   */
+  function walk() {
+    const mappings: string[] = []
+    const uncovered: string[] = []
+    const schemaFree: string[] = []
+    const scalars: Array<{ path: string, node: Node }> = []
+
+    function visit(node: Node, path: string[], atValuePosition: boolean): void {
+      if (!node || typeof node !== 'object') return
+      if (atValuePosition) {
+        const where = path.join('.')
+        if (holdsAMapping(node)) {
+          mappings.push(where)
+          if (!carriesSkeleton(node)) uncovered.push(where)
+        } else if (constrainsNothing(node)) {
+          schemaFree.push(where)
+        } else {
+          scalars.push({ path: where, node })
+        }
+      }
+      if (node.properties && typeof node.properties === 'object') {
+        for (const [key, child] of Object.entries(node.properties)) visit(child as Node, [...path, key], true)
+      }
+      // A map entry is a value position; missing that is what the sweep did.
+      if (node.additionalProperties && typeof node.additionalProperties === 'object') {
+        visit(node.additionalProperties, [...path, '<slug>'], true)
+      }
+      // An array item is not one — descend, but classify nothing.
+      if (node.items && typeof node.items === 'object') visit(node.items, [...path, '[]'], false)
+      const branches = branchesOf(node)
+      if (branches) branches.forEach((branch, i) => visit(branch, intoBranch(path, branch, i), false))
+    }
+
+    visit(schema, [], false)
+    return { mappings, uncovered, schemaFree, scalars }
+  }
+
+  /**
+   * The positions this wave measured, written out rather than counted, so that
+   * the number below falls out of a list somebody can read and disagree with.
+   *
+   * The brief for this task said 17, a constant written before the map-entry
+   * task existed. It is not patched to whatever the walker printed — that is
+   * the shape where a number gets edited until it passes — it is replaced by
+   * the enumeration the walker is checked against, in which a disagreement
+   * names the position rather than the difference between two integers.
+   *
+   * Three of these are reached by no hand-written row anywhere in this file —
+   * `services` and `publishers` parameter entries, and the mjpeg branch's
+   * `credentials`. They are covered because the zod node is authored once and
+   * the export inlines it at every position, which is the argument for a walk
+   * in one line: a table names the positions its author thought of, and the
+   * schema has more of them than that.
+   */
+  const EXPECTED: string[] = [
+    // The six sections — a developer who writes `cameras:` and presses ⏎.
+    'messages',
+    'datapoints',
+    'actions',
+    'services',
+    'publishers',
+    'cameras',
+    // The nested objects, one or two levels further in.
+    'datapoints.<slug>.numeric',
+    'datapoints.<slug>.retention',
+    'datapoints.<slug>.chart',
+    'datapoints.<slug>.alerts',
+    'datapoints.<slug>.alerts.<slug>.condition',
+    'actions.<slug>.parameters',
+    'services.<slug>.parameters',
+    'publishers.<slug>.parameters',
+    'publishers.<slug>.failsafe',
+    // The camera source union and the credentials block inside two of its
+    // branches. `source` is the complaint the whole feature came out of.
+    'cameras.<slug>.source',
+    'cameras.<slug>.source(rtsp).credentials',
+    'cameras.<slug>.source(mjpeg).credentials',
+    // The map entries — the value position of a second entry added by hand,
+    // which the sweep never asked about. `messages.<slug>` is a map entry too
+    // and is missing from this list on purpose: its schema holds no mapping, so
+    // it is audited among the schema-free positions below rather than here.
+    'datapoints.<slug>',
+    'datapoints.<slug>.alerts.<slug>',
+    'actions.<slug>',
+    'actions.<slug>.parameters.<slug>',
+    'services.<slug>',
+    'services.<slug>.parameters.<slug>',
+    'publishers.<slug>',
+    'publishers.<slug>.parameters.<slug>',
+    'cameras.<slug>',
+  ]
+
+  /**
+   * The schema-free positions that stay silent, deliberately. A message body is
+   * whatever the ROS type at the other end accepts, so there is no skeleton to
+   * write; `messages.<slug>`, the same zod schema, is silent about **content**
+   * too but its snippet offers the *shape* of a named reusable message, which
+   * is a thing the format does define.
+   */
+  const SILENT_BY_DESIGN: string[] = [
+    'actions.<slug>.message',
+    'services.<slug>.message',
+    'publishers.<slug>.message',
+    'publishers.<slug>.failsafe.message',
+  ]
+
+  it('every position that can hold a mapping offers a skeleton', () => {
+    const { uncovered } = walk()
+    expect(uncovered, `no skeleton is offered at:\n  ${uncovered.join('\n  ')}`).toEqual([])
+  })
+
+  /**
+   * The count is asserted through the enumeration, not beside it. A bare
+   * `toBe(27)` is a number that gets edited until it passes; a set comparison
+   * says *which* position appeared or disappeared, and the two honest answers
+   * to a disagreement — the walker is wrong, or the schema changed — are told
+   * apart by reading the two lists it prints.
+   */
+  it('the walk reaches exactly the positions this wave measured', () => {
+    const { mappings } = walk()
+    expect([...mappings].sort()).toEqual([...EXPECTED].sort())
+    expect(mappings.length, 'the count follows the list above; it is not a constant to edit').toBe(EXPECTED.length)
+  })
+
+  /**
+   * The definition's stated trap, given its own row. A walker that reads "or a
+   * union" without "all of whose branches hold a mapping" lists these four, and
+   * would have four snippets written for positions the language service already
+   * answers.
+   */
+  it('a scalar union is not such a position', () => {
+    const { mappings } = walk()
+    for (const scalarUnion of [
+      'datapoints.<slug>.alerts.<slug>.condition.fire_at',
+      'actions.<slug>.parameters.<slug>.default',
+      'services.<slug>.parameters.<slug>.default',
+      'publishers.<slug>.parameters.<slug>.default',
+    ]) {
+      expect(mappings, `${scalarUnion} is a scalar union and needs no skeleton`).not.toContain(scalarUnion)
+    }
+  })
+
+  /**
+   * The exclusion list, audited. An exclusion naming a path the walk never
+   * reaches hides nothing and looks like it does — so the assertion is that the
+   * walk's own schema-free set is **exactly** the four plus `messages.<slug>`,
+   * in both directions. A `message` node that gains a shape leaves the set and
+   * arrives in `EXPECTED`; a new schema-free position arrives here. Either way
+   * a decision is demanded rather than inherited.
+   */
+  it('the schema-free positions are exactly the four excluded, plus the shared message', () => {
+    const { schemaFree } = walk()
+    // Reachability first, so that a mistyped or retired path says so in its own
+    // words rather than arriving as one line of a set difference.
+    for (const excluded of SILENT_BY_DESIGN) {
+      expect(schemaFree, `${excluded} is excluded from a walk that never reaches it`).toContain(excluded)
+    }
+    expect([...schemaFree].sort()).toEqual([...SILENT_BY_DESIGN, 'messages.<slug>'].sort())
+  })
+
+  /**
+   * And the one that is not excluded really does carry what its exclusion was
+   * traded for. Without this, dropping `messages.<slug>`'s snippet would move it
+   * onto no list at all: it is not in `EXPECTED` — its schema holds no mapping —
+   * so the walk would keep saying every position is covered.
+   */
+  it('the schema-free entry that is not excluded carries a skeleton', () => {
+    expect(SILENT_BY_DESIGN, 'messages.<slug> is excluded and asserted to carry a skeleton at once').not.toContain('messages.<slug>')
+    const snippets = nodeAt(['messages', '<slug>']).defaultSnippets
+    expect(Array.isArray(snippets), 'messages.<slug> lost the skeleton its exclusion was traded for').toBe(true)
+    expect(snippets.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * The walk's third bucket, checked rather than trusted. Everything it did not
+   * call a mapping or annotation-only has to be a value with a stated type, or
+   * the classification has a hole and positions are dropping through it
+   * silently — which is the failure this whole describe exists to end.
+   */
+  it('nothing falls out of the walk unclassified', () => {
+    const { scalars } = walk()
+    expect(scalars.length).toBeGreaterThan(0)
+    const unclassified = scalars
+      .filter(({ node }) => node.type === undefined && node.enum === undefined && node.const === undefined && !branchesOf(node))
+      .map(({ path }) => path)
+    expect(unclassified, `neither a mapping, an annotation-only node, nor a typed value:\n  ${unclassified.join('\n  ')}`).toEqual([])
+  })
+})
