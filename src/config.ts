@@ -974,6 +974,30 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
   z.record(slug, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
 
 /**
+ * One of the format's own parameter holes, `${name}`, written so that it
+ * survives a `defaultSnippets` insert. **The backslash is load-bearing and is
+ * not a typo to tidy away.**
+ *
+ * The two syntaxes collide. `defaultSnippets` bodies are inserted as LSP
+ * snippets, where `${1:front}` is a tab stop and `${speed}` is a *variable* —
+ * and an unknown variable is not left alone. Measured against
+ * monaco-editor 0.52.2's own `SnippetParser`, which is what the console runs:
+ *
+ * | body holds | the editor inserts |
+ * |---|---|
+ * | `x: ${speed}` | `x: ` — the hole is **deleted**, silently |
+ * | `x: \${speed}` | `x: ${speed}` |
+ *
+ * yaml-language-server emits body strings verbatim (`stringifyObject`'s
+ * replacer only strips a leading `^` and quotes `true`/`false`), so nothing
+ * between here and the snippet engine escapes it for us. A body that writes a
+ * parameter unescaped therefore offers a developer a publisher whose message
+ * has lost the very value a caller was meant to fill, which parses and is
+ * wrong — the worst available outcome for a hint the developer trusts.
+ */
+const param = (name: string) => `\\\${${name}}`
+
+/**
  * A whole robot configuration — everything configurable about one robot.
  *
  * Every section is a mapping keyed by name, not a list of objects carrying
@@ -990,21 +1014,133 @@ export const robotConfigDoc = z.strictObject({
   }),
   messages: messageMap.meta({
     description: 'Reusable message bodies, keyed by name, inserted elsewhere by writing `${name}` directly after `message:`. A shared body may hold placeholders and whoever inserts it declares the parameters, so two publishers can send the same message under different bounds. **A shared message may not insert another**, so a `${name}` inside a body is always a parameter and never a second message.',
+    defaultSnippets: [{
+      label: 'a shared message',
+      description: 'One named body, with one parameter hole in it.',
+      body: {
+        '${1:drive}': {
+          linear: { x: param('speed') },
+          angular: { z: 0 },
+        },
+      },
+    }],
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
     description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
+    defaultSnippets: [
+      {
+        label: 'a datapoint',
+        description: 'One value the robot publishes: one field of one topic.',
+        body: {
+          '${1:battery_voltage}': {
+            topic: '${2:/battery}',
+            type: '${3:sensor_msgs/msg/BatteryState}',
+            field: '${4:voltage}',
+            description: '${5:What this value is, for whoever meets it in the console.}',
+          },
+        },
+      },
+      {
+        label: 'a numeric datapoint, with history and a chart',
+        description: 'A number with its unit, what is kept of it and how it is drawn — the blocks a plain datapoint leaves out.',
+        body: {
+          '${1:battery}': {
+            topic: '${2:/battery}',
+            type: '${3:sensor_msgs/msg/BatteryState}',
+            field: '${4:percentage}',
+            description: '${5:What this value is, for whoever meets it in the console.}',
+            /**
+             * The quotes inside `unit` are part of the inserted text and are
+             * not decoration. A body string is written into the document
+             * verbatim, and `%` is a YAML directive indicator: measured with
+             * `yaml` 2.9.0, `unit: %` is a **syntax error** ("Plain value
+             * cannot start with directive indicator character %") while
+             * `unit: "%"` parses to `%`. Nothing between here and the buffer
+             * quotes a scalar for us.
+             */
+            numeric: { scale: 100, unit: '"%"', decimals: 1 },
+            retention: { enabled: true, interval_seconds: 300 },
+            chart: { y_min: 0, y_max: 100, style: 'line' },
+          },
+        },
+      },
+    ],
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
     description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
+    defaultSnippets: [{
+      label: 'an action',
+      description: 'One thing the robot does on request, reported as a job with progress.',
+      body: {
+        '${1:navigate}': {
+          ros_name: '${2:/navigate_to_pose}',
+          type: '${3:nav2_msgs/action/NavigateToPose}',
+          description: '${4:Drives to a target pose on the map.}',
+        },
+      },
+    }],
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
     description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
+    defaultSnippets: [{
+      label: 'a service',
+      description: 'One request, one reply, no progress in between.',
+      body: {
+        '${1:reset_odometry}': {
+          ros_name: '${2:/reset_odometry}',
+          type: '${3:std_srvs/srv/Trigger}',
+          description: '${4:Resets odometry to the origin.}',
+        },
+      },
+    }],
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
     description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
+    defaultSnippets: [{
+      label: 'a publisher, with its parameters and its failsafe',
+      description: 'A topic clients may send to: what is fixed, what a caller fills, and what the bridge sends by itself once the caller falls silent.',
+      body: {
+        '${1:drive}': {
+          topic: '${2:/cmd_vel}',
+          type: '${3:geometry_msgs/msg/Twist}',
+          message: {
+            linear: { x: param('speed') },
+            angular: { z: param('turn') },
+          },
+          parameters: {
+            speed: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
+            turn: { type: 'float64', min_value: -0.5, max_value: 0.5, default: 0 },
+          },
+          failsafe: {
+            timeout_ms: 500,
+            message: {
+              linear: { x: 0 },
+              angular: { z: 0 },
+            },
+          },
+          quiet_timeout_ms: 2000,
+          description: '${4:Velocity command. If sending stops, the robot stops.}',
+        },
+      },
+    }],
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
     description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in and refused here.',
+    defaultSnippets: [{
+      label: 'a camera',
+      description: 'A complete camera entry with every required field.',
+      body: {
+        '${1:front}': {
+          source: { kind: 'v4l2', device: '${2:/dev/video0}' },
+          width: 1280,
+          height: 720,
+          fps: 15,
+          bitrate_kbps: 2000,
+          snapshot_interval_seconds: 5,
+          description: '${3:Forward-facing camera on the mast.}',
+        },
+      },
+    }],
   }).optional(),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
