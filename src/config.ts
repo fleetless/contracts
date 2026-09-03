@@ -279,18 +279,34 @@ export const parameterMap = z
      * snippet of its own.
      *
      * `type` is a placeholder default rather than a choice, unlike the camera
-     * source's `type`: this one is a `z.enum` of fifteen ROS primitives, so
-     * yaml-language-server already offers all fifteen as value completions at
-     * that position. A choice would restate a list the editor has, and any
-     * shorter list would be a subset presented as the set.
+     * source's `type`, and for two reasons that are **not** "the editor offers
+     * the fifteen here anyway". It does not: after the insert this position
+     * holds `float64` as a selected tab stop, and Monaco does not open the
+     * suggest widget over one — nor as the developer types over the selection,
+     * since an unquoted YAML scalar tokenizes as `string` and the editor's
+     * default `quickSuggestions.strings` is false. The fifteen are an explicit
+     * Ctrl+Space away.
+     *
+     * The reasons that do hold: fifteen options is a list that would have to be
+     * maintained beside the enum, and the enum is the format's own answer — a
+     * snippet must not fork it, and any shorter list is a subset presented as
+     * the set. And a wrong pick here **is** reported: `type_mismatch` checks
+     * the declared type against the type at the template position, which is
+     * the half of the rule that settles it. That is the difference from the
+     * camera `type`, where a wrong pick is accepted by every layer and the
+     * bridge then delivers no frames with nothing objecting.
      *
      * The bounds are the point of the block — the field descriptions call them
      * where a speed limit actually holds — so they are in the skeleton, at
      * `min_value`/`max_value`'s own `examples`. They are coupled to `type`:
-     * tabbing `float64` to `string` makes them `constraint_not_allowed_for_type`.
-     * That is deliberate and it is loud — the schema refuses it where the
-     * developer is standing — where omitting the bounds would leave the
-     * format's one enforcement point out of the hint that introduces it.
+     * tabbing `float64` to `string` makes them `constraint_not_allowed_for_type`,
+     * one line below the pick, in a message that names the value just chosen.
+     * That is deliberate, where omitting the bounds would leave the format's
+     * one enforcement point out of the hint that introduces it. **When the
+     * developer meets it is not today**: this is a `superRefine`, so it is not
+     * in the JSON Schema export and monaco-yaml cannot see it — until the
+     * console validates against `robotConfigDoc` itself, the refusal arrives
+     * on save rather than under the cursor.
      *
      * No `default`, so the parameter is required: `default` is the one field
      * here with no `examples`, and "has no default" is the format's spelling
@@ -392,6 +408,20 @@ export const datapointAlert = z.strictObject({
      *
      * Both values come from `fire_at`'s own `examples`, which carry exactly
      * this pair: `15` for the threshold and `true` for the equality.
+     *
+     * **The second snippet costs the `condition:` *key* completion its body,
+     * and that price is paid knowingly.** monaco-yaml's
+     * `getInsertTextForProperty` (`yaml.worker.js:8520`) takes
+     * `defaultSnippets[0].body` only when a node carries **exactly one**
+     * snippet, so accepting `condition` from the key list writes the bare key
+     * here where every other node this wave touched writes its whole block.
+     * The two stay anyway: the value position — a developer who has written
+     * `condition:` and pressed ⏎ — is where the question "what goes here?" is
+     * actually asked, and that is the position this wave exists to answer.
+     * Merging them into one would buy back the key completion by deleting the
+     * choice the schema deliberately does not name, which is the worse trade;
+     * anyone tempted to make it should change the key-completion behaviour
+     * knowingly rather than as a side effect of tidying two snippets into one.
      */
     defaultSnippets: [
       {
@@ -583,6 +613,16 @@ export const datapointConfig = z
        * stored points are what a customer is billed for, so this is the direct
        * lever on what a robot costs, and a developer who never sees the field
        * never tunes it.
+       *
+       * **This body carries `max_buffer_values` and the composite `datapoints`
+       * snippet's `retention:` does not, deliberately.** The two answer
+       * different questions and the difference is the answer to each: the
+       * composite says *what a datapoint looks like*, where retention is one
+       * of three sub-blocks and the robot-side buffer is a tuning detail that
+       * would bury the shape it is there to show; this node is reached only by
+       * a developer who has written `retention:` and asked what goes in it, and
+       * for that question the buffer is a third of the answer. Neither is the
+       * corrected version of the other.
        */
       defaultSnippets: [{
         label: 'history, on, with its interval and buffer',
@@ -610,6 +650,15 @@ export const datapointConfig = z
        * The composite snippet on `datapoints` writes `style: 'line'` as a
        * literal and stays that way — its body is a battery percentage, where
        * `line` is not a guess.
+       *
+       * **`default_window_minutes` is left out, on the same rule that leaves
+       * `offset` out of `numeric` above**, and it is said here so that the two
+       * omissions read alike: it has its own `examples` (`1440`) and this
+       * node's description names it, but it is the one field of the four that
+       * decides nothing about the drawing — absent means 60, a viewer may look
+       * further whatever it says, and nothing about what is stored follows from
+       * it. Key completion offers it inside the block the moment anyone wants
+       * it; the position that was silent is the *value* after `chart:`.
        */
       defaultSnippets: [{
         label: 'axis bounds, and how two samples are joined',

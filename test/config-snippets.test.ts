@@ -331,10 +331,24 @@ describe('every nested object offers a skeleton', () => {
    * of one authored object. What this catches is the day somebody gives one
    * section a `parameters:` snippet of its own — at which point the three stop
    * agreeing and nothing else in this file would notice.
+   *
+   * **The whole `defaultSnippets` array, deep-compared, and not
+   * `[0].label`.** The label version of this assertion was measured to stay
+   * **green** on a divergent body under the same label — and reusing the label
+   * is exactly what copying the existing node produces, which is how the
+   * second copy gets written in the first place. It was also green on a second
+   * snippet appended after a correct one. The label is what the author of this
+   * test happened to look at; the **body** is what the developer receives, so
+   * that is what has to agree. CLAUDE.md: a guard shaped like your own code,
+   * rather than like what the consumer reads, covers a fraction of its
+   * surface.
    */
   it('the three parameter maps are one node, not three copies', () => {
-    const labels = [['actions'], ['services'], ['publishers']]
-      .map(([section]) => nodeAt([section!, '<slug>', 'parameters']).defaultSnippets[0].label)
-    expect(new Set(labels).size, `three different parameter snippets: ${labels.join(' / ')}`).toBe(1)
+    const sections = ['actions', 'services', 'publishers']
+    const snippets = sections.map((section) => JSON.stringify(nodeAt([section, '<slug>', 'parameters']).defaultSnippets))
+    expect(
+      new Set(snippets).size,
+      `the three parameters snippets are not one object:\n${sections.map((s, i) => `  ${s}: ${snippets[i]}`).join('\n')}`,
+    ).toBe(1)
   })
 })
