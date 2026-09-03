@@ -19,8 +19,11 @@ import { z } from 'zod'
  * Each is used **twice**: as the message zod itself produces, here, and as
  * `patternErrorMessage` in `config.ts`'s exported JSON Schema, which is a
  * published artifact that other tools validate against and that a person
- * reads. Under FL-005 D3 nothing consumes `patternErrorMessage` at runtime, so
- * an unwatched second spelling of a live rule would drift word for word,
+ * reads. Under FL-005 D3 nothing will consume `patternErrorMessage` at runtime
+ * **once wave 3 lands** — `useMonacoYaml.ts` still passes `validate: true`
+ * today, so until then this sentence IS the live diagnostic in the editor and
+ * zod's is the live one on the server. Either way it is a second spelling of a
+ * live rule, and an unwatched one would drift word for word,
  * forever and invisibly — the shape that had `buildAcceptUrl` mailing one URL
  * three ways. They are therefore one constant with two readers rather than two
  * strings that happen to agree, and `config-zod-messages.test.ts` asserts the
