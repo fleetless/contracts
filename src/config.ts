@@ -928,28 +928,6 @@ export const datapointConfig = z
 export type DatapointConfig = z.infer<typeof datapointConfig>
 
 /**
- * A message template: the goal, request or published message, written out in
- * full. Literals are fixed; `${name}` is a hole a caller fills.
- *
- * The shape cannot be narrower than `unknown` here — it is the shape of an
- * arbitrary ROS message, which only the robot's own type definition knows.
- * What CAN be checked here is the placeholder grammar; everything else is
- * checked in the cloud against the introspected type.
- *
- * **`null` is refused, at every depth of this position.** Omission is the
- * only spelling of "not set" in this format, and a bare `z.unknown()` made
- * every message position the one place that also accepted the second
- * spelling: `publishers.p.message: null`, `failsafe.message: null`,
- * `actions.a.message: null` and `messages: {stop: null}` all parsed. Every
- * other field gets this from its own type refusing `null`; this one has no
- * type to get it from, so it says it here.
- *
- * The refusal is a refinement and therefore **invisible in the JSON Schema
- * artifact**, which publishes this position as `{}`. The artifact says what
- * the shape is, not what the parser refuses; a consumer that validates
- * against the artifact instead of against this schema does not get it.
- */
-/**
  * Whether a template holds an explicit `null` anywhere inside it.
  *
  * At **any depth**, and the depth is the whole point. Every other field in
@@ -981,6 +959,28 @@ function holdsExplicitNull(node: unknown): boolean {
   return false
 }
 
+/**
+ * A message template: the goal, request or published message, written out in
+ * full. Literals are fixed; `${name}` is a hole a caller fills.
+ *
+ * The shape cannot be narrower than `unknown` here — it is the shape of an
+ * arbitrary ROS message, which only the robot's own type definition knows.
+ * What CAN be checked here is the placeholder grammar; everything else is
+ * checked in the cloud against the introspected type.
+ *
+ * **`null` is refused, at every depth of this position.** Omission is the
+ * only spelling of "not set" in this format, and a bare `z.unknown()` made
+ * every message position the one place that also accepted the second
+ * spelling: `publishers.p.message: null`, `failsafe.message: null`,
+ * `actions.a.message: null` and `messages: {stop: null}` all parsed. Every
+ * other field gets this from its own type refusing `null`; this one has no
+ * type to get it from, so it says it here.
+ *
+ * The refusal is a refinement and therefore **invisible in the JSON Schema
+ * artifact**, which publishes this position as `{}`. The artifact says what
+ * the shape is, not what the parser refuses; a consumer that validates
+ * against the artifact instead of against this schema does not get it.
+ */
 export const messageTemplate = z.unknown().refine((v) => !holdsExplicitNull(v), {
   message: 'null is not a value; omit the key instead',
   params: { code: 'explicit_null' },
