@@ -106,3 +106,76 @@ describe('every section offers a whole entry', () => {
     }
   })
 })
+
+/**
+ * The four camera sources. `source:` is where this wave's complaint started: a
+ * developer who has written `source:` and pressed ⏎ is standing in front of a
+ * four-branch union, and the editor said nothing at all there.
+ *
+ * The snippets sit on the branches rather than on the union, so a label cannot
+ * drift from the branch it describes and a fifth source cannot be added
+ * without one — this test counts the branches and fails if it is.
+ */
+describe('every camera source offers its own skeleton', () => {
+  const source = () => nodeAt(['cameras', '<slug>', 'source'])
+
+  it('one snippet per branch, each labelled by its kind', () => {
+    const branches = source().oneOf ?? source().anyOf
+    expect(Array.isArray(branches), 'cameraSource no longer exports as a union').toBe(true)
+    expect(branches.length).toBe(4)
+    const kinds: string[] = []
+    for (const branch of branches) {
+      const kind = branch.properties?.kind?.const
+      kinds.push(kind)
+      expect(Array.isArray(branch.defaultSnippets), `branch ${kind} carries no defaultSnippets`).toBe(true)
+      expect(branch.defaultSnippets.length).toBe(1)
+      const [snippet] = branch.defaultSnippets
+      // The label has to name the kind, or the four rows are indistinguishable
+      // in a picker that shows nothing else.
+      expect(snippet.label).toContain(kind)
+      // The body must select its own branch, or picking "rtsp" writes something
+      // the format then reads as a different source.
+      expect(snippet.body.kind, `branch ${kind} snippet does not set kind`).toBe(kind)
+    }
+    expect(kinds).toEqual(['ros', 'rtsp', 'mjpeg', 'v4l2'])
+  })
+
+  it('each source snippet is a camera the format accepts', () => {
+    const branches = source().oneOf ?? source().anyOf
+    for (const branch of branches) {
+      const body = JSON.parse(JSON.stringify(branch.defaultSnippets[0].body).replace(/\$\{\d+:([^}"]*)\}/g, '$1').replace(/\$\d+/g, ''))
+      const doc = {
+        fleetless: 1,
+        cameras: { front: { source: body, width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5 } }
+      }
+      const parsed = robotConfigDoc.safeParse(doc)
+      expect(parsed.success, `${branch.properties.kind.const}: ${JSON.stringify(parsed.error?.issues)}`).toBe(true)
+    }
+  })
+
+  it('credentials offers a skeleton too', () => {
+    const rtsp = (source().oneOf ?? source().anyOf).find((b: any) => b.properties?.kind?.const === 'rtsp')
+    expect(Array.isArray(rtsp.properties.credentials.defaultSnippets)).toBe(true)
+    /**
+     * And the block it offers is one the format accepts, in the position it is
+     * offered from. `credentials` is the one node in this file whose snippet
+     * the source-branch walk above never reaches — it is nested a level below
+     * the branch body — so without this it would be the only snippet in the
+     * wave whose values nothing judged.
+     */
+    const credentials = JSON.parse(
+      JSON.stringify(rtsp.properties.credentials.defaultSnippets[0].body).replace(/\$\{\d+:([^}"]*)\}/g, '$1').replace(/\$\d+/g, ''),
+    )
+    const doc = {
+      fleetless: 1,
+      cameras: {
+        front: {
+          source: { kind: 'rtsp', url: 'rtsp://cam-1.plant.local/stream1', credentials },
+          width: 1280, height: 720, fps: 15, bitrate_kbps: 2000, snapshot_interval_seconds: 5,
+        },
+      },
+    }
+    const parsed = robotConfigDoc.safeParse(doc)
+    expect(parsed.success, `credentials: ${JSON.stringify(parsed.error?.issues)}`).toBe(true)
+  })
+})

@@ -781,6 +781,14 @@ export const cameraCredentials = z
   })
   .meta({
     description: 'Username and password for the stream, standing **in clear text in the document**. A published version is immutable, so a password here cannot be removed from history or rotated without republishing — which is why the publish audit event carries only the version number and never the document body. Userinfo in the `url` works too; an explicit block here wins over it.',
+    defaultSnippets: [{
+      label: 'username and password',
+      description: 'Both fields, in clear text — which is what this block is. Neither may be the empty string, so both placeholders carry a default.',
+      body: {
+        username: '${1:ops}',
+        password: '${2:secret}',
+      },
+    }],
   })
 export type CameraCredentials = z.infer<typeof cameraCredentials>
 
@@ -791,6 +799,12 @@ export type CameraCredentials = z.infer<typeof cameraCredentials>
  * is **unrepresentable** rather than merely invalid — there is no way to
  * write an RTSP camera with a ROS topic, or a V4L2 device with a URL, and
  * therefore no validation rule to forget.
+ *
+ * **Each branch carries its own `defaultSnippets`, rather than one list on the
+ * union.** Both placements were measured and both work; this one keeps a
+ * label beside the branch it names, so the two cannot drift, and it makes a
+ * fifth source impossible to add without one — `config-snippets.test.ts`
+ * walks the exported branches and fails on any that carries none.
  */
 export const cameraSource = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -807,6 +821,22 @@ export const cameraSource = z.discriminatedUnion('kind', [
     }),
   }).meta({
     description: 'Frames come from an image topic the robot already publishes. It is the only source the bridge **subscribes** to rather than opens, so it needs no URL, no device and nobody to authenticate to.',
+    defaultSnippets: [{
+      label: 'ros — an image topic the robot already publishes',
+      description: 'Subscribes to a topic that is already there; nothing is opened and there is nobody to authenticate to.',
+      /**
+       * `type` is written out rather than offered as a tab stop: for a raw
+       * camera the format effectively fixes it, and the one alternative —
+       * `sensor_msgs/msg/CompressedImage`, for a camera that encodes itself —
+       * is named in the field's own hover, which is where a developer who
+       * needs it is looking.
+       */
+      body: {
+        kind: 'ros',
+        topic: '${1:/camera/image_raw}',
+        type: 'sensor_msgs/msg/Image',
+      },
+    }],
   }),
   z.strictObject({
     kind: z.literal('rtsp').meta({
@@ -840,6 +870,14 @@ export const cameraSource = z.discriminatedUnion('kind', [
     credentials: cameraCredentials.optional(),
   }).meta({
     description: 'Frames come from an RTSP stream the robot itself can reach — a network camera on its own LAN. The bridge opens the connection; the cloud never does, and never needs a route to the camera.',
+    defaultSnippets: [{
+      label: 'rtsp — a network camera the robot itself can reach',
+      description: 'A stream the bridge opens over RTSP. The scheme is written out because the format constrains it; the host and the path are what vary.',
+      body: {
+        kind: 'rtsp',
+        url: 'rtsp://${1:cam-1.plant.local}/${2:stream1}',
+      },
+    }],
   }),
   z.strictObject({
     kind: z.literal('mjpeg').meta({
@@ -857,6 +895,14 @@ export const cameraSource = z.discriminatedUnion('kind', [
     credentials: cameraCredentials.optional(),
   }).meta({
     description: 'Frames come from an MJPEG stream over HTTP — one JPEG after another, the simplest network source there is. Unlike `rtsp` there is no `transport` to choose: it is HTTP, and any `credentials` therefore travel as HTTP Basic.',
+    defaultSnippets: [{
+      label: 'mjpeg — one JPEG after another over HTTP',
+      description: 'The simplest network source there is. `https://` is accepted too, and is what any credentials on this URL need.',
+      body: {
+        kind: 'mjpeg',
+        url: 'http://${1:cam-1.plant.local}/${2:video.mjpg}',
+      },
+    }],
   }),
   z.strictObject({
     kind: z.literal('v4l2').meta({
@@ -898,6 +944,19 @@ export const cameraSource = z.discriminatedUnion('kind', [
       }),
   }).meta({
     description: 'Frames come from a capture device attached to the robot itself, such as a USB camera on `/dev/video0`. Nothing leaves the robot to fetch them, and there is nothing to authenticate to, so this source takes no `credentials`.',
+    defaultSnippets: [{
+      label: 'v4l2 — a capture device attached to the robot',
+      description: 'A USB camera on the robot itself. A `/dev/v4l/by-id/...` symlink survives a reboot that renumbers `/dev/video0`.',
+      /**
+       * The default is not decoration. `device` is required and the path is
+       * constrained to `/dev/`, so a bare `$1` would insert the empty string
+       * and offer a camera the format refuses.
+       */
+      body: {
+        kind: 'v4l2',
+        device: '${1:/dev/video0}',
+      },
+    }],
   }),
 ])
 export type CameraSource = z.infer<typeof cameraSource>
