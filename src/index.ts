@@ -180,6 +180,20 @@ export type {
   ValidationIssue,
   ConfigState,
 } from './config.js'
+/**
+ * FL-005 — the one account of what is wrong with a document, shared by the
+ * cloud and the console. See `config-issues.ts`'s header for the window in
+ * which the cloud still holds a second copy.
+ */
+export {
+  DOCUMENT_ROOT_PATH,
+  EXPOSURE_SECTIONS,
+  schemaIssues,
+  formatPath,
+  splitFormatPath,
+  configSchemaHash,
+} from './config-issues.js'
+export type { SchemaIssue, ExposureSection } from './config-issues.js'
 export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf } from './introspection.js'
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {

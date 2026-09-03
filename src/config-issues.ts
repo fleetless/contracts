@@ -1,0 +1,270 @@
+import { z } from 'zod'
+import type { ValidationIssue } from './config.js'
+
+/**
+ * What is wrong with a configuration document, in one account.
+ *
+ * Everything here used to live in `cloud/src/validation.ts`. It is in
+ * contracts because the console has to say **exactly** what the server says
+ * about a document — same codes, same sentences, same paths — and the only
+ * way that is true is if it is the same code. A console that reimplemented
+ * this and then disagreed with the server about what is wrong would be worse
+ * than a console that said nothing (spec D3).
+ *
+ * **Two copies exist while you are reading this, and that is the thing this
+ * module exists to prevent.** The cloud cannot import a specifier it has not
+ * pinned, so its own copy of `schemaIssues`, `refusal`, `slugOf`,
+ * `formatPath` and `valueAt` stays until **wave 2 task 8** re-pins contracts,
+ * deletes them and imports these. Until that lands, this project has the
+ * second door D3 forbids — named here so the window cannot be forgotten
+ * rather than left to be rediscovered.
+ */
+
+/**
+ * One zod issue.
+ *
+ * Zod's own issue union, not a structural restatement of it. The cloud's
+ * copy described the shape by hand because the cloud has no `zod` dependency
+ * of its own — it reaches every schema through this package. Here zod *is* a
+ * dependency, and a hand-written shape that drifts from the real one would
+ * be a second account of the same thing, on the module whose whole point is
+ * that there is one.
+ */
+export type SchemaIssue = z.core.$ZodIssue
+
+/** What a path with no segments at all is called, since `path` may not be empty. */
+export const DOCUMENT_ROOT_PATH = '(document)'
+
+/**
+ * The five sections whose keys are slugs — one namespace across all of them,
+ * which is what lets a role grant say `{robot, slug}` without naming a kind.
+ * `messages:` is deliberately not among them: its names are their own
+ * namespace.
+ *
+ * `cloud/src/config-sections.ts` holds the same list today and drives the
+ * cloud's iteration over sections. Wave 2 task 8, which deletes the cloud's
+ * copy of the mapper, should make that file import this constant rather than
+ * keep a second spelling of the list.
+ */
+export const EXPOSURE_SECTIONS = ['datapoints', 'actions', 'services', 'publishers', 'cameras'] as const
+export type ExposureSection = (typeof EXPOSURE_SECTIONS)[number]
+
+/**
+ * The refusals `robotConfigDoc` already made, reported as validation issues
+ * with their FL-002 codes.
+ *
+ * **This maps; it does not re-decide.** Seven of the thirteen codes are
+ * answered by the schema before a document ever becomes a `RobotConfigDoc`,
+ * and `config.ts` attaches `params: { code }` at each site for exactly this —
+ * its header lists which codes it decides and which it defers. Reading
+ * `params.code` is also the only stable join: the prose of a message is not a
+ * contract and matching on it is a join nobody notices breaking.
+ *
+ * Two refusals carry no `params.code` and are recognised by zod's own issue
+ * code instead, which the same header says consumers should do:
+ *
+ * - `unrecognized_keys` is `unknown_key`. One issue per key, so the path
+ *   names the offending key rather than its parent.
+ * - `invalid_type` **where the value at that path is `null`** is
+ *   `explicit_null`. The condition is checked against the parsed value and
+ *   not against the message, which says "received null" — see above. Zod 4
+ *   does not carry the input on the issue, so the value is navigated to.
+ *
+ * Everything else keeps zod's own code. Those are refusals with no FL-002
+ * code — a reversed `min_value`/`max_value` pair, a section over its cap, a
+ * key that is not a slug — and inventing a fourteenth code for them would put
+ * a code on the wire that no table documents.
+ */
+export function schemaIssues(value: unknown, issues: readonly SchemaIssue[]): ValidationIssue[] {
+  return issues.flatMap((issue): ValidationIssue[] => {
+    if (issue.code === 'unrecognized_keys') {
+      return (issue.keys ?? []).map((key) =>
+        refusal([...issue.path, key], 'unknown_key', `'${key}' is not a key this format defines.`),
+      )
+    }
+
+    // `'params' in issue` rather than `issue.code === 'custom'`: the cloud's
+    // version read `params` off any issue that carried one, and narrowing by
+    // code here would be a quieter rule than the one being moved. Zod only
+    // declares `params` on the custom issue, so the `in` check is also what
+    // types it.
+    const declared = 'params' in issue ? issue.params?.['code'] : undefined
+    if (typeof declared === 'string') return [refusal(issue.path, declared, issue.message)]
+
+    if (issue.code === 'invalid_type' && valueAt(value, issue.path) === null) {
+      return [
+        refusal(
+          issue.path,
+          'explicit_null',
+          'This key is null. Omission is the only spelling of "not set" in this format — remove the key instead.',
+        ),
+      ]
+    }
+
+    return [refusal(issue.path, issue.code, issue.message)]
+  })
+}
+
+function refusal(path: readonly PropertyKey[], code: string, message: string): ValidationIssue {
+  return { path: formatPath(path), slug: slugOf(path), code, message, severity: 'error' }
+}
+
+const EXPOSURE_SECTION_NAMES = new Set<string>(EXPOSURE_SECTIONS)
+
+/**
+ * The entry a path belongs to, for the console's "jump to it" link. `null`
+ * for anything outside the five exposure sections — `messages:` most of all,
+ * whose names are their own namespace.
+ */
+function slugOf(path: readonly PropertyKey[]): string | null {
+  const [section, slug] = path
+  if (typeof section !== 'string' || !EXPOSURE_SECTION_NAMES.has(section)) return null
+  return typeof slug === 'string' ? slug : null
+}
+
+/** `['datapoints','a','enum',0]` -> `datapoints.a.enum[0]`, the spelling every other path here uses. */
+export function formatPath(path: readonly PropertyKey[]): string {
+  if (path.length === 0) return DOCUMENT_ROOT_PATH
+  return path.reduce<string>(
+    (acc, segment) =>
+      typeof segment === 'number' ? `${acc}[${segment}]` : acc === '' ? String(segment) : `${acc}.${String(segment)}`,
+    '',
+  )
+}
+
+/**
+ * `formatPath` read back — `datapoints.a.enum[0]` -> `['datapoints','a','enum',0]`.
+ *
+ * It exists because two console call sites split an issue path on `.` alone
+ * while the cloud writes sequence indices in brackets, so `ranges[0]` reached
+ * a document lookup as one segment that matches no key.
+ *
+ * **It is not the inverse of `formatPath`, and must not be read as one.**
+ * `formatPath` writes `.` and `[n]` as structure and escapes nothing, so a
+ * name that contains either is indistinguishable afterwards from the
+ * structure it looks like. This is reachable, not theoretical: an
+ * `unrecognized_keys` path ends in a key the **developer** chose, and YAML
+ * lets that key be `a.b` or `ranges[0]`.
+ *
+ * Escaping on the way out was the alternative and was rejected: `path` is a
+ * wire field (`validationIssue.path`), it is rendered to developers as-is,
+ * and every recorded expectation in this repo and the cloud's spells it
+ * unescaped. Changing what the server says about every document to make one
+ * console lookup total is the larger of the two costs.
+ *
+ * So the property this has, and the one its test asserts, is the narrow one:
+ * **a path round-trips when no string segment contains `.` or `[`, and the
+ * path is not the single segment `(document)`.** Outside that, the split is a
+ * best guess. What it costs is bounded — the console uses the result to find
+ * a line to put a marker on, so a wrong split finds no line and the marker is
+ * not placed. It never makes the console assert something false about the
+ * document.
+ *
+ * One more asymmetry, in `formatPath` rather than here and pre-existing: an
+ * **empty first segment** is dropped entirely (`formatPath(['', 'a'])` is
+ * `'a'`), because "first segment" is detected as "nothing written yet". A
+ * document whose root carries the key `""` therefore produces a path that no
+ * split can recover — and, since `validationIssue.path` is `min(1)`, an
+ * empty path string that the contract itself would refuse. Named here rather
+ * than fixed: it is the cloud's output today and changing it is not this
+ * move.
+ */
+export function splitFormatPath(path: string): Array<string | number> {
+  if (path === DOCUMENT_ROOT_PATH) return []
+
+  const segments: Array<string | number> = []
+  for (const chunk of path.split('.')) {
+    const match = /^([^[\]]*)((?:\[\d+\])+)$/.exec(chunk)
+    if (match === null) {
+      segments.push(chunk)
+      continue
+    }
+    // A chunk is `name[0][1]` or a bare `[0]`; the name is absent only when
+    // the whole path starts with an index, which `formatPath` does write.
+    const [, name, indices] = match
+    if (name !== '') segments.push(name)
+    for (const index of indices!.slice(1, -1).split('][')) segments.push(Number(index))
+  }
+  return segments
+}
+
+/**
+ * The value a zod issue's path points at in the document that was parsed.
+ *
+ * `Object.hasOwn`, not a bare index, for the reason `sectionGet` gives: the
+ * value came out of a YAML parse and carries `Object.prototype`, so a path
+ * segment like `constructor` would otherwise read a function off the
+ * prototype and answer a question about a key the document never had.
+ */
+function valueAt(root: unknown, path: readonly PropertyKey[]): unknown {
+  let cursor: unknown = root
+  for (const segment of path) {
+    if (cursor === null || typeof cursor !== 'object') return undefined
+    if (Array.isArray(cursor)) {
+      if (typeof segment !== 'number') return undefined
+      cursor = cursor[segment]
+      continue
+    }
+    const key = String(segment)
+    if (!Object.hasOwn(cursor, key)) return undefined
+    cursor = (cursor as Record<string, unknown>)[key]
+  }
+  return cursor
+}
+
+/**
+ * A stable hash of a schema object, for asking *is the thing running the one
+ * I think it is?*
+ *
+ * Wave 5's browser sweep enumerates positions against a schema it holds and
+ * has to know that the editor is running the same one; the manifest that
+ * makes a schema-side change announce itself uses the same number as its
+ * baseline. Both are the same question, so there is one implementation of it:
+ * a second one on the sweep side would drift, and the gate would then go red
+ * for the drift rather than for the schema.
+ *
+ * Canonical JSON first — object keys sorted at every depth, so a re-ordered
+ * `meta()` block is not a change — then FNV-1a over the result, 64 bits as
+ * 16 hex characters. Sorting is done through the `JSON.stringify` replacer,
+ * which also means a cyclic input throws the engine's own "converting
+ * circular structure" TypeError rather than hanging.
+ *
+ * **Named residual: this is a change detector, not a digest.** FNV-1a is not
+ * a cryptographic hash and a collision can be constructed on purpose. It is
+ * asked *did this object change since the baseline was recorded*, by the
+ * people who wrote both; nothing here defends against someone choosing the
+ * input. `crypto.subtle` would be the answer to the other question and is
+ * async, which a `data-` attribute rendered during setup cannot be.
+ */
+export function configSchemaHash(schema: unknown): string {
+  return fnv1a64(canonicalJson(schema))
+}
+
+function canonicalJson(value: unknown): string {
+  return (
+    JSON.stringify(value, (_key, inner: unknown) =>
+      inner !== null && typeof inner === 'object' && !Array.isArray(inner)
+        ? Object.fromEntries(
+            Object.keys(inner as Record<string, unknown>)
+              .sort()
+              .map((key) => [key, (inner as Record<string, unknown>)[key]]),
+          )
+        : inner,
+    ) ??
+    // `JSON.stringify` answers `undefined`, not a string, for `undefined` and
+    // for a function. Hashing the word keeps this function total; a caller
+    // that passed one by accident gets a hash that matches no baseline, which
+    // is the outcome it wants anyway.
+    'undefined'
+  )
+}
+
+function fnv1a64(text: string): string {
+  const PRIME = 0x100000001b3n
+  const MASK = 0xffffffffffffffffn
+  let hash = 0xcbf29ce484222325n
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash ^ BigInt(text.charCodeAt(i))) * PRIME) & MASK
+  }
+  return hash.toString(16).padStart(16, '0')
+}
