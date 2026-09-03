@@ -116,8 +116,11 @@ type Snippet = { label: string, description: string, body: Record<string, unknow
  * differs per snippet — `battery_voltage` for a plain datapoint, `battery` for
  * the numeric one. It therefore takes tab stop `${1}`, and an entry body's own
  * stops are numbered from `${2}` throughout. At the entry position that leaves
- * no `${1}` at all, which costs nothing: the editor visits tab stops in
- * ascending order and does not require them to start at one.
+ * no `${1}` at all, which costs nothing — measured against
+ * monaco-editor 0.52.2's own `SnippetParser`, the version the console runs: it
+ * sorts placeholders by index and requires neither that they start at 1 nor
+ * that they be contiguous, so a body of `a: ${2:x}` visits `2` first, and one
+ * of `a: ${2:x}` / `b: ${5:y}` visits `2` then `5`.
  */
 const underSlug = (slugKey: string, snippet: Snippet): Snippet =>
   ({ ...snippet, body: { [slugKey]: snippet.body } })
@@ -644,15 +647,6 @@ export type DatapointChart = z.infer<typeof datapointChart>
 export const rateThrottleHz = z.number().nonnegative().max(20)
 
 /**
- * One exposed datapoint: one field of a topic, or the whole topic
- * (`field` omitted). Never several topics.
- *
- * `rate_throttle_hz` is an upper bound, not a clock — the bridge drops what
- * arrives too fast and never repeats a value to manufacture a rate. The
- * ceiling is 20: an app's surface has no use for more, and a control loop
- * belongs on a tool that reads at the robot.
- */
-/**
  * One value the robot publishes, authored once for the two positions it is
  * offered from: `datapoints:` (under `underSlug`) and the value of one entry
  * below it. The four required-to-be-useful fields and nothing else; everything
@@ -699,6 +693,15 @@ const NUMERIC_DATAPOINT_SNIPPET: Snippet = {
   },
 }
 
+/**
+ * One exposed datapoint: one field of a topic, or the whole topic
+ * (`field` omitted). Never several topics.
+ *
+ * `rate_throttle_hz` is an upper bound, not a clock — the bridge drops what
+ * arrives too fast and never repeats a value to manufacture a rate. The
+ * ceiling is 20: an app's surface has no use for more, and a control loop
+ * belongs on a tool that reads at the robot.
+ */
 export const datapointConfig = z
   .strictObject({
     topic: rosName.meta({
@@ -979,12 +982,6 @@ export function placeholderNames(node: unknown, found = new Set<string>()): Set<
 }
 
 /**
- * Reusable message bodies, keyed by name. A shared message may hold
- * placeholders; whoever inserts it declares the parameters. It may NOT
- * insert another — that excludes cycles and lets every check look at exactly
- * one body instead of walking a reference tree.
- */
-/**
  * One shared message body, authored once for the two positions it is offered
  * from: `messages:` (under `underSlug`) and the value of one entry below it.
  *
@@ -1010,15 +1007,33 @@ const SHARED_MESSAGE_SNIPPET: Snippet = {
  * offered as the skeleton for a nav2 goal, which is worse than the silence it
  * replaced. Those three positions take arbitrary content shaped by the entry's
  * own ROS type, and nothing here knows it. `.meta()` clones rather than
- * mutating (measured), so `messageTemplate` is untouched; its `description` is
- * carried over rather than restated, because a second copy of that paragraph is
- * a second thing to keep true.
+ * mutating, so `messageTemplate` is untouched, and the template's own
+ * `description` reaches this node **without being restated** — a second copy of
+ * that paragraph would be a second thing to keep true.
+ *
+ * **How the description gets here is zod behaviour, not something written
+ * below.** Measured against zod 4.4.3: `.meta()` on an already-registered
+ * schema merges rather than replaces, and the clone resolves the parent's entry
+ * *lazily* — a clone taken before the parent was registered at all still sees
+ * the parent's description afterwards. So no spread is needed and there is no
+ * evaluation-order hazard. This was first written as
+ * `.meta({ ...messageTemplate.meta(), … })`; dropping the spread was measured
+ * to change nothing in the export, and two mechanisms for one description is
+ * the shape this file removes rather than adds.
+ *
+ * It is undocumented behaviour all the same, so `config-snippets.test.ts`
+ * asserts this node still carries a description and that it is the same string
+ * as the `message:` position — if a zod release stops merging, that is a red
+ * test rather than a hover that silently went blank.
  */
-const sharedMessageBody = messageTemplate.meta({
-  ...messageTemplate.meta(),
-  defaultSnippets: [SHARED_MESSAGE_SNIPPET],
-})
+const sharedMessageBody = messageTemplate.meta({ defaultSnippets: [SHARED_MESSAGE_SNIPPET] })
 
+/**
+ * Reusable message bodies, keyed by name. A shared message may hold
+ * placeholders; whoever inserts it declares the parameters. It may NOT
+ * insert another — that excludes cycles and lets every check look at exactly
+ * one body instead of walking a reference tree.
+ */
 export const messageMap = z
   .record(slug, sharedMessageBody)
   .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
@@ -1026,11 +1041,6 @@ export const messageMap = z
     description: 'Reusable message bodies, keyed by name. A body is inserted by writing `${name}` directly after `message:`, may hold placeholders of its own, and **may not insert another** — which rules out cycles and lets every check look at exactly one body.',
   })
 
-/**
- * An action the robot can be asked to perform (spec §4.2, §11.3). At most one
- * job runs per action slug; a second call is refused `busy`, and every
- * observer of the slug watches the same job.
- */
 /**
  * One action, authored once for the two positions it is offered from:
  * `actions:` (under `underSlug`) and the value of one entry below it. The three
@@ -1047,6 +1057,11 @@ const ACTION_SNIPPET: Snippet = {
   },
 }
 
+/**
+ * An action the robot can be asked to perform (spec §4.2, §11.3). At most one
+ * job runs per action slug; a second call is refused `busy`, and every
+ * observer of the slug watches the same job.
+ */
 export const actionConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The action server on the robot, as an absolute graph name — this is what the bridge sends the goal to. Clients never see it: they address this entry by its slug, so a server can be renamed on the robot without a single app changing.',
@@ -1068,7 +1083,6 @@ export const actionConfig = z.strictObject({
 })
 export type ActionConfig = z.infer<typeof actionConfig>
 
-/** A ROS service call with validated parameters (spec §4.2). */
 /**
  * One service, authored once for the two positions it is offered from:
  * `services:` (under `underSlug`) and the value of one entry below it. The
@@ -1085,6 +1099,7 @@ const SERVICE_SNIPPET: Snippet = {
   },
 }
 
+/** A ROS service call with validated parameters (spec §4.2). */
 export const serviceConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
@@ -1106,27 +1121,6 @@ export const serviceConfig = z.strictObject({
 })
 export type ServiceConfig = z.infer<typeof serviceConfig>
 
-/**
- * A topic clients may publish to.
- *
- * `failsafe` groups the deadline with the message it triggers, because the
- * deadline exists for nothing else. The message must hold no placeholder:
- * the bridge sends it with no caller present, so there would be nobody to
- * fill one.
- *
- * **What that check can and cannot see.** It refuses a placeholder written
- * into an inline failsafe body. It does not refuse
- * `failsafe: { message: '${anything}' }` — a string at a `message:` position
- * is a *reference to a shared message*, and whether that message holds a
- * placeholder is a question about another section of the document, which a
- * schema over one publisher cannot answer. So `failsafe_has_parameters` is
- * half here and half in the cloud, on purpose and by position rather than by
- * accident: the inline half is decidable here, the referenced half is one of
- * the name-resolution codes the file header assigns to the cloud.
- *
- * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
- * before a *different* user may send.
- */
 /**
  * One publisher, authored once for the two positions it is offered from:
  * `publishers:` (under `underSlug`) and the value of one entry below it.
@@ -1163,6 +1157,27 @@ const PUBLISHER_SNIPPET: Snippet = {
   },
 }
 
+/**
+ * A topic clients may publish to.
+ *
+ * `failsafe` groups the deadline with the message it triggers, because the
+ * deadline exists for nothing else. The message must hold no placeholder:
+ * the bridge sends it with no caller present, so there would be nobody to
+ * fill one.
+ *
+ * **What that check can and cannot see.** It refuses a placeholder written
+ * into an inline failsafe body. It does not refuse
+ * `failsafe: { message: '${anything}' }` — a string at a `message:` position
+ * is a *reference to a shared message*, and whether that message holds a
+ * placeholder is a question about another section of the document, which a
+ * schema over one publisher cannot answer. So `failsafe_has_parameters` is
+ * half here and half in the cloud, on purpose and by position rather than by
+ * accident: the inline half is decidable here, the referenced half is one of
+ * the name-resolution codes the file header assigns to the cloud.
+ *
+ * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
+ * before a *different* user may send.
+ */
 export const publisherConfig = z.strictObject({
   topic: rosName.meta({
     description: 'The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.',
@@ -1495,23 +1510,6 @@ export type CameraSource = z.infer<typeof cameraSource>
 export const snapshotIntervalSeconds = z.number().int().min(1).max(3600)
 
 /**
- * A camera the robot exposes (spec §10).
- *
- * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
- * developer's control over **the robot's own bandwidth**, which is why they
- * live in the configuration rather than in a viewer's request. A viewer never
- * gets to make a robot send more.
- *
- * The two modes are deliberately independent (§10):
- *
- * - **Snapshot** runs always, at `snapshot_interval_seconds`, whether or not
- *   anyone is watching live. The cloud caches the one frame and serves every
- *   client from it, so a hundred pollers cost the robot exactly one image per
- *   interval.
- * - **Live** runs on demand and is refcounted in the cloud: the first viewer
- *   starts it, the last one ends it.
- */
-/**
  * One camera, authored once for the two positions it is offered from:
  * `cameras:` (under `underSlug`) and the value of one entry below it.
  *
@@ -1534,6 +1532,23 @@ const CAMERA_SNIPPET: Snippet = {
   },
 }
 
+/**
+ * A camera the robot exposes (spec §10).
+ *
+ * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
+ * developer's control over **the robot's own bandwidth**, which is why they
+ * live in the configuration rather than in a viewer's request. A viewer never
+ * gets to make a robot send more.
+ *
+ * The two modes are deliberately independent (§10):
+ *
+ * - **Snapshot** runs always, at `snapshot_interval_seconds`, whether or not
+ *   anyone is watching live. The cloud caches the one frame and serves every
+ *   client from it, so a hundred pollers cost the robot exactly one image per
+ *   interval.
+ * - **Live** runs on demand and is refcounted in the cloud: the first viewer
+ *   starts it, the last one ends it.
+ */
 export const cameraConfig = z.strictObject({
   source: cameraSource.meta({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',

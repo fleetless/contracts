@@ -417,35 +417,73 @@ describe('every map entry offers a whole entry', () => {
   /**
    * The two positions are one authored skeleton, asserted rather than believed.
    *
-   * A section body is its entry body under one slug key — `{ '${1:battery}':
-   * ENTRY }` against `ENTRY` — so a deep comparison of the two is what says the
-   * pair still comes from one constant. Three reviews in this wave have caught
-   * the same drift: a second copy of a skeleton inventing a value its sibling
-   * had already answered. Copying is what produces that, and the labels agree
-   * across a copy, so the **body** is what has to be compared.
+   * A section snippet is its entry snippet with the body under one slug key, so
+   * a deep comparison of the two is what says the pair still comes from one
+   * constant. Three reviews in this wave have caught the same drift: a second
+   * copy of a skeleton inventing a value its sibling had already answered.
+   *
+   * **The whole snippet, not the body.** This assertion compared bodies alone
+   * for one round, and that was measured to stay **green** when one position's
+   * `label` and `description` were both replaced with `'DIVERGED …'` — two of
+   * the three fields a developer reads in the suggest widget, unguarded by the
+   * guard that exists to stop exactly this. It is the same shape as the
+   * label-only identity test task 3's review rejected, one level over: assert
+   * over what the consumer receives, which is the whole snippet.
    *
    * The whole array, index by index: an entry position that grew a second
    * snippet the section does not offer is the same divergence one step later.
    */
-  const PAIRS: Array<[string, string[]]> = [
-    ['messages', ['messages']],
-    ['datapoints', ['datapoints']],
-    ['actions', ['actions']],
-    ['services', ['services']],
-    ['publishers', ['publishers']],
-    ['cameras', ['cameras']],
-    ['alerts', ['datapoints', '<slug>', 'alerts']],
-    ['parameters', ['actions', '<slug>', 'parameters']],
+  const PAIRS: string[][] = [
+    ['messages'],
+    ['datapoints'],
+    ['actions'],
+    ['services'],
+    ['publishers'],
+    ['cameras'],
+    ['datapoints', '<slug>', 'alerts'],
+    ['actions', '<slug>', 'parameters'],
   ]
 
-  it.each(PAIRS)('a %s section snippet and its entry snippet are one skeleton', (_label, sectionPath) => {
-    const fromSection = nodeAt(sectionPath).defaultSnippets
-    const fromEntry = nodeAt([...sectionPath, '<slug>']).defaultSnippets
-    expect(fromEntry.length, 'the section and the entry offer a different number of skeletons').toBe(fromSection.length)
-    fromSection.forEach((snippet: any, i: number) => {
-      const keys = Object.keys(snippet.body)
-      expect(keys.length, `the section body is not one slug key: ${JSON.stringify(keys)}`).toBe(1)
-      expect(snippet.body[keys[0]!], `snippet ${i} has been edited apart from its entry`).toEqual(fromEntry[i].body)
-    })
+  it.each(PAIRS.map((path) => [path.join('.'), path] as const))(
+    '%s: a section snippet and its entry snippet are one skeleton',
+    (_name, sectionPath) => {
+      const fromSection = nodeAt(sectionPath).defaultSnippets
+      const fromEntry = nodeAt([...sectionPath, '<slug>']).defaultSnippets
+      expect(fromEntry.length, 'the section and the entry offer a different number of skeletons').toBe(fromSection.length)
+      fromSection.forEach((snippet: any, i: number) => {
+        const keys = Object.keys(snippet.body)
+        expect(keys.length, `the section body is not one slug key: ${JSON.stringify(keys)}`).toBe(1)
+        expect(
+          { ...snippet, body: snippet.body[keys[0]!] },
+          `snippet ${i} has been edited apart from its entry`,
+        ).toEqual(fromEntry[i])
+      })
+    },
+  )
+
+  /**
+   * `messages.<slug>` is the one entry node whose `description` is not written
+   * at the position it appears: `sharedMessageBody` is a `.meta()` clone of
+   * `messageTemplate`, and the paragraph reaches it because **zod merges a
+   * clone's metadata with its parent's** rather than replacing it. Measured
+   * against zod 4.4.3, including the lazy half — a clone taken before the
+   * parent was registered still sees the parent's entry afterwards.
+   *
+   * That is undocumented behaviour holding up a hover text, and nothing about
+   * the shape changes if it stops: the node keeps its snippet, the body still
+   * parses, and every other row in this file stays green while the description
+   * is simply gone. So it is asserted, and against the `message:` position
+   * rather than against a copy of the string — a copy would be the second
+   * spelling the whole arrangement exists to avoid.
+   *
+   * The other seven entry nodes carry no `description` of their own and are not
+   * asserted: their hover comes from the section above them, and giving each a
+   * paragraph is a documentation decision this task did not make.
+   */
+  it('the shared-message entry keeps the description it inherits', () => {
+    const entry = nodeAt(['messages', '<slug>'])
+    expect(typeof entry.description, 'messages.<slug> lost the description it inherits from the template').toBe('string')
+    expect(entry.description.trim().length).toBeGreaterThan(0)
+    expect(entry.description, 'this node and the `message:` position no longer read one description').toBe(nodeAt(['actions', '<slug>', 'message']).description)
   })
 })
