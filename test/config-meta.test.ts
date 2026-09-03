@@ -176,3 +176,54 @@ describe('every camera source branch carries a hover text', () => {
     }
   })
 })
+
+/**
+ * A `description:` field is the one position in the format where the developer
+ * has to write prose, and the editor offering nothing there is the state item 3
+ * describes: every sibling of `datapoints.<slug>.description` offered an
+ * example and it did not, so the fourteen silent scalars of §1.1 included three
+ * `description`s that simply lacked an `examples`.
+ *
+ * The reason this is a walk and not a list of three: a `description` added to a
+ * sixth section later is the fourth instance of the same omission, and a list
+ * would not know about it. The count is asserted so the walk cannot come back
+ * empty and pass vacuously — the `.every()`-over-nothing failure this project
+ * keeps finding.
+ *
+ * **The example is not free to be invented**, and that rule is enforced by
+ * reading rather than by a test: every one of these values is the sentence the
+ * corresponding snippet body already inserts at the same position, verbatim.
+ * Two answers to one question is the drift three consecutive reviews in this
+ * wave caught. `config-zod-messages.test.ts` asserts each example parses
+ * against its own field; that the wording matches the snippet is the review's.
+ */
+describe('every description field offers an example', () => {
+  /** Every property named `description`, as dotted paths, with its node. */
+  function descriptions(node: Record<string, any>, path = '', out = new Map<string, any>()) {
+    for (const [key, value] of Object.entries<Record<string, any>>(node.properties ?? {})) {
+      if (key === 'description') out.set(`${path}.${key}`, value)
+      descriptions(value, `${path}.${key}`, out)
+    }
+    if (node.additionalProperties && typeof node.additionalProperties === 'object')
+      descriptions(node.additionalProperties, `${path}.<slug>`, out)
+    if (node.items && typeof node.items === 'object') descriptions(node.items, `${path}[]`, out)
+    for (const keyword of ['oneOf', 'anyOf', 'allOf'] as const)
+      (node[keyword] ?? []).forEach((branch: any, i: number) => descriptions(branch, `${path}#${i}`, out))
+    return out
+  }
+
+  const found = descriptions(schema)
+
+  it('found the description fields the format has', () => {
+    // Five exposure kinds, plus a parameter's — which is one node reaching the
+    // three sections that carry `parameters:`, so it is counted three times.
+    expect(found.size).toBe(8)
+  })
+
+  it('leaves none of them without one', () => {
+    const silent = [...found.entries()]
+      .filter(([, node]) => !Array.isArray(node.examples) || node.examples.length === 0)
+      .map(([path]) => path)
+    expect(silent, `a description field offering nothing at: ${silent.join(', ')}`).toEqual([])
+  })
+})

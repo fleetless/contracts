@@ -1,4 +1,17 @@
-export { slug, rosName, rosTypeName, fieldPath, wireSeqCursor, wireTimestampMs, applyErrorKind, applyError } from './common.js'
+export {
+  SLUG_RULE,
+  ROS_NAME_RULE,
+  ROS_TYPE_NAME_RULE,
+  FIELD_PATH_RULE,
+  slug,
+  rosName,
+  rosTypeName,
+  fieldPath,
+  wireSeqCursor,
+  wireTimestampMs,
+  applyErrorKind,
+  applyError,
+} from './common.js'
 export type { ApplyErrorKind, ApplyError } from './common.js'
 export {
   MCP_PROTOCOL_VERSION,

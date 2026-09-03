@@ -7,7 +7,44 @@ import { z } from 'zod'
  * They live here rather than in `protocol.ts` so the exposure model
  * (`config.ts`) and the bridge protocol can both use them without importing
  * each other.
+ *
+ * ## Each grammar's sentence lives beside its pattern
+ *
+ * A developer whose topic name was wrong used to be shown the regular
+ * expression that refused it. The four `*_RULE` constants below are the
+ * sentences that replace it — one per grammar rather than one per field,
+ * because the message explains why the *pattern* said no, and the same pattern
+ * says no for the same reason wherever it appears.
+ *
+ * Each is used **twice**: as the message zod itself produces, here, and as
+ * `patternErrorMessage` in `config.ts`'s exported JSON Schema, which is a
+ * published artifact that other tools validate against and that a person
+ * reads. Under FL-005 D3 nothing consumes `patternErrorMessage` at runtime, so
+ * an unwatched second spelling of a live rule would drift word for word,
+ * forever and invisibly — the shape that had `buildAcceptUrl` mailing one URL
+ * three ways. They are therefore one constant with two readers rather than two
+ * strings that happen to agree, and `config-zod-messages.test.ts` asserts the
+ * two readings are the same string at all 24 pattern positions the document
+ * has.
+ *
+ * **They are exported because the pattern and its sentence must not be able to
+ * move apart**, and the pattern is here while the schema annotation is in
+ * `config.ts`. The three grammars that exist only inside a configuration
+ * document — the two URL schemes and the capture-device path — are constants in
+ * `config.ts` beside their own patterns, on the same rule.
+ *
+ * **The blast radius of putting the sentence here was measured, and it is
+ * zero artifacts.** A `.meta()` on `slug` would reach 42 of the 159 published
+ * schema artifacts, the bridge's vendored protocol frames among them — which is
+ * why `mapKey` in `config.ts` carries the annotation and `slug` does not. A
+ * message on a `.regex()` check is a different thing: zod renders no error
+ * message into JSON Schema at all, so every artifact is byte-identical either
+ * way (measured across all 278 barrel schemas under both `io` modes,
+ * 2026-09-03). What it does reach is the sentence a *parser* produces, in every
+ * layer that parses one of these names — which is the improvement, not a cost.
  */
+
+export const SLUG_RULE = 'A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused.'
 
 /**
  * A name: a slug for an exposed service or datapoint, a parameter name, a
@@ -23,7 +60,9 @@ export const slug = z
   .string()
   .min(2)
   .max(63)
-  .regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/)
+  .regex(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/, SLUG_RULE)
+
+export const ROS_NAME_RULE = 'A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.'
 
 /**
  * A fully qualified ROS graph name: absolute, slash-separated, each segment
@@ -33,7 +72,9 @@ export const slug = z
 export const rosName = z
   .string()
   .max(255)
-  .regex(/^\/[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*$/)
+  .regex(/^\/[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*$/, ROS_NAME_RULE)
+
+export const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.'
 
 /**
  * A ROS interface type as ROS 2 spells it: `pkg/msg/Type`, `pkg/srv/Type`,
@@ -44,7 +85,9 @@ export const rosName = z
 export const rosTypeName = z
   .string()
   .max(255)
-  .regex(/^[a-z][a-z0-9_]*\/(?:msg|srv|action)\/[A-Za-z][A-Za-z0-9]*$/)
+  .regex(/^[a-z][a-z0-9_]*\/(?:msg|srv|action)\/[A-Za-z][A-Za-z0-9]*$/, ROS_TYPE_NAME_RULE)
+
+export const FIELD_PATH_RULE = 'A field path is dotted and lower-case, and each segment may index at most one array level — `voltage`, `pose.position.x`, `ranges[0]`. ROS 2 has no nested arrays, so a second index on one segment could name nothing that exists.'
 
 /**
  * A path into a message: dot-separated field names, each carrying **at most
@@ -64,7 +107,7 @@ export const rosTypeName = z
 export const fieldPath = z
   .string()
   .max(255)
-  .regex(/^[a-z_][a-z0-9_]*(?:\[\d+\])?(?:\.[a-z_][a-z0-9_]*(?:\[\d+\])?)*$/)
+  .regex(/^[a-z_][a-z0-9_]*(?:\[\d+\])?(?:\.[a-z_][a-z0-9_]*(?:\[\d+\])?)*$/, FIELD_PATH_RULE)
 
 /**
  * A unix-millisecond instant as a **query string** actually carries it, bounded

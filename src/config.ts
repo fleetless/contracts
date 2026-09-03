@@ -1,5 +1,15 @@
 import { z } from 'zod'
-import { applyError, slug, rosName, rosTypeName, fieldPath } from './common.js'
+import {
+  applyError,
+  slug,
+  rosName,
+  rosTypeName,
+  fieldPath,
+  SLUG_RULE,
+  ROS_NAME_RULE,
+  ROS_TYPE_NAME_RULE,
+  FIELD_PATH_RULE,
+} from './common.js'
 /**
  * `alertSeverity` is identical for the stored row and this document-nested
  * definition — `z.enum(['warning', 'error'])`, nothing more to say twice —
@@ -21,7 +31,9 @@ import { alertSeverity } from './alerts.js'
  * written down, so here it is.
  *
  * **Decided here** — everything a single entry, plus its own declared types,
- * answers on its own: `unknown_key` (every object is `z.strictObject`),
+ * answers on its own: `unknown_key` (every object is this file's own
+ * `strictObject`, which is `z.strictObject` plus a missing key that names
+ * itself),
  * `explicit_null`, `invalid_rate` (`rateThrottleHz`),
  * `requires_single_field`, `invalid_condition`,
  * `constraint_not_allowed_for_type`, `value_type_mismatch` and
@@ -81,32 +93,36 @@ import { alertSeverity } from './alerts.js'
  * *pattern* said no, and the same pattern says no for the same reason wherever
  * it appears.
  *
- * **Where they are read, and when.** They ship as `patternErrorMessage` in the
- * exported JSON Schema, which is a published artifact other tools validate
- * against, and which a person reads.
+ * **Four of the seven are not here.** `SLUG_RULE`, `ROS_NAME_RULE`,
+ * `ROS_TYPE_NAME_RULE` and `FIELD_PATH_RULE` belong to patterns `common.ts`
+ * declares, and each one lives beside its pattern so that the two cannot move
+ * apart; that file's header says why. The three below exist only inside a
+ * configuration document, so they are here, beside theirs, on the same rule.
  *
- * In the console they are the live pattern diagnostic **until wave 3 lands**:
- * `useMonacoYaml.ts` still passes `validate: true`, so between task 7's
- * artifacts and D3 these sentences are what monaco-yaml shows. D3 then turns
- * that validation off, and from there the message a developer sees comes from
- * this schema's own parser and from the cloud, saying the same thing — which
- * is why the sentence is written once and, from task 5, shared with zod.
+ * **Where they are read, and when.** Each is used twice: as the message **zod
+ * itself produces**, and as `patternErrorMessage` in the exported JSON Schema,
+ * which is a published artifact other tools validate against and which a person
+ * reads. One constant with two readers, never two strings that happen to agree
+ * — `config-zod-messages.test.ts` asserts the two readings are the same string
+ * at all 24 pattern positions the document has, because under D3 nothing
+ * consumes `patternErrorMessage` at runtime and an unwatched second spelling of
+ * a live rule drifts word for word, forever and invisibly.
+ *
+ * In the console `patternErrorMessage` is also the live pattern diagnostic
+ * **until wave 3 lands**: `useMonacoYaml.ts` still passes `validate: true`, so
+ * between task 7's artifacts and D3 these sentences are what monaco-yaml shows.
+ * D3 then turns that validation off, and from there the message a developer
+ * sees comes from this schema's own parser and from the cloud — the same
+ * sentence, which is the point of there being one.
  *
  * The tense matters because the two states look identical from inside this
  * file. Whoever reads it after wave 3 should find a claim that was true when
  * written and stayed true, not one that quietly became false.
  *
  * Each one states the rule in words and gives one example, and none of them
- * quotes its own regex — `config-messages.test.ts` asserts all three.
+ * quotes its own regex — `config-messages.test.ts` asserts that over every
+ * pattern in the exported document, not over the three below.
  */
-const SLUG_RULE = 'A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused.'
-
-const ROS_NAME_RULE = 'A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.'
-
-const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.'
-
-const FIELD_PATH_RULE = 'A field path is dotted and lower-case, and each segment may index at most one array level — `voltage`, `pose.position.x`, `ranges[0]`. ROS 2 has no nested arrays, so a second index on one segment could name nothing that exists.'
-
 const RTSP_URL_RULE = 'The URL has to begin with `rtsp://` or `rtsps://` — `rtsp://cam-1.plant.local/stream1`. No other scheme is accepted: the bridge opens this with a library that would equally honour `file:`.'
 
 const MJPEG_URL_RULE = 'The URL has to begin with `http://` or `https://` — `http://cam-1.plant.local/video.mjpg`. No other scheme is accepted: the bridge opens this with a library that would equally serve `file:`.'
@@ -138,6 +154,93 @@ const DEVICE_PATH_RULE = 'A capture device is a path under `/dev/`, and the char
  * artifact is read by tools and by people.
  */
 const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
+
+/**
+ * One field, carrying the sentence it says when it is absent.
+ *
+ * `clone` is the only way to add an `error` to a schema that is already built,
+ * and **it drops the schema's registry entry** — its `description`, its
+ * `examples`, every annotation this wave added, all of which live in
+ * `z.globalRegistry` keyed by the schema instance rather than in its
+ * definition. So the entry is read back and put on the clone. Measured on zod
+ * 4.4.3: `z.globalRegistry.get` resolves the whole `.meta()` parent chain into
+ * one object, so what is copied is what the export would have produced, and a
+ * later `.meta()` on the result merges with it as it did before. A wrapper that
+ * silently emptied every hover in the format would be the worst available way
+ * to improve one message.
+ *
+ * The inherited `error` is kept and deferred to, so this composes with a
+ * field that already carries one rather than replacing it.
+ */
+const saysItIsMissing = <T extends z.core.$ZodType>(field: T): T => {
+  const meta = z.globalRegistry.get(field)
+  const def = { ...(field as unknown as { _zod: { def: Record<string, unknown> } })._zod.def }
+  const inherited = def.error
+  def.error = (issue: z.core.$ZodRawIssue): string | undefined => {
+    const key = issue.path?.[issue.path.length - 1]
+    if (issue.code === 'invalid_type' && issue.input === undefined && typeof key === 'string')
+      return `Missing required key \`${key}\`.`
+    return typeof inherited === 'function' ? inherited(issue) : (inherited as string | undefined)
+  }
+  const cloned = (field as unknown as { clone: (d: unknown) => T }).clone(def)
+  if (meta !== undefined) z.globalRegistry.add(cloned, meta)
+  return cloned
+}
+
+
+/** Each field of a shape, carrying the sentence it says when it is missing. */
+const namesItsAbsence = <T extends z.ZodRawShape>(shape: T): T =>
+  Object.fromEntries(Object.entries(shape).map(([key, field]) => [key, saysItIsMissing(field)])) as T
+
+/**
+ * Every object in this document is strict, and every required key of it says
+ * its own name when it is absent.
+ *
+ * **This is not `z.strictObject`** — it is this file's, wrapping it. The
+ * difference is the second half: `Invalid input: expected object, received
+ * undefined` was the whole of what a developer was told when a camera had no
+ * `source:` (design §1.5), naming neither the key nor the fact that it was
+ * required. monaco-yaml said `Missing property "source".` for the same
+ * document, and was right to.
+ *
+ * It has to be done a field at a time. zod attributes a missing key to the
+ * **field's own** schema — an `invalid_type` whose input is `undefined` — and
+ * an `error` on the containing object is never consulted for it; measured on
+ * zod 4.4.3, an error map on the object saw no such issue at all. So the
+ * sentence is attached to every field of every shape, here, in one place,
+ * rather than at the thirteen objects and hundred-odd fields it would
+ * otherwise have to be remembered at.
+ */
+const strictObject = <T extends z.ZodRawShape>(shape: T) => z.strictObject(namesItsAbsence(shape))
+
+/**
+ * A map keyed by slugs, whose refused key says **which** key and **why**.
+ *
+ * `Invalid key in record` was the worst sentence in the format and it lands on
+ * the commonest beginner mistake — a section keyed `Battery` rather than
+ * `battery`. It named neither the key nor the grammar, and the grammar was
+ * sitting one level down, on the key schema's own issue, where nothing that
+ * renders a `safeParse` result ever looks: the cloud's 422 and the console both
+ * read the top-level `issues[].message` and nothing below it.
+ *
+ * So the sentence is composed from exactly that: the key, then the messages of
+ * the issues the key schema itself raised. A key too short says so; a key that
+ * breaks the grammar states the grammar, `SLUG_RULE` verbatim. Composing rather
+ * than restating is what keeps this from becoming a second wording of the rule
+ * the moment the rule is reworded.
+ *
+ * The path already carries the key (`datapoints.Battery`) and always did — the
+ * fix is the sentence, not the path — but a message that reads correctly on its
+ * own is what a diagnostic list, a 422 body and a hover all need.
+ */
+const slugKeyed = <T extends z.core.$ZodType>(entry: T) =>
+  z.record(mapKey, entry, {
+    error: (issue) => {
+      if (issue.code !== 'invalid_key') return undefined
+      const why = issue.issues.map((inner) => inner.message).filter(Boolean).join(' ')
+      return why.length === 0 ? undefined : `\`${String(issue.input)}\` is not a valid name. ${why}`
+    },
+  })
 
 /**
  * `enumDescriptions` built from a table keyed by the **value**, never written
@@ -391,6 +494,8 @@ export const parameterSpec = z
     }).optional(),
     description: parameterDescription.meta({
       description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the MCP tool\'s input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
+      /** The sentence `PARAMETER_SNIPPET` already places here, verbatim. */
+      examples: ['What a caller is choosing when they set this.'],
     }),
   })
   .superRefine((p, ctx) => {
@@ -486,8 +591,7 @@ export const parameterSpec = z
 export type ParameterSpec = z.infer<typeof parameterSpec>
 
 /** Parameters of one entry, keyed by name. At most 50. */
-export const parameterMap = z
-  .record(mapKey, parameterSpec)
+export const parameterMap = slugKeyed(parameterSpec)
   .refine((m) => Object.keys(m).length <= 50, { message: 'at most 50 parameters per entry' })
   .meta({
     description: 'The holes in this entry\'s `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error.',
@@ -602,7 +706,7 @@ const ALERT_SNIPPET: Snippet = {
  * absent-means-`ALERT_ENABLED_DEFAULT`; see those constants for why the
  * default is not applied here.
  */
-export const datapointAlert = z.strictObject({
+export const datapointAlert = strictObject({
   condition: alertCondition.meta({
     description: 'When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state.',
     /**
@@ -668,7 +772,7 @@ export const datapointAlert = z.strictObject({
 export type DatapointAlert = z.infer<typeof datapointAlert>
 
 /** Requires a numeric field — all four fields share that one precondition. */
-export const datapointNumeric = z.strictObject({
+export const datapointNumeric = strictObject({
   scale: z.number().meta({
     description: 'A factor the robot multiplies the raw value by before sending it (`value * scale + offset`). The arithmetic happens once, at the source, so REST, realtime and history can never disagree about a number.',
     examples: [100],
@@ -703,7 +807,7 @@ export type DatapointNumeric = z.infer<typeof datapointNumeric>
  * this file: the document a developer wrote is the document that is stored,
  * and a parse that inserts fields makes the round trip a lie.
  */
-export const datapointRetention = z.strictObject({
+export const datapointRetention = strictObject({
   enabled: z.boolean().meta({
     description: 'Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it.',
   }).optional(),
@@ -851,6 +955,14 @@ export const datapointConfig = z
     }).optional(),
     description: serviceDescription.meta({
       description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
+      /**
+       * The sentence both datapoint snippets already place here, verbatim. Its
+       * four siblings — an action's, a service's, a publisher's, a camera's —
+       * each carry the sentence from their own snippet body, so this position
+       * was the one description in the format offering nothing; a second wording
+       * invented here would have been the drift instead.
+       */
+      examples: ['What this value is, for whoever meets it in the console.'],
     }),
     numeric: datapointNumeric.meta({
       description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
@@ -944,7 +1056,7 @@ export const datapointConfig = z
         body: { y_min: 0, y_max: 100, style: '${1|line,step|}' },
       }],
     }).optional(),
-    alerts: z.record(mapKey, datapointAlert).meta({
+    alerts: slugKeyed(datapointAlert).meta({
       description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
       /**
        * The body is `ALERT_SNIPPET` under its slug key — the same skeleton the
@@ -1163,8 +1275,7 @@ const sharedMessageBody = messageTemplate.meta({ defaultSnippets: [SHARED_MESSAG
  * insert another — that excludes cycles and lets every check look at exactly
  * one body instead of walking a reference tree.
  */
-export const messageMap = z
-  .record(mapKey, sharedMessageBody)
+export const messageMap = slugKeyed(sharedMessageBody)
   .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
   .meta({
     description: 'Reusable message bodies, keyed by name. A body is inserted by writing `${name}` directly after `message:`, may hold placeholders of its own, and **may not insert another** — which rules out cycles and lets every check look at exactly one body.',
@@ -1191,7 +1302,7 @@ const ACTION_SNIPPET: Snippet = {
  * job runs per action slug; a second call is refused `busy`, and every
  * observer of the slug watches the same job.
  */
-export const actionConfig = z.strictObject({
+export const actionConfig = strictObject({
   ros_name: rosName.meta({
     description: 'The action server on the robot, as an absolute graph name — this is what the bridge sends the goal to. Clients never see it: they address this entry by its slug, so a server can be renamed on the robot without a single app changing.',
     patternErrorMessage: ROS_NAME_RULE,
@@ -1231,7 +1342,7 @@ const SERVICE_SNIPPET: Snippet = {
 }
 
 /** A ROS service call with validated parameters (spec §4.2). */
-export const serviceConfig = z.strictObject({
+export const serviceConfig = strictObject({
   ros_name: rosName.meta({
     description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
     patternErrorMessage: ROS_NAME_RULE,
@@ -1311,7 +1422,7 @@ const PUBLISHER_SNIPPET: Snippet = {
  * `quiet_timeout_ms` is unrelated — how long a publisher must be silent
  * before a *different* user may send.
  */
-export const publisherConfig = z.strictObject({
+export const publisherConfig = strictObject({
   topic: rosName.meta({
     description: 'The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.',
     patternErrorMessage: ROS_NAME_RULE,
@@ -1464,7 +1575,7 @@ export type CameraCredentials = z.infer<typeof cameraCredentials>
 const rtspTransport = z.enum(['tcp', 'udp'])
 
 export const cameraSource = z.discriminatedUnion('kind', [
-  z.strictObject({
+  strictObject({
     kind: z.literal('ros').meta({
       description: 'Selects the ROS image-topic source: this camera then carries `topic` and `type`, and no field of another kind.',
     }),
@@ -1515,7 +1626,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       },
     }],
   }),
-  z.strictObject({
+  strictObject({
     kind: z.literal('rtsp').meta({
       description: 'Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`.',
     }),
@@ -1535,7 +1646,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .string()
       .min(1)
       .max(2048)
-      .regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL')
+      .regex(/^rtsps?:\/\//i, RTSP_URL_RULE)
       .meta({
         description: 'Where the stream lives, reached from the robot rather than from the cloud. **`rtsp://` or `rtsps://` only** — the bridge opens this with a library that would equally honour `file:`, so an unconstrained URL would turn a configuration document into arbitrary file access on the robot. The bridge re-checks the scheme itself, so a validator that changed could not make a robot serve files.',
         patternErrorMessage: RTSP_URL_RULE,
@@ -1561,7 +1672,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       },
     }],
   }),
-  z.strictObject({
+  strictObject({
     kind: z.literal('mjpeg').meta({
       description: 'Selects the MJPEG-over-HTTP source: this camera then carries `url`, and optionally `credentials`.',
     }),
@@ -1570,10 +1681,17 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .string()
       .min(1)
       .max(2048)
-      .regex(/^https?:\/\//i, 'must be an http:// or https:// URL')
+      .regex(/^https?:\/\//i, MJPEG_URL_RULE)
       .meta({
         description: 'Where the stream lives. **`http://` or `https://` only** — as for the `rtsp` URL, the bridge opens it with a library that would also serve `file:`. Plain `http://` is permitted because these cameras usually sit on the robot\'s own network, but Basic credentials on such a URL then travel in the clear.',
         patternErrorMessage: MJPEG_URL_RULE,
+        /**
+         * The host and the path this branch's own snippet body inserts, and the
+         * URL its rule sentence names — one answer to "what goes here?", not a
+         * third. The sibling `rtsp` url had an `examples` from the first day and
+         * this position was the format's only silent URL (§1.1).
+         */
+        examples: ['http://cam-1.plant.local/video.mjpg'],
       }),
     credentials: cameraCredentials.optional(),
   }).meta({
@@ -1587,7 +1705,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       },
     }],
   }),
-  z.strictObject({
+  strictObject({
     kind: z.literal('v4l2').meta({
       description: 'Selects the local capture-device source: this camera then carries `device` and nothing else.',
     }),
@@ -1618,7 +1736,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .string()
       .min(1)
       .max(128)
-      .regex(/^\/dev\/[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'must be a device path under /dev/')
+      .regex(/^\/dev\/[A-Za-z0-9][A-Za-z0-9._/-]*$/, DEVICE_PATH_RULE)
       .refine((v) => !v.split('/').includes('..'), 'must not contain a `..` path segment')
       .refine((v) => !v.endsWith('/'), 'must name a device, not a directory')
       .meta({
@@ -1698,7 +1816,7 @@ const CAMERA_SNIPPET: Snippet = {
  * - **Live** runs on demand and is refcounted in the cloud: the first viewer
  *   starts it, the last one ends it.
  */
-export const cameraConfig = z.strictObject({
+export const cameraConfig = strictObject({
   source: cameraSource.meta({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
   }),
@@ -1740,7 +1858,7 @@ export type CameraConfig = z.infer<typeof cameraConfig>
 export const FLEETLESS_FORMAT_VERSION = 1
 
 const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
-  z.record(mapKey, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
+  slugKeyed(entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
 
 /**
  * A whole robot configuration — everything configurable about one robot.
@@ -1753,7 +1871,7 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
  * is what lets a role grant say `{robot, slug}` without naming a kind. That
  * check spans sections and therefore lives in the cloud, not here.
  */
-export const robotConfigDoc = z.strictObject({
+export const robotConfigDoc = strictObject({
   fleetless: z.literal(FLEETLESS_FORMAT_VERSION).meta({
     description: 'The format version, and the first line of the file. It decides how everything below is read, so a file that omits it — or names a version this cloud does not know — is **refused rather than half understood**.',
   }),
