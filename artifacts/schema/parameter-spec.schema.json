@@ -21,7 +21,24 @@
         "string",
         "wstring"
       ],
-      "description": "The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored."
+      "description": "The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.",
+      "enumDescriptions": [
+        "A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.",
+        "One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.",
+        "A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.",
+        "A whole number from `-128` to `127`.",
+        "A whole number from `0` to `255`.",
+        "A whole number from `-32768` to `32767`.",
+        "A whole number from `0` to `65535`.",
+        "A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.",
+        "A whole number from `0` to `4294967295`.",
+        "A whole number from `-9223372036854775808` to `9223372036854775807`.",
+        "A whole number from `0` to `18446744073709551615`.",
+        "A single-precision number, roughly seven significant digits.",
+        "A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.",
+        "Text, carried as UTF-8. One of the two types a `regex` may constrain.",
+        "Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms."
+      ]
     },
     "default": {
       "anyOf": [
@@ -76,6 +93,9 @@
     },
     "description": {
       "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+      "examples": [
+        "What a caller is choosing when they set this."
+      ],
       "type": "string",
       "minLength": 1,
       "maxLength": 500
@@ -84,5 +104,17 @@
   "required": [
     "type"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "defaultSnippets": [
+    {
+      "label": "a parameter, with its bounds",
+      "description": "One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.",
+      "body": {
+        "type": "${2:float64}",
+        "min_value": -0.5,
+        "max_value": 0.5,
+        "description": "${3:What a caller is choosing when they set this.}"
+      }
+    }
+  ]
 }

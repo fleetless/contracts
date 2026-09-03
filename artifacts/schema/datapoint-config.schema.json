@@ -7,6 +7,7 @@
       "maxLength": 255,
       "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$",
       "description": "The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.",
+      "patternErrorMessage": "A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.",
       "examples": [
         "/battery"
       ]
@@ -16,6 +17,7 @@
       "maxLength": 255,
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
       "description": "The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot's own message definitions only once one is there.",
+      "patternErrorMessage": "A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.",
       "examples": [
         "sensor_msgs/msg/BatteryState"
       ]
@@ -25,6 +27,7 @@
       "maxLength": 255,
       "pattern": "^[a-z_][a-z0-9_]*(?:\\[\\d+\\])?(?:\\.[a-z_][a-z0-9_]*(?:\\[\\d+\\])?)*$",
       "description": "A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.",
+      "patternErrorMessage": "A field path is dotted and lower-case, and each segment may index at most one array level — `voltage`, `pose.position.x`, `ranges[0]`. ROS 2 has no nested arrays, so a second index on one segment could name nothing that exists.",
       "examples": [
         "voltage",
         "pose.position.x",
@@ -43,6 +46,9 @@
     },
     "description": {
       "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
+      "examples": [
+        "What this value is, for whoever meets it in the console."
+      ],
       "type": "string",
       "minLength": 1,
       "maxLength": 2000
@@ -83,7 +89,18 @@
         }
       },
       "additionalProperties": false,
-      "description": "Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration."
+      "description": "Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.",
+      "defaultSnippets": [
+        {
+          "label": "a unit, and the arithmetic that produces it",
+          "description": "A 0..1 fraction sent as a percentage to one decimal. `scale` is applied on the robot before sending, so history stores the converted value and a later correction cannot reach what is already stored.",
+          "body": {
+            "scale": 100,
+            "unit": "\"%\"",
+            "decimals": 1
+          }
+        }
+      ]
     },
     "retention": {
       "type": "object",
@@ -113,7 +130,18 @@
         }
       },
       "additionalProperties": false,
-      "description": "What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only."
+      "description": "What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.",
+      "defaultSnippets": [
+        {
+          "label": "history, on, with its interval and buffer",
+          "description": "Writes this value to the time series every 300 seconds and holds 5000 points on the robot while the bridge is away. Stored points are billed, so both numbers are worth choosing rather than inheriting.",
+          "body": {
+            "enabled": true,
+            "interval_seconds": 300,
+            "max_buffer_values": 5000
+          }
+        }
+      ]
     },
     "chart": {
       "type": "object",
@@ -138,7 +166,11 @@
             "line",
             "step"
           ],
-          "description": "How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed."
+          "description": "How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.",
+          "enumDescriptions": [
+            "Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.",
+            "Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported."
+          ]
         },
         "default_window_minutes": {
           "type": "integer",
@@ -151,7 +183,18 @@
         }
       },
       "additionalProperties": false,
-      "description": "How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration."
+      "description": "How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration.",
+      "defaultSnippets": [
+        {
+          "label": "axis bounds, and how two samples are joined",
+          "description": "A fixed 0..100 axis rather than one that scales to the data, and a choice between interpolating and stepping between samples — which is not a matter of taste.",
+          "body": {
+            "y_min": 0,
+            "y_max": 100,
+            "style": "${1|line,step|}"
+          }
+        }
+      ]
     },
     "alerts": {
       "type": "object",
@@ -159,7 +202,8 @@
         "type": "string",
         "minLength": 2,
         "maxLength": 63,
-        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+        "patternErrorMessage": "A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused."
       },
       "additionalProperties": {
         "type": "object",
@@ -197,7 +241,24 @@
               "fire_at"
             ],
             "additionalProperties": false,
-            "description": "When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state."
+            "description": "When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state.",
+            "defaultSnippets": [
+              {
+                "label": "a threshold, with its hysteresis",
+                "description": "Fires below 15 and is ok again above 18. The gap is what keeps a value sitting on the line from flipping on every sample; the direction follows from which of the two is higher, and nothing else declares it.",
+                "body": {
+                  "fire_at": 15,
+                  "resolve_at": 18
+                }
+              },
+              {
+                "label": "an equality",
+                "description": "Fires while the value equals `fire_at` and is ok as soon as it differs — the only form a boolean or a string condition can take. No `resolve_at`: adding one would turn this into a threshold, and is refused unless `fire_at` is a number.",
+                "body": {
+                  "fire_at": true
+                }
+              }
+            ]
           },
           "severity": {
             "type": "string",
@@ -205,7 +266,11 @@
               "warning",
               "error"
             ],
-            "description": "How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown."
+            "description": "How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown.",
+            "enumDescriptions": [
+              "Worth seeing. This is what an alert that names no severity gets.",
+              "Worth acting on. The only difference from `warning` is how the alert is shown: the same event is written, at the same moment, to the same places."
+            ]
           },
           "name": {
             "type": "string",
@@ -224,14 +289,78 @@
         "required": [
           "condition"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "defaultSnippets": [
+          {
+            "label": "an alert, with its condition",
+            "description": "One whole alert: the label shown in place of its key, and the threshold with the gap that keeps it from flipping on every sample.",
+            "body": {
+              "condition": {
+                "fire_at": 15,
+                "resolve_at": 18
+              },
+              "name": "${2:Battery low}"
+            }
+          }
+        ]
       },
-      "description": "Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
+      "description": "Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.",
+      "defaultSnippets": [
+        {
+          "label": "an alert, with its condition",
+          "description": "One whole alert: the label shown in place of its key, and the threshold with the gap that keeps it from flipping on every sample.",
+          "body": {
+            "${1:battery_low}": {
+              "condition": {
+                "fire_at": 15,
+                "resolve_at": 18
+              },
+              "name": "${2:Battery low}"
+            }
+          }
+        }
+      ]
     }
   },
   "required": [
     "topic",
     "type"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "defaultSnippets": [
+    {
+      "label": "a datapoint",
+      "description": "One value the robot publishes: one field of one topic.",
+      "body": {
+        "topic": "${2:/battery}",
+        "type": "${3:sensor_msgs/msg/BatteryState}",
+        "field": "${4:voltage}",
+        "description": "${5:What this value is, for whoever meets it in the console.}"
+      }
+    },
+    {
+      "label": "a numeric datapoint, with history and a chart",
+      "description": "A number with its unit, what is kept of it and how it is drawn — the blocks a plain datapoint leaves out.",
+      "body": {
+        "topic": "${2:/battery}",
+        "type": "${3:sensor_msgs/msg/BatteryState}",
+        "field": "${4:percentage}",
+        "description": "${5:What this value is, for whoever meets it in the console.}",
+        "numeric": {
+          "scale": 100,
+          "unit": "\"%\"",
+          "decimals": 1
+        },
+        "retention": {
+          "enabled": true,
+          "interval_seconds": 300
+        },
+        "chart": {
+          "y_min": 0,
+          "y_max": 100,
+          "style": "line"
+        }
+      }
+    }
+  ]
 }

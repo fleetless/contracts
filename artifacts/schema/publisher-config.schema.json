@@ -7,6 +7,7 @@
       "maxLength": 255,
       "pattern": "^\\/[A-Za-z_][A-Za-z0-9_]*(?:\\/[A-Za-z_][A-Za-z0-9_]*)*$",
       "description": "The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.",
+      "patternErrorMessage": "A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.",
       "examples": [
         "/cmd_vel"
       ]
@@ -16,6 +17,7 @@
       "maxLength": 255,
       "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
       "description": "The message type of `topic`, spelled the way ROS 2 spells it, with the `msg` segment. It fixes the shape that `message` and `failsafe.message` must both fill, which is why one publisher carries one type and a second type needs a second publisher.",
+      "patternErrorMessage": "A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.",
       "examples": [
         "geometry_msgs/msg/Twist"
       ]
@@ -29,7 +31,8 @@
         "type": "string",
         "minLength": 2,
         "maxLength": 63,
-        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+        "patternErrorMessage": "A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused."
       },
       "additionalProperties": {
         "type": "object",
@@ -53,7 +56,24 @@
               "string",
               "wstring"
             ],
-            "description": "The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored."
+            "description": "The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.",
+            "enumDescriptions": [
+              "A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.",
+              "One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.",
+              "A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.",
+              "A whole number from `-128` to `127`.",
+              "A whole number from `0` to `255`.",
+              "A whole number from `-32768` to `32767`.",
+              "A whole number from `0` to `65535`.",
+              "A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.",
+              "A whole number from `0` to `4294967295`.",
+              "A whole number from `-9223372036854775808` to `9223372036854775807`.",
+              "A whole number from `0` to `18446744073709551615`.",
+              "A single-precision number, roughly seven significant digits.",
+              "A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.",
+              "Text, carried as UTF-8. One of the two types a `regex` may constrain.",
+              "Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms."
+            ]
           },
           "default": {
             "anyOf": [
@@ -108,6 +128,9 @@
           },
           "description": {
             "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+            "examples": [
+              "What a caller is choosing when they set this."
+            ],
             "type": "string",
             "minLength": 1,
             "maxLength": 500
@@ -116,9 +139,35 @@
         "required": [
           "type"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "defaultSnippets": [
+          {
+            "label": "a parameter, with its bounds",
+            "description": "One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.",
+            "body": {
+              "type": "${2:float64}",
+              "min_value": -0.5,
+              "max_value": 0.5,
+              "description": "${3:What a caller is choosing when they set this.}"
+            }
+          }
+        ]
       },
-      "description": "The holes in this entry's `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error."
+      "description": "The holes in this entry's `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error.",
+      "defaultSnippets": [
+        {
+          "label": "a parameter, with its bounds",
+          "description": "One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.",
+          "body": {
+            "${1:speed}": {
+              "type": "${2:float64}",
+              "min_value": -0.5,
+              "max_value": 0.5,
+              "description": "${3:What a caller is choosing when they set this.}"
+            }
+          }
+        }
+      ]
     },
     "failsafe": {
       "type": "object",
@@ -142,7 +191,24 @@
         "message"
       ],
       "additionalProperties": false,
-      "description": "What the bridge sends **by itself** once a client stops sending, and how long it waits first. This is the format's safety story in one field: a client that crashes, loses its connection or whose operator closes the window does not leave a robot driving. The message may hold no placeholder, inline or through a shared message — there is nobody left to fill one."
+      "description": "What the bridge sends **by itself** once a client stops sending, and how long it waits first. This is the format's safety story in one field: a client that crashes, loses its connection or whose operator closes the window does not leave a robot driving. The message may hold no placeholder, inline or through a shared message — there is nobody left to fill one.",
+      "defaultSnippets": [
+        {
+          "label": "a deadline, and the message it sends",
+          "description": "Half a second of silence and then a zero twist. The deadline runs on the robot, so it still fires when the link to the cloud is what failed — which is the case it exists for.",
+          "body": {
+            "timeout_ms": 500,
+            "message": {
+              "linear": {
+                "x": 0
+              },
+              "angular": {
+                "z": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "quiet_timeout_ms": {
       "type": "integer",
@@ -170,5 +236,50 @@
     "failsafe",
     "quiet_timeout_ms"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "defaultSnippets": [
+    {
+      "label": "a publisher, with its parameters and its failsafe",
+      "description": "A topic clients may send to: what is fixed, what a caller fills, and what the bridge sends by itself once the caller falls silent.",
+      "body": {
+        "topic": "${2:/cmd_vel}",
+        "type": "${3:geometry_msgs/msg/Twist}",
+        "message": {
+          "linear": {
+            "x": "\\${speed}"
+          },
+          "angular": {
+            "z": "\\${turn}"
+          }
+        },
+        "parameters": {
+          "speed": {
+            "type": "float64",
+            "min_value": -0.5,
+            "max_value": 0.5,
+            "default": 0
+          },
+          "turn": {
+            "type": "float64",
+            "min_value": -0.5,
+            "max_value": 0.5,
+            "default": 0
+          }
+        },
+        "failsafe": {
+          "timeout_ms": 500,
+          "message": {
+            "linear": {
+              "x": 0
+            },
+            "angular": {
+              "z": 0
+            }
+          }
+        },
+        "quiet_timeout_ms": 2000,
+        "description": "${4:Velocity command. If sending stops, the robot stops.}"
+      }
+    }
+  ]
 }
