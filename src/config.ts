@@ -268,6 +268,48 @@ export const parameterMap = z
   .refine((m) => Object.keys(m).length <= 50, { message: 'at most 50 parameters per entry' })
   .meta({
     description: 'The holes in this entry\'s `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error.',
+    /**
+     * **One snippet reaching three positions.** `parameters:` under an action,
+     * under a service and under a publisher are all this node, so the snippet
+     * is authored once here rather than three times on the three sections.
+     * Three copies that must agree is three chances to disagree, and the
+     * export inlines this object into all three positions — which
+     * `config-snippets.test.ts` asserts rather than assumes, because the way
+     * this comes apart is somebody later giving one section a `parameters:`
+     * snippet of its own.
+     *
+     * `type` is a placeholder default rather than a choice, unlike the camera
+     * source's `type`: this one is a `z.enum` of fifteen ROS primitives, so
+     * yaml-language-server already offers all fifteen as value completions at
+     * that position. A choice would restate a list the editor has, and any
+     * shorter list would be a subset presented as the set.
+     *
+     * The bounds are the point of the block — the field descriptions call them
+     * where a speed limit actually holds — so they are in the skeleton, at
+     * `min_value`/`max_value`'s own `examples`. They are coupled to `type`:
+     * tabbing `float64` to `string` makes them `constraint_not_allowed_for_type`.
+     * That is deliberate and it is loud — the schema refuses it where the
+     * developer is standing — where omitting the bounds would leave the
+     * format's one enforcement point out of the hint that introduces it.
+     *
+     * No `default`, so the parameter is required: `default` is the one field
+     * here with no `examples`, and "has no default" is the format's spelling
+     * of required, which is the honest thing for a skeleton to start from.
+     * That every declared parameter must also appear in the `message` is a
+     * question about the whole entry and is the cloud's, not this schema's.
+     */
+    defaultSnippets: [{
+      label: 'a parameter, with its bounds',
+      description: 'One hole a caller fills: what type it is, what values it may take, and what it means. Without a `default` it is required, and the bounds are enforced in the cloud before anything reaches the robot.',
+      body: {
+        '${1:speed}': {
+          type: '${2:float64}',
+          min_value: -0.5,
+          max_value: 0.5,
+          description: '${3:What a caller is choosing when they set this.}',
+        },
+      },
+    }],
   })
 
 /** Built-in slugs (spec §4.3) — never available to a configured service. */
@@ -340,6 +382,29 @@ export const CHART_WINDOW_MINUTES_DEFAULT = 60
 export const datapointAlert = z.strictObject({
   condition: alertCondition.meta({
     description: 'When this alert fires and when it is ok again. It carries **no discriminator**: upper threshold, lower threshold or equality all follow from the two values in it. Editing it resets the alert to `ok` on the next publish, while a publish that leaves it untouched keeps the running state.',
+    /**
+     * **Two snippets, and the reason is the missing discriminator.** A
+     * threshold and an equality are the same shape here — one field apart —
+     * so a single skeleton would not merely be incomplete, it would hide one
+     * of the two things this field exists to express behind a `resolve_at`
+     * the developer has to know to delete. Offering both makes the choice the
+     * schema deliberately does not name into a choice the editor does.
+     *
+     * Both values come from `fire_at`'s own `examples`, which carry exactly
+     * this pair: `15` for the threshold and `true` for the equality.
+     */
+    defaultSnippets: [
+      {
+        label: 'a threshold, with its hysteresis',
+        description: 'Fires below 15 and is ok again above 18. The gap is what keeps a value sitting on the line from flipping on every sample; the direction follows from which of the two is higher, and nothing else declares it.',
+        body: { fire_at: 15, resolve_at: 18 },
+      },
+      {
+        label: 'an equality',
+        description: 'Fires while the value equals `fire_at` and is ok as soon as it differs — the only form a boolean or a string condition can take. No `resolve_at`: adding one would turn this into a threshold, and is refused unless `fire_at` is a number.',
+        body: { fire_at: true },
+      },
+    ],
   }),
   severity: alertSeverity.meta({
     description: 'How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown.',
@@ -481,15 +546,105 @@ export const datapointConfig = z
     }),
     numeric: datapointNumeric.meta({
       description: 'Arithmetic and formatting for a numeric value. `scale` and `offset` are applied **on the robot**, before sending, which is why REST, realtime and history all carry identical numbers. `unit` and `decimals` change nothing the robot does, so a publish that touches only those pushes no configuration.',
+      /**
+       * The quotes inside `unit` are inserted text, not decoration, for the
+       * reason spelled out on the `datapoints` snippet below: a body string is
+       * written to the buffer verbatim and a bare `%` is a YAML directive
+       * indicator, so `unit: %` is a syntax error where `unit: "%"` parses.
+       *
+       * **`offset` is not in the body, and that is a choice rather than an
+       * oversight.** All four fields carry `examples`, but they were authored
+       * per field and from two different conversions: `scale: 100` with
+       * `unit: '%'` is a 0..1 fraction shown as a percentage, while
+       * `offset: -273.15` is kelvin as celsius. A body holding both would
+       * insert arithmetic that means nothing and that a developer has to
+       * unpick before it means anything. The rule this file follows is that a
+       * skeleton carries what a developer opening the block almost certainly
+       * wants, at the node's own example values; the remaining keys arrive by
+       * ordinary key completion, which works here and never stopped working —
+       * the position that was silent is the *value* after `numeric:`.
+       */
+      defaultSnippets: [{
+        label: 'a unit, and the arithmetic that produces it',
+        description: 'A 0..1 fraction sent as a percentage to one decimal. `scale` is applied on the robot before sending, so history stores the converted value and a later correction cannot reach what is already stored.',
+        body: { scale: 100, unit: '"%"', decimals: 1 },
+      }],
     }).optional(),
     retention: datapointRetention.meta({
       description: 'What outlives the moment: whether this value is written to the time series, how often, and how many points the robot buffers while the bridge is away. Absent means no history at all — the value is live only.',
+      /**
+       * `enabled: true` is the only value that makes opening this block mean
+       * anything — absent already means off, so a skeleton inserting `false`
+       * would be a block that does nothing. It is a boolean and carries no
+       * `examples`; the direction comes from the schema comment above, which
+       * says why absent-means-off is the deliberate one.
+       *
+       * `interval_seconds: 300` restates the format's own default, on purpose:
+       * stored points are what a customer is billed for, so this is the direct
+       * lever on what a robot costs, and a developer who never sees the field
+       * never tunes it.
+       */
+      defaultSnippets: [{
+        label: 'history, on, with its interval and buffer',
+        description: 'Writes this value to the time series every 300 seconds and holds 5000 points on the robot while the bridge is away. Stored points are billed, so both numbers are worth choosing rather than inheriting.',
+        body: { enabled: true, interval_seconds: 300, max_buffer_values: 5000 },
+      }],
     }).optional(),
     chart: datapointChart.meta({
       description: 'How the console draws this value over time: axis bounds, whether the line interpolates or steps, and the window a chart opens on. **Display only** — it changes no stored value, no alert and nothing the robot does, so a publish that touches only it pushes no configuration.',
+      /**
+       * `style` is a **choice**, not a literal, for the reason the camera
+       * source's `type` is one: the format offers a closed pair, the right
+       * answer depends on what the datapoint is, and the snippet cannot know.
+       * Its own description says the two are not a matter of taste — `line`
+       * claims the value moved evenly between two samples, `step` holds and
+       * jumps, and `step` is the only honest drawing for a mode, a switch or a
+       * counter. A snippet that picked `line` would draw values that never
+       * existed, and nothing would object: both are valid, no diagnostic
+       * fires, and the chart looks plausible.
+       *
+       * `Choice.toString()` is the first option, so a developer who tabs past
+       * this gets `line`, which is right for the continuous values most charts
+       * carry; one who opens the picker sees that `step` exists at all.
+       *
+       * The composite snippet on `datapoints` writes `style: 'line'` as a
+       * literal and stays that way — its body is a battery percentage, where
+       * `line` is not a guess.
+       */
+      defaultSnippets: [{
+        label: 'axis bounds, and how two samples are joined',
+        description: 'A fixed 0..100 axis rather than one that scales to the data, and a choice between interpolating and stepping between samples — which is not a matter of taste.',
+        body: { y_min: 0, y_max: 100, style: '${1|line,step|}' },
+      }],
     }).optional(),
     alerts: z.record(slug, datapointAlert).meta({
       description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
+      /**
+       * **The body carries a whole alert, condition included.** `condition` is
+       * `datapointAlert`'s only required field, so a skeleton that stopped at
+       * the key would insert a document the format refuses — the one outcome
+       * worse than offering nothing, because the developer trusts the hint.
+       * It is also one decision for a reader: an alert without a condition is
+       * not a partial alert, it is nothing. The separate snippets on
+       * `condition` itself still earn their place — they are what a developer
+       * gets when they come back to an existing alert and rewrite the
+       * threshold, where this one is never offered.
+       *
+       * `severity` is left out: it is optional, absent means `warning`, and it
+       * changes no behaviour at all. Writing it would add a line that decides
+       * nothing. `enabled` likewise — absent means on, which is what an alert
+       * somebody just wrote is for.
+       */
+      defaultSnippets: [{
+        label: 'an alert, with its condition',
+        description: 'One whole alert: the key that is its identity, the label shown in its place, and the threshold with the gap that keeps it from flipping on every sample.',
+        body: {
+          '${1:battery_low}': {
+            condition: { fire_at: 15, resolve_at: 18 },
+            name: '${2:Battery low}',
+          },
+        },
+      }],
     }).optional(),
   })
   .superRefine((d, ctx) => {
@@ -748,6 +903,31 @@ export const publisherConfig = z.strictObject({
     })
     .meta({
       description: 'What the bridge sends **by itself** once a client stops sending, and how long it waits first. This is the format\'s safety story in one field: a client that crashes, loses its connection or whose operator closes the window does not leave a robot driving. The message may hold no placeholder, inline or through a shared message — there is nobody left to fill one.',
+      /**
+       * Both fields are required, so the body carries both: a `failsafe:` with
+       * only one of them is a publisher the format refuses, and this is the
+       * field where a document that does not publish is the least useful thing
+       * to hand somebody.
+       *
+       * The zero twist is the message this field's own description names, and
+       * the same body the composite `publishers` snippet inserts. Neither
+       * knows the publisher's ROS type — nothing at this position does — so
+       * the snippet offers the format's canonical safe message rather than
+       * guessing a shape. Every value in it is a literal: a placeholder here
+       * is refused outright (`failsafe_has_parameters`), because the message
+       * is sent with no caller left to fill one.
+       */
+      defaultSnippets: [{
+        label: 'a deadline, and the message it sends',
+        description: 'Half a second of silence and then a zero twist. The deadline runs on the robot, so it still fires when the link to the cloud is what failed — which is the case it exists for.',
+        body: {
+          timeout_ms: 500,
+          message: {
+            linear: { x: 0 },
+            angular: { z: 0 },
+          },
+        },
+      }],
     }),
   quiet_timeout_ms: z.number().int().nonnegative().max(600_000).meta({
     description: 'How long this publisher must stay silent before a **different** user may send to it. Whoever sends holds it implicitly exclusive, with no session and no lock, so this one number is the whole handover policy: too short and two operators fight over one robot, too long and a crashed client blocks it for everyone.',

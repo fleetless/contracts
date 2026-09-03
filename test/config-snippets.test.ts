@@ -231,3 +231,110 @@ describe('every camera source offers its own skeleton', () => {
     expect(parsed.success, `credentials: ${JSON.stringify(parsed.error?.issues)}`).toBe(true)
   })
 })
+
+/**
+ * The nested objects. Everything above is reached by writing a *section*; these
+ * are reached one or two levels further in, where a developer has written
+ * `numeric:`, `retention:`, `chart:`, `alerts:`, `condition:`, `parameters:` or
+ * `failsafe:` and pressed ⏎.
+ *
+ * `parameters` appears three times in this table and is **one node**: actions,
+ * services and publishers all carry `parameterMap`, whose single `.meta()`
+ * inlines into all three positions. The last test in this file is what holds
+ * that — three sections that each grew their own copy would be three snippets
+ * that have to agree.
+ */
+describe('every nested object offers a skeleton', () => {
+  /**
+   * Each row carries the document that puts the body where it belongs. A
+   * presence check alone would pass on a body the format refuses, and these
+   * nodes are exactly where that is easy: `numeric`, `chart` and `alerts` need
+   * a `field` on the datapoint, a `condition` needs an alert around it, and a
+   * `failsafe` needs a publisher whose other required fields are all present.
+   * A body judged in isolation never meets any of that.
+   */
+  const NESTED: Array<[string, string[], (body: unknown) => unknown]> = [
+    ['numeric', ['datapoints', '<slug>', 'numeric'], (body) => datapointDoc({ numeric: body })],
+    ['retention', ['datapoints', '<slug>', 'retention'], (body) => datapointDoc({ retention: body })],
+    ['chart', ['datapoints', '<slug>', 'chart'], (body) => datapointDoc({ chart: body })],
+    ['alerts', ['datapoints', '<slug>', 'alerts'], (body) => datapointDoc({ alerts: body })],
+    [
+      'an alert condition',
+      ['datapoints', '<slug>', 'alerts', '<slug>', 'condition'],
+      (body) => datapointDoc({ alerts: { low: { condition: body } } }),
+    ],
+    ['action parameters', ['actions', '<slug>', 'parameters'], (body) => ({
+      fleetless: 1,
+      actions: { navigate: { ros_name: '/navigate_to_pose', type: 'nav2_msgs/action/NavigateToPose', parameters: body } },
+    })],
+    ['service parameters', ['services', '<slug>', 'parameters'], (body) => ({
+      fleetless: 1,
+      services: { reset: { ros_name: '/reset_odometry', type: 'std_srvs/srv/Trigger', parameters: body } },
+    })],
+    ['publisher parameters', ['publishers', '<slug>', 'parameters'], (body) => publisherDoc({ parameters: body })],
+    ['failsafe', ['publishers', '<slug>', 'failsafe'], (body) => publisherDoc({ failsafe: body })],
+  ]
+
+  /** A datapoint with a `field`, which `numeric`, `chart` and `alerts` all require. */
+  function datapointDoc(extra: Record<string, unknown>): unknown {
+    return {
+      fleetless: 1,
+      datapoints: {
+        battery: {
+          topic: '/battery',
+          type: 'sensor_msgs/msg/BatteryState',
+          field: 'percentage',
+          ...extra,
+        },
+      },
+    }
+  }
+
+  /** A publisher with everything else it needs, so only the body under test decides. */
+  function publisherDoc(extra: Record<string, unknown>): unknown {
+    return {
+      fleetless: 1,
+      publishers: {
+        drive: {
+          topic: '/cmd_vel',
+          type: 'geometry_msgs/msg/Twist',
+          message: { linear: { x: 0 }, angular: { z: 0 } },
+          failsafe: { timeout_ms: 500, message: { linear: { x: 0 }, angular: { z: 0 } } },
+          quiet_timeout_ms: 2000,
+          ...extra,
+        },
+      },
+    }
+  }
+
+  for (const [label, path, wrap] of NESTED) {
+    it(label, () => {
+      const snippets = nodeAt(path).defaultSnippets
+      expect(Array.isArray(snippets), `${label} carries no defaultSnippets`).toBe(true)
+      expect(snippets.length).toBeGreaterThan(0)
+      for (const snippet of snippets) {
+        expect(typeof snippet.label, `${label} snippet has no label`).toBe('string')
+        expect(snippet.label.trim().length).toBeGreaterThan(0)
+        expect(snippet.body, `${label} snippet has no body`).toBeTypeOf('object')
+        const parsed = robotConfigDoc.safeParse(wrap(fill(snippet.body)))
+        expect(
+          parsed.success,
+          `${label} snippet "${snippet.label}" does not parse: ${JSON.stringify(parsed.error?.issues)}`,
+        ).toBe(true)
+      }
+    })
+  }
+
+  /**
+   * Asserted rather than believed. `parameterMap` carries one `.meta()` and the
+   * export inlines it into all three sections, so today these are three copies
+   * of one authored object. What this catches is the day somebody gives one
+   * section a `parameters:` snippet of its own — at which point the three stop
+   * agreeing and nothing else in this file would notice.
+   */
+  it('the three parameter maps are one node, not three copies', () => {
+    const labels = [['actions'], ['services'], ['publishers']]
+      .map(([section]) => nodeAt([section!, '<slug>', 'parameters']).defaultSnippets[0].label)
+    expect(new Set(labels).size, `three different parameter snippets: ${labels.join(' / ')}`).toBe(1)
+  })
+})
