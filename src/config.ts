@@ -73,6 +73,49 @@ import { alertSeverity } from './alerts.js'
  */
 
 /**
+ * What every `pattern` in this document means, said in words.
+ *
+ * A developer whose topic name was wrong used to be shown the regular
+ * expression that refused it. These are the sentences that replace it — one
+ * per grammar rather than one per field, because the message explains why the
+ * *pattern* said no, and the same pattern says no for the same reason wherever
+ * it appears.
+ *
+ * **Where they are read.** They ship as `patternErrorMessage` in the exported
+ * JSON Schema, which is a published artifact other tools validate against, and
+ * which a person reads. They are not what the console shows: the editor turns
+ * monaco-yaml's own validation off, so the message a developer sees comes from
+ * this schema's parser and from the cloud, and says the same thing.
+ *
+ * Each one states the rule in words and gives one example, and none of them
+ * quotes its own regex — `config-messages.test.ts` asserts all three.
+ */
+const SLUG_RULE = 'A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused.'
+
+const ROS_NAME_RULE = 'A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.'
+
+const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.'
+
+const FIELD_PATH_RULE = 'A field path is dotted and lower-case, and each segment may index at most one array level — `voltage`, `pose.position.x`, `ranges[0]`. ROS 2 has no nested arrays, so a second index on one segment could name nothing that exists.'
+
+const RTSP_URL_RULE = 'The URL has to begin with `rtsp://` or `rtsps://` — `rtsp://cam-1.plant.local/stream1`. No other scheme is accepted: the bridge opens this with a library that would equally honour `file:`.'
+
+const MJPEG_URL_RULE = 'The URL has to begin with `http://` or `https://` — `http://cam-1.plant.local/video.mjpg`. No other scheme is accepted: the bridge opens this with a library that would equally serve `file:`.'
+
+const DEVICE_PATH_RULE = 'A capture device is a path under `/dev/`, and the character straight after it is a letter or a digit — `/dev/video0`, or a stable `/dev/v4l/by-id/...` symlink. Nothing outside `/dev/` is accepted: the string reaches OpenCV, which would as happily open an ordinary file.'
+
+/**
+ * The key of every section, every parameter map and the alert map: a slug,
+ * carrying the grammar's sentence so that a mistyped key is answered with it.
+ *
+ * `slug` itself stays plain in `common.ts`. Attaching the metadata there would
+ * reach every schema in the contracts, and `.meta()` replaces rather than
+ * merges — so any use that later wanted a `description` of its own would
+ * silently drop the sentence again.
+ */
+const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
+
+/**
  * One of the format's own parameter holes, `${name}`, written so that it
  * survives a `defaultSnippets` insert. **The backslash is load-bearing and is
  * not a typo to tidy away.**
@@ -258,6 +301,32 @@ export const parameterSpec = z
   .strictObject({
     type: parameterType.meta({
       description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
+      /**
+       * One sentence per value, in the order `parameterType` declares them.
+       *
+       * The field's own paragraph is already the hover; these answer the
+       * different question the editor asks when the cursor is on **one**
+       * offer — what is this type, and what does choosing it allow. Written
+       * for the value, so `int32` states its range and `string` says it is
+       * the type a `regex` may constrain.
+       */
+      enumDescriptions: [
+        'A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.',
+        'One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.',
+        'A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.',
+        'A whole number from `-128` to `127`.',
+        'A whole number from `0` to `255`.',
+        'A whole number from `-32768` to `32767`.',
+        'A whole number from `0` to `65535`.',
+        'A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.',
+        'A whole number from `0` to `4294967295`.',
+        'A whole number from `-9223372036854775808` to `9223372036854775807`.',
+        'A whole number from `0` to `18446744073709551615`.',
+        'A single-precision number, roughly seven significant digits.',
+        'A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.',
+        'Text, carried as UTF-8. One of the two types a `regex` may constrain.',
+        'Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms.',
+      ],
     }),
     default: z.union([z.number(), z.string(), z.boolean()]).meta({
       description: 'The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
@@ -375,7 +444,7 @@ export type ParameterSpec = z.infer<typeof parameterSpec>
 
 /** Parameters of one entry, keyed by name. At most 50. */
 export const parameterMap = z
-  .record(slug, parameterSpec)
+  .record(mapKey, parameterSpec)
   .refine((m) => Object.keys(m).length <= 50, { message: 'at most 50 parameters per entry' })
   .meta({
     description: 'The holes in this entry\'s `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error.',
@@ -533,6 +602,10 @@ export const datapointAlert = z.strictObject({
   }),
   severity: alertSeverity.meta({
     description: 'How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown.',
+    enumDescriptions: [
+      'Worth seeing. This is what an alert that names no severity gets.',
+      'Worth acting on. The only difference from `warning` is how the alert is shown: the same event is written, at the same moment, to the same places.',
+    ],
   }).optional(),
   name: z.string().min(1).max(120).meta({
     description: 'A human-readable label shown wherever this alert appears, in place of its bare key. It is not the alert\'s identity — the key is — so the label can be reworded freely, while changing the key deletes one alert and creates another.',
@@ -624,6 +697,10 @@ export const datapointChart = z
     }).optional(),
     style: z.enum(['line', 'step']).meta({
       description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
+      enumDescriptions: [
+        'Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.',
+        'Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported.',
+      ],
     }).optional(),
     default_window_minutes: z.number().int().min(1).max(43_200).meta({
       description: 'How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
@@ -706,14 +783,17 @@ export const datapointConfig = z
   .strictObject({
     topic: rosName.meta({
       description: 'The ROS topic this datapoint reads, as an absolute graph name. One datapoint reads **one** topic: a value assembled from two topics is not expressible here.',
+      patternErrorMessage: ROS_NAME_RULE,
       examples: ['/battery'],
     }),
     type: rosTypeName.meta({
       description: 'The message type carried by `topic`, spelled the way ROS 2 spells it, with the `msg` segment in the middle — `sensor_msgs/msg/BatteryState`, never `sensor_msgs/BatteryState`. It is declared here rather than discovered, so a configuration can be written for a robot that has never been connected; the cloud checks it against the robot\'s own message definitions only once one is there.',
+      patternErrorMessage: ROS_TYPE_NAME_RULE,
       examples: ['sensor_msgs/msg/BatteryState'],
     }),
     field: fieldPath.meta({
       description: 'A dotted path into the message naming the single value this datapoint carries, each segment indexing at most one array level — `ranges[0]`, never `ranges[0][1]`, because ROS 2 has no nested arrays. Without it the datapoint is the whole message, and `numeric`, `chart` and `alerts` are then refused.',
+      patternErrorMessage: FIELD_PATH_RULE,
       examples: ['voltage', 'pose.position.x', 'ranges[0]'],
     }).optional(),
     rate_throttle_hz: rateThrottleHz.meta({
@@ -815,7 +895,7 @@ export const datapointConfig = z
         body: { y_min: 0, y_max: 100, style: '${1|line,step|}' },
       }],
     }).optional(),
-    alerts: z.record(slug, datapointAlert).meta({
+    alerts: z.record(mapKey, datapointAlert).meta({
       description: 'Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again.',
       /**
        * The body is `ALERT_SNIPPET` under its slug key — the same skeleton the
@@ -1035,7 +1115,7 @@ const sharedMessageBody = messageTemplate.meta({ defaultSnippets: [SHARED_MESSAG
  * one body instead of walking a reference tree.
  */
 export const messageMap = z
-  .record(slug, sharedMessageBody)
+  .record(mapKey, sharedMessageBody)
   .refine((m) => Object.keys(m).length <= 200, { message: 'at most 200 shared messages' })
   .meta({
     description: 'Reusable message bodies, keyed by name. A body is inserted by writing `${name}` directly after `message:`, may hold placeholders of its own, and **may not insert another** — which rules out cycles and lets every check look at exactly one body.',
@@ -1065,10 +1145,12 @@ const ACTION_SNIPPET: Snippet = {
 export const actionConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The action server on the robot, as an absolute graph name — this is what the bridge sends the goal to. Clients never see it: they address this entry by its slug, so a server can be renamed on the robot without a single app changing.',
+    patternErrorMessage: ROS_NAME_RULE,
     examples: ['/navigate_to_pose'],
   }),
   type: rosTypeName.meta({
     description: 'The action type `ros_name` implements, with the `action` segment in the middle — `nav2_msgs/action/NavigateToPose`, never `nav2_msgs/NavigateToPose`. Declared rather than introspected, so an action can be configured for a robot that has never connected; the cloud checks it against the robot\'s own definitions only once one is there.',
+    patternErrorMessage: ROS_TYPE_NAME_RULE,
     examples: ['nav2_msgs/action/NavigateToPose'],
   }),
   message: messageBody.optional(),
@@ -1103,10 +1185,12 @@ const SERVICE_SNIPPET: Snippet = {
 export const serviceConfig = z.strictObject({
   ros_name: rosName.meta({
     description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
+    patternErrorMessage: ROS_NAME_RULE,
     examples: ['/reset_odometry'],
   }),
   type: rosTypeName.meta({
     description: 'The service type `ros_name` implements, with the `srv` segment in the middle — `std_srvs/srv/Trigger`. A type whose request has no fields, like `Trigger`, needs neither `message` nor `parameters`: there is nothing to fill.',
+    patternErrorMessage: ROS_TYPE_NAME_RULE,
     examples: ['std_srvs/srv/Trigger'],
   }),
   message: messageBody.optional(),
@@ -1181,10 +1265,12 @@ const PUBLISHER_SNIPPET: Snippet = {
 export const publisherConfig = z.strictObject({
   topic: rosName.meta({
     description: 'The ROS topic the message is published onto, as an absolute graph name. **No client ever names a topic**: a caller addresses this entry by its slug, so the topics an app can write to are exactly the ones written in this file.',
+    patternErrorMessage: ROS_NAME_RULE,
     examples: ['/cmd_vel'],
   }),
   type: rosTypeName.meta({
     description: 'The message type of `topic`, spelled the way ROS 2 spells it, with the `msg` segment. It fixes the shape that `message` and `failsafe.message` must both fill, which is why one publisher carries one type and a second type needs a second publisher.',
+    patternErrorMessage: ROS_TYPE_NAME_RULE,
     examples: ['geometry_msgs/msg/Twist'],
   }),
   message: messageBody,
@@ -1330,10 +1416,12 @@ export const cameraSource = z.discriminatedUnion('kind', [
     }),
     topic: rosName.meta({
       description: 'The ROS image topic the bridge subscribes to, as an absolute graph name. Clients never name it — they address the camera by its slug — so the topic can be renamed on the robot without an app changing.',
+      patternErrorMessage: ROS_NAME_RULE,
       examples: ['/camera/image_raw'],
     }),
     type: rosTypeName.meta({
       description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
+      patternErrorMessage: ROS_TYPE_NAME_RULE,
       examples: ['sensor_msgs/msg/Image'],
     }),
   }).meta({
@@ -1396,11 +1484,16 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .regex(/^rtsps?:\/\//i, 'must be an rtsp:// or rtsps:// URL')
       .meta({
         description: 'Where the stream lives, reached from the robot rather than from the cloud. **`rtsp://` or `rtsps://` only** — the bridge opens this with a library that would equally honour `file:`, so an unconstrained URL would turn a configuration document into arbitrary file access on the robot. The bridge re-checks the scheme itself, so a validator that changed could not make a robot serve files.',
+        patternErrorMessage: RTSP_URL_RULE,
         examples: ['rtsp://cam-1.plant.local/stream1'],
       }),
     /** TCP by default: UDP loses frames on a congested link, silently. */
     transport: z.enum(['tcp', 'udp']).optional().meta({
       description: 'How the RTSP payload is carried. Omitted means `tcp`: `udp` loses frames on a congested link and loses them silently, so the result looks like a failing camera rather than like a choice made here.',
+      enumDescriptions: [
+        'The frames are interleaved into the RTSP connection itself, which is what a congested or lossy link needs — nothing is dropped on the way. This is what an omitted `transport` means.',
+        'The frames travel in their own UDP stream: lower latency on a quiet network, and silent frame loss on any other.',
+      ],
     }),
     credentials: cameraCredentials.optional(),
   }).meta({
@@ -1426,6 +1519,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .regex(/^https?:\/\//i, 'must be an http:// or https:// URL')
       .meta({
         description: 'Where the stream lives. **`http://` or `https://` only** — as for the `rtsp` URL, the bridge opens it with a library that would also serve `file:`. Plain `http://` is permitted because these cameras usually sit on the robot\'s own network, but Basic credentials on such a URL then travel in the clear.',
+        patternErrorMessage: MJPEG_URL_RULE,
       }),
     credentials: cameraCredentials.optional(),
   }).meta({
@@ -1475,6 +1569,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       .refine((v) => !v.endsWith('/'), 'must name a device, not a directory')
       .meta({
         description: 'The capture device, resolved on the robot and never by the cloud; a `/dev/v4l/by-id/...` symlink survives a reboot that renumbers `/dev/video0`. **Constrained to `/dev/`** — the string reaches OpenCV, which will just as happily open an ordinary video file or an `http://` URL and publish its pixels to the cloud. The bridge re-derives the same constraint rather than trusting the wire.',
+        patternErrorMessage: DEVICE_PATH_RULE,
         examples: ['/dev/video0'],
       }),
   }).meta({
@@ -1591,7 +1686,7 @@ export type CameraConfig = z.infer<typeof cameraConfig>
 export const FLEETLESS_FORMAT_VERSION = 1
 
 const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
-  z.record(slug, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
+  z.record(mapKey, entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
 
 /**
  * A whole robot configuration — everything configurable about one robot.
