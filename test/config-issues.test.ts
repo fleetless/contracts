@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
 import type { ValidationIssue } from '../src/config.js'
-import { robotConfigDoc } from '../src/config.js'
+import { robotConfigDoc, validationIssue } from '../src/config.js'
 import { configSchemaHash, formatPath, schemaIssues, splitFormatPath, DOCUMENT_ROOT_PATH } from '../src/config-issues.js'
 
 /**
@@ -208,10 +208,106 @@ describe('what the mapping attaches to an issue besides its code', () => {
   })
 })
 
+/**
+ * A path segment is a key the **developer** wrote, and YAML lets that key be
+ * empty or nothing but whitespace. Both used to reach the wire as a path a
+ * reader cannot act on, and the empty one at the root reached it as a path
+ * the contract itself refuses.
+ */
+describe('a key that would render as nothing', () => {
+  /** Every issue a fixture produces must satisfy the schema the cloud publishes for issues. */
+  const satisfiesTheContract = (issues: readonly ValidationIssue[]) => {
+    expect(issues.length).toBeGreaterThan(0)
+    for (const issue of issues) {
+      const parsed = validationIssue.safeParse(issue)
+      expect(parsed.success, `validationIssue refused ${JSON.stringify(issue)}`).toBe(true)
+    }
+  }
+
+  /**
+   * The three-line reproduction. `fleetless: 1` and `"": 3` is legal YAML;
+   * `robotConfigDoc` is a `z.strictObject`, so it answers `unrecognized_keys`
+   * with path `['']` — which used to format to the empty string and be
+   * refused by `validationIssue.path`'s `min(1)`.
+   *
+   * Since D2 the draft **stores**, so this issue no longer rides in a 422's
+   * `z.unknown()` details where a malformed one passed quietly: it rides in
+   * `configDraftResponse`, whose own schema then dropped the entire response
+   * and handed the console nothing.
+   */
+  it('an empty key at the root produces an issue the contract accepts', () => {
+    const issues = refusalIssues({ fleetless: 1, '': 3 })
+    satisfiesTheContract(issues)
+    expect(issues).toEqual(ONE('unknown_key', '""'))
+  })
+
+  it('an empty key nested inside an entry names the entry and the key', () => {
+    const issues = refusalIssues({
+      fleetless: 1,
+      datapoints: { battery_soc: { topic: '/battery', type: 'std_msgs/msg/Bool', '': 1 } },
+    })
+    satisfiesTheContract(issues)
+    expect(issues).toEqual(ONE('unknown_key', 'datapoints.battery_soc.""'))
+  })
+
+  it('a key that is only whitespace is quoted too, at the root and nested', () => {
+    satisfiesTheContract(refusalIssues({ fleetless: 1, ' ': 3 }))
+    expect(refusalIssues({ fleetless: 1, ' ': 3 })).toEqual(ONE('unknown_key', '" "'))
+    expect(
+      refusalIssues({
+        fleetless: 1,
+        datapoints: { battery_soc: { topic: '/battery', type: 'std_msgs/msg/Bool', ' ': 1 } },
+      }),
+    ).toEqual(ONE('unknown_key', 'datapoints.battery_soc." "'))
+  })
+
+  it('an empty key as a section name still names its section', () => {
+    // The key is refused as a *name* rather than as an unknown key, so it
+    // arrives by the other branch — and the path is built by the same walk.
+    const issues = refusalIssues({ fleetless: 1, datapoints: { '': { topic: '/t', type: 'std_msgs/msg/Bool' } } })
+    satisfiesTheContract(issues)
+    expect(issues[0]!.path).toBe('datapoints.""')
+  })
+
+  /**
+   * `slug` is **not** quoted, and the asymmetry is the point: `path` is
+   * rendered to a human who has to find the key in their file, while `slug`
+   * is compared against a key in the parsed document. Quoting a slug would
+   * make that comparison fail for the one entry it is about.
+   */
+  it('leaves slug as the document\'s own key, because slug is looked up rather than read', () => {
+    expect(refusalIssues({ fleetless: 1, datapoints: { '': { topic: '/t', type: 'std_msgs/msg/Bool' } } })[0]!.slug).toBe(
+      '',
+    )
+  })
+})
+
 describe('formatPath and splitFormatPath', () => {
   it('writes a sequence index in brackets and everything else with dots', () => {
     expect(formatPath(['datapoints', 'a', 'enum', 0])).toBe('datapoints.a.enum[0]')
     expect(formatPath([])).toBe(DOCUMENT_ROOT_PATH)
+  })
+
+  it('quotes a segment that would otherwise render as nothing, and only such a segment', () => {
+    // The quoted spelling is the segment's JSON string literal, which is also
+    // a valid YAML double-quoted key equal to it — so the path is the text the
+    // developer had to write to create the key, and they can search for it.
+    expect(formatPath([''])).toBe('""')
+    expect(formatPath([' '])).toBe('" "')
+    expect(formatPath(['\t'])).toBe('"\\t"')
+    expect(formatPath(['datapoints', 'battery_soc', ''])).toBe('datapoints.battery_soc.""')
+    expect(formatPath(['datapoints', 'battery_soc', ' '])).toBe('datapoints.battery_soc." "')
+
+    // A first segment used to be detected as "nothing written yet", so an
+    // empty one was dropped and the path named a *different* key.
+    expect(formatPath(['', 'a'])).toBe('"".a')
+    expect(formatPath(['', ''])).toBe('"".""')
+
+    // Nothing else is quoted: quoting is for invisibility, not for every name
+    // that needs care. A segment containing `.` or `[` stays unquoted — see
+    // the test below.
+    expect(formatPath(['datapoints', 'battery_soc'])).toBe('datapoints.battery_soc')
+    expect(formatPath([' a '])).toBe(' a ')
   })
 
   it('reads back every path formatPath writes from segments containing no . or [', () => {
@@ -227,6 +323,15 @@ describe('formatPath and splitFormatPath', () => {
       ['a', 0, 1],
       [0],
       ['messages', 'stop_now'],
+      // Blank segments round-trip too: quoting made them visible on the way
+      // out, and the split reads a quoted blank back rather than handing the
+      // console a key with quote characters in it that no document has.
+      [''],
+      [' '],
+      ['\t'],
+      ['', 'a'],
+      ['datapoints', 'battery_soc', ''],
+      ['datapoints', 'battery_soc', ' '],
     ]
     for (const path of paths) {
       expect(splitFormatPath(formatPath(path))).toEqual([...path])
@@ -241,6 +346,13 @@ describe('formatPath and splitFormatPath', () => {
     expect(splitFormatPath(formatPath(['datapoints', 'x', 'a.b']))).toEqual(['datapoints', 'x', 'a', 'b'])
     expect(splitFormatPath(formatPath(['datapoints', 'x', 'ranges[0]']))).toEqual(['datapoints', 'x', 'ranges', 0])
     expect(splitFormatPath(formatPath([DOCUMENT_ROOT_PATH]))).toEqual([])
+
+    // Quoting blank segments opened exactly one more of these, and no more
+    // than one: a key literally spelled with quote characters *around blank
+    // content*. `"x"` is not affected, because only a quoted blank is
+    // unquoted on the way back.
+    expect(splitFormatPath(formatPath(['datapoints', 'x', '""']))).toEqual(['datapoints', 'x', ''])
+    expect(splitFormatPath(formatPath(['datapoints', 'x', '"x"']))).toEqual(['datapoints', 'x', '"x"'])
   })
 
   it('leaves a chunk it cannot read as structure alone, rather than guessing', () => {

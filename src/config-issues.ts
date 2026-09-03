@@ -122,14 +122,53 @@ function slugOf(path: readonly PropertyKey[]): string | null {
   return typeof slug === 'string' ? slug : null
 }
 
-/** `['datapoints','a','enum',0]` -> `datapoints.a.enum[0]`, the spelling every other path here uses. */
+/**
+ * `['datapoints','a','enum',0]` -> `datapoints.a.enum[0]`, the spelling every
+ * other path here uses.
+ *
+ * **A segment that would render as nothing is written quoted instead.** The
+ * last segment of an `unrecognized_keys` or `invalid_key` path is a key the
+ * *developer* wrote, and YAML lets that key be empty (`"": 3`) or nothing but
+ * whitespace. Rendered bare, such a key produced a path a reader cannot act
+ * on — and at the root it produced the empty string, which
+ * `validationIssue.path` (`z.string().min(1)`) refuses. That was the cloud
+ * publishing a finding that fails the cloud's own contract for findings, and
+ * after D2 stored the draft it cost the whole `configDraftResponse`, not one
+ * issue: the console's `safeParse` dropped the response and handed the editor
+ * nothing, for two characters typed.
+ *
+ * The quoted spelling is the segment's JSON string literal, and that is the
+ * whole of the reason for choosing it: JSON's string syntax is a subset of
+ * YAML's double-quoted scalar syntax, so `""`, `" "` and `"\t"` are each a
+ * valid YAML spelling of exactly the key being complained about. The path is
+ * therefore text the developer can search their own file for — which is the
+ * bar this has to clear. It is also the same move `DOCUMENT_ROOT_PATH` makes
+ * for the no-segments case, one level down: give the invisible thing a name.
+ *
+ * **Only blank segments are quoted.** A segment containing `.` or `[` is
+ * still written bare, so it still cannot be read back — see
+ * `splitFormatPath`, which documents why escaping those was rejected. That
+ * decision is unchanged here on purpose: those paths are wrong for one
+ * console lookup, these were wrong on the wire.
+ */
 export function formatPath(path: readonly PropertyKey[]): string {
   if (path.length === 0) return DOCUMENT_ROOT_PATH
-  return path.reduce<string>(
-    (acc, segment) =>
-      typeof segment === 'number' ? `${acc}[${segment}]` : acc === '' ? String(segment) : `${acc}.${String(segment)}`,
-    '',
-  )
+  return path.reduce<string>((acc, segment, index) => {
+    if (typeof segment === 'number') return `${acc}[${segment}]`
+    const written = isBlank(segment) ? JSON.stringify(segment) : String(segment)
+    // Indexed rather than `acc === ''`: "first segment" used to be detected as
+    // "nothing written yet", which is how an empty first segment came to be
+    // dropped entirely — `formatPath(['', 'a'])` was `'a'`, a path naming a
+    // key the document does not have. Quoting means no segment writes nothing
+    // any more, but a guard that holds only because of what another line
+    // happens to produce is the shape this file exists to avoid.
+    return index === 0 ? written : `${acc}.${written}`
+  }, '')
+}
+
+/** A name with nothing in it to read: empty, or whitespace all the way through. */
+function isBlank(segment: PropertyKey): segment is string {
+  return typeof segment === 'string' && segment.trim() === ''
 }
 
 /**
@@ -160,20 +199,31 @@ export function formatPath(path: readonly PropertyKey[]): string {
  * not placed. It never makes the console assert something false about the
  * document.
  *
- * One more asymmetry, in `formatPath` rather than here and pre-existing: an
- * **empty first segment** is dropped entirely (`formatPath(['', 'a'])` is
- * `'a'`), because "first segment" is detected as "nothing written yet". A
- * document whose root carries the key `""` therefore produces a path that no
- * split can recover — and, since `validationIssue.path` is `min(1)`, an
- * empty path string that the contract itself would refuse. Named here rather
- * than fixed: it is the cloud's output today and changing it is not this
- * move.
+ * A **blank** segment is inside that property rather than outside it, and
+ * that is new. `formatPath` used to drop an empty first segment entirely
+ * (`formatPath(['', 'a'])` was `'a'`, a path naming a different key) and to
+ * write a nested one as a trailing `.`; at the root it produced the empty
+ * string, which `validationIssue.path`'s `min(1)` refuses outright. It now
+ * quotes blank segments, and `unquoteBlank` reads them back, so `['']`,
+ * `[' ']` and `['datapoints', 'battery_soc', '']` all round-trip. The single
+ * new non-round-trip that buys is a key literally spelled with quote marks
+ * around whitespace.
  */
 export function splitFormatPath(path: string): Array<string | number> {
   if (path === DOCUMENT_ROOT_PATH) return []
 
   const segments: Array<string | number> = []
   for (const chunk of path.split('.')) {
+    // A blank segment left `formatPath` quoted, so read it back. Narrowed to
+    // *blank* content on purpose: it is the only content `formatPath` quotes,
+    // so this cannot misread `"x"`, and the one key it does misread — a key
+    // literally spelled with quote marks around whitespace — is the same
+    // bounded cost as the `.` and `[` cases below.
+    const unquoted = unquoteBlank(chunk)
+    if (unquoted !== null) {
+      segments.push(unquoted)
+      continue
+    }
     const match = /^([^[\]]*)((?:\[\d+\])+)$/.exec(chunk)
     if (match === null) {
       segments.push(chunk)
@@ -186,6 +236,18 @@ export function splitFormatPath(path: string): Array<string | number> {
     for (const index of indices!.slice(1, -1).split('][')) segments.push(Number(index))
   }
   return segments
+}
+
+/** The blank string a chunk quotes, or `null` if it does not quote one. */
+function unquoteBlank(chunk: string): string | null {
+  if (chunk.length < 2 || !chunk.startsWith('"') || !chunk.endsWith('"')) return null
+  let value: unknown
+  try {
+    value = JSON.parse(chunk)
+  } catch {
+    return null
+  }
+  return typeof value === 'string' && value.trim() === '' ? value : null
 }
 
 /**
