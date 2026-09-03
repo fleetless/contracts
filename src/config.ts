@@ -81,11 +81,20 @@ import { alertSeverity } from './alerts.js'
  * *pattern* said no, and the same pattern says no for the same reason wherever
  * it appears.
  *
- * **Where they are read.** They ship as `patternErrorMessage` in the exported
- * JSON Schema, which is a published artifact other tools validate against, and
- * which a person reads. They are not what the console shows: the editor turns
- * monaco-yaml's own validation off, so the message a developer sees comes from
- * this schema's parser and from the cloud, and says the same thing.
+ * **Where they are read, and when.** They ship as `patternErrorMessage` in the
+ * exported JSON Schema, which is a published artifact other tools validate
+ * against, and which a person reads.
+ *
+ * In the console they are the live pattern diagnostic **until wave 3 lands**:
+ * `useMonacoYaml.ts` still passes `validate: true`, so between task 7's
+ * artifacts and D3 these sentences are what monaco-yaml shows. D3 then turns
+ * that validation off, and from there the message a developer sees comes from
+ * this schema's own parser and from the cloud, saying the same thing — which
+ * is why the sentence is written once and, from task 5, shared with zod.
+ *
+ * The tense matters because the two states look identical from inside this
+ * file. Whoever reads it after wave 3 should find a claim that was true when
+ * written and stayed true, not one that quietly became false.
  *
  * Each one states the rule in words and gives one example, and none of them
  * quotes its own regex — `config-messages.test.ts` asserts all three.
@@ -94,7 +103,7 @@ const SLUG_RULE = 'A name is lower-case: it starts with a letter, continues with
 
 const ROS_NAME_RULE = 'A ROS graph name is absolute: it begins with a slash, and each segment after a slash starts with a letter or an underscore and continues with letters, digits and underscores — `/camera/image_raw`. A relative name, a trailing slash, a dash or a dot is refused.'
 
-const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.'
+const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.'
 
 const FIELD_PATH_RULE = 'A field path is dotted and lower-case, and each segment may index at most one array level — `voltage`, `pose.position.x`, `ranges[0]`. ROS 2 has no nested arrays, so a second index on one segment could name nothing that exists.'
 
@@ -106,14 +115,50 @@ const DEVICE_PATH_RULE = 'A capture device is a path under `/dev/`, and the char
 
 /**
  * The key of every section, every parameter map and the alert map: a slug,
- * carrying the grammar's sentence so that a mistyped key is answered with it.
+ * carrying the grammar's sentence.
  *
- * `slug` itself stays plain in `common.ts`. Attaching the metadata there would
- * reach every schema in the contracts, and `.meta()` replaces rather than
- * merges — so any use that later wanted a `description` of its own would
- * silently drop the sentence again.
+ * **`slug` itself stays plain in `common.ts`, and the reason is blast radius.**
+ * Not metadata loss: `.meta()` on a clone *merges* with the parent's entry per
+ * key and resolves it lazily, measured against zod 4.4.3 and written up at
+ * `messageBody`'s own `.meta()` below — a later `description` on a use of
+ * `slug` would keep the sentence, not drop it.
+ *
+ * What that reach would cost was measured instead, by adding the one `.meta()`
+ * line to `slug` in a copy of `src/` and re-exporting every artifact under each
+ * schema's own `io`: **42 of the 159 published schema artifacts** would carry
+ * it, `bridge-hello`, `datapoint-frame`, `snapshot-header` and
+ * `bridge-camera-state` among them — protocol frames the bridge **vendors**
+ * under `bridge/test/contracts/schema/`, so rewording one sentence would become
+ * a re-vendor plus a `SOURCE.md` edit in another repo. As landed the same
+ * search finds **7**, all config-derived.
+ *
+ * Whether `vscode-json-languageservice` honours `patternErrorMessage` on a
+ * `propertyNames` schema at all is **not measured** — §1.3 measured a value
+ * position, not a key one. It ships for the same reason as the rest: the
+ * artifact is read by tools and by people.
  */
 const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
+
+/**
+ * `enumDescriptions` built from a table keyed by the **value**, never written
+ * out as a positional array.
+ *
+ * The consuming key is positional — `enumDescriptions[i]` documents `enum[i]` —
+ * and that is the whole hazard. Fifteen sentences hand-aligned against
+ * `parameterType`'s declaration order would misalign in silence the day
+ * somebody regroups that list, which is a grouping rather than an order the
+ * format needs. It would misalign only in the published artifact, where
+ * nothing else looks.
+ *
+ * So the alignment is made unrepresentable rather than tested: the table is
+ * keyed by value, `Record<V, string>` makes a missing value a **typecheck**
+ * failure the day one is added, and the order comes from the enum's own
+ * `.options`. `config-messages.test.ts` still checks arity, non-emptiness and
+ * that the sentences differ from one another — what it cannot check, and says
+ * so, is whether a sentence is the *right* one for its value.
+ */
+const describeValues = <V extends string>(values: readonly V[], table: Record<V, string>): string[] =>
+  values.map((value) => table[value])
 
 /**
  * One of the format's own parameter holes, `${name}`, written so that it
@@ -302,31 +347,29 @@ export const parameterSpec = z
     type: parameterType.meta({
       description: 'The ROS 2 primitive a value of this parameter must be, spelled the way ROS 2 spells it — `float64`, not `double`. It **decides which other constraints are allowed at all**: `min_value` and `max_value` need a numeric type, `regex` needs a string one, and a constraint on the wrong type is refused rather than quietly ignored.',
       /**
-       * One sentence per value, in the order `parameterType` declares them.
-       *
-       * The field's own paragraph is already the hover; these answer the
-       * different question the editor asks when the cursor is on **one**
-       * offer — what is this type, and what does choosing it allow. Written
-       * for the value, so `int32` states its range and `string` says it is
-       * the type a `regex` may constrain.
+       * One sentence per value. The field's own paragraph is already the
+       * hover; these answer the different question the editor asks when the
+       * cursor is on **one** offer — what is this type, and what does choosing
+       * it allow. Written for the value, so `int32` states its range and
+       * `string` says it is the type a `regex` may constrain.
        */
-      enumDescriptions: [
-        'A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.',
-        'One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.',
-        'A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.',
-        'A whole number from `-128` to `127`.',
-        'A whole number from `0` to `255`.',
-        'A whole number from `-32768` to `32767`.',
-        'A whole number from `0` to `65535`.',
-        'A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.',
-        'A whole number from `0` to `4294967295`.',
-        'A whole number from `-9223372036854775808` to `9223372036854775807`.',
-        'A whole number from `0` to `18446744073709551615`.',
-        'A single-precision number, roughly seven significant digits.',
-        'A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.',
-        'Text, carried as UTF-8. One of the two types a `regex` may constrain.',
-        'Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms.',
-      ],
+      enumDescriptions: describeValues(parameterType.options, {
+        bool: 'A `true`/`false` flag. The one type that takes no constraint at all: no bounds, no `regex`, no `enum`.',
+        byte: 'One raw octet, `0` to `255`, carrying no character meaning. It counts as an integer here, so bounds and an `enum` apply to it.',
+        char: 'A single-octet character code, `0` to `255`. ROS 2 keeps it apart from `byte` although the width is the same, and it travels as a number rather than as a one-character string.',
+        int8: 'A whole number from `-128` to `127`.',
+        uint8: 'A whole number from `0` to `255`.',
+        int16: 'A whole number from `-32768` to `32767`.',
+        uint16: 'A whole number from `0` to `65535`.',
+        int32: 'A whole number from `-2147483648` to `2147483647` — the usual choice for a count or an index.',
+        uint32: 'A whole number from `0` to `4294967295`.',
+        int64: 'A whole number from `-9223372036854775808` to `9223372036854775807`.',
+        uint64: 'A whole number from `0` to `18446744073709551615`.',
+        float32: 'A single-precision number, roughly seven significant digits.',
+        float64: 'A double-precision number, roughly fifteen significant digits. This is what other languages call `double`; ROS 2 spells it `float64` and so does this field.',
+        string: 'Text, carried as UTF-8. One of the two types a `regex` may constrain.',
+        wstring: 'Text as wide characters, and rare — nearly every ROS 2 interface uses `string`. It takes a `regex` on the same terms.',
+      }),
     }),
     default: z.union([z.number(), z.string(), z.boolean()]).meta({
       description: 'The value used when a caller omits this parameter: **without a `default` the parameter is required**, because the message cannot be built without it. It must itself satisfy `min_value`, `max_value`, `enum` and `regex` — a default the constraints reject is refused here rather than becoming the one value that reaches the robot unchecked.',
@@ -602,10 +645,10 @@ export const datapointAlert = z.strictObject({
   }),
   severity: alertSeverity.meta({
     description: 'How bad it is when this alert fires; absent means `warning`. It changes no behaviour — nothing is escalated, retried or delivered differently — it travels with the org event and colours the alert wherever it is shown.',
-    enumDescriptions: [
-      'Worth seeing. This is what an alert that names no severity gets.',
-      'Worth acting on. The only difference from `warning` is how the alert is shown: the same event is written, at the same moment, to the same places.',
-    ],
+    enumDescriptions: describeValues(alertSeverity.options, {
+      warning: 'Worth seeing. This is what an alert that names no severity gets.',
+      error: 'Worth acting on. The only difference from `warning` is how the alert is shown: the same event is written, at the same moment, to the same places.',
+    }),
   }).optional(),
   name: z.string().min(1).max(120).meta({
     description: 'A human-readable label shown wherever this alert appears, in place of its bare key. It is not the alert\'s identity — the key is — so the label can be reworded freely, while changing the key deletes one alert and creates another.',
@@ -685,6 +728,12 @@ export type DatapointRetention = z.infer<typeof datapointRetention>
  * without this the document would carry a reversed axis all the way to a
  * chart that renders empty.
  */
+/**
+ * Named rather than inlined at `style:`, so that `describeValues` can read its
+ * `.options` and its per-value sentences can be keyed by value.
+ */
+const chartStyle = z.enum(['line', 'step'])
+
 export const datapointChart = z
   .strictObject({
     y_min: z.number().finite().meta({
@@ -695,12 +744,12 @@ export const datapointChart = z
       description: 'A fixed ceiling for the chart\'s y axis; omitted, the axis scales to the data. It may not sit below `y_min`: a reversed pair is refused here because nothing downstream catches it, and the chart would render empty.',
       examples: [100],
     }).optional(),
-    style: z.enum(['line', 'step']).meta({
+    style: chartStyle.meta({
       description: 'How the drawing joins two samples, which is not a matter of taste. `line` claims the value moved evenly between them, roughly true of a temperature or a charge; `step` holds and then jumps, the only honest drawing for a mode, a switch or a counter, where a straight line would show values that never existed.',
-      enumDescriptions: [
-        'Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.',
-        'Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported.',
-      ],
+      enumDescriptions: describeValues(chartStyle.options, {
+        line: 'Straight lines between samples, so the drawing claims the value moved evenly from one to the next. Right for a quantity that really is continuous — a temperature, a charge level — where a reading taken between two samples would have landed somewhere on that line.',
+        step: 'Each value is held until the next one arrives, then jumps to it. Right for anything that does not slide between its values — a mode, a state, a switch, a counter — where a sloped line would draw readings the robot never reported.',
+      }),
     }).optional(),
     default_window_minutes: z.number().int().min(1).max(43_200).meta({
       description: 'How far back the chart reaches when it is first opened, in minutes; absent means `60`. Only the starting zoom: a viewer may look further, and nothing about what is stored follows from it.',
@@ -1409,6 +1458,11 @@ export type CameraCredentials = z.infer<typeof cameraCredentials>
  * fifth source impossible to add without one — `config-snippets.test.ts`
  * walks the exported branches and fails on any that carries none.
  */
+/**
+ * Named for the same reason as `chartStyle`: `describeValues` needs `.options`.
+ */
+const rtspTransport = z.enum(['tcp', 'udp'])
+
 export const cameraSource = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('ros').meta({
@@ -1488,12 +1542,12 @@ export const cameraSource = z.discriminatedUnion('kind', [
         examples: ['rtsp://cam-1.plant.local/stream1'],
       }),
     /** TCP by default: UDP loses frames on a congested link, silently. */
-    transport: z.enum(['tcp', 'udp']).optional().meta({
+    transport: rtspTransport.optional().meta({
       description: 'How the RTSP payload is carried. Omitted means `tcp`: `udp` loses frames on a congested link and loses them silently, so the result looks like a failing camera rather than like a choice made here.',
-      enumDescriptions: [
-        'The frames are interleaved into the RTSP connection itself, which is what a congested or lossy link needs — nothing is dropped on the way. This is what an omitted `transport` means.',
-        'The frames travel in their own UDP stream: lower latency on a quiet network, and silent frame loss on any other.',
-      ],
+      enumDescriptions: describeValues(rtspTransport.options, {
+        tcp: 'The frames are interleaved into the RTSP connection itself, which is what a congested or lossy link needs — nothing is dropped on the way. This is what an omitted `transport` means.',
+        udp: 'The frames travel in their own UDP stream: lower latency on a quiet network, and silent frame loss on any other.',
+      }),
     }),
     credentials: cameraCredentials.optional(),
   }).meta({

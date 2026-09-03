@@ -48,11 +48,22 @@ const found = collect(schema)
 
 /**
  * `patternErrorMessage` and `enumDescriptions` are read by whatever validates
- * against the exported JSON Schema, and by a person reading the artifact. They
- * are **not** the console's live diagnostic — the editor turns monaco-yaml's
- * validation off, and the sentence a developer sees comes from this schema's
- * own parser and from the cloud. `src/config.ts` says the same beside the
- * sentences themselves, so neither place looks load-bearing on its own.
+ * against the exported JSON Schema, and by a person reading the artifact.
+ *
+ * In the console they are also the live pattern diagnostic **until wave 3**:
+ * `useMonacoYaml.ts` still passes `validate: true`, so from task 7's artifacts
+ * until D3 turns that off, monaco-yaml shows these. After D3 the sentence a
+ * developer sees comes from this schema's own parser and from the cloud, and
+ * says the same thing. `src/config.ts` states the same beside the sentences,
+ * so neither place reads as load-bearing on its own.
+ *
+ * **What this file cannot check.** Nothing here can tell a correct sentence
+ * from a plausible wrong one — that is a reading, and the review does it. What
+ * it can do is refuse the states where the sentences are structurally not
+ * doing their job: missing, empty, identical to one another, or aligned to the
+ * wrong value. The last of those is not tested at all but made
+ * unrepresentable, in `src/config.ts`'s `describeValues`; the assertions below
+ * are what catches the rest.
  */
 describe('the format explains its own rules', () => {
   // The counts are the measurement of 2026-09-03. They are here so that a node
@@ -77,19 +88,55 @@ describe('the format explains its own rules', () => {
     expect(missing, `no patternErrorMessage at: ${missing.join(', ')}`).toEqual([])
   })
 
+  /**
+   * Two checks, because they see different things and neither is the other's
+   * weaker form.
+   *
+   * The **verbatim** one is exact and complete for what it asks: the whole
+   * pattern, pasted in. It is also the only thing it can see — a sentence that
+   * quotes half the regex passes it, which is why it is not alone here.
+   *
+   * The **fragment** one is a heuristic and is written as one. It looks for
+   * six substrings that occur in a regular expression and in no English
+   * sentence about names, paths or URLs. It cannot prove a message is free of
+   * regex; it catches the way this actually goes wrong, which is somebody
+   * pasting a piece of the pattern in to be precise. If a legitimate sentence
+   * ever needs one of these, remove that tell and say so here rather than
+   * loosening both checks.
+   *
+   * Optional chaining on the verbatim check is deliberate. Without it an
+   * absent message throws a `TypeError` naming nothing, and a run whose first
+   * red is a TypeError sends the reader after the wrong cause — the assertion
+   * above already names every node that is missing one.
+   */
+  const REGEX_TELLS = ['(?:', '[A-Za-z', '[a-z0-9', ']*', ']+', '\\/']
+
   it('no sentence quotes the regex back at the reader', () => {
     const quoting = found.patterns.filter((p) => {
       const node = found.nodes.get(p)
-      return node.patternErrorMessage.includes(node.pattern)
+      return node.patternErrorMessage?.includes(node.pattern) === true
     })
     expect(quoting, `the pattern appears verbatim in its own message at: ${quoting.join(', ')}`).toEqual([])
   })
 
-  it('every enum value carries a description', () => {
+  it('no sentence pastes a fragment of the regex either', () => {
+    const quoting = found.patterns.filter((p) => {
+      const message: string = found.nodes.get(p).patternErrorMessage ?? ''
+      return REGEX_TELLS.some((tell) => message.includes(tell))
+    })
+    expect(quoting, `regex syntax appears in the message at: ${quoting.join(', ')}`).toEqual([])
+  })
+
+  it('every enum value carries a description of its own', () => {
     const wrong = found.enums.filter((p) => {
       const node = found.nodes.get(p)
-      return !Array.isArray(node.enumDescriptions) || node.enumDescriptions.length !== node.enum.length
+      if (!Array.isArray(node.enumDescriptions) || node.enumDescriptions.length !== node.enum.length) return true
+      if (node.enumDescriptions.some((d: unknown) => typeof d !== 'string' || d.trim().length === 0)) return true
+      // The §1.3 failure mode in its own right: one paragraph repeated is
+      // indistinguishable from no per-value documentation at all, and that is
+      // exactly the state `enumDescriptions` was added to leave.
+      return new Set(node.enumDescriptions).size !== node.enumDescriptions.length
     })
-    expect(wrong, `enumDescriptions missing or the wrong length at: ${wrong.join(', ')}`).toEqual([])
+    expect(wrong, `enumDescriptions missing, empty, mis-sized or repeated at: ${wrong.join(', ')}`).toEqual([])
   })
 })
