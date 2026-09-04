@@ -4,7 +4,8 @@
   "properties": {
     "refresh_token": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Any refresh token of the session to end. The whole token family is revoked server-side, so a token stolen before this call stops working too — clearing a client-side store is a gesture, not a revocation."
     }
   },
   "required": [

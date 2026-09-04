@@ -4,17 +4,21 @@
   "properties": {
     "issuer": {
       "type": "string",
-      "format": "uri"
+      "format": "uri",
+      "description": "The issuer identifier of this authorization server, per RFC 8414 §2. It is what a client checks a token's `iss` against."
     },
     "authorization_endpoint": {
       "type": "string",
-      "format": "uri"
+      "format": "uri",
+      "description": "The URL a client sends the user to in order to authorize."
     },
     "token_endpoint": {
       "type": "string",
-      "format": "uri"
+      "format": "uri",
+      "description": "The URL where a client exchanges an authorization code, or a refresh token, for tokens."
     },
     "registration_endpoint": {
+      "description": "The URL where a client may register itself, per RFC 7591. Absent when the app does not accept dynamic clients.",
       "type": "string",
       "format": "uri"
     },
@@ -23,7 +27,8 @@
       "items": {
         "type": "string",
         "const": "code"
-      }
+      },
+      "description": "The response types this server offers: `code` only, the implicit grant being gone with OAuth 2.1."
     },
     "grant_types_supported": {
       "type": "array",
@@ -33,7 +38,8 @@
           "authorization_code",
           "refresh_token"
         ]
-      }
+      },
+      "description": "The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here."
     },
     "code_challenge_methods_supported": {
       "type": "array",
@@ -42,16 +48,19 @@
         "enum": [
           "S256"
         ]
-      }
+      },
+      "description": "The PKCE challenge methods accepted: `S256` only. `plain` is not offered — a challenge equal to its verifier defends against nothing, and offering it would make a downgrade negotiable."
     },
     "token_endpoint_auth_methods_supported": {
       "type": "array",
       "items": {
         "type": "string",
         "const": "none"
-      }
+      },
+      "description": "How a client authenticates at the token endpoint: `none`, the public-client method, with PKCE protecting the exchange."
     },
     "scopes_supported": {
+      "description": "The scopes this server knows about, where it publishes a list.",
       "type": "array",
       "items": {
         "type": "string"

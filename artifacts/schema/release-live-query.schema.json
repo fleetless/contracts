@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "session_id": {
+      "description": "The one hold to release, as the live session returned it. Absent releases **all** of this identity's holds on this camera — the blunt form, still needed by a client that has lost its id or is going away, and the one that strands the identity's other tabs.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"

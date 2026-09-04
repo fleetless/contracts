@@ -4,22 +4,27 @@
   "properties": {
     "access_token": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "The bearer token. It is the same token the client login mints — only the envelope differs, because an RFC-compliant client parses this one and knows nothing about Fleetless."
     },
     "token_type": {
       "type": "string",
-      "const": "Bearer"
+      "const": "Bearer",
+      "description": "`Bearer`. RFC 6749 §5.1 makes the value case-insensitive for a client reading it; this is the spelling this server emits."
     },
     "expires_in": {
       "type": "integer",
       "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds."
     },
     "refresh_token": {
+      "description": "The refresh token, when one was issued. It rotates on every use.",
       "type": "string",
       "minLength": 1
     },
     "scope": {
+      "description": "The scopes the issued token actually carries, space-separated.",
       "type": "string",
       "maxLength": 500
     }

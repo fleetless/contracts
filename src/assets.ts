@@ -71,9 +71,11 @@ export type AssetKind = z.infer<typeof assetKind>
 export const URDF_ASSET_NAME = 'robot_description'
 
 export const asset = z.object({
-  id: z.uuid(),
-  robot_id: z.uuid(),
-  kind: assetKind,
+  id: z.uuid().meta({ description: 'The asset\'s id in the store.' }),
+  robot_id: z.uuid().meta({ description: 'The robot this asset belongs to.' }),
+  kind: assetKind.meta({
+    description: 'What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what it has to pre-fetch.',
+  }),
   /**
    * What the robot called it — for a mesh, the `package://` URI the URDF
    * references, verbatim. That is the only string a developer can match
@@ -108,9 +110,15 @@ export const asset = z.object({
    * Two identical rules, one of which is enforced and one of which is
    * documented, is how W7's traversal happened in the first place.
    */
-  name: z.string().min(1).max(500),
-  media_type: z.string().min(1).max(120),
-  size_bytes: z.number().int().nonnegative(),
+  name: z.string().min(1).max(500).meta({
+    description: 'What the robot called it — for a mesh, the `package://` URI the URDF references, verbatim, which is the only string a developer can match against their own workspace. A file the URDF never names (an image a `.dae` loads for itself) is named by joining the mesh\'s own directory with that internal reference.',
+  }),
+  media_type: z.string().min(1).max(120).meta({
+    description: 'The media type of the stored bytes, as the producer reported it.',
+  }),
+  size_bytes: z.number().int().nonnegative().meta({
+    description: 'How large the stored file is, in bytes.',
+  }),
   /**
    * The content hash, and the reason two robots sharing a mesh cost one copy.
    *
@@ -119,8 +127,12 @@ export const asset = z.object({
    * that re-downloads an identical arm for every robot in a fleet is the
    * predictable failure of a store that hides it.
    */
-  sha256: z.string().regex(/^[a-f0-9]{64}$/),
-  created_at: z.iso.datetime(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/).meta({
+    description: 'The content hash, lowercase hex, and the reason two robots sharing a mesh cost one copy. It is exposed because it is the only way a client can tell "this is the same mesh I already have" across robots.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the asset was first stored, as an ISO 8601 timestamp.',
+  }),
 })
 export type Asset = z.infer<typeof asset>
 
@@ -149,10 +161,12 @@ export type Asset = z.infer<typeof asset>
  * will not help".
  */
 export const urdfCompleteness = z.object({
-  /** Whether a URDF has been synced at all. Availability is a different question. */
-  present: z.boolean(),
-  /** How many distinct meshes the URDF references. */
-  mesh_count: z.number().int().nonnegative(),
+  present: z.boolean().meta({
+    description: 'Whether a URDF has been synced at all. Whether one *could* be synced is a different question, answered by `urdf_available`.',
+  }),
+  mesh_count: z.number().int().nonnegative().meta({
+    description: 'How many distinct meshes the URDF references.',
+  }),
   /**
    * **Was fehlt, und wovon (W9b, DEF-081).**
    *
@@ -168,9 +182,15 @@ export const urdfCompleteness = z.object({
    * Herleitung derselben Tatsache, die von der ersten abweichen kann.
    */
   missing: z.array(z.object({
-    uri: z.string().min(1).max(500),
-    element: z.enum(['mesh', 'texture']),
-  })),
+    uri: z.string().min(1).max(500).meta({
+      description: 'The reference, verbatim, that no stored asset answers — a `package://` URI the workspace does not hold, or an absolute or bare relative path nothing will ever fetch. A developer whose URDF names one of the latter is entitled to be told so.',
+    }),
+    element: z.enum(['mesh', 'texture']).meta({
+      description: 'Which kind of reference it was: geometry the URDF names as a `mesh`, or a `texture` a surface paints with. Without it a client reports a missing texture as a missing mesh, contradicting `mesh_count` beside it.',
+    }),
+  })).meta({
+    description: 'The references nothing in the store answers, each with the element that asked for it. A bare count is a dead end that sends a developer hunting through a workspace by hand; the references are what they can act on, so the references travel.',
+  }),
 })
 export type UrdfCompleteness = z.infer<typeof urdfCompleteness>
 
@@ -195,7 +215,9 @@ export type UrdfCompleteness = z.infer<typeof urdfCompleteness>
  * against a guess.
  */
 export const assetSyncRequest = z.object({
-  source: z.enum(['bridge']),
+  source: z.enum(['bridge']).meta({
+    description: 'Where the bytes come from. `bridge` is the only value today: the connected bridge reads them from the robot\'s own workspace. It is validated rather than ignored, so a caller naming a source that does not exist yet learns that instead of silently getting a bridge sync.',
+  }),
 }).strict()
 /**
  * **And the route must read it (W7a).** Through W7 it did not: `{source:
@@ -214,7 +236,9 @@ export const assetSyncRequest = z.object({
 export type AssetSyncRequest = z.infer<typeof assetSyncRequest>
 
 export const assetSyncResponse = z.object({
-  sync_id: z.uuid(),
+  sync_id: z.uuid().meta({
+    description: 'The sync that has just started. A sync is long-running, so the answer is something to watch rather than a status that was true at the moment of asking.',
+  }),
 })
 export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
 
@@ -307,8 +331,12 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
 export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
 
 export const assetTooLargeDetails = z.object({
-  limit_bytes: z.number().int().positive(),
-  size_bytes: z.number().int().positive(),
+  limit_bytes: z.number().int().positive().meta({
+    description: 'The upload ceiling, in bytes.',
+  }),
+  size_bytes: z.number().int().positive().meta({
+    description: 'How large the refused file actually is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; "too large" alone answers neither.',
+  }),
 })
 export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
 
@@ -344,8 +372,12 @@ export const assetFailure = z.object({
    * is `URDF_ASSET_NAME`, which is **not** a mesh URI: a consumer rendering
    * this list must not assume every entry is one.
    */
-  reference: z.string().min(1).max(500),
-  kind: assetFailureKind,
+  reference: z.string().min(1).max(500).meta({
+    description: 'What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one.',
+  }),
+  kind: assetFailureKind.meta({
+    description: 'Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`.',
+  }),
   /**
    * **Die zwei Zahlen, und warum `too_large` eine eigene Art ist (W9b).**
    *
@@ -365,7 +397,9 @@ export const assetFailure = z.object({
    * beschrieben: ein Feld, dessen Regel nur im Kommentar steht, ist eine
    * Bitte.
    */
-  details: assetTooLargeDetails.nullish(),
+  details: assetTooLargeDetails.nullish().meta({
+    description: 'The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.',
+  }),
 }).superRefine((f, ctx) => {
   // **Erzwungen, nicht beschrieben.** Eine Regel, die nur im Kommentar steht,
   // ist eine Bitte — und dieses Projekt hat mehrfach erlebt, dass ein Feld,
@@ -383,11 +417,17 @@ export const assetSyncState = z.enum(['running', 'succeeded', 'failed'])
 export type AssetSyncState = z.infer<typeof assetSyncState>
 
 export const assetSyncStatus = z.object({
-  sync_id: z.uuid(),
-  robot_id: z.uuid(),
-  state: assetSyncState,
-  done: z.number().int().nonnegative(),
-  total: z.number().int().nonnegative(),
+  sync_id: z.uuid().meta({ description: 'The sync this status describes.' }),
+  robot_id: z.uuid().meta({ description: 'The robot whose assets are being synced.' }),
+  state: assetSyncState.meta({
+    description: 'Whether the sync is still `running`, or ended `succeeded` or `failed`. It ends `succeeded` only when nothing was left behind: a single entry in `failed` makes the whole sync `failed`.',
+  }),
+  done: z.number().int().nonnegative().meta({
+    description: 'How many files have been transferred so far.',
+  }),
+  total: z.number().int().nonnegative().meta({
+    description: 'How many files this sync set out to transfer. It is `0` until the producer has finished working out what there is.',
+  }),
   /**
    * **Every entry says *why*, because reconciliation could not work without
    * it and a developer could not read it without it** (W7a review, André's
@@ -432,17 +472,26 @@ export const assetSyncStatus = z.object({
    *
    * 1000 x 500 bytes is ~0.5 MiB of names, comfortably inside a 2 MiB frame.
    */
-  failed: z.array(assetFailure).max(1000),
-  /** Why the sync ended as it did, when that is not a per-URI fact. */
-  reason: z.string().min(1).nullable(),
-  started_at: z.iso.datetime(),
-  updated_at: z.iso.datetime(),
+  failed: z.array(assetFailure).max(1000).meta({
+    description: 'What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody\'s renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list.',
+  }),
+  reason: z.string().min(1).nullable().meta({
+    description: 'Why the sync ended as it did, when that is not a per-reference fact. `null` when `failed` already says everything there is to say.',
+  }),
+  started_at: z.iso.datetime().meta({
+    description: 'When the sync started, as an ISO 8601 timestamp.',
+  }),
+  updated_at: z.iso.datetime().meta({
+    description: 'When this status last changed, as an ISO 8601 timestamp. A sync that stops moving is visible here rather than only in `state`.',
+  }),
 })
 export type AssetSyncStatus = z.infer<typeof assetSyncStatus>
 
 
 export const assetListResponse = z.object({
-  assets: z.array(asset),
+  assets: z.array(asset).meta({
+    description: 'Every asset stored for this robot: the URDF, the meshes it references, and the textures those paint with.',
+  }),
   /**
    * Der gerade laufende Sync, oder `null` (W9b, DEF-147).
    *
@@ -453,8 +502,12 @@ export const assetListResponse = z.object({
    * die id nicht aufgehoben hatte. Eine Seite, die frisch lädt, drückt keinen
    * Knopf; sie fragt diese Liste. Also muss die Liste es sagen.
    */
-  active_sync: assetSyncStatus.nullable(),
-  urdf: urdfCompleteness,
+  active_sync: assetSyncStatus.nullable().meta({
+    description: 'The sync running right now, or `null`. It is on this list so a page that reloads and has lost the sync id can still show progress — a freshly loaded page presses no button, it asks this list.',
+  }),
+  urdf: urdfCompleteness.meta({
+    description: 'Whether the stored URDF can actually be rendered, and what it is still missing. Not the same question as whether one was uploaded.',
+  }),
   /**
    * What the connected bridge says it *could* transfer, which is deliberately
    * separate from what has been transferred (§4.6: the bridge "meldet nur
@@ -482,7 +535,9 @@ export const assetListResponse = z.object({
    * Rosie-W7a closing it, and this comment was still describing the gap a wave
    * after it was fixed (Momus-W7a, W7a review).
    */
-  urdf_available: z.boolean().nullable(),
+  urdf_available: z.boolean().nullable().meta({
+    description: 'What the connected bridge says it *could* transfer, which is deliberately separate from what has been transferred. `null` when no bridge is connected — distinct from `false`, because "no robot is online to ask" and "the robot has no URDF" send a developer to two different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here.',
+  }),
 })
 export type AssetListResponse = z.infer<typeof assetListResponse>
 

@@ -8,7 +8,8 @@
         "developer",
         "end_user",
         "server_key"
-      ]
+      ],
+      "description": "Which of the three kinds of caller this is: a `developer` working through the console, an `end_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set."
     },
     "developer_id": {
       "anyOf": [
@@ -20,7 +21,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The developer behind this session, or `null` when `kind` is not `developer`."
     },
     "end_user_id": {
       "anyOf": [
@@ -32,7 +34,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The end user behind this session, or `null` when `kind` is not `end_user`."
     },
     "server_key_id": {
       "anyOf": [
@@ -44,7 +47,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The server key this session was authenticated with, or `null` when `kind` is not `server_key`."
     },
     "app_id": {
       "anyOf": [
@@ -56,7 +60,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The app this session belongs to, and `null` for a developer — a developer is organisation-scoped and owns the configuration of every robot in the organisation rather than reaching one through an app."
     },
     "role_id": {
       "anyOf": [
@@ -68,7 +73,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The role that decides what this caller may reach, and `null` for a developer. Roles are the only visibility filter: what a role does not grant does not exist for that user."
     },
     "email": {
       "anyOf": [
@@ -80,15 +86,18 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The email of the developer or end user behind this session, and `null` for a server key, which is not a person."
     },
     "act": {
+      "description": "Present only under impersonation, naming the organisation admin who is actually driving. The rest of this shape describes the identity they are acting **as**; absence means an ordinary session with nobody delegating, which is not the same fact as an unknown actor.",
       "type": "object",
       "properties": {
         "admin_user_id": {
           "type": "string",
           "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The real admin's user id. Only the id travels; whoever renders the \"you are acting as …\" banner resolves the name itself rather than trusting a second unverified one on the wire."
         }
       },
       "required": [

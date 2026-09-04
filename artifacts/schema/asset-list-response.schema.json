@@ -10,12 +10,14 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The asset's id in the store."
           },
           "robot_id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The robot this asset belongs to."
           },
           "kind": {
             "type": "string",
@@ -24,31 +26,37 @@
               "mesh",
               "texture",
               "other"
-            ]
+            ],
+            "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what it has to pre-fetch."
           },
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 500
+            "maxLength": 500,
+            "description": "What the robot called it — for a mesh, the `package://` URI the URDF references, verbatim, which is the only string a developer can match against their own workspace. A file the URDF never names (an image a `.dae` loads for itself) is named by joining the mesh's own directory with that internal reference."
           },
           "media_type": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 120
+            "maxLength": 120,
+            "description": "The media type of the stored bytes, as the producer reported it."
           },
           "size_bytes": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How large the stored file is, in bytes."
           },
           "sha256": {
             "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "The content hash, lowercase hex, and the reason two robots sharing a mesh cost one copy. It is exposed because it is the only way a client can tell \"this is the same mesh I already have\" across robots."
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the asset was first stored, as an ISO 8601 timestamp."
           }
         },
         "required": [
@@ -62,7 +70,8 @@
           "created_at"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Every asset stored for this robot: the URDF, the meshes it references, and the textures those paint with."
     },
     "active_sync": {
       "anyOf": [
@@ -72,12 +81,14 @@
             "sync_id": {
               "type": "string",
               "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "The sync this status describes."
             },
             "robot_id": {
               "type": "string",
               "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "The robot whose assets are being synced."
             },
             "state": {
               "type": "string",
@@ -85,17 +96,20 @@
                 "running",
                 "succeeded",
                 "failed"
-              ]
+              ],
+              "description": "Whether the sync is still `running`, or ended `succeeded` or `failed`. It ends `succeeded` only when nothing was left behind: a single entry in `failed` makes the whole sync `failed`."
             },
             "done": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "How many files have been transferred so far."
             },
             "total": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "How many files this sync set out to transfer. It is `0` until the producer has finished working out what there is."
             },
             "failed": {
               "maxItems": 1000,
@@ -106,7 +120,8 @@
                   "reference": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 500
+                    "maxLength": 500,
+                    "description": "What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one."
                   },
                   "kind": {
                     "type": "string",
@@ -115,9 +130,11 @@
                       "upload_failed",
                       "refused",
                       "too_large"
-                    ]
+                    ],
+                    "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
                   },
                   "details": {
+                    "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
                     "anyOf": [
                       {
                         "type": "object",
@@ -125,12 +142,14 @@
                           "limit_bytes": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
+                            "maximum": 9007199254740991,
+                            "description": "The upload ceiling, in bytes."
                           },
                           "size_bytes": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
+                            "maximum": 9007199254740991,
+                            "description": "How large the refused file actually is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
                           }
                         },
                         "required": [
@@ -150,7 +169,8 @@
                   "kind"
                 ],
                 "additionalProperties": false
-              }
+              },
+              "description": "What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody's renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list."
             },
             "reason": {
               "anyOf": [
@@ -161,17 +181,20 @@
                 {
                   "type": "null"
                 }
-              ]
+              ],
+              "description": "Why the sync ended as it did, when that is not a per-reference fact. `null` when `failed` already says everything there is to say."
             },
             "started_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+              "description": "When the sync started, as an ISO 8601 timestamp."
             },
             "updated_at": {
               "type": "string",
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+              "description": "When this status last changed, as an ISO 8601 timestamp. A sync that stops moving is visible here rather than only in `state`."
             }
           },
           "required": [
@@ -190,18 +213,21 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The sync running right now, or `null`. It is on this list so a page that reloads and has lost the sync id can still show progress — a freshly loaded page presses no button, it asks this list."
     },
     "urdf": {
       "type": "object",
       "properties": {
         "present": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Whether a URDF has been synced at all. Whether one *could* be synced is a different question, answered by `urdf_available`."
         },
         "mesh_count": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 9007199254740991
+          "maximum": 9007199254740991,
+          "description": "How many distinct meshes the URDF references."
         },
         "missing": {
           "type": "array",
@@ -211,14 +237,16 @@
               "uri": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 500
+                "maxLength": 500,
+                "description": "The reference, verbatim, that no stored asset answers — a `package://` URI the workspace does not hold, or an absolute or bare relative path nothing will ever fetch. A developer whose URDF names one of the latter is entitled to be told so."
               },
               "element": {
                 "type": "string",
                 "enum": [
                   "mesh",
                   "texture"
-                ]
+                ],
+                "description": "Which kind of reference it was: geometry the URDF names as a `mesh`, or a `texture` a surface paints with. Without it a client reports a missing texture as a missing mesh, contradicting `mesh_count` beside it."
               }
             },
             "required": [
@@ -226,7 +254,8 @@
               "element"
             ],
             "additionalProperties": false
-          }
+          },
+          "description": "The references nothing in the store answers, each with the element that asked for it. A bare count is a dead end that sends a developer hunting through a workspace by hand; the references are what they can act on, so the references travel."
         }
       },
       "required": [
@@ -234,7 +263,8 @@
         "mesh_count",
         "missing"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "Whether the stored URDF can actually be rendered, and what it is still missing. Not the same question as whether one was uploaded."
     },
     "urdf_available": {
       "anyOf": [
@@ -244,7 +274,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "What the connected bridge says it *could* transfer, which is deliberately separate from what has been transferred. `null` when no bridge is connected — distinct from `false`, because \"no robot is online to ask\" and \"the robot has no URDF\" send a developer to two different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here."
     }
   },
   "required": [

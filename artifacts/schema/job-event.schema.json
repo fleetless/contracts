@@ -23,18 +23,21 @@
         "id": {
           "type": "string",
           "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The job's id, minted by the cloud when the invocation is accepted. Informative: state is observed by slug, and this id is what a cancel names when a caller wants to stop one specific job rather than whatever is running."
         },
         "robot_id": {
           "type": "string",
           "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The robot this job is running on."
         },
         "slug": {
           "type": "string",
           "minLength": 2,
           "maxLength": 63,
-          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+          "description": "The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one."
         },
         "state": {
           "type": "string",
@@ -44,22 +47,26 @@
             "failed",
             "cancelled",
             "lost"
-          ]
+          ],
+          "description": "Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — and is said out loud rather than left reading `running` because nobody contradicted it."
         },
         "started_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge it is **adoption time**, not the real start, because the cloud never minted it and has no honest alternative."
         },
         "updated_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "When this job last changed, as an ISO 8601 timestamp."
         },
         "seq": {
           "type": "integer",
           "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
+          "maximum": 9007199254740991,
+          "description": "A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders."
         },
         "result": {
           "anyOf": [
@@ -67,7 +74,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
         },
         "error": {
           "anyOf": [
@@ -76,13 +84,17 @@
               "properties": {
                 "code": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
                 },
                 "message": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "description": "A human-readable sentence saying what went wrong."
                 },
-                "details": {}
+                "details": {
+                  "description": "The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them."
+                }
               },
               "required": [
                 "code",
@@ -92,7 +104,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`."
         }
       },
       "required": [

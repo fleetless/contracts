@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "job_id": {
+      "description": "The one job to stop. Absent or `null` cancels whatever is currently running on the slug, which is what every caller written before this field existed means. Unknown keys are refused rather than stripped, so a misspelling cannot silently become the slug-wide cancel.",
       "anyOf": [
         {
           "type": "string",

@@ -4,7 +4,8 @@
   "properties": {
     "resource": {
       "type": "string",
-      "format": "uri"
+      "format": "uri",
+      "description": "The resource identifier this document describes, per RFC 9728. A token whose audience names something else is rejected here rather than merely noted."
     },
     "authorization_servers": {
       "minItems": 1,
@@ -12,16 +13,19 @@
       "items": {
         "type": "string",
         "format": "uri"
-      }
+      },
+      "description": "The authorization servers that may issue tokens for this resource. There is always at least one."
     },
     "bearer_methods_supported": {
       "type": "array",
       "items": {
         "type": "string",
         "const": "header"
-      }
+      },
+      "description": "How a token may be presented: in the `Authorization` header only, never in a query parameter or a form field."
     },
     "scopes_supported": {
+      "description": "The scopes this resource understands, where it publishes a list.",
       "type": "array",
       "items": {
         "type": "string"

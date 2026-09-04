@@ -5097,6 +5097,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Return only runs with a `seq` below this value — the next, older page. Send back the `next_cursor` of the previous response rather than computing one.",
               "anyOf": [
                 {
                   "type": "string",
@@ -5115,6 +5116,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "How many runs to return, from `1` to `200`. Absent means `100`. It arrives on the query string, so a numeric string and a number are both accepted.",
               "anyOf": [
                 {
                   "type": "string",
@@ -5133,6 +5135,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs on this robot. Absent means every robot in the organisation.",
               "type": "string",
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -5143,6 +5146,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs of this action or service.",
               "type": "string",
               "minLength": 2,
               "maxLength": 63,
@@ -5154,6 +5158,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.",
               "type": "string",
               "enum": [
                 "running",
@@ -5169,6 +5174,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only `action` runs, or only `service` runs.",
               "type": "string",
               "enum": [
                 "action",
@@ -5181,6 +5187,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs that started at or after this unix timestamp in milliseconds. Together with `to_ms` the window is half-open, `[from, to)`, so adjacent windows tile without counting a run twice.",
               "anyOf": [
                 {
                   "type": "string",
@@ -5199,6 +5206,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs that started **before** this unix timestamp in milliseconds. The window is half-open, so a run starting exactly on `to_ms` belongs to the next one.",
               "anyOf": [
                 {
                   "type": "string",
@@ -5779,6 +5787,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "The one hold to release, as the live session returned it. Absent releases **all** of this identity's holds on this camera — the blunt form, still needed by a client that has lost its id or is going away, and the one that strands the identity's other tabs.",
               "type": "string",
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -5847,7 +5856,8 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 32
+              "maxLength": 32,
+              "description": "The start of the window: either a relative expression — `now-30s`, `now-5m`, `now-1h` — or absolute unix milliseconds. A chart asks the first way and a report asks the second, and making a client convert would be making it guess our clock."
             }
           },
           {
@@ -5855,6 +5865,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "The end of the window, in the same two spellings as `from`; absent means now. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window and adjacent windows tile without double-counting.",
               "type": "string",
               "minLength": 1,
               "maxLength": 32
@@ -5865,6 +5876,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "The bucket width, such as `10s` or `1m`. Absent means raw samples. It is meaningless without `agg`, and the pair is refused apart rather than defaulted — a silently chosen aggregation is a chart that lies quietly.",
               "type": "string",
               "minLength": 2,
               "maxLength": 16
@@ -5875,6 +5887,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "How each bucket reduces the samples inside it. Valid only together with `window`.",
               "type": "string",
               "enum": [
                 "min",
@@ -5888,6 +5901,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "A dotted path to a numeric field inside an object value, such as `pose.x`. Without it the datapoint's value is used whole, which only works when it is already a number.",
               "type": "string",
               "minLength": 1,
               "maxLength": 128
@@ -5898,6 +5912,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "The most samples or buckets to return, from `1` to `10000`. It arrives as text on the query string, so both a numeric string and a number are accepted; the ceiling is enforced after parsing rather than by the published shape.",
               "anyOf": [
                 {
                   "type": "string",
@@ -6421,6 +6436,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Return only runs with a `seq` below this value — the next, older page. Send back the `next_cursor` of the previous response rather than computing one.",
               "anyOf": [
                 {
                   "type": "string",
@@ -6439,6 +6455,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "How many runs to return, from `1` to `200`. Absent means `100`. It arrives on the query string, so a numeric string and a number are both accepted.",
               "anyOf": [
                 {
                   "type": "string",
@@ -6457,6 +6474,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs on this robot. Absent means every robot in the organisation.",
               "type": "string",
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -6467,6 +6485,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs of this action or service.",
               "type": "string",
               "minLength": 2,
               "maxLength": 63,
@@ -6478,6 +6497,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.",
               "type": "string",
               "enum": [
                 "running",
@@ -6493,6 +6513,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only `action` runs, or only `service` runs.",
               "type": "string",
               "enum": [
                 "action",
@@ -6505,6 +6526,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs that started at or after this unix timestamp in milliseconds. Together with `to_ms` the window is half-open, `[from, to)`, so adjacent windows tile without counting a run twice.",
               "anyOf": [
                 {
                   "type": "string",
@@ -6523,6 +6545,7 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Only runs that started **before** this unix timestamp in milliseconds. The window is half-open, so a run starting exactly on `to_ms` belongs to the next one.",
               "anyOf": [
                 {
                   "type": "string",
@@ -7135,12 +7158,14 @@
                 "id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The asset's id in the store."
                 },
                 "robot_id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot this asset belongs to."
                 },
                 "kind": {
                   "type": "string",
@@ -7149,31 +7174,37 @@
                     "mesh",
                     "texture",
                     "other"
-                  ]
+                  ],
+                  "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what it has to pre-fetch."
                 },
                 "name": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 500
+                  "maxLength": 500,
+                  "description": "What the robot called it — for a mesh, the `package://` URI the URDF references, verbatim, which is the only string a developer can match against their own workspace. A file the URDF never names (an image a `.dae` loads for itself) is named by joining the mesh's own directory with that internal reference."
                 },
                 "media_type": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 120
+                  "maxLength": 120,
+                  "description": "The media type of the stored bytes, as the producer reported it."
                 },
                 "size_bytes": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "How large the stored file is, in bytes."
                 },
                 "sha256": {
                   "type": "string",
-                  "pattern": "^[a-f0-9]{64}$"
+                  "pattern": "^[a-f0-9]{64}$",
+                  "description": "The content hash, lowercase hex, and the reason two robots sharing a mesh cost one copy. It is exposed because it is the only way a client can tell \"this is the same mesh I already have\" across robots."
                 },
                 "created_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the asset was first stored, as an ISO 8601 timestamp."
                 }
               },
               "required": [
@@ -7187,7 +7218,8 @@
                 "created_at"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "Every asset stored for this robot: the URDF, the meshes it references, and the textures those paint with."
           },
           "active_sync": {
             "anyOf": [
@@ -7197,12 +7229,14 @@
                   "sync_id": {
                     "type": "string",
                     "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The sync this status describes."
                   },
                   "robot_id": {
                     "type": "string",
                     "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The robot whose assets are being synced."
                   },
                   "state": {
                     "type": "string",
@@ -7210,17 +7244,20 @@
                       "running",
                       "succeeded",
                       "failed"
-                    ]
+                    ],
+                    "description": "Whether the sync is still `running`, or ended `succeeded` or `failed`. It ends `succeeded` only when nothing was left behind: a single entry in `failed` makes the whole sync `failed`."
                   },
                   "done": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "How many files have been transferred so far."
                   },
                   "total": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "How many files this sync set out to transfer. It is `0` until the producer has finished working out what there is."
                   },
                   "failed": {
                     "maxItems": 1000,
@@ -7231,7 +7268,8 @@
                         "reference": {
                           "type": "string",
                           "minLength": 1,
-                          "maxLength": 500
+                          "maxLength": 500,
+                          "description": "What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one."
                         },
                         "kind": {
                           "type": "string",
@@ -7240,9 +7278,11 @@
                             "upload_failed",
                             "refused",
                             "too_large"
-                          ]
+                          ],
+                          "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
                         },
                         "details": {
+                          "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
                           "anyOf": [
                             {
                               "type": "object",
@@ -7250,12 +7290,14 @@
                                 "limit_bytes": {
                                   "type": "integer",
                                   "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
+                                  "maximum": 9007199254740991,
+                                  "description": "The upload ceiling, in bytes."
                                 },
                                 "size_bytes": {
                                   "type": "integer",
                                   "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
+                                  "maximum": 9007199254740991,
+                                  "description": "How large the refused file actually is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
                                 }
                               },
                               "required": [
@@ -7275,7 +7317,8 @@
                         "kind"
                       ],
                       "additionalProperties": false
-                    }
+                    },
+                    "description": "What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody's renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list."
                   },
                   "reason": {
                     "anyOf": [
@@ -7286,17 +7329,20 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "Why the sync ended as it did, when that is not a per-reference fact. `null` when `failed` already says everything there is to say."
                   },
                   "started_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the sync started, as an ISO 8601 timestamp."
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When this status last changed, as an ISO 8601 timestamp. A sync that stops moving is visible here rather than only in `state`."
                   }
                 },
                 "required": [
@@ -7315,18 +7361,21 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The sync running right now, or `null`. It is on this list so a page that reloads and has lost the sync id can still show progress — a freshly loaded page presses no button, it asks this list."
           },
           "urdf": {
             "type": "object",
             "properties": {
               "present": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Whether a URDF has been synced at all. Whether one *could* be synced is a different question, answered by `urdf_available`."
               },
               "mesh_count": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "How many distinct meshes the URDF references."
               },
               "missing": {
                 "type": "array",
@@ -7336,14 +7385,16 @@
                     "uri": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 500
+                      "maxLength": 500,
+                      "description": "The reference, verbatim, that no stored asset answers — a `package://` URI the workspace does not hold, or an absolute or bare relative path nothing will ever fetch. A developer whose URDF names one of the latter is entitled to be told so."
                     },
                     "element": {
                       "type": "string",
                       "enum": [
                         "mesh",
                         "texture"
-                      ]
+                      ],
+                      "description": "Which kind of reference it was: geometry the URDF names as a `mesh`, or a `texture` a surface paints with. Without it a client reports a missing texture as a missing mesh, contradicting `mesh_count` beside it."
                     }
                   },
                   "required": [
@@ -7351,7 +7402,8 @@
                     "element"
                   ],
                   "additionalProperties": false
-                }
+                },
+                "description": "The references nothing in the store answers, each with the element that asked for it. A bare count is a dead end that sends a developer hunting through a workspace by hand; the references are what they can act on, so the references travel."
               }
             },
             "required": [
@@ -7359,7 +7411,8 @@
               "mesh_count",
               "missing"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "Whether the stored URDF can actually be rendered, and what it is still missing. Not the same question as whether one was uploaded."
           },
           "urdf_available": {
             "anyOf": [
@@ -7369,7 +7422,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "What the connected bridge says it *could* transfer, which is deliberately separate from what has been transferred. `null` when no bridge is connected — distinct from `false`, because \"no robot is online to ask\" and \"the robot has no URDF\" send a developer to two different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here."
           }
         },
         "required": [
@@ -7387,7 +7441,8 @@
             "type": "string",
             "enum": [
               "bridge"
-            ]
+            ],
+            "description": "Where the bytes come from. `bridge` is the only value today: the connected bridge reads them from the robot's own workspace. It is validated rather than ignored, so a caller naming a source that does not exist yet learns that instead of silently getting a bridge sync."
           }
         },
         "required": [
@@ -7401,7 +7456,8 @@
           "sync_id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The sync that has just started. A sync is long-running, so the answer is something to watch rather than a status that was true at the moment of asking."
           }
         },
         "required": [
@@ -7415,12 +7471,14 @@
           "sync_id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The sync this status describes."
           },
           "robot_id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The robot whose assets are being synced."
           },
           "state": {
             "type": "string",
@@ -7428,17 +7486,20 @@
               "running",
               "succeeded",
               "failed"
-            ]
+            ],
+            "description": "Whether the sync is still `running`, or ended `succeeded` or `failed`. It ends `succeeded` only when nothing was left behind: a single entry in `failed` makes the whole sync `failed`."
           },
           "done": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How many files have been transferred so far."
           },
           "total": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How many files this sync set out to transfer. It is `0` until the producer has finished working out what there is."
           },
           "failed": {
             "maxItems": 1000,
@@ -7449,7 +7510,8 @@
                 "reference": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 500
+                  "maxLength": 500,
+                  "description": "What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one."
                 },
                 "kind": {
                   "type": "string",
@@ -7458,9 +7520,11 @@
                     "upload_failed",
                     "refused",
                     "too_large"
-                  ]
+                  ],
+                  "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
                 },
                 "details": {
+                  "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
                   "anyOf": [
                     {
                       "type": "object",
@@ -7468,12 +7532,14 @@
                         "limit_bytes": {
                           "type": "integer",
                           "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
+                          "maximum": 9007199254740991,
+                          "description": "The upload ceiling, in bytes."
                         },
                         "size_bytes": {
                           "type": "integer",
                           "exclusiveMinimum": 0,
-                          "maximum": 9007199254740991
+                          "maximum": 9007199254740991,
+                          "description": "How large the refused file actually is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
                         }
                       },
                       "required": [
@@ -7493,7 +7559,8 @@
                 "kind"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody's renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list."
           },
           "reason": {
             "anyOf": [
@@ -7504,17 +7571,20 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Why the sync ended as it did, when that is not a per-reference fact. `null` when `failed` already says everything there is to say."
           },
           "started_at": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the sync started, as an ISO 8601 timestamp."
           },
           "updated_at": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When this status last changed, as an ISO 8601 timestamp. A sync that stops moving is visible here rather than only in `state`."
           }
         },
         "required": [
@@ -7862,17 +7932,21 @@
         "properties": {
           "issuer": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "The issuer identifier of this authorization server, per RFC 8414 §2. It is what a client checks a token's `iss` against."
           },
           "authorization_endpoint": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "The URL a client sends the user to in order to authorize."
           },
           "token_endpoint": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "The URL where a client exchanges an authorization code, or a refresh token, for tokens."
           },
           "registration_endpoint": {
+            "description": "The URL where a client may register itself, per RFC 7591. Absent when the app does not accept dynamic clients.",
             "type": "string",
             "format": "uri"
           },
@@ -7881,7 +7955,8 @@
             "items": {
               "type": "string",
               "const": "code"
-            }
+            },
+            "description": "The response types this server offers: `code` only, the implicit grant being gone with OAuth 2.1."
           },
           "grant_types_supported": {
             "type": "array",
@@ -7891,7 +7966,8 @@
                 "authorization_code",
                 "refresh_token"
               ]
-            }
+            },
+            "description": "The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here."
           },
           "code_challenge_methods_supported": {
             "type": "array",
@@ -7900,16 +7976,19 @@
               "enum": [
                 "S256"
               ]
-            }
+            },
+            "description": "The PKCE challenge methods accepted: `S256` only. `plain` is not offered — a challenge equal to its verifier defends against nothing, and offering it would make a downgrade negotiable."
           },
           "token_endpoint_auth_methods_supported": {
             "type": "array",
             "items": {
               "type": "string",
               "const": "none"
-            }
+            },
+            "description": "How a client authenticates at the token endpoint: `none`, the public-client method, with PKCE protecting the exchange."
           },
           "scopes_supported": {
+            "description": "The scopes this server knows about, where it publishes a list.",
             "type": "array",
             "items": {
               "type": "string"
@@ -7961,27 +8040,32 @@
                   "type": "string",
                   "minLength": 2,
                   "maxLength": 63,
-                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                  "description": "The name a client addresses this camera by."
                 },
                 "width": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "Frame width in pixels, as the published configuration declares it."
                 },
                 "height": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "Frame height in pixels, as the published configuration declares it."
                 },
                 "fps": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "How many frames per second the camera is configured to publish while somebody is watching live."
                 },
                 "snapshot_interval_seconds": {
                   "type": "integer",
                   "minimum": 1,
-                  "maximum": 3600
+                  "maximum": 3600,
+                  "description": "How often a still frame is captured for the cheap snapshot reads, in seconds, between `1` and `3600`. Independent of `fps`, which is about live video."
                 }
               },
               "required": [
@@ -7992,7 +8076,8 @@
                 "snapshot_interval_seconds"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "Every camera the published configuration exposes on this robot **and** the caller's role grants. A developer sees all of them; an end user sees what their role allows."
           }
         },
         "required": [
@@ -8004,6 +8089,7 @@
         "type": "object",
         "properties": {
           "job_id": {
+            "description": "The one job to stop. Absent or `null` cancels whatever is currently running on the slug, which is what every caller written before this field existed means. Unknown keys are refused rather than stripped, so a misspelling cannot silently become the slug-wide cancel.",
             "anyOf": [
               {
                 "type": "string",
@@ -8027,7 +8113,8 @@
               "developer",
               "end_user",
               "server_key"
-            ]
+            ],
+            "description": "Which of the three kinds of caller this is: a `developer` working through the console, an `end_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set."
           },
           "developer_id": {
             "anyOf": [
@@ -8039,7 +8126,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The developer behind this session, or `null` when `kind` is not `developer`."
           },
           "end_user_id": {
             "anyOf": [
@@ -8051,7 +8139,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The end user behind this session, or `null` when `kind` is not `end_user`."
           },
           "server_key_id": {
             "anyOf": [
@@ -8063,7 +8152,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The server key this session was authenticated with, or `null` when `kind` is not `server_key`."
           },
           "app_id": {
             "anyOf": [
@@ -8075,7 +8165,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The app this session belongs to, and `null` for a developer — a developer is organisation-scoped and owns the configuration of every robot in the organisation rather than reaching one through an app."
           },
           "role_id": {
             "anyOf": [
@@ -8087,7 +8178,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The role that decides what this caller may reach, and `null` for a developer. Roles are the only visibility filter: what a role does not grant does not exist for that user."
           },
           "email": {
             "anyOf": [
@@ -8099,15 +8191,18 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The email of the developer or end user behind this session, and `null` for a server key, which is not a person."
           },
           "act": {
+            "description": "Present only under impersonation, naming the organisation admin who is actually driving. The rest of this shape describes the identity they are acting **as**; absence means an ordinary session with nobody delegating, which is not the same fact as an unknown actor.",
             "type": "object",
             "properties": {
               "admin_user_id": {
                 "type": "string",
                 "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "The real admin's user id. Only the id travels; whoever renders the \"you are acting as …\" banner resolves the name itself rather than trusting a second unverified one on the wire."
               }
             },
             "required": [
@@ -8134,16 +8229,19 @@
             "type": "string",
             "minLength": 2,
             "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app being logged in to, as its globally unique identifier — the lowercase, underscore-separated string the developer chose when the app was created. There is no organisation context at login, so this is what decides which app the credentials are checked for."
           },
           "email": {
             "type": "string",
             "format": "email",
-            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The end user's email address. Addresses are global across Fleetless rather than per app, so one person is one identity however many apps they reach."
           },
           "password": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The end user's password. A wrong pair is refused without saying which half was wrong, so a failed login is not an account-enumeration oracle."
           }
         },
         "required": [
@@ -8157,7 +8255,8 @@
         "properties": {
           "refresh_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Any refresh token of the session to end. The whole token family is revoked server-side, so a token stolen before this call stops working too — clearing a client-side store is a gesture, not a revocation."
           }
         },
         "required": [
@@ -8174,12 +8273,14 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "const": "redirect"
+                    "const": "redirect",
+                    "description": "The identity provider publishes an `end_session_endpoint` and `url` says where to send the browser to finish logging out there."
                   },
                   "url": {
                     "type": "string",
                     "maxLength": 2000,
-                    "format": "uri"
+                    "format": "uri",
+                    "description": "Send the browser here to end the session at the identity provider. Built from the provider's own `end_session_endpoint`."
                   }
                 },
                 "required": [
@@ -8193,7 +8294,8 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "const": "not_federated"
+                    "const": "not_federated",
+                    "description": "This session did not come from an identity provider, so there is no second session and nothing further to do."
                   }
                 },
                 "required": [
@@ -8206,7 +8308,8 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "const": "unsupported_by_idp"
+                    "const": "unsupported_by_idp",
+                    "description": "The session was federated and the provider's discovery document names no `end_session_endpoint`, which OpenID Connect leaves optional. **The provider session survives and Fleetless cannot end it.**"
                   }
                 },
                 "required": [
@@ -8219,7 +8322,8 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "const": "hint_unavailable"
+                    "const": "hint_unavailable",
+                    "description": "The session was federated, the provider *could* end it, and the `id_token_hint` needed to ask is not available. The provider session survives, as with `unsupported_by_idp` — the difference is that here the cause is on the Fleetless side."
                   }
                 },
                 "required": [
@@ -8232,7 +8336,8 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "const": "session_unknown"
+                    "const": "session_unknown",
+                    "description": "The token was unknown, already superseded, revoked or expired, so the server knows nothing about this session and claims nothing about a provider. Not the same as `not_federated`, and not a statement that the user is fully logged out."
                   }
                 },
                 "required": [
@@ -8240,7 +8345,8 @@
                 ],
                 "additionalProperties": false
               }
-            ]
+            ],
+            "description": "What is left of the login at the identity provider, if one was involved. The Fleetless session is already over before this is computed, so it says only whether a second session survives and whether this platform can end it."
           }
         },
         "required": [
@@ -8253,7 +8359,8 @@
         "properties": {
           "refresh_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The refresh token from the last login or refresh. Refresh tokens rotate on every use, so the value sent here is spent — keep the one that comes back, and presenting a spent one is treated as theft and ends the whole family."
           }
         },
         "required": [
@@ -11638,41 +11745,49 @@
                 "client_id": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 200
+                  "maxLength": 200,
+                  "description": "The client this grant is for, and what a revocation addresses. The names beside it are for reading; this is for acting."
                 },
                 "client_name": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 200
+                  "maxLength": 200,
+                  "description": "The client's own declared name, carried so a user recognises what they consented to. **Not trusted**: a self-registered client chooses this string, and one has called itself *\"Fleetless Official Helper\"*."
                 },
                 "app_id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app the grant was given within. A consent recorded against a client alone would be reusable for a different app."
                 },
                 "app_name": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 120
+                  "maxLength": 120,
+                  "description": "The app's name as it stood on the consent screen."
                 },
                 "role_id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The role that tokens issued under this grant carry, and therefore the limit of what the client can reach."
                 },
                 "role_name": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 120
+                  "maxLength": 120,
+                  "description": "The role's name as it stood on the consent screen. A user consented to a sentence, and every noun in it is stored so the list can show the sentence again."
                 },
                 "scope": {
                   "type": "string",
-                  "maxLength": 500
+                  "maxLength": 500,
+                  "description": "The scopes consented to, space-separated."
                 },
                 "granted_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When consent was given, as an ISO 8601 timestamp."
                 }
               },
               "required": [
@@ -11686,10 +11801,12 @@
                 "granted_at"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "The user's consent grants, **newest first** — this list exists to be revoked from, and the grant somebody came for is almost always the one they just gave. At most `200`; when there are more, `truncated` says so."
           },
           "truncated": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` means there are more grants than this response shows. A short page is not a promise that the list is exhausted — and on the one list a user comes to **switch something off**, \"I cannot see it\" and \"it does not exist\" is the most expensive difference there is."
           }
         },
         "required": [
@@ -11702,12 +11819,14 @@
         "type": "object",
         "properties": {
           "revoked": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether a grant actually matched and was ended. `false` means nothing matched, which a caller has to be able to tell from a successful revocation."
           },
           "tokens_revoked": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How many refresh **families** were ended. Deliberately not a count of access tokens, which are stateless and short-lived — though every currently-valid one issued through this client for this user does stop working at once."
           }
         },
         "required": [
@@ -11947,10 +12066,12 @@
                   "type": "string",
                   "minLength": 2,
                   "maxLength": 63,
-                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                  "description": "The name a client reads this datapoint by."
                 },
                 "builtin": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds."
                 },
                 "unit": {
                   "anyOf": [
@@ -11960,7 +12081,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "The unit the value carries **after** any scale and offset, shown beside the number so nobody has to guess whether `15` means percent, volts or minutes. `null` when the configuration names none."
                 },
                 "rate_throttle_hz": {
                   "anyOf": [
@@ -11972,7 +12094,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "The ceiling on how often this datapoint is sent, in hertz. `null` means no ceiling is configured, which is also the answer for every built-in. A ceiling, not a clock: a slow topic stays slow and no value is repeated to manufacture a rate."
                 }
               },
               "required": [
@@ -11982,7 +12105,8 @@
                 "rate_throttle_hz"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
           }
         },
         "required": [
@@ -11997,13 +12121,17 @@
             "type": "string",
             "minLength": 2,
             "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The datapoint this value belongs to."
           },
-          "value": {},
+          "value": {
+            "description": "The value itself, shaped by the datapoint: a number, a boolean, a string, or the whole ROS message where the configuration names no field inside it. Any `scale` and `offset` the configuration declares have already been applied, at the robot."
+          },
           "timestamp_ms": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "When the value was captured, as a unix timestamp in milliseconds. This is the **bridge's capture time**, never the time the cloud received it — the one exception is the built-in `bridge_state`, which the cloud observes by construction."
           }
         },
         "required": [
@@ -12019,7 +12147,8 @@
           "client_name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200
+            "maxLength": 200,
+            "description": "The name the client calls itself. It is **not** vouched for by Fleetless and must never be rendered as if it were — a self-registered client chooses this string, and one has called itself *\"Fleetless Official Helper\"*."
           },
           "redirect_uris": {
             "minItems": 1,
@@ -12029,9 +12158,11 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 2000
-            }
+            },
+            "description": "Where the authorization code may be returned. Each must be an `https` URL, or `http` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between `1` and `20` of them."
           },
           "grant_types": {
+            "description": "Accepted and echoed back for conformance with RFC 7591. This server issues `authorization_code` and `refresh_token` and nothing else.",
             "type": "array",
             "items": {
               "type": "string",
@@ -12042,6 +12173,7 @@
             }
           },
           "response_types": {
+            "description": "Accepted and echoed back for conformance. `code` is the only response type OAuth 2.1 leaves, the implicit grant having been removed.",
             "type": "array",
             "items": {
               "type": "string",
@@ -12051,12 +12183,14 @@
             }
           },
           "token_endpoint_auth_method": {
+            "description": "`none`, RFC 7591's value for a public client. There is no client secret to hold: mandatory PKCE is the defence.",
             "type": "string",
             "enum": [
               "none"
             ]
           },
           "scope": {
+            "description": "The scopes the client asks to be registered for, space-separated.",
             "type": "string",
             "maxLength": 500
           }
@@ -12073,12 +12207,14 @@
           "client_id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200
+            "maxLength": 200,
+            "description": "The identifier this client sends at the authorize and token endpoints. Opaque, and not the app identifier."
           },
           "client_name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200
+            "maxLength": 200,
+            "description": "The name the client registered under, echoed back. Chosen by the client and not vouched for by Fleetless."
           },
           "redirect_uris": {
             "type": "array",
@@ -12086,32 +12222,38 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 2000
-            }
+            },
+            "description": "The redirect URIs this registration was accepted for. A code is returned to one of these and nowhere else."
           },
           "grant_types": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "The grants this client may use: `authorization_code` and `refresh_token`."
           },
           "response_types": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "The response types this client may ask for: `code`."
           },
           "token_endpoint_auth_method": {
             "type": "string",
-            "const": "none"
+            "const": "none",
+            "description": "`none` — this server registers public clients only, and PKCE rather than a secret is what protects the exchange."
           },
           "client_id_issued_at": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "When the registration was created, in seconds since the epoch, per RFC 7591."
           },
           "client_secret_expires_at": {
             "type": "number",
-            "const": 0
+            "const": 0,
+            "description": "Always `0`, which is RFC 7591's way of saying the client secret never expires — there is none. The **registration** itself does expire: a self-registered client that never completes a flow is an unauthenticated write somebody left behind."
           }
         },
         "required": [
@@ -12521,19 +12663,23 @@
           "from": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 32
+            "maxLength": 32,
+            "description": "The start of the window: either a relative expression — `now-30s`, `now-5m`, `now-1h` — or absolute unix milliseconds. A chart asks the first way and a report asks the second, and making a client convert would be making it guess our clock."
           },
           "to": {
+            "description": "The end of the window, in the same two spellings as `from`; absent means now. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window and adjacent windows tile without double-counting.",
             "type": "string",
             "minLength": 1,
             "maxLength": 32
           },
           "window": {
+            "description": "The bucket width, such as `10s` or `1m`. Absent means raw samples. It is meaningless without `agg`, and the pair is refused apart rather than defaulted — a silently chosen aggregation is a chart that lies quietly.",
             "type": "string",
             "minLength": 2,
             "maxLength": 16
           },
           "agg": {
+            "description": "How each bucket reduces the samples inside it. Valid only together with `window`.",
             "type": "string",
             "enum": [
               "min",
@@ -12542,11 +12688,13 @@
             ]
           },
           "field": {
+            "description": "A dotted path to a numeric field inside an object value, such as `pose.x`. Without it the datapoint's value is used whole, which only works when it is already a number.",
             "type": "string",
             "minLength": 1,
             "maxLength": 128
           },
           "limit": {
+            "description": "The most samples or buckets to return, from `1` to `10000`. It arrives as text on the query string, so both a numeric string and a number are accepted; the ceiling is enforced after parsing rather than by the published shape.",
             "anyOf": [
               {
                 "type": "string",
@@ -12691,9 +12839,11 @@
             "propertyNames": {
               "type": "string"
             },
-            "additionalProperties": {}
+            "additionalProperties": {},
+            "description": "The values this call needs, keyed by **parameter name** rather than by field path — so a name survives the field moving inside the message. Every parameter without a default must be present, and the bounds the configuration declares are enforced in the cloud, before anything reaches the robot."
           },
           "patience_ms": {
+            "description": "How long **this call** is worth waiting for, in milliseconds; absent means the platform default. The number travels to the robot too, so one deadline governs both sides. Above the maximum the call is refused rather than quietly clamped, because a caller given less than they asked for would read the timeout as the robot's failure.",
             "type": "integer",
             "minimum": 1000,
             "maximum": 120000
@@ -12714,18 +12864,21 @@
                   "id": {
                     "type": "string",
                     "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The job's id, minted by the cloud when the invocation is accepted. Informative: state is observed by slug, and this id is what a cancel names when a caller wants to stop one specific job rather than whatever is running."
                   },
                   "robot_id": {
                     "type": "string",
                     "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The robot this job is running on."
                   },
                   "slug": {
                     "type": "string",
                     "minLength": 2,
                     "maxLength": 63,
-                    "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                    "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                    "description": "The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one."
                   },
                   "state": {
                     "type": "string",
@@ -12735,22 +12888,26 @@
                       "failed",
                       "cancelled",
                       "lost"
-                    ]
+                    ],
+                    "description": "Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — and is said out loud rather than left reading `running` because nobody contradicted it."
                   },
                   "started_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge it is **adoption time**, not the real start, because the cloud never minted it and has no honest alternative."
                   },
                   "updated_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When this job last changed, as an ISO 8601 timestamp."
                   },
                   "seq": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders."
                   },
                   "result": {
                     "anyOf": [
@@ -12758,7 +12915,8 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
                   },
                   "error": {
                     "anyOf": [
@@ -12767,13 +12925,17 @@
                         "properties": {
                           "code": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
                           },
                           "message": {
                             "type": "string",
-                            "minLength": 1
+                            "minLength": 1,
+                            "description": "A human-readable sentence saying what went wrong."
                           },
-                          "details": {}
+                          "details": {
+                            "description": "The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them."
+                          }
                         },
                         "required": [
                           "code",
@@ -12784,7 +12946,8 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`."
                   }
                 },
                 "required": [
@@ -12803,7 +12966,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The **most recent** job on this slug, running or already finished, and `null` only when nothing has ever run there. Read `state` to tell a live job from a settled one: a route that forgot a job the moment it settled would let a poller see `running` and then nothing."
           }
         },
         "required": [
@@ -12822,25 +12986,29 @@
                 "id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The run's id, which is the same id the invocation was answered with — so a caller that kept a job id can find its durable record here later."
                 },
                 "robot_id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot the run happened on."
                 },
                 "slug": {
                   "type": "string",
                   "minLength": 2,
                   "maxLength": 63,
-                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                  "description": "The action or service that was invoked, as the published configuration exposed it at the time."
                 },
                 "kind": {
                   "type": "string",
                   "enum": [
                     "action",
                     "service"
-                  ]
+                  ],
+                  "description": "Whether the slug was an `action` or a `service`."
                 },
                 "state": {
                   "type": "string",
@@ -12850,12 +13018,14 @@
                     "failed",
                     "cancelled",
                     "lost"
-                  ]
+                  ],
+                  "description": "How the run ended, or `running` while it is still going. `lost` means the bridge restarted mid-run and the outcome is unknowable rather than unknown."
                 },
                 "started_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the run started, as an ISO 8601 timestamp. Runs are listed and filtered by this instant."
                 },
                 "ended_at": {
                   "anyOf": [
@@ -12867,7 +13037,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` — a run has an end only once it has one."
                 },
                 "duration_ms": {
                   "anyOf": [
@@ -12879,7 +13050,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "How long the run took, in milliseconds. `null` while it is still `running`, never `0` standing in for \"nothing so far\"."
                 },
                 "result": {
                   "anyOf": [
@@ -12887,7 +13059,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise."
                 },
                 "error": {
                   "anyOf": [
@@ -12896,13 +13069,17 @@
                       "properties": {
                         "code": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
                         },
                         "message": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "A human-readable sentence saying what went wrong."
                         },
-                        "details": {}
+                        "details": {
+                          "description": "The structured payload belonging to `code`, for the codes that document one. Absent for a failure with nothing structured to add."
+                        }
                       },
                       "required": [
                         "code",
@@ -12913,7 +13090,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "Why the run failed — a `message`, a `code` where one exists, and the structured `details` some codes carry. `null` unless it failed."
                 },
                 "actor": {
                   "type": "object",
@@ -12924,17 +13102,20 @@
                         "developer",
                         "end_user",
                         "server_key"
-                      ]
+                      ],
+                      "description": "What the caller was acting as: a `developer` in the console, an `end_user` of an app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here."
                     },
                     "id": {
                       "type": "string",
                       "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "description": "The id of the developer, end user or server key that invoked the run."
                     },
                     "label": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 200
+                      "maxLength": 200,
+                      "description": "A display name taken at invoke time — the email for a developer or end user, the key's own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history."
                     }
                   },
                   "required": [
@@ -12942,12 +13123,14 @@
                     "id",
                     "label"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": false,
+                  "description": "Who invoked the run, and what they were acting as at the time."
                 },
                 "seq": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "The durable cursor this history is ordered and paged by. Unlike `job.seq` it does not restart when the cloud does; it is the value a caller sends back as `before_seq`."
                 },
                 "progress": {
                   "anyOf": [
@@ -12959,7 +13142,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "How far a still-running run has got, as a fraction from `0` to `1`, read live from the in-memory registry. `null` means **not known right now** — after a cloud restart, before the bridge reconnects — and never a `0` standing in for \"no progress yet\"."
                 },
                 "feedback": {
                   "anyOf": [
@@ -12967,7 +13151,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "The most recent action feedback for a run that is still running, shaped by the ROS action. Live-only, so it is `null` for every settled run and whenever the registry has nothing."
                 }
               },
               "required": [
@@ -12987,7 +13172,8 @@
                 "feedback"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "This page of runs, newest first by `seq`. Empty means the filter matched nothing, not that the history is gone."
           },
           "next_cursor": {
             "anyOf": [
@@ -12999,7 +13185,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The `seq` to send as `before_seq` to keep reading, or `null` when there is nothing further. **`null` is a promise, not an observation** — a caller who instead compares the page length against `limit` is wrong the moment a filter makes a page thin."
           }
         },
         "required": [
@@ -13012,6 +13199,7 @@
         "type": "object",
         "properties": {
           "before_seq": {
+            "description": "Return only runs with a `seq` below this value — the next, older page. Send back the `next_cursor` of the previous response rather than computing one.",
             "anyOf": [
               {
                 "type": "string",
@@ -13025,6 +13213,7 @@
             ]
           },
           "limit": {
+            "description": "How many runs to return, from `1` to `200`. Absent means `100`. It arrives on the query string, so a numeric string and a number are both accepted.",
             "anyOf": [
               {
                 "type": "string",
@@ -13038,17 +13227,20 @@
             ]
           },
           "robot_id": {
+            "description": "Only runs on this robot. Absent means every robot in the organisation.",
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "slug": {
+            "description": "Only runs of this action or service.",
             "type": "string",
             "minLength": 2,
             "maxLength": 63,
             "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
           },
           "state": {
+            "description": "Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.",
             "type": "string",
             "enum": [
               "running",
@@ -13059,6 +13251,7 @@
             ]
           },
           "kind": {
+            "description": "Only `action` runs, or only `service` runs.",
             "type": "string",
             "enum": [
               "action",
@@ -13066,6 +13259,7 @@
             ]
           },
           "from_ms": {
+            "description": "Only runs that started at or after this unix timestamp in milliseconds. Together with `to_ms` the window is half-open, `[from, to)`, so adjacent windows tile without counting a run twice.",
             "anyOf": [
               {
                 "type": "string",
@@ -13079,6 +13273,7 @@
             ]
           },
           "to_ms": {
+            "description": "Only runs that started **before** this unix timestamp in milliseconds. The window is half-open, so a run starting exactly on `to_ms` belongs to the next one.",
             "anyOf": [
               {
                 "type": "string",
@@ -13154,24 +13349,29 @@
           "session_id": {
             "type": "string",
             "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "This viewer's hold, and the only thing a release should be given. Two tabs of one logged-in user are two holds; releasing without an id lets go of both and leaves the other tab rendering a stream the robot has already stopped producing."
           },
           "url": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The LiveKit server to connect to, as a WebSocket URL."
           },
           "room": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The LiveKit room carrying this camera. Every viewer of one camera on one robot joins the same room, which is what makes the refcount hold meaningful."
           },
           "token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards**."
           },
           "expires_at": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "The deadline for **joining**, as an ISO 8601 timestamp — not a session backstop. A viewer who has already joined keeps receiving video past this moment, so cleanup belongs in an explicit release, never in a timer built on this value."
           }
         },
         "required": [
@@ -13425,28 +13625,34 @@
             "properties": {
               "grant_type": {
                 "type": "string",
-                "const": "authorization_code"
+                "const": "authorization_code",
+                "description": "This request exchanges the code from the authorize redirect for tokens."
               },
               "code": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 500
+                "maxLength": 500,
+                "description": "The authorization code from the redirect. It may be exchanged once."
               },
               "redirect_uri": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 2000
+                "maxLength": 2000,
+                "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
               },
               "client_id": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 200
+                "maxLength": 200,
+                "description": "The client making the exchange, as registered."
               },
               "code_verifier": {
                 "type": "string",
-                "pattern": "^[A-Za-z0-9\\-._~]{43,128}$"
+                "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
+                "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
               },
               "resource": {
+                "description": "The resource the token is being requested for, per RFC 8707. It becomes the token's audience, and a resource refuses a token whose audience names something else.",
                 "type": "string",
                 "format": "uri"
               }
@@ -13464,23 +13670,28 @@
             "properties": {
               "grant_type": {
                 "type": "string",
-                "const": "refresh_token"
+                "const": "refresh_token",
+                "description": "This request trades a refresh token for a fresh access token."
               },
               "refresh_token": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 500
+                "maxLength": 500,
+                "description": "The refresh token to spend. Refresh tokens rotate, and presenting one twice is treated as theft rather than as a retry."
               },
               "client_id": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 200
+                "maxLength": 200,
+                "description": "The client refreshing, as registered."
               },
               "resource": {
+                "description": "The resource the successor token should be bound to, per RFC 8707. **Carry it forward**: a refresh that drops it mints a token with no audience, and the resource then refuses it one token lifetime after a login that worked, to somebody who did nothing wrong.",
                 "type": "string",
                 "format": "uri"
               },
               "scope": {
+                "description": "A narrower scope for the successor token. RFC 6749 §6 lets a refresh narrow scope, never widen it.",
                 "type": "string",
                 "maxLength": 500
               }
@@ -13498,22 +13709,27 @@
         "properties": {
           "access_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The bearer token. It is the same token the client login mints — only the envelope differs, because an RFC-compliant client parses this one and knows nothing about Fleetless."
           },
           "token_type": {
             "type": "string",
-            "const": "Bearer"
+            "const": "Bearer",
+            "description": "`Bearer`. RFC 6749 §5.1 makes the value case-insensitive for a client reading it; this is the spelling this server emits."
           },
           "expires_in": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds."
           },
           "refresh_token": {
+            "description": "The refresh token, when one was issued. It rotates on every use.",
             "type": "string",
             "minLength": 1
           },
           "scope": {
+            "description": "The scopes the issued token actually carries, space-separated.",
             "type": "string",
             "maxLength": 500
           }
@@ -14302,12 +14518,14 @@
         "properties": {
           "current_password": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The password in use right now. It is required even though the session already proves identity: it is what makes a stolen *session* insufficient to take the *account*."
           },
           "new_password": {
             "type": "string",
             "minLength": 12,
-            "maxLength": 256
+            "maxLength": 256,
+            "description": "The replacement password. Every other session is revoked when it is accepted, while the session that made the change survives — logging somebody out of the tab they just used is indistinguishable from the change having failed."
           }
         },
         "required": [
@@ -14440,7 +14658,8 @@
         "properties": {
           "resource": {
             "type": "string",
-            "format": "uri"
+            "format": "uri",
+            "description": "The resource identifier this document describes, per RFC 9728. A token whose audience names something else is rejected here rather than merely noted."
           },
           "authorization_servers": {
             "minItems": 1,
@@ -14448,16 +14667,19 @@
             "items": {
               "type": "string",
               "format": "uri"
-            }
+            },
+            "description": "The authorization servers that may issue tokens for this resource. There is always at least one."
           },
           "bearer_methods_supported": {
             "type": "array",
             "items": {
               "type": "string",
               "const": "header"
-            }
+            },
+            "description": "How a token may be presented: in the `Authorization` header only, never in a query parameter or a form field."
           },
           "scopes_supported": {
+            "description": "The scopes this resource understands, where it publishes a list.",
             "type": "array",
             "items": {
               "type": "string"
@@ -14499,7 +14721,8 @@
             "propertyNames": {
               "type": "string"
             },
-            "additionalProperties": {}
+            "additionalProperties": {},
+            "description": "The values to publish, keyed by the **parameter names** the publisher declares — the same flat form an invoke takes for `params`. They are checked against the declared bounds in the cloud before anything reaches the robot, and a slug another caller is still holding is refused with the remaining wait."
           }
         },
         "required": [
@@ -14672,6 +14895,7 @@
         "type": "object",
         "properties": {
           "session_id": {
+            "description": "The one hold to release, as the live session returned it. Absent releases **all** of this identity's holds on this camera — the blunt form, still needed by a client that has lost its id or is going away, and the one that strands the identity's other tabs.",
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -15134,18 +15358,21 @@
                 "id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The job's id, minted by the cloud when the invocation is accepted. Informative: state is observed by slug, and this id is what a cancel names when a caller wants to stop one specific job rather than whatever is running."
                 },
                 "robot_id": {
                   "type": "string",
                   "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot this job is running on."
                 },
                 "slug": {
                   "type": "string",
                   "minLength": 2,
                   "maxLength": 63,
-                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                  "description": "The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one."
                 },
                 "state": {
                   "type": "string",
@@ -15155,22 +15382,26 @@
                     "failed",
                     "cancelled",
                     "lost"
-                  ]
+                  ],
+                  "description": "Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — and is said out loud rather than left reading `running` because nobody contradicted it."
                 },
                 "started_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge it is **adoption time**, not the real start, because the cloud never minted it and has no honest alternative."
                 },
                 "updated_at": {
                   "type": "string",
                   "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When this job last changed, as an ISO 8601 timestamp."
                 },
                 "seq": {
                   "type": "integer",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 9007199254740991,
+                  "description": "A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders."
                 },
                 "result": {
                   "anyOf": [
@@ -15178,7 +15409,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
                 },
                 "error": {
                   "anyOf": [
@@ -15187,13 +15419,17 @@
                       "properties": {
                         "code": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
                         },
                         "message": {
                           "type": "string",
-                          "minLength": 1
+                          "minLength": 1,
+                          "description": "A human-readable sentence saying what went wrong."
                         },
-                        "details": {}
+                        "details": {
+                          "description": "The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them."
+                        }
                       },
                       "required": [
                         "code",
@@ -15204,7 +15440,8 @@
                     {
                       "type": "null"
                     }
-                  ]
+                  ],
+                  "description": "Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`."
                 }
               },
               "required": [
@@ -15219,7 +15456,8 @@
                 "error"
               ],
               "additionalProperties": false
-            }
+            },
+            "description": "At most one entry per slug — the current job there — ordered newest **known** first, and never `null`: a robot doing nothing answers an empty array. This is not a history endpoint. For an adopted job `started_at` is adoption time, so a job that has been running for an hour can sit above one started a minute ago."
           }
         },
         "required": [
@@ -15394,16 +15632,19 @@
         "properties": {
           "access_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
           },
           "refresh_token": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
           },
           "expires_in": {
             "type": "integer",
             "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
           }
         },
         "required": [
@@ -15543,16 +15784,19 @@
             "properties": {
               "access_token": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
               },
               "refresh_token": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
               },
               "expires_in": {
                 "type": "integer",
                 "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
               }
             },
             "required": [
@@ -15608,7 +15852,8 @@
             "type": "string",
             "minLength": 2,
             "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The camera this snapshot belongs to."
           },
           "timestamp_ms": {
             "anyOf": [
@@ -15620,7 +15865,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "When the stored frame was captured, as a unix timestamp in milliseconds. `null` means nothing has been captured yet, which is an answer rather than an error."
           },
           "age_ms": {
             "anyOf": [
@@ -15632,7 +15878,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "How old the stored frame is right now, in milliseconds; `null` when there is none. Snapshots are deliberately cheap and therefore deliberately old, and a cached frame served without its age is indistinguishable from a live one."
           },
           "width": {
             "anyOf": [
@@ -15644,7 +15891,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Width of the stored frame in pixels, or `null` when nothing has been captured yet."
           },
           "height": {
             "anyOf": [
@@ -15656,7 +15904,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Height of the stored frame in pixels, or `null` when nothing has been captured yet."
           },
           "mime": {
             "anyOf": [
@@ -15666,7 +15915,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The media type of the stored frame, such as `image/jpeg`, or `null` when nothing has been captured yet."
           }
         },
         "required": [

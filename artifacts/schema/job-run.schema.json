@@ -5,25 +5,29 @@
     "id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The run's id, which is the same id the invocation was answered with — so a caller that kept a job id can find its durable record here later."
     },
     "robot_id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The robot the run happened on."
     },
     "slug": {
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The action or service that was invoked, as the published configuration exposed it at the time."
     },
     "kind": {
       "type": "string",
       "enum": [
         "action",
         "service"
-      ]
+      ],
+      "description": "Whether the slug was an `action` or a `service`."
     },
     "state": {
       "type": "string",
@@ -33,12 +37,14 @@
         "failed",
         "cancelled",
         "lost"
-      ]
+      ],
+      "description": "How the run ended, or `running` while it is still going. `lost` means the bridge restarted mid-run and the outcome is unknowable rather than unknown."
     },
     "started_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the run started, as an ISO 8601 timestamp. Runs are listed and filtered by this instant."
     },
     "ended_at": {
       "anyOf": [
@@ -50,7 +56,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` — a run has an end only once it has one."
     },
     "duration_ms": {
       "anyOf": [
@@ -62,7 +69,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "How long the run took, in milliseconds. `null` while it is still `running`, never `0` standing in for \"nothing so far\"."
     },
     "result": {
       "anyOf": [
@@ -70,7 +78,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise."
     },
     "error": {
       "anyOf": [
@@ -79,13 +88,17 @@
           "properties": {
             "code": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
             },
             "message": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "A human-readable sentence saying what went wrong."
             },
-            "details": {}
+            "details": {
+              "description": "The structured payload belonging to `code`, for the codes that document one. Absent for a failure with nothing structured to add."
+            }
           },
           "required": [
             "code",
@@ -96,7 +109,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Why the run failed — a `message`, a `code` where one exists, and the structured `details` some codes carry. `null` unless it failed."
     },
     "actor": {
       "type": "object",
@@ -107,17 +121,20 @@
             "developer",
             "end_user",
             "server_key"
-          ]
+          ],
+          "description": "What the caller was acting as: a `developer` in the console, an `end_user` of an app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here."
         },
         "id": {
           "type": "string",
           "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The id of the developer, end user or server key that invoked the run."
         },
         "label": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 200
+          "maxLength": 200,
+          "description": "A display name taken at invoke time — the email for a developer or end user, the key's own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history."
         }
       },
       "required": [
@@ -125,12 +142,14 @@
         "id",
         "label"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "Who invoked the run, and what they were acting as at the time."
     },
     "seq": {
       "type": "integer",
       "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "The durable cursor this history is ordered and paged by. Unlike `job.seq` it does not restart when the cloud does; it is the value a caller sends back as `before_seq`."
     },
     "progress": {
       "anyOf": [
@@ -142,7 +161,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "How far a still-running run has got, as a fraction from `0` to `1`, read live from the in-memory registry. `null` means **not known right now** — after a cloud restart, before the bridge reconnects — and never a `0` standing in for \"no progress yet\"."
     },
     "feedback": {
       "anyOf": [
@@ -150,7 +170,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The most recent action feedback for a run that is still running, shaped by the ROS action. Live-only, so it is `null` for every settled run and whenever the registry has nothing."
     }
   },
   "required": [

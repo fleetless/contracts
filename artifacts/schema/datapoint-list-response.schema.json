@@ -11,10 +11,12 @@
             "type": "string",
             "minLength": 2,
             "maxLength": 63,
-            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The name a client reads this datapoint by."
           },
           "builtin": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds."
           },
           "unit": {
             "anyOf": [
@@ -24,7 +26,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The unit the value carries **after** any scale and offset, shown beside the number so nobody has to guess whether `15` means percent, volts or minutes. `null` when the configuration names none."
           },
           "rate_throttle_hz": {
             "anyOf": [
@@ -36,7 +39,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The ceiling on how often this datapoint is sent, in hertz. `null` means no ceiling is configured, which is also the answer for every built-in. A ceiling, not a clock: a slow topic stays slow and no value is repeated to manufacture a rate."
           }
         },
         "required": [
@@ -46,7 +50,8 @@
           "rate_throttle_hz"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
     }
   },
   "required": [

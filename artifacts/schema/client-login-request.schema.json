@@ -6,16 +6,19 @@
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app being logged in to, as its globally unique identifier — the lowercase, underscore-separated string the developer chose when the app was created. There is no organisation context at login, so this is what decides which app the credentials are checked for."
     },
     "email": {
       "type": "string",
       "format": "email",
-      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The end user's email address. Addresses are global across Fleetless rather than per app, so one person is one identity however many apps they reach."
     },
     "password": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "The end user's password. A wrong pair is refused without saying which half was wrong, so a failed login is not an account-enumeration oracle."
     }
   },
   "required": [

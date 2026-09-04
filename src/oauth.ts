@@ -207,28 +207,53 @@ export type OauthClient = z.infer<typeof oauthClient>
  */
 export const dynamicClientRegistrationRequest = z
   .object({
-    client_name: z.string().min(1).max(200),
-    redirect_uris: z.array(redirectUri).min(1).max(20),
-    /** Accepted and echoed for conformance; this server issues only this pair. */
-    grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional(),
-    response_types: z.array(z.enum(['code'])).optional(),
-    /** RFC 7591 allows `none` for public clients; OAuth 2.1 + PKCE is the defence. */
-    token_endpoint_auth_method: z.enum(['none']).optional(),
-    scope: z.string().max(500).optional(),
+    client_name: z.string().min(1).max(200).meta({
+      description: 'The name the client calls itself. It is **not** vouched for by Fleetless and must never be rendered as if it were — a self-registered client chooses this string, and one has called itself *"Fleetless Official Helper"*.',
+    }),
+    redirect_uris: z.array(redirectUri).min(1).max(20).meta({
+      description: 'Where the authorization code may be returned. Each must be an `https` URL, or `http` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between `1` and `20` of them.',
+    }),
+    grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional().meta({
+      description: 'Accepted and echoed back for conformance with RFC 7591. This server issues `authorization_code` and `refresh_token` and nothing else.',
+    }),
+    response_types: z.array(z.enum(['code'])).optional().meta({
+      description: 'Accepted and echoed back for conformance. `code` is the only response type OAuth 2.1 leaves, the implicit grant having been removed.',
+    }),
+    token_endpoint_auth_method: z.enum(['none']).optional().meta({
+      description: '`none`, RFC 7591\'s value for a public client. There is no client secret to hold: mandatory PKCE is the defence.',
+    }),
+    scope: z.string().max(500).optional().meta({
+      description: 'The scopes the client asks to be registered for, space-separated.',
+    }),
   })
   .strict()
 export type DynamicClientRegistrationRequest = z.infer<typeof dynamicClientRegistrationRequest>
 
 export const dynamicClientRegistrationResponse = z.object({
-  client_id: z.string().min(1).max(200),
-  client_name: z.string().min(1).max(200),
-  redirect_uris: z.array(redirectUri),
-  grant_types: z.array(z.string()),
-  response_types: z.array(z.string()),
-  token_endpoint_auth_method: z.literal('none'),
-  client_id_issued_at: z.number().int().nonnegative(),
-  /** Seconds since the epoch, per RFC 7591. `0` would mean "never expires". */
-  client_secret_expires_at: z.literal(0),
+  client_id: z.string().min(1).max(200).meta({
+    description: 'The identifier this client sends at the authorize and token endpoints. Opaque, and not the app identifier.',
+  }),
+  client_name: z.string().min(1).max(200).meta({
+    description: 'The name the client registered under, echoed back. Chosen by the client and not vouched for by Fleetless.',
+  }),
+  redirect_uris: z.array(redirectUri).meta({
+    description: 'The redirect URIs this registration was accepted for. A code is returned to one of these and nowhere else.',
+  }),
+  grant_types: z.array(z.string()).meta({
+    description: 'The grants this client may use: `authorization_code` and `refresh_token`.',
+  }),
+  response_types: z.array(z.string()).meta({
+    description: 'The response types this client may ask for: `code`.',
+  }),
+  token_endpoint_auth_method: z.literal('none').meta({
+    description: '`none` — this server registers public clients only, and PKCE rather than a secret is what protects the exchange.',
+  }),
+  client_id_issued_at: z.number().int().nonnegative().meta({
+    description: 'When the registration was created, in seconds since the epoch, per RFC 7591.',
+  }),
+  client_secret_expires_at: z.literal(0).meta({
+    description: 'Always `0`, which is RFC 7591\'s way of saying the client secret never expires — there is none. The **registration** itself does expire: a self-registered client that never completes a flow is an unauthenticated write somebody left behind.',
+  }),
 })
 export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegistrationResponse>
 
@@ -261,20 +286,41 @@ export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegi
  */
 export const oauthTokenRequest = z.discriminatedUnion('grant_type', [
   z.object({
-    grant_type: z.literal('authorization_code'),
-    code: z.string().min(1).max(500),
-    redirect_uri: redirectUri,
-    client_id: z.string().min(1).max(200),
-    code_verifier: z.string().regex(/^[A-Za-z0-9\-._~]{43,128}$/, 'code_verifier must be 43-128 unreserved characters (RFC 7636 §4.1)'),
-    resource: z.url().optional(),
+    grant_type: z.literal('authorization_code').meta({
+      description: 'This request exchanges the code from the authorize redirect for tokens.',
+    }),
+    code: z.string().min(1).max(500).meta({
+      description: 'The authorization code from the redirect. It may be exchanged once.',
+    }),
+    redirect_uri: redirectUri.meta({
+      description: 'The same redirect URI the authorize request used. It is compared, not merely recorded.',
+    }),
+    client_id: z.string().min(1).max(200).meta({
+      description: 'The client making the exchange, as registered.',
+    }),
+    code_verifier: z.string().regex(/^[A-Za-z0-9\-._~]{43,128}$/, 'code_verifier must be 43-128 unreserved characters (RFC 7636 §4.1)').meta({
+      description: 'The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1.',
+    }),
+    resource: z.url().optional().meta({
+      description: 'The resource the token is being requested for, per RFC 8707. It becomes the token\'s audience, and a resource refuses a token whose audience names something else.',
+    }),
   }),
   z.object({
-    grant_type: z.literal('refresh_token'),
-    refresh_token: z.string().min(1).max(500),
-    client_id: z.string().min(1).max(200),
-    resource: z.url().optional(),
-    /** RFC 6749 §6 — a refresh may narrow scope, never widen it. */
-    scope: z.string().max(500).optional(),
+    grant_type: z.literal('refresh_token').meta({
+      description: 'This request trades a refresh token for a fresh access token.',
+    }),
+    refresh_token: z.string().min(1).max(500).meta({
+      description: 'The refresh token to spend. Refresh tokens rotate, and presenting one twice is treated as theft rather than as a retry.',
+    }),
+    client_id: z.string().min(1).max(200).meta({
+      description: 'The client refreshing, as registered.',
+    }),
+    resource: z.url().optional().meta({
+      description: 'The resource the successor token should be bound to, per RFC 8707. **Carry it forward**: a refresh that drops it mints a token with no audience, and the resource then refuses it one token lifetime after a login that worked, to somebody who did nothing wrong.',
+    }),
+    scope: z.string().max(500).optional().meta({
+      description: 'A narrower scope for the successor token. RFC 6749 §6 lets a refresh narrow scope, never widen it.',
+    }),
   }),
 ])
 export type OauthTokenRequest = z.infer<typeof oauthTokenRequest>
@@ -296,26 +342,53 @@ export type OauthTokenRequest = z.infer<typeof oauthTokenRequest>
  * produce.
  */
 export const oauthTokenResponse = z.object({
-  access_token: z.string().min(1),
-  token_type: z.literal('Bearer'),
-  /** Seconds, per RFC 6749 §5.1 — not a timestamp, and not milliseconds. */
-  expires_in: z.number().int().positive(),
-  refresh_token: z.string().min(1).optional(),
-  scope: z.string().max(500).optional(),
+  access_token: z.string().min(1).meta({
+    description: 'The bearer token. It is the same token the client login mints — only the envelope differs, because an RFC-compliant client parses this one and knows nothing about Fleetless.',
+  }),
+  token_type: z.literal('Bearer').meta({
+    description: '`Bearer`. RFC 6749 §5.1 makes the value case-insensitive for a client reading it; this is the spelling this server emits.',
+  }),
+  expires_in: z.number().int().positive().meta({
+    description: 'How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds.',
+  }),
+  refresh_token: z.string().min(1).optional().meta({
+    description: 'The refresh token, when one was issued. It rotates on every use.',
+  }),
+  scope: z.string().max(500).optional().meta({
+    description: 'The scopes the issued token actually carries, space-separated.',
+  }),
 })
 export type OauthTokenResponse = z.infer<typeof oauthTokenResponse>
 
 /** RFC 8414 §2 — the document a client reads *instead of* being told anything. */
 export const authorizationServerMetadata = z.object({
-  issuer: z.url(),
-  authorization_endpoint: z.url(),
-  token_endpoint: z.url(),
-  registration_endpoint: z.url().optional(),
-  response_types_supported: z.array(z.literal('code')),
-  grant_types_supported: z.array(z.enum(['authorization_code', 'refresh_token'])),
-  code_challenge_methods_supported: z.array(codeChallengeMethod),
-  token_endpoint_auth_methods_supported: z.array(z.literal('none')),
-  scopes_supported: z.array(z.string()).optional(),
+  issuer: z.url().meta({
+    description: 'The issuer identifier of this authorization server, per RFC 8414 §2. It is what a client checks a token\'s `iss` against.',
+  }),
+  authorization_endpoint: z.url().meta({
+    description: 'The URL a client sends the user to in order to authorize.',
+  }),
+  token_endpoint: z.url().meta({
+    description: 'The URL where a client exchanges an authorization code, or a refresh token, for tokens.',
+  }),
+  registration_endpoint: z.url().optional().meta({
+    description: 'The URL where a client may register itself, per RFC 7591. Absent when the app does not accept dynamic clients.',
+  }),
+  response_types_supported: z.array(z.literal('code')).meta({
+    description: 'The response types this server offers: `code` only, the implicit grant being gone with OAuth 2.1.',
+  }),
+  grant_types_supported: z.array(z.enum(['authorization_code', 'refresh_token'])).meta({
+    description: 'The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here.',
+  }),
+  code_challenge_methods_supported: z.array(codeChallengeMethod).meta({
+    description: 'The PKCE challenge methods accepted: `S256` only. `plain` is not offered — a challenge equal to its verifier defends against nothing, and offering it would make a downgrade negotiable.',
+  }),
+  token_endpoint_auth_methods_supported: z.array(z.literal('none')).meta({
+    description: 'How a client authenticates at the token endpoint: `none`, the public-client method, with PKCE protecting the exchange.',
+  }),
+  scopes_supported: z.array(z.string()).optional().meta({
+    description: 'The scopes this server knows about, where it publishes a list.',
+  }),
 })
 export type AuthorizationServerMetadata = z.infer<typeof authorizationServerMetadata>
 
@@ -329,10 +402,18 @@ export type AuthorizationServerMetadata = z.infer<typeof authorizationServerMeta
  * the rejection rather than the presence of the claim.
  */
 export const protectedResourceMetadata = z.object({
-  resource: z.url(),
-  authorization_servers: z.array(z.url()).min(1),
-  bearer_methods_supported: z.array(z.literal('header')),
-  scopes_supported: z.array(z.string()).optional(),
+  resource: z.url().meta({
+    description: 'The resource identifier this document describes, per RFC 9728. A token whose audience names something else is rejected here rather than merely noted.',
+  }),
+  authorization_servers: z.array(z.url()).min(1).meta({
+    description: 'The authorization servers that may issue tokens for this resource. There is always at least one.',
+  }),
+  bearer_methods_supported: z.array(z.literal('header')).meta({
+    description: 'How a token may be presented: in the `Authorization` header only, never in a query parameter or a form field.',
+  }),
+  scopes_supported: z.array(z.string()).optional().meta({
+    description: 'The scopes this resource understands, where it publishes a list.',
+  }),
 })
 export type ProtectedResourceMetadata = z.infer<typeof protectedResourceMetadata>
 
@@ -384,20 +465,36 @@ export type ConsentGrant = z.infer<typeof consentGrant>
  * are for reading, the id is for acting.
  */
 export const consentGrantSummary = z.object({
-  client_id: z.string().min(1).max(200),
+  client_id: z.string().min(1).max(200).meta({
+    description: 'The client this grant is for, and what a revocation addresses. The names beside it are for reading; this is for acting.',
+  }),
   /**
    * The client's own declared name. **Not trusted, and the console/page must
    * not render it as if Fleetless vouched for it** — a self-registered client
    * chooses this string, and W7c already measured what that buys: one called
    * itself *"Fleetless Official Helper"*.
    */
-  client_name: z.string().min(1).max(200),
-  app_id: z.uuid(),
-  app_name: z.string().min(1).max(120),
-  role_id: z.uuid(),
-  role_name: z.string().min(1).max(120),
-  scope: z.string().max(500),
-  granted_at: z.iso.datetime(),
+  client_name: z.string().min(1).max(200).meta({
+    description: 'The client\'s own declared name, carried so a user recognises what they consented to. **Not trusted**: a self-registered client chooses this string, and one has called itself *"Fleetless Official Helper"*.',
+  }),
+  app_id: z.uuid().meta({
+    description: 'The app the grant was given within. A consent recorded against a client alone would be reusable for a different app.',
+  }),
+  app_name: z.string().min(1).max(120).meta({
+    description: 'The app\'s name as it stood on the consent screen.',
+  }),
+  role_id: z.uuid().meta({
+    description: 'The role that tokens issued under this grant carry, and therefore the limit of what the client can reach.',
+  }),
+  role_name: z.string().min(1).max(120).meta({
+    description: 'The role\'s name as it stood on the consent screen. A user consented to a sentence, and every noun in it is stored so the list can show the sentence again.',
+  }),
+  scope: z.string().max(500).meta({
+    description: 'The scopes consented to, space-separated.',
+  }),
+  granted_at: z.iso.datetime().meta({
+    description: 'When consent was given, as an ISO 8601 timestamp.',
+  }),
 })
 export type ConsentGrantSummary = z.infer<typeof consentGrantSummary>
 
@@ -420,7 +517,9 @@ export type ConsentGrantSummary = z.infer<typeof consentGrantSummary>
  * (several apps, each with its own dynamic-client ceiling) rather than likely.
  */
 export const consentGrantListResponse = z.object({
-  grants: z.array(consentGrantSummary).max(200),
+  grants: z.array(consentGrantSummary).max(200).meta({
+    description: 'The user\'s consent grants, **newest first** — this list exists to be revoked from, and the grant somebody came for is almost always the one they just gave. At most `200`; when there are more, `truncated` says so.',
+  }),
   /**
    * **`true` heisst: es gibt mehr, und diese Antwort zeigt sie nicht** (W9
    * review, Argus-W9; DEF-151).
@@ -443,7 +542,9 @@ export const consentGrantListResponse = z.object({
    * sagt, was der Nutzer wissen muss — **hier fehlt etwas, frag jemanden** —
    * ohne einen Mechanismus zu versprechen, den es nicht gibt.
    */
-  truncated: z.boolean(),
+  truncated: z.boolean().meta({
+    description: '`true` means there are more grants than this response shows. A short page is not a promise that the list is exhausted — and on the one list a user comes to **switch something off**, "I cannot see it" and "it does not exist" is the most expensive difference there is.',
+  }),
 })
 export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
 
@@ -489,8 +590,12 @@ export type ConsentGrantListResponse = z.infer<typeof consentGrantListResponse>
  * anything that quietly relied on immediate death would break silently.
  */
 export const consentRevokeResponse = z.object({
-  revoked: z.boolean(),
-  tokens_revoked: z.number().int().nonnegative(),
+  revoked: z.boolean().meta({
+    description: 'Whether a grant actually matched and was ended. `false` means nothing matched, which a caller has to be able to tell from a successful revocation.',
+  }),
+  tokens_revoked: z.number().int().nonnegative().meta({
+    description: 'How many refresh **families** were ended. Deliberately not a count of access tokens, which are stateless and short-lived — though every currently-valid one issued through this client for this user does stop working at once.',
+  }),
 })
 export type ConsentRevokeResponse = z.infer<typeof consentRevokeResponse>
 

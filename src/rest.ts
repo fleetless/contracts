@@ -85,9 +85,13 @@ export type RobotListResponse = z.infer<typeof robotListResponse>
  * built-in `bridge_state` it is the time the cloud observed the state.
  */
 export const datapointValue = z.object({
-  slug,
-  value: z.unknown(),
-  timestamp_ms: z.number().int().nonnegative(),
+  slug: slug.meta({ description: 'The datapoint this value belongs to.' }),
+  value: z.unknown().meta({
+    description: 'The value itself, shaped by the datapoint: a number, a boolean, a string, or the whole ROS message where the configuration names no field inside it. Any `scale` and `offset` the configuration declares have already been applied, at the robot.',
+  }),
+  timestamp_ms: z.number().int().nonnegative().meta({
+    description: 'When the value was captured, as a unix timestamp in milliseconds. This is the **bridge\'s capture time**, never the time the cloud received it — the one exception is the built-in `bridge_state`, which the cloud observes by construction.',
+  }),
 })
 export type DatapointValue = z.infer<typeof datapointValue>
 
@@ -257,9 +261,13 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
  * `scripts/export-schemas.ts`.**
  */
 export const datapointDescriptor = z.object({
-  slug,
-  builtin: z.boolean(),
-  unit: z.string().nullable(),
+  slug: slug.meta({ description: 'The name a client reads this datapoint by.' }),
+  builtin: z.boolean().meta({
+    description: '`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds.',
+  }),
+  unit: z.string().nullable().meta({
+    description: 'The unit the value carries **after** any scale and offset, shown beside the number so nobody has to guess whether `15` means percent, volts or minutes. `null` when the configuration names none.',
+  }),
   /**
    * `null` for a built-in and for a datapoint published with no throttle —
    * the same "no ceiling configured" fact `datapointConfig.rate_throttle_hz`
@@ -267,12 +275,16 @@ export const datapointDescriptor = z.object({
    * optional because this shape is a read response, not a document a caller
    * writes. Reuses `rateThrottleHz` so the 20 Hz ceiling is written once.
    */
-  rate_throttle_hz: rateThrottleHz.nullable(),
+  rate_throttle_hz: rateThrottleHz.nullable().meta({
+    description: 'The ceiling on how often this datapoint is sent, in hertz. `null` means no ceiling is configured, which is also the answer for every built-in. A ceiling, not a clock: a slow topic stays slow and no value is repeated to manufacture a rate.',
+  }),
 })
 export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 
 export const datapointListResponse = z.object({
-  datapoints: z.array(datapointDescriptor),
+  datapoints: z.array(datapointDescriptor).meta({
+    description: 'Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller\'s role grants.',
+  }),
 })
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
 
@@ -325,7 +337,9 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  * flat form is the one that makes a refusal legible.
  */
 export const invokeRequest = z.object({
-  params: z.record(z.string(), z.unknown()),
+  params: z.record(z.string(), z.unknown()).meta({
+    description: 'The values this call needs, keyed by **parameter name** rather than by field path — so a name survives the field moving inside the message. Every parameter without a default must be present, and the bounds the configuration declares are enforced in the cloud, before anything reaches the robot.',
+  }),
   /**
    * How long **this call** is worth waiting for, in milliseconds (W6b).
    *
@@ -352,7 +366,9 @@ export const invokeRequest = z.object({
    * *acceptance* — once a goal is accepted the job runs as long as it runs,
    * and is observed, not awaited.
    */
-  patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS).optional(),
+  patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS).optional().meta({
+    description: 'How long **this call** is worth waiting for, in milliseconds; absent means the platform default. The number travels to the robot too, so one deadline governs both sides. Above the maximum the call is refused rather than quietly clamped, because a caller given less than they asked for would read the timeout as the robot\'s failure.',
+  }),
 })
 export type InvokeRequest = z.infer<typeof invokeRequest>
 
@@ -390,7 +406,9 @@ export type InvokeRequest = z.infer<typeof invokeRequest>
  * omission is a bug.
  */
 export const cancelRequest = z.object({
-  job_id: z.uuid().nullable().optional(),
+  job_id: z.uuid().nullable().optional().meta({
+    description: 'The one job to stop. Absent or `null` cancels whatever is currently running on the slug, which is what every caller written before this field existed means. Unknown keys are refused rather than stripped, so a misspelling cannot silently become the slug-wide cancel.',
+  }),
 }).strict()
 export type CancelRequest = z.infer<typeof cancelRequest>
 
@@ -414,7 +432,9 @@ export type CancelRequest = z.infer<typeof cancelRequest>
  * the identity's other tabs.
  */
 export const releaseLiveQuery = z.object({
-  session_id: z.uuid().optional(),
+  session_id: z.uuid().optional().meta({
+    description: 'The one hold to release, as the live session returned it. Absent releases **all** of this identity\'s holds on this camera — the blunt form, still needed by a client that has lost its id or is going away, and the one that strands the identity\'s other tabs.',
+  }),
 }).strict()
 export type ReleaseLiveQuery = z.infer<typeof releaseLiveQuery>
 
@@ -432,7 +452,9 @@ export const serviceCallResponse = z.object({
 export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
 
 export const publishRequest = z.object({
-  message: z.record(z.string(), z.unknown()),
+  message: z.record(z.string(), z.unknown()).meta({
+    description: 'The values to publish, keyed by the **parameter names** the publisher declares — the same flat form an invoke takes for `params`. They are checked against the declared bounds in the cloud before anything reaches the robot, and a slug another caller is still holding is refused with the remaining wait.',
+  }),
 })
 export type PublishRequest = z.infer<typeof publishRequest>
 
@@ -453,7 +475,11 @@ export type PublishRequest = z.infer<typeof publishRequest>
  * Read `job.state` to tell a live job from a finished one; that is what the
  * field is for.
  */
-export const jobResponse = z.object({ job: job.nullable() })
+export const jobResponse = z.object({
+  job: job.nullable().meta({
+    description: 'The **most recent** job on this slug, running or already finished, and `null` only when nothing has ever run there. Read `state` to tell a live job from a settled one: a route that forgot a job the moment it settled would let a poller see `running` and then nothing.',
+  }),
+})
 export type JobResponse = z.infer<typeof jobResponse>
 
 /**
@@ -771,7 +797,9 @@ export type RateLimitDetails = z.infer<typeof rateLimitDetails>
  *    that quietly implies otherwise would send somebody to debug the sort.
  */
 export const robotJobsResponse = z.object({
-  jobs: z.array(job),
+  jobs: z.array(job).meta({
+    description: 'At most one entry per slug — the current job there — ordered newest **known** first, and never `null`: a robot doing nothing answers an empty array. This is not a history endpoint. For an adopted job `started_at` is adoption time, so a job that has been running for an hour can sit above one started a minute ago.',
+  }),
 })
 export type RobotJobsResponse = z.infer<typeof robotJobsResponse>
 
@@ -914,10 +942,16 @@ export const ASSET_UPLOAD_HEADERS = {
 } as const
 
 export const cameraDescriptor = z.object({
-  slug,
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-  fps: z.number().int().positive(),
+  slug: slug.meta({ description: 'The name a client addresses this camera by.' }),
+  width: z.number().int().positive().meta({
+    description: 'Frame width in pixels, as the published configuration declares it.',
+  }),
+  height: z.number().int().positive().meta({
+    description: 'Frame height in pixels, as the published configuration declares it.',
+  }),
+  fps: z.number().int().positive().meta({
+    description: 'How many frames per second the camera is configured to publish while somebody is watching live.',
+  }),
   /**
    * Seconds, as the document spells it, reusing `snapshotIntervalSeconds` so
    * the 1–3600 bound is written once. It was `snapshot_interval_ms` after the
@@ -925,11 +959,17 @@ export const cameraDescriptor = z.object({
    * this descriptor and not on `datapointDescriptor` beside it — the same
    * drift `rateThrottleHz` was extracted to stop.
    */
-  snapshot_interval_seconds: snapshotIntervalSeconds,
+  snapshot_interval_seconds: snapshotIntervalSeconds.meta({
+    description: 'How often a still frame is captured for the cheap snapshot reads, in seconds, between `1` and `3600`. Independent of `fps`, which is about live video.',
+  }),
 })
 export type CameraDescriptor = z.infer<typeof cameraDescriptor>
 
-export const cameraListResponse = z.object({ cameras: z.array(cameraDescriptor) })
+export const cameraListResponse = z.object({
+  cameras: z.array(cameraDescriptor).meta({
+    description: 'Every camera the published configuration exposes on this robot **and** the caller\'s role grants. A developer sees all of them; an end user sees what their role allows.',
+  }),
+})
 export type CameraListResponse = z.infer<typeof cameraListResponse>
 
 /**
@@ -968,11 +1008,21 @@ export const liveSessionResponse = z.object({
    * is going away entirely, still needs a way to let go. It is the blunt
    * form, and it is the one that strands other tabs; new callers pass the id.
    */
-  session_id: z.uuid(),
-  url: z.string().min(1),
-  room: z.string().min(1),
-  token: z.string().min(1),
-  expires_at: z.iso.datetime(),
+  session_id: z.uuid().meta({
+    description: 'This viewer\'s hold, and the only thing a release should be given. Two tabs of one logged-in user are two holds; releasing without an id lets go of both and leaves the other tab rendering a stream the robot has already stopped producing.',
+  }),
+  url: z.string().min(1).meta({
+    description: 'The LiveKit server to connect to, as a WebSocket URL.',
+  }),
+  room: z.string().min(1).meta({
+    description: 'The LiveKit room carrying this camera. Every viewer of one camera on one robot joins the same room, which is what makes the refcount hold meaningful.',
+  }),
+  token: z.string().min(1).meta({
+    description: 'The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards**.',
+  }),
+  expires_at: z.iso.datetime().meta({
+    description: 'The deadline for **joining**, as an ISO 8601 timestamp — not a session backstop. A viewer who has already joined keeps receiving video past this moment, so cleanup belongs in an explicit release, never in a timer built on this value.',
+  }),
 })
 export type LiveSessionResponse = z.infer<typeof liveSessionResponse>
 
@@ -991,12 +1041,22 @@ export type LiveSessionResponse = z.infer<typeof liveSessionResponse>
  * captured yet — which is an answer, not an error.
  */
 export const snapshotMetaResponse = z.object({
-  slug,
-  timestamp_ms: z.number().int().nonnegative().nullable(),
-  age_ms: z.number().int().nonnegative().nullable(),
-  width: z.number().int().positive().nullable(),
-  height: z.number().int().positive().nullable(),
-  mime: z.string().nullable(),
+  slug: slug.meta({ description: 'The camera this snapshot belongs to.' }),
+  timestamp_ms: z.number().int().nonnegative().nullable().meta({
+    description: 'When the stored frame was captured, as a unix timestamp in milliseconds. `null` means nothing has been captured yet, which is an answer rather than an error.',
+  }),
+  age_ms: z.number().int().nonnegative().nullable().meta({
+    description: 'How old the stored frame is right now, in milliseconds; `null` when there is none. Snapshots are deliberately cheap and therefore deliberately old, and a cached frame served without its age is indistinguishable from a live one.',
+  }),
+  width: z.number().int().positive().nullable().meta({
+    description: 'Width of the stored frame in pixels, or `null` when nothing has been captured yet.',
+  }),
+  height: z.number().int().positive().nullable().meta({
+    description: 'Height of the stored frame in pixels, or `null` when nothing has been captured yet.',
+  }),
+  mime: z.string().nullable().meta({
+    description: 'The media type of the stored frame, such as `image/jpeg`, or `null` when nothing has been captured yet.',
+  }),
 })
 export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>
 
@@ -1037,14 +1097,21 @@ export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>
  * silently chosen aggregation is a chart that lies quietly.
  */
 export const historyQuery = z.object({
-  from: z.string().min(1).max(32),
-  /** Defaults to now. */
-  to: z.string().min(1).max(32).optional(),
-  /** Bucket width, e.g. `10s`, `1m`. Absent means raw samples. */
-  window: z.string().min(2).max(16).optional(),
-  agg: z.enum(['min', 'max', 'avg']).optional(),
-  /** A numeric field inside an object value, e.g. `pose.x` (§4.4 paths). */
-  field: z.string().min(1).max(128).optional(),
+  from: z.string().min(1).max(32).meta({
+    description: 'The start of the window: either a relative expression — `now-30s`, `now-5m`, `now-1h` — or absolute unix milliseconds. A chart asks the first way and a report asks the second, and making a client convert would be making it guess our clock.',
+  }),
+  to: z.string().min(1).max(32).optional().meta({
+    description: 'The end of the window, in the same two spellings as `from`; absent means now. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window and adjacent windows tile without double-counting.',
+  }),
+  window: z.string().min(2).max(16).optional().meta({
+    description: 'The bucket width, such as `10s` or `1m`. Absent means raw samples. It is meaningless without `agg`, and the pair is refused apart rather than defaulted — a silently chosen aggregation is a chart that lies quietly.',
+  }),
+  agg: z.enum(['min', 'max', 'avg']).optional().meta({
+    description: 'How each bucket reduces the samples inside it. Valid only together with `window`.',
+  }),
+  field: z.string().min(1).max(128).optional().meta({
+    description: 'A dotted path to a numeric field inside an object value, such as `pose.x`. Without it the datapoint\'s value is used whole, which only works when it is already a number.',
+  }),
   /**
    * **A union whose input branch IS the wire, not a coercion (W9d, DEF-059).**
    *
@@ -1098,7 +1165,10 @@ export const historyQuery = z.object({
     ])
     .transform((v) => Number(v))
     .pipe(z.number().int().positive().max(10_000))
-    .optional(),
+    .optional()
+    .meta({
+      description: 'The most samples or buckets to return, from `1` to `10000`. It arrives as text on the query string, so both a numeric string and a number are accepted; the ceiling is enforced after parsing rather than by the published shape.',
+    }),
 })
 export type HistoryQuery = z.infer<typeof historyQuery>
 

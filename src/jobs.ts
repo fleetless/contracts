@@ -22,12 +22,22 @@ export const jobState = z.enum(['running', 'succeeded', 'failed', 'cancelled', '
 export type JobState = z.infer<typeof jobState>
 
 export const job = z.object({
-  id: z.uuid(),
-  robot_id: z.uuid(),
-  slug,
-  state: jobState,
-  started_at: z.iso.datetime(),
-  updated_at: z.iso.datetime(),
+  id: z.uuid().meta({
+    description: 'The job\'s id, minted by the cloud when the invocation is accepted. Informative: state is observed by slug, and this id is what a cancel names when a caller wants to stop one specific job rather than whatever is running.',
+  }),
+  robot_id: z.uuid().meta({ description: 'The robot this job is running on.' }),
+  slug: slug.meta({
+    description: 'The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one.',
+  }),
+  state: jobState.meta({
+    description: 'Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — and is said out loud rather than left reading `running` because nobody contradicted it.',
+  }),
+  started_at: z.iso.datetime().meta({
+    description: 'When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge it is **adoption time**, not the real start, because the cloud never minted it and has no honest alternative.',
+  }),
+  updated_at: z.iso.datetime().meta({
+    description: 'When this job last changed, as an ISO 8601 timestamp.',
+  }),
   /**
    * A monotonic counter, ascending in mint order (W7), and the **named**
    * tiebreaker for any listing that claims an order.
@@ -44,9 +54,12 @@ export const job = z.object({
    * orders jobs that coexist in one registry — and stated, because a reader
    * who assumed `auditEvent.seq`'s durable semantics would be wrong.
    */
-  seq: z.number().int().positive(),
-  /** Present once the job succeeded; shape is the ROS result's. */
-  result: z.unknown().nullable(),
+  seq: z.number().int().positive().meta({
+    description: 'A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders.',
+  }),
+  result: z.unknown().nullable().meta({
+    description: 'What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed.',
+  }),
   /**
    * Present on `failed`; a human message, plus a code where one exists.
    *
@@ -66,11 +79,20 @@ export const job = z.object({
    */
   error: z
     .object({
-      code: z.string().min(1),
-      message: z.string().min(1),
-      details: z.unknown().optional(),
+      code: z.string().min(1).meta({
+        description: 'A machine-readable code for the failure, such as `job_queue_full`, where one exists for it.',
+      }),
+      message: z.string().min(1).meta({
+        description: 'A human-readable sentence saying what went wrong.',
+      }),
+      details: z.unknown().optional().meta({
+        description: 'The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them.',
+      }),
     })
-    .nullable(),
+    .nullable()
+    .meta({
+      description: 'Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`.',
+    }),
 })
 export type Job = z.infer<typeof job>
 
@@ -171,14 +193,20 @@ export const JOB_RUN_RETENTION_DAYS = 90
  * which is a migration, not a contract edit.
  */
 export const jobActor = z.object({
-  kind: z.enum(['developer', 'end_user', 'server_key']),
-  id: z.uuid(),
+  kind: z.enum(['developer', 'end_user', 'server_key']).meta({
+    description: 'What the caller was acting as: a `developer` in the console, an `end_user` of an app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here.',
+  }),
+  id: z.uuid().meta({
+    description: 'The id of the developer, end user or server key that invoked the run.',
+  }),
   /**
    * The email for a developer or end user, the key's `name` for a server key.
    * A display snapshot taken at invoke time: renaming a key afterwards does not
    * rewrite history, which is the point of storing it rather than joining.
    */
-  label: z.string().min(1).max(200),
+  label: z.string().min(1).max(200).meta({
+    description: 'A display name taken at invoke time — the email for a developer or end user, the key\'s own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history.',
+  }),
 })
 export type JobActor = z.infer<typeof jobActor>
 
@@ -193,67 +221,115 @@ export type JobRunKind = z.infer<typeof jobRunKind>
  * delivered in full by realtime, for as long as somebody is watching.
  */
 export const jobRun = z.object({
-  id: z.uuid(),
-  robot_id: z.uuid(),
-  slug,
-  kind: jobRunKind,
-  state: jobState,
-  started_at: z.iso.datetime(),
-  /** `null` while `running` — a run has an end only once it has one. */
-  ended_at: z.iso.datetime().nullable(),
-  /** `null` while `running`. Not "0 so far". */
-  duration_ms: z.number().int().nonnegative().nullable(),
-  result: z.unknown().nullable(),
+  id: z.uuid().meta({
+    description: 'The run\'s id, which is the same id the invocation was answered with — so a caller that kept a job id can find its durable record here later.',
+  }),
+  robot_id: z.uuid().meta({ description: 'The robot the run happened on.' }),
+  slug: slug.meta({
+    description: 'The action or service that was invoked, as the published configuration exposed it at the time.',
+  }),
+  kind: jobRunKind.meta({
+    description: 'Whether the slug was an `action` or a `service`.',
+  }),
+  state: jobState.meta({
+    description: 'How the run ended, or `running` while it is still going. `lost` means the bridge restarted mid-run and the outcome is unknowable rather than unknown.',
+  }),
+  started_at: z.iso.datetime().meta({
+    description: 'When the run started, as an ISO 8601 timestamp. Runs are listed and filtered by this instant.',
+  }),
+  ended_at: z.iso.datetime().nullable().meta({
+    description: 'When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` — a run has an end only once it has one.',
+  }),
+  duration_ms: z.number().int().nonnegative().nullable().meta({
+    description: 'How long the run took, in milliseconds. `null` while it is still `running`, never `0` standing in for "nothing so far".',
+  }),
+  result: z.unknown().nullable().meta({
+    description: 'What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise.',
+  }),
   error: z
-    .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
-    .nullable(),
-  actor: jobActor,
+    .object({
+      code: z.string().min(1).meta({
+        description: 'A machine-readable code for the failure, such as `job_queue_full`, where one exists for it.',
+      }),
+      message: z.string().min(1).meta({
+        description: 'A human-readable sentence saying what went wrong.',
+      }),
+      details: z.unknown().optional().meta({
+        description: 'The structured payload belonging to `code`, for the codes that document one. Absent for a failure with nothing structured to add.',
+      }),
+    })
+    .nullable()
+    .meta({
+      description: 'Why the run failed — a `message`, a `code` where one exists, and the structured `details` some codes carry. `null` unless it failed.',
+    }),
+  actor: jobActor.meta({
+    description: 'Who invoked the run, and what they were acting as at the time.',
+  }),
   /**
    * **Durable, unlike `job.seq`.** That one is a per-process counter that
    * restarts with the cloud; this is a postgres `bigserial` and is the cursor
    * `before_seq` walks.
    */
-  seq: z.number().int().positive(),
-  /**
-   * Live-only, read from the in-memory registry for rows that are still
-   * running. `null` means **"not known right now"** — after a cloud restart,
-   * before the bridge reconnects — and never "0 %". A fraction, as in
-   * `jobEvent.progress`, not a percentage.
-   */
-  progress: z.number().min(0).max(1).nullable(),
-  feedback: z.unknown().nullable(),
+  seq: z.number().int().positive().meta({
+    description: 'The durable cursor this history is ordered and paged by. Unlike `job.seq` it does not restart when the cloud does; it is the value a caller sends back as `before_seq`.',
+  }),
+  progress: z.number().min(0).max(1).nullable().meta({
+    description: 'How far a still-running run has got, as a fraction from `0` to `1`, read live from the in-memory registry. `null` means **not known right now** — after a cloud restart, before the bridge reconnects — and never a `0` standing in for \"no progress yet\".',
+  }),
+  feedback: z.unknown().nullable().meta({
+    description: 'The most recent action feedback for a run that is still running, shaped by the ROS action. Live-only, so it is `null` for every settled run and whenever the registry has nothing.',
+  }),
 })
 export type JobRun = z.infer<typeof jobRun>
 
 export const jobRunQuery = z
   .object({
-    /** Only runs with a smaller `seq` — the next, older page. */
-    before_seq: wireSeqCursor.optional(),
+    before_seq: wireSeqCursor.optional().meta({
+      description: 'Return only runs with a `seq` below this value — the next, older page. Send back the `next_cursor` of the previous response rather than computing one.',
+    }),
     limit: z
       .union([z.string().regex(/^\d{1,4}$/), z.number().int()])
       .transform((v) => Number(v))
       .pipe(z.number().int().positive().max(JOB_RUN_PAGE_MAX))
-      .optional(),
-    robot_id: z.uuid().optional(),
-    slug: slug.optional(),
-    state: jobState.optional(),
-    kind: jobRunKind.optional(),
-    /** Half-open `[from, to)`, the same rule the history shapes follow (DEF-062). */
-    from_ms: wireTimestampMs.optional(),
-    to_ms: wireTimestampMs.optional(),
+      .optional()
+      .meta({
+        description: 'How many runs to return, from `1` to `200`. Absent means `100`. It arrives on the query string, so a numeric string and a number are both accepted.',
+      }),
+    robot_id: z.uuid().optional().meta({
+      description: 'Only runs on this robot. Absent means every robot in the organisation.',
+    }),
+    slug: slug.optional().meta({
+      description: 'Only runs of this action or service.',
+    }),
+    state: jobState.optional().meta({
+      description: 'Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.',
+    }),
+    kind: jobRunKind.optional().meta({
+      description: 'Only `action` runs, or only `service` runs.',
+    }),
+    from_ms: wireTimestampMs.optional().meta({
+      description: 'Only runs that started at or after this unix timestamp in milliseconds. Together with `to_ms` the window is half-open, `[from, to)`, so adjacent windows tile without counting a run twice.',
+    }),
+    to_ms: wireTimestampMs.optional().meta({
+      description: 'Only runs that started **before** this unix timestamp in milliseconds. The window is half-open, so a run starting exactly on `to_ms` belongs to the next one.',
+    }),
   })
   .strict()
 export type JobRunQuery = z.infer<typeof jobRunQuery>
 
 export const jobRunListResponse = z.object({
-  runs: z.array(jobRun),
+  runs: z.array(jobRun).meta({
+    description: 'This page of runs, newest first by `seq`. Empty means the filter matched nothing, not that the history is gone.',
+  }),
   /**
    * The `seq` a caller sends as `before_seq` to keep reading — or `null` when
    * there is nothing further. **`null` means the end, and that is a promise
    * rather than an observation.** A caller who instead compares `runs.length`
    * against `limit` is wrong the moment a filter makes a page thin.
    */
-  next_cursor: z.number().int().positive().nullable(),
+  next_cursor: z.number().int().positive().nullable().meta({
+    description: 'The `seq` to send as `before_seq` to keep reading, or `null` when there is nothing further. **`null` is a promise, not an observation** — a caller who instead compares the page length against `limit` is wrong the moment a filter makes a page thin.',
+  }),
 })
 export type JobRunListResponse = z.infer<typeof jobRunListResponse>
 

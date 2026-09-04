@@ -7,7 +7,8 @@
       "propertyNames": {
         "type": "string"
       },
-      "additionalProperties": {}
+      "additionalProperties": {},
+      "description": "The values to publish, keyed by the **parameter names** the publisher declares — the same flat form an invoke takes for `params`. They are checked against the declared bounds in the cloud before anything reaches the robot, and a slug another caller is still holding is refused with the remaining wait."
     }
   },
   "required": [

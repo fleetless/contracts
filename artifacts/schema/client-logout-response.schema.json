@@ -9,12 +9,14 @@
           "properties": {
             "status": {
               "type": "string",
-              "const": "redirect"
+              "const": "redirect",
+              "description": "The identity provider publishes an `end_session_endpoint` and `url` says where to send the browser to finish logging out there."
             },
             "url": {
               "type": "string",
               "maxLength": 2000,
-              "format": "uri"
+              "format": "uri",
+              "description": "Send the browser here to end the session at the identity provider. Built from the provider's own `end_session_endpoint`."
             }
           },
           "required": [
@@ -28,7 +30,8 @@
           "properties": {
             "status": {
               "type": "string",
-              "const": "not_federated"
+              "const": "not_federated",
+              "description": "This session did not come from an identity provider, so there is no second session and nothing further to do."
             }
           },
           "required": [
@@ -41,7 +44,8 @@
           "properties": {
             "status": {
               "type": "string",
-              "const": "unsupported_by_idp"
+              "const": "unsupported_by_idp",
+              "description": "The session was federated and the provider's discovery document names no `end_session_endpoint`, which OpenID Connect leaves optional. **The provider session survives and Fleetless cannot end it.**"
             }
           },
           "required": [
@@ -54,7 +58,8 @@
           "properties": {
             "status": {
               "type": "string",
-              "const": "hint_unavailable"
+              "const": "hint_unavailable",
+              "description": "The session was federated, the provider *could* end it, and the `id_token_hint` needed to ask is not available. The provider session survives, as with `unsupported_by_idp` — the difference is that here the cause is on the Fleetless side."
             }
           },
           "required": [
@@ -67,7 +72,8 @@
           "properties": {
             "status": {
               "type": "string",
-              "const": "session_unknown"
+              "const": "session_unknown",
+              "description": "The token was unknown, already superseded, revoked or expired, so the server knows nothing about this session and claims nothing about a provider. Not the same as `not_federated`, and not a statement that the user is fully logged out."
             }
           },
           "required": [
@@ -75,7 +81,8 @@
           ],
           "additionalProperties": false
         }
-      ]
+      ],
+      "description": "What is left of the login at the identity provider, if one was involved. The Fleetless session is already over before this is computed, so it says only whether a second session survives and whether this platform can end it."
     }
   },
   "required": [

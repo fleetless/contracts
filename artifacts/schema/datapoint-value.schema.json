@@ -6,13 +6,17 @@
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The datapoint this value belongs to."
     },
-    "value": {},
+    "value": {
+      "description": "The value itself, shaped by the datapoint: a number, a boolean, a string, or the whole ROS message where the configuration names no field inside it. Any `scale` and `offset` the configuration declares have already been applied, at the robot."
+    },
     "timestamp_ms": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "When the value was captured, as a unix timestamp in milliseconds. This is the **bridge's capture time**, never the time the cloud received it — the one exception is the built-in `bridge_state`, which the cloud observes by construction."
     }
   },
   "required": [

@@ -246,9 +246,15 @@ export type AppAssignmentListResponse = z.infer<typeof appAssignmentListResponse
  * original is presented again.
  */
 export const sessionTokens = z.object({
-  access_token: z.string().min(1),
-  refresh_token: z.string().min(1),
-  expires_in: z.number().int().positive(),
+  access_token: z.string().min(1).meta({
+    description: 'The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime.',
+  }),
+  refresh_token: z.string().min(1).meta({
+    description: 'The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family.',
+  }),
+  expires_in: z.number().int().positive().meta({
+    description: 'How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds.',
+  }),
 })
 export type SessionTokens = z.infer<typeof sessionTokens>
 
@@ -670,8 +676,12 @@ export type TierRequiredDetails = z.infer<typeof tierRequiredDetails>
  * indistinguishable from the change having failed.
  */
 export const passwordChangeRequest = z.object({
-  current_password: z.string().min(1),
-  new_password: password,
+  current_password: z.string().min(1).meta({
+    description: 'The password in use right now. It is required even though the session already proves identity: it is what makes a stolen *session* insufficient to take the *account*.',
+  }),
+  new_password: password.meta({
+    description: 'The replacement password. Every other session is revoked when it is accepted, while the session that made the change survives — logging somebody out of the tab they just used is indistinguishable from the change having failed.',
+  }),
 })
 export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
 

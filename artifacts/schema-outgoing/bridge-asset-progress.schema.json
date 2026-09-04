@@ -30,7 +30,8 @@
           "reference": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 500
+            "maxLength": 500,
+            "description": "What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one."
           },
           "kind": {
             "type": "string",
@@ -39,9 +40,11 @@
               "upload_failed",
               "refused",
               "too_large"
-            ]
+            ],
+            "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
           },
           "details": {
+            "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
             "anyOf": [
               {
                 "type": "object",
@@ -49,12 +52,14 @@
                   "limit_bytes": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "The upload ceiling, in bytes."
                   },
                   "size_bytes": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "How large the refused file actually is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
                   }
                 },
                 "required": [

@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "before_seq": {
+      "description": "Return only runs with a `seq` below this value — the next, older page. Send back the `next_cursor` of the previous response rather than computing one.",
       "anyOf": [
         {
           "type": "string",
@@ -16,6 +17,7 @@
       ]
     },
     "limit": {
+      "description": "How many runs to return, from `1` to `200`. Absent means `100`. It arrives on the query string, so a numeric string and a number are both accepted.",
       "anyOf": [
         {
           "type": "string",
@@ -29,17 +31,20 @@
       ]
     },
     "robot_id": {
+      "description": "Only runs on this robot. Absent means every robot in the organisation.",
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
     "slug": {
+      "description": "Only runs of this action or service.",
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
     },
     "state": {
+      "description": "Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.",
       "type": "string",
       "enum": [
         "running",
@@ -50,6 +55,7 @@
       ]
     },
     "kind": {
+      "description": "Only `action` runs, or only `service` runs.",
       "type": "string",
       "enum": [
         "action",
@@ -57,6 +63,7 @@
       ]
     },
     "from_ms": {
+      "description": "Only runs that started at or after this unix timestamp in milliseconds. Together with `to_ms` the window is half-open, `[from, to)`, so adjacent windows tile without counting a run twice.",
       "anyOf": [
         {
           "type": "string",
@@ -70,6 +77,7 @@
       ]
     },
     "to_ms": {
+      "description": "Only runs that started **before** this unix timestamp in milliseconds. The window is half-open, so a run starting exactly on `to_ms` belongs to the next one.",
       "anyOf": [
         {
           "type": "string",

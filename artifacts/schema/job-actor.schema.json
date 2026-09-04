@@ -8,17 +8,20 @@
         "developer",
         "end_user",
         "server_key"
-      ]
+      ],
+      "description": "What the caller was acting as: a `developer` in the console, an `end_user` of an app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here."
     },
     "id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The id of the developer, end user or server key that invoked the run."
     },
     "label": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 200
+      "maxLength": 200,
+      "description": "A display name taken at invoke time — the email for a developer or end user, the key's own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history."
     }
   },
   "required": [
