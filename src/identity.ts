@@ -282,6 +282,14 @@ export const signUpResponse = z.object({
 export type SignUpResponse = z.infer<typeof signUpResponse>
 
 /**
+ * The landing page's waiting list (public site, 2026-09-04): one address,
+ * posted from fleetless.dev while sign-up is closed. The route answers
+ * `202` whether or not the address was already listed.
+ */
+export const waitlistRequest = z.object({ email: z.email() })
+export type WaitlistRequest = z.infer<typeof waitlistRequest>
+
+/**
  * Console login. Org Admins members only, always the Fleetless provider — a
  * group's OIDC provider never governs the console (D3), which removes the
  * IdP-lockout class entirely.

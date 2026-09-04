@@ -76,6 +76,7 @@ import {
   sessionTokens,
   signUpRequest,
   signUpResponse,
+  waitlistRequest,
   developerLoginRequest,
   orgUser,
   orgGroup,
@@ -264,6 +265,7 @@ export const exportedSchemas = {
   'session-tokens': sessionTokens,
   'sign-up-request': signUpRequest,
   'sign-up-response': signUpResponse,
+  'waitlist-request': waitlistRequest,
   'developer-login-request': developerLoginRequest,
   'org-user': orgUser,
   'org-group': orgGroup,
@@ -450,7 +452,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'org-event-subscribe', 'org-event-unsubscribe',
 
   // --- REST request bodies and queries -------------------------------------
-  'create-robot-request', 'sign-up-request', 'developer-login-request',
+  'create-robot-request', 'sign-up-request', 'waitlist-request', 'developer-login-request',
   'create-app-request',
   'create-group-request', 'patch-group-request', 'create-user-invite-request',
   'accept-user-invite-request', 'patch-user-request', 'move-user-group-request',

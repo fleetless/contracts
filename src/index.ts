@@ -385,6 +385,8 @@ export {
   refreshRequest,
   signUpRequest,
   signUpResponse,
+  // 2026-09-04 — the public site (closed beta).
+  waitlistRequest,
   developerLoginRequest,
   // 2026-08-29 — org-central identity (D1/D2/D6).
   GROUP_NAME_MAX,
@@ -442,6 +444,7 @@ export type {
   RefreshRequest,
   SignUpRequest,
   SignUpResponse,
+  WaitlistRequest,
   DeveloperLoginRequest,
   OrgAdminTier,
   McpAccess,
