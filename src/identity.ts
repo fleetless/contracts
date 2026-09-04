@@ -285,8 +285,13 @@ export type SignUpResponse = z.infer<typeof signUpResponse>
  * The landing page's waiting list (public site, 2026-09-04): one address,
  * posted from fleetless.dev while sign-up is closed. The route answers
  * `202` whether or not the address was already listed.
+ *
+ * The address is bounded at 254 characters, the RFC 5321 forward-path limit.
+ * `z.email()` alone is length-unbounded, and `waitlist.email` carries a unique
+ * btree index, which raises above roughly 2704 bytes — so an unbounded address
+ * turns an unauthenticated public route into a `500`.
  */
-export const waitlistRequest = z.object({ email: z.email() })
+export const waitlistRequest = z.object({ email: z.email().max(254) })
 export type WaitlistRequest = z.infer<typeof waitlistRequest>
 
 /**
