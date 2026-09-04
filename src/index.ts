@@ -628,3 +628,13 @@ export type {
   ConsentRevokeResponse,
   ConsentDecision,
 } from './oauth.js'
+export { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES } from './routes.js'
+export type {
+  RouteEntry,
+  RouteParam,
+  RouteAudience,
+  RouteAuth,
+  RouteSection,
+  RouteMethod,
+  RouteTransport,
+} from './routes.js'

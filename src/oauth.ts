@@ -605,6 +605,10 @@ export type ConsentDecision = z.infer<typeof consentDecision>
  * hand-written copies of `assetKind`'s members and a header name copied across
  * the TypeScript/Python line. A path that a client discovers must have exactly
  * one definition.
+ *
+ * The federation start is not a route: `/oauth/authorize` redirects to the IdP
+ * itself. `idpStart` was listed here for months after the cloud deleted it;
+ * `routes.ts` and the cloud's manifest test now catch that class.
  */
 export const OAUTH_PATHS = {
   authorizationServerMetadata: '/.well-known/oauth-authorization-server',
@@ -627,24 +631,20 @@ export const OAUTH_PATHS = {
    */
   consent: '/oauth/consent',
   /**
-   * The two federation legs. **Server-owned redirect targets a client never
+   * The federation return leg. **A server-owned redirect target a client never
    * constructs** — the same category as `authorize`, `token` and `register`,
-   * and the reason they belong here rather than as literals.
+   * and the reason it belongs here rather than as a literal.
    *
-   * Kassandra-W7b found `/oauth/idp-start` written as a literal in
-   * `cloud/src/routes/oauth-federation.ts` **and** in
-   * `console/oauth-pages/login/src/App.vue` — two repos agreeing on a string
-   * with nothing shared between them. Worse than the `/idp` versus
-   * `/idp-config` mismatch this wave already met, because the console half
-   * ships as a **committed artifact**: the drift would survive a re-pin and an
-   * install, and the symptom is a federation button that navigates to a 404,
-   * invisible to both suites.
+   * `OAUTH_PATHS` was created in W7b with a doc comment citing W7a's five
+   * hand-written copies of `assetKind`. The rule was applied to `login` and
+   * `consent` and stopped there.
    *
-   * `OAUTH_PATHS` was created in this wave with a doc comment citing W7a's
-   * five hand-written copies of `assetKind`. The rule was applied to `login`
-   * and `consent` and stopped there.
+   * It once had a twin, `idpStart: '/oauth/idp-start'`, for the *outbound*
+   * leg. The cloud deleted that route — `/oauth/authorize` redirects to the
+   * IdP directly — and the entry stayed here for months, naming a path
+   * nothing served. Removed in FL-007; the cloud's route-manifest test is
+   * what keeps a second one from accumulating.
    */
-  idpStart: '/oauth/idp-start',
   idpCallback: '/oauth/idp-callback',
   /**
    * The console-built page the cloud serves from its own origin (see §3.4) —
@@ -674,7 +674,7 @@ export const OAUTH_PATHS = {
    * role to preview or a user to sign in as. The page is **server-rendered by
    * the cloud from its own origin** — the console never builds it and never
    * hardcodes this path; the login page merely follows the `redirect_to` it is
-   * handed. It belongs in this list for the reason `idpStart`/`idpCallback` do:
+   * handed. It belongs in this list for the reason `idpCallback` does:
    * a server-owned target a client is sent to, which must have exactly one
    * definition rather than a literal in `cloud/src/routes/oauth.ts` that a
    * second reader could drift from.

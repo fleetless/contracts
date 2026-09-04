@@ -629,5 +629,58 @@ export const ERROR_CODES = [
    * `routes/console-oauth.ts` in the same release.
    */
   'signup_closed',
+
+  // FL-007 (route manifest): emitted by the cloud, catalogued late.
+  //
+  // Every one of the five below has had a live producer for some time; what
+  // they never had was an entry here. `routes.ts` is what found them: its
+  // `errors` field is typed `ErrorCode[]`, so writing down what a handler
+  // actually answers made each missing code a type error. They are listed in
+  // one block, with their producer named, rather than filed among the waves
+  // that introduced them — the honest record is *when this list learned about
+  // them*, not when the cloud started sending them.
+  /**
+   * `409` from the configuration routes: the draft parses as YAML but its root
+   * is not a mapping — a list, a scalar, or an empty document. Distinct from
+   * `validation_error`, which is about a field inside a document that *is* one.
+   * Produced by `cloud/src/routes/config.ts`.
+   */
+  'draft_not_a_document',
+  /**
+   * `500`. The cloud's own last-resort answer when a handler throws something
+   * it has no mapping for, and the code the realtime socket sends for the same
+   * state. It says nothing about the request, deliberately: a caller cannot act
+   * on it beyond retrying, and the detail belongs in the server's log rather
+   * than in a body a stranger receives. Produced by `cloud/src/server.ts`'s
+   * error handler and `cloud/src/ws/realtime.ts`.
+   */
+  'internal_error',
+  /**
+   * `422` from `POST /api/robots/:id/jobs/:slug/cancel`: the job exists and the
+   * caller may address it, but it is in a state that has nothing left to
+   * cancel — already settled, or of a kind that does not support cancellation.
+   * Produced by `cloud/src/commands.ts` and mapped in
+   * `cloud/src/routes/commands.ts`.
+   */
+  'not_cancellable',
+  /**
+   * `415`. The request carried a body in a media type the route does not read.
+   * It is the cloud-wide answer from the content-type parser, not one route's:
+   * a caller reaching it never got as far as validation, which is why this is
+   * not a `validation_error`. Produced by `cloud/src/server.ts`.
+   */
+  'unsupported_media_type',
+  /**
+   * `401` from the multi-step browser flows — console sign-up and the OAuth
+   * consent and impersonation screens. The step being finished was started in a
+   * *different* browser: the per-interaction proof cookie is missing or does not
+   * match the hash recorded on the interaction row.
+   *
+   * Deliberately not `invalid_token` or `unauthorized`: nothing about the
+   * caller's credential is being refused, and the remedy is specific and
+   * actionable — start the flow again in this browser. Produced by
+   * `cloud/src/routes/console-oauth.ts` and `cloud/src/routes/oauth.ts`.
+   */
+  'wrong_browser',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

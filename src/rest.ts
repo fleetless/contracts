@@ -557,7 +557,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * uses it — the federated authorize/callback legs and the org-admin
  * impersonation interstitial — is not a `/api/` REST shape but a browser flow
  * of server-owned redirect targets, and it lives with the other OAuth paths in
- * `OAUTH_PATHS` (`idpStart`, `idpCallback`, `impersonate`), for the same reason
+ * `OAUTH_PATHS` (`idpCallback`, `impersonate`), for the same reason
  * `authorize` and `token` do: a client never constructs those paths, it is sent
  * to them. The cloud is the authorization server; toward the group's IdP it is a
  * relying party (see `oauth.ts`).
