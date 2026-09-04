@@ -121,19 +121,29 @@ export const ERROR_CODES = [
    * tells the account holder something about *their own* account, and reveals
    * nothing about any other principal or about what exists.
    *
-   * **It loses its producer when D1's `users` replaces `end_users` — it has
-   * not lost it yet.** At the time of writing the cloud still emits it from
-   * five sites (`auth.ts`, `routes/end-users.ts`, `ws/realtime.ts`, and twice
-   * in `routes/client-auth.ts`), all reading `end_users.status === 'blocked'`.
-   * D1's `users` has no `status` column and nothing in the redesign
-   * reinstates one — removing a user's assignments is what withdraws access
-   * there — so those five sites go with the old tables in the cloud task.
+   * **It has now lost its producer, as this comment predicted it would.** The
+   * paragraph here used to say "it loses its producer when D1's `users`
+   * replaces `end_users` — it has not lost it yet", and named the five sites
+   * that still emitted it, all reading `end_users.status === 'blocked'`. D1
+   * landed. `users` has no `status` column, nothing reinstates one, and
+   * removing a user's assignments is what withdraws access instead — so those
+   * five sites went with the old tables.
    *
-   * Kept either way, like `mcp_disabled`, because the reserved shape is the
-   * point. Written in the tense that is true today rather than in the one the
-   * plan expects to become true: a comment that declares a producer gone
-   * before it is gone sends the next reader to `grep` and find the opposite,
-   * which is the failure `mcp_disabled`'s own comment was written to fix.
+   * What is left in the cloud is a *shape* with no input: `TokenRefusalReason`
+   * still admits `'blocked'` and `sendTokenRefusal` still has an arm for it
+   * (`auth.ts`), as does `ws/realtime.ts` — but no site anywhere constructs
+   * `reason: 'blocked'`, so neither arm is reachable. Verified by grep in
+   * FL-007, after `routes.ts` listed this code on the dual-auth guard and a
+   * review asked what produces it. Nothing does.
+   *
+   * Kept, like `mcp_disabled` and for the same reason: the reserved shape is
+   * the point, and a code removed from the vocabulary is a code the next
+   * producer re-invents differently. But **do not list it as a refusal of any
+   * route** — that would document an answer no caller can receive.
+   *
+   * The tense discipline this comment was written under still stands: it now
+   * says the producer is gone because the producer is gone, not because a plan
+   * expects it to be.
    */
   'account_blocked',
   // W4 — the command path.
@@ -633,12 +643,21 @@ export const ERROR_CODES = [
   // FL-007 (route manifest): emitted by the cloud, catalogued late.
   //
   // Every one of the five below has had a live producer for some time; what
-  // they never had was an entry here. `routes.ts` is what found them: its
-  // `errors` field is typed `ErrorCode[]`, so writing down what a handler
-  // actually answers made each missing code a type error. They are listed in
-  // one block, with their producer named, rather than filed among the waves
-  // that introduced them — the honest record is *when this list learned about
-  // them*, not when the cloud started sending them.
+  // they never had was an entry here. **Each was confirmed by grepping the
+  // cloud for its own string before being written down** — the producer named
+  // in each comment is a file that was read, not one that was assumed.
+  //
+  // The type checker is *not* what surfaced them, and that is worth saying.
+  // `RouteEntry.errors` is typed `ErrorCode[]`, so it refuses a code an entry
+  // *names* — but only one of these five (`wrong_browser`) is named by any entry
+  // in the commit that added them. The other four would have stayed
+  // uncatalogued had nobody gone looking. The difference matters to whoever adds
+  // the sixth: neither the type nor a pass over the route entries is a census of
+  // what the cloud actually sends.
+  //
+  // They are listed in one block, with their producer named, rather than filed
+  // among the waves that introduced them — the honest record is *when this list
+  // learned about them*, not when the cloud started sending them.
   /**
    * `409` from the configuration routes: the draft parses as YAML but its root
    * is not a mapping — a list, a scalar, or an empty document. Distinct from

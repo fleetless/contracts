@@ -8,7 +8,7 @@
  * and derives `artifacts/openapi.json` from it; the docs site renders its
  * route and field tables from those two files.
  *
- * `OAUTH_PATHS` (`oauth.ts`) was the precedent: ten paths declared once so
+ * `OAUTH_PATHS` (`oauth.ts`) was the precedent: nine paths declared once so
  * two repositories could not spell them differently. Its `idpStart` entry
  * named a route the cloud had deleted, and nothing noticed for months. This
  * list exists so that cannot happen again — and the cloud test is the half
@@ -162,10 +162,26 @@ const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forb
 /**
  * The same, for `auth: 'developer_or_client'` — `createRequireDeveloperOrClient`,
  * which resolves a developer bearer, an end-user bearer **or** a server key
- * through one `resolveAnyToken`. It carries one arm the developer-only guard
- * cannot reach: `account_blocked`, for an end user whose account was disabled.
+ * through one `resolveAnyToken`.
+ *
+ * **The same four codes, not five.** `sendTokenRefusal` has a fifth arm,
+ * `account_blocked`, and this list carried it for exactly one commit. Nothing
+ * reaches it: `TokenRefusalReason` admits `'blocked'`, but no site in
+ * `cloud/src` constructs one — the only reasons ever returned are `'invalid'`,
+ * `'revoked'` and `'forbidden'`. `auth.ts` says why on the line where the check
+ * used to be: D2 replaced "block the account" with "remove the assignment", so
+ * an app user who loses access loses it because no assignment resolves, and
+ * there is no blocked state left to re-check.
+ *
+ * Listing it would have documented a refusal no caller can receive — the same
+ * mistake as the `invalid_token` above, found by review rather than by any test
+ * here, because a code in `ERROR_CODES` satisfies every check this file has.
+ *
+ * So this is now identical to `DEVELOPER_GUARD`, and stays a separate constant
+ * anyway: they are two different guards in the cloud that happen to refuse alike
+ * today. Collapsing them would make the next divergence a silent one.
  */
-const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'account_blocked', 'forbidden'] as const satisfies readonly ErrorCode[]
+const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidden'] as const satisfies readonly ErrorCode[]
 
 export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------------------------- health */
