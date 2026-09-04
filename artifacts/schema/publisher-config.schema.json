@@ -127,7 +127,7 @@
             ]
           },
           "description": {
-            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
             "examples": [
               "What a caller is choosing when they set this."
             ],
@@ -220,7 +220,7 @@
       ]
     },
     "description": {
-      "description": "What sending to this publisher does, in the developer's own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.",
+      "description": "What sending to this publisher does, in the developer's own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, the publisher is offered whether or not one is written, with `description: null` when it is not. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.",
       "examples": [
         "Velocity command. If sending stops, the robot stops."
       ],

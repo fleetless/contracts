@@ -127,7 +127,7 @@
             ]
           },
           "description": {
-            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
             "examples": [
               "What a caller is choosing when they set this."
             ],
@@ -170,7 +170,7 @@
       ]
     },
     "description": {
-      "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all**.",
+      "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robot_describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.",
       "examples": [
         "Drives to a target pose on the map."
       ],

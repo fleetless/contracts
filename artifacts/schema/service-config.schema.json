@@ -127,7 +127,7 @@
             ]
           },
           "description": {
-            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
             "examples": [
               "What a caller is choosing when they set this."
             ],
@@ -170,7 +170,7 @@
       ]
     },
     "description": {
-      "description": "What this service does, in the developer's own words. The robot does nothing with it — the readers are the console and MCP clients, and **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.",
+      "description": "What this service does, in the developer's own words. The robot does nothing with it — the readers are the console and MCP clients, and without one the service is still offered, with `description: null`, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.",
       "examples": [
         "Resets odometry to the origin."
       ],

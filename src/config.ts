@@ -414,8 +414,8 @@ const underSlug = (slugKey: string, snippet: Snippet): Snippet =>
 /**
  * What an exposed service *is*, in the developer's own words (§17).
  *
- * This is what an MCP tool description carries verbatim, so it is read by a
- * model that has never seen this robot and cannot ask a follow-up question.
+ * This is what `robot_describe` carries verbatim, so it is read by a model
+ * that has never seen this robot and cannot ask a follow-up question.
  * `unit` and `range` already say what a number *is*; this says what it
  * *means*.
  *
@@ -587,7 +587,7 @@ export const parameterSpec = strictObject({
     examples: ['^[a-z_]+$'],
   }).optional(),
   description: parameterDescription.meta({
-    description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the MCP tool\'s input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
+    description: 'What this parameter means, in the developer\'s own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.',
     /** The sentence `PARAMETER_SNIPPET` already places here, verbatim. */
     examples: ['What a caller is choosing when they set this.'],
   }),
@@ -875,7 +875,7 @@ export const datapointNumeric = strictObject({
     examples: [-273.15],
   }).optional(),
   unit: z.string().max(32).meta({
-    description: 'The unit of the value **after** `scale` and `offset`, not the robot\'s own. It is shown beside the value and appended to the MCP tool description, so a model does not have to guess whether 15 means percent, volts or minutes.',
+    description: 'The unit of the value **after** `scale` and `offset`, not the robot\'s own. It is shown beside the value and carried by `robot_describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.',
     examples: ['%'],
   }).optional(),
   decimals: z.number().int().min(0).max(6).meta({
@@ -1045,7 +1045,7 @@ export const datapointConfig = strictObject({
     examples: [2, 0.5],
   }).optional(),
   description: serviceDescription.meta({
-    description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
+    description: 'Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
     /**
      * The sentence both datapoint snippets already place here, verbatim. Its
      * four siblings — an action's, a service's, a publisher's, a camera's —
@@ -1407,7 +1407,7 @@ export const actionConfig = strictObject({
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
   description: serviceDescription.meta({
-    description: 'What this action does, in the developer\'s own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into the MCP tool description and read by a model that has never seen this robot, so **an action without one is exposed as no tool at all**.',
+    description: 'What this action does, in the developer\'s own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robot_describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.',
     examples: ['Drives to a target pose on the map.'],
   }),
 }).meta({
@@ -1447,7 +1447,7 @@ export const serviceConfig = strictObject({
   message: messageBody.optional(),
   parameters: parameterMap.optional(),
   description: serviceDescription.meta({
-    description: 'What this service does, in the developer\'s own words. The robot does nothing with it — the readers are the console and MCP clients, and **without it the service is exposed as no MCP tool**, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.',
+    description: 'What this service does, in the developer\'s own words. The robot does nothing with it — the readers are the console and MCP clients, and without one the service is still offered, with `description: null`, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.',
     examples: ['Resets odometry to the origin.'],
   }),
 }).meta({
@@ -1577,7 +1577,7 @@ export const publisherConfig = strictObject({
     examples: [2000],
   }),
   description: serviceDescription.meta({
-    description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, no description means no MCP tool. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.',
+    description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, the publisher is offered whether or not one is written, with `description: null` when it is not. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.',
     examples: ['Velocity command. If sending stops, the robot stops.'],
   }),
 }).meta({
@@ -1930,7 +1930,7 @@ export const cameraConfig = strictObject({
     examples: [5],
   }),
   description: serviceDescription.meta({
-    description: 'What this camera shows, in the developer\'s own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. **A camera without one is exposed as no MCP tool**, as for actions, services and publishers. The tool it does produce serves the latest snapshot with its age; a live session is never a tool.',
+    description: 'What this camera shows, in the developer\'s own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera_snapshot` serves is the latest snapshot with its age; a live session is never a tool.',
     examples: ['Forward-facing camera on the mast.'],
   }),
 }).meta({

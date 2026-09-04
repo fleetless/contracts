@@ -92,7 +92,7 @@
       ]
     },
     "description": {
-      "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the MCP tool's input schema beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+      "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
       "examples": [
         "What a caller is choosing when they set this."
       ],

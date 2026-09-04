@@ -45,7 +45,7 @@
       ]
     },
     "description": {
-      "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into the MCP tool description, so **a datapoint without one is exposed as no tool at all**, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
+      "description": "Prose about what this value is, for whoever meets it in the console later. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
       "examples": [
         "What this value is, for whoever meets it in the console."
       ],
@@ -73,7 +73,7 @@
         "unit": {
           "type": "string",
           "maxLength": 32,
-          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and appended to the MCP tool description, so a model does not have to guess whether 15 means percent, volts or minutes.",
+          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robot_describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
           "examples": [
             "%"
           ]
