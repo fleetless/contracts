@@ -3055,7 +3055,7 @@
             }
           }
         },
-        "description": "**`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a browser to it is the attack. Those two refusals are RFC 6749's flat `oauthError` shape at `400`; everything validated afterwards (`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the rate limiter's `429 rate_limited`."
+        "description": "The query is RFC 6749 §4.1.1's — `client_id`, `redirect_uri`, `response_type`, `code_challenge`, `code_challenge_method`, `state`, `resource` — read parameter by parameter, and contracts declares no schema for it, so nothing here pins its shape. **`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a browser to it is the attack. Those two refusals are RFC 6749's flat `oauthError` shape at `400`; everything validated afterwards (`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the rate limiter's `429 rate_limited`."
       }
     },
     "/oauth/token": {
@@ -3133,7 +3133,7 @@
             }
           }
         },
-        "description": "RFC 7591. `?app_identifier=` names the app and is required; an app that does not accept dynamic clients answers `oauthError` `access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.",
+        "description": "RFC 7591. `?app_identifier=` names the app and is required; it is read directly and contracts declares no schema for this query, so it appears in no parameter table. An app that does not accept dynamic clients answers `oauthError` `access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3316,7 +3316,11 @@
         "tags": [
           "mcp"
         ],
-        "security": [],
+        "security": [
+          {
+            "clientToken": []
+          }
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -4371,7 +4375,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `invalid_yaml`, `unstorable_yaml`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4381,7 +4385,7 @@
             }
           }
         },
-        "description": "The request carries the **text**, not a document: the author's comments and layout are what a restore has to give back, so the source is what is stored and the document is derived from it. Text that is not YAML at all is `422 invalid_yaml`, and text that parses but cannot be stored is `422 unstorable_yaml`; **neither code is in `ERROR_CODES`** — they are route-local strings in the `apiError` envelope, so a client matching on the catalogue will not recognise them. A document with schema errors is still stored, because the draft is where a developer works; publishing is where the errors block.",
+        "description": "The request carries the **text**, not a document: the author's comments and layout are what a restore has to give back, so the source is what is stored and the document is derived from it. Text that is not YAML at all is `422 invalid_yaml`, and text that parses but cannot be stored — an anchor cycle, say — is `422 unstorable_yaml`. A document with schema errors is still stored, because the draft is where a developer works; publishing is where the errors block.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5423,7 +5427,7 @@
         },
         "description": "The body is optional: a bodyless `POST` was every caller's shape before `job_id` existed, and absent or `job_id: null` both mean \"cancel whatever is running\". A named `job_id` that is **not** what is running cancels nothing and answers `404` — the caller named an id and thereby ruled the other one out. A service is `422 not_cancellable`: a service call has no goal to cancel. Nothing running is a `200` with `job: null`.",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -6156,7 +6160,7 @@
             }
           }
         },
-        "description": "**No success answer either**, for the reason its authenticated twin has none. Unauthenticated by design and unauthenticated in fact: it reads nothing and reveals nothing the caller did not put in the query string itself, so there is no credential for the handler to verify and none is required. It sits under the signed-link prefix because that is where a linked URDF's references have to point."
+        "description": "The signed token in the path is the credential; no other authentication applies. **No success answer either**, for the reason its authenticated twin has none. Unauthenticated by design and unauthenticated in fact: it reads nothing and reveals nothing the caller did not put in the query string itself, so there is no credential for the handler to verify and none is required. It sits under the signed-link prefix because that is where a linked URDF's references have to point."
       }
     },
     "/api/asset-links/{token}": {
@@ -6193,7 +6197,7 @@
             }
           }
         },
-        "description": "**The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is refused on REST by design, so the asset tools mint a fifteen-minute signed link instead and this spends it. The capability was checked at mint against the minting caller's own access; the residual — whoever holds the URL reads that asset until it expires — is named rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending a link in its last second would hand out another fifteen minutes, and each of those another. `cache-control: no-store`, since the URL itself is the credential."
+        "description": "The signed token in the path is the credential; no other authentication applies. **The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is refused on REST by design, so the asset tools mint a fifteen-minute signed link instead and this spends it. The capability was checked at mint against the minting caller's own access; the residual — whoever holds the URL reads that asset until it expires — is named rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending a link in its last second would hand out another fifteen minutes, and each of those another. `cache-control: no-store`, since the URL itself is the credential."
       }
     },
     "/api/robots/{id}/assets/sync": {
@@ -12204,7 +12208,7 @@
                     "fields": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     }
                   },
@@ -12230,13 +12234,13 @@
                     "request": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     },
                     "response": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     }
                   },
@@ -12263,19 +12267,19 @@
                     "goal": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     },
                     "result": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     },
                     "feedback": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/fetch-types-response--__schema0"
                       }
                     }
                   },
@@ -12302,47 +12306,45 @@
           "types",
           "unresolved"
         ],
-        "additionalProperties": false,
-        "$defs": {
-          "__schema0": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
+        "additionalProperties": false
+      },
+      "fetch-types-response--__schema0": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "array": {
+            "type": "boolean"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/fetch-types-response--__schema0"
+                }
               },
-              "type": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 255
-              },
-              "array": {
-                "type": "boolean"
-              },
-              "fields": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/$defs/__schema0"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "name",
-              "type",
-              "array",
-              "fields"
-            ],
-            "additionalProperties": false
+            ]
           }
-        }
+        },
+        "required": [
+          "name",
+          "type",
+          "array",
+          "fields"
+        ],
+        "additionalProperties": false
       },
       "group-list-response": {
         "type": "object",
@@ -15715,7 +15717,7 @@
                     "fields": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     }
                   },
@@ -15741,13 +15743,13 @@
                     "request": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     },
                     "response": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     }
                   },
@@ -15774,19 +15776,19 @@
                     "goal": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     },
                     "result": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     },
                     "feedback": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/$defs/__schema0"
+                        "$ref": "#/components/schemas/types-response--__schema0"
                       }
                     }
                   },
@@ -15806,47 +15808,45 @@
         "required": [
           "types"
         ],
-        "additionalProperties": false,
-        "$defs": {
-          "__schema0": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
+        "additionalProperties": false
+      },
+      "types-response--__schema0": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "array": {
+            "type": "boolean"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/types-response--__schema0"
+                }
               },
-              "type": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 255
-              },
-              "array": {
-                "type": "boolean"
-              },
-              "fields": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/$defs/__schema0"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "name",
-              "type",
-              "array",
-              "fields"
-            ],
-            "additionalProperties": false
+            ]
           }
-        }
+        },
+        "required": [
+          "name",
+          "type",
+          "array",
+          "fields"
+        ],
+        "additionalProperties": false
       },
       "update-app-request": {
         "type": "object",

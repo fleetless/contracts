@@ -157,6 +157,19 @@ export interface RouteEntry {
   readonly params: readonly RouteParam[]
   readonly query: ZodType | null
   readonly request: ZodType | null
+  /**
+   * The handler accepts a **missing** body; the schema still describes it when
+   * one is present. Absent means a body is required.
+   *
+   * It exists because the OpenAPI render marked every request body `required`,
+   * which documented a refusal `POST /api/robots/:id/jobs/:slug/cancel` does not
+   * make: it parses `request.body ?? {}`, and a bodyless `POST` was every
+   * caller's shape before `job_id` existed. Getting that wrong in the other
+   * direction is what W5's worst bug was — a bodyless `POST` with a JSON
+   * content type rejected outright — so this is a fact worth carrying rather
+   * than a default worth assuming.
+   */
+  readonly requestOptional?: true
   readonly response: ZodType | null
   readonly errors: readonly ErrorCode[]
   readonly transport: RouteTransport
@@ -971,6 +984,8 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: null,
     errors: ['rate_limited'], transport: 'http',
     notes:
+      'The query is RFC 6749 §4.1.1\'s — `client_id`, `redirect_uri`, `response_type`, `code_challenge`, `code_challenge_method`, `state`, ' +
+      '`resource` — read parameter by parameter, and contracts declares no schema for it, so nothing here pins its shape. ' +
       '**`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a ' +
       'browser to it is the attack. Those two refusals are RFC 6749\'s flat `oauthError` shape at `400`; everything validated afterwards ' +
       '(`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a ' +
@@ -1066,7 +1081,8 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
     errors: ['rate_limited'], transport: 'http',
     notes:
-      'RFC 7591. `?app_identifier=` names the app and is required; an app that does not accept dynamic clients answers `oauthError` ' +
+      'RFC 7591. `?app_identifier=` names the app and is required; it is read directly and contracts declares no schema for this query, so it ' +
+      'appears in no parameter table. An app that does not accept dynamic clients answers `oauthError` ' +
       '`access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the ' +
       'rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.',
   },
@@ -1608,12 +1624,11 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: putConfigDraftRequest, response: configDraftResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'invalid_yaml', 'unstorable_yaml'], transport: 'http',
     notes:
       'The request carries the **text**, not a document: the author\'s comments and layout are what a restore has to give back, so the source ' +
       'is what is stored and the document is derived from it. Text that is not YAML at all is `422 invalid_yaml`, and text that parses but ' +
-      'cannot be stored is `422 unstorable_yaml`; **neither code is in `ERROR_CODES`** — they are route-local strings in the `apiError` ' +
-      'envelope, so a client matching on the catalogue will not recognise them. A document with schema errors is still stored, because the ' +
+      'cannot be stored — an anchor cycle, say — is `422 unstorable_yaml`. A document with schema errors is still stored, because the ' +
       'draft is where a developer works; publishing is where the errors block.',
   },
   {
@@ -1838,7 +1853,7 @@ export const ROUTES: readonly RouteEntry[] = [
       { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
       { name: 'slug', description: 'The action slug from the published configuration; a service slug is refused.' },
     ],
-    query: null, request: cancelRequest, response: jobResponse,
+    query: null, request: cancelRequest, requestOptional: true, response: jobResponse,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'not_cancellable', 'robot_offline'], transport: 'http',
     notes:
       'The body is optional: a bodyless `POST` was every caller\'s shape before `job_id` existed, and absent or `job_id: null` both mean ' +

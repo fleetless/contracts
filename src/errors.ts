@@ -701,5 +701,31 @@ export const ERROR_CODES = [
    * `cloud/src/routes/console-oauth.ts` and `cloud/src/routes/oauth.ts`.
    */
   'wrong_browser',
+  /**
+   * `422` from `PUT /api/robots/:id/config/draft`: the text the author sent is
+   * not YAML at all. The parser's own message travels in `details`.
+   *
+   * **Catalogued in the same round as the two below it were found, and by the
+   * same means: reading the producer.** Both this and `unstorable_yaml` have
+   * been on the wire since the config editor shipped, as route-local string
+   * literals inside a perfectly ordinary `apiError` envelope — which is exactly
+   * why nothing noticed. The envelope validates; only the *code* was absent
+   * from the one list a client can match against, so a caller branching on
+   * `ERROR_CODES` fell through to its unknown-error arm for the single most
+   * common refusal the editor produces. That is this file's own "documented
+   * absence" failure, on the codes list itself. Produced by
+   * `cloud/src/routes/config.ts`.
+   */
+  'invalid_yaml',
+  /**
+   * `422` from the same route, for the other half: the text *is* YAML and
+   * cannot be stored — an anchor cycle, or anything else that parses into a
+   * value with no JSON representation.
+   *
+   * Two codes rather than one, because the two say different things to whoever
+   * typed the text: the first means "this is not YAML", the second means "this
+   * is YAML I cannot keep". Produced by `cloud/src/routes/config.ts`.
+   */
+  'unstorable_yaml',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

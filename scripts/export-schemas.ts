@@ -769,6 +769,7 @@ export interface RouteArtifactEntry {
   params: { name: string; description: string }[]
   query: string | null
   request: string | null
+  requestOptional?: true
   response: string | null
   errors: string[]
   transport: string
@@ -780,6 +781,11 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
     sections: ROUTE_SECTIONS,
     routes: ROUTES.map((r) => {
       const where = `${r.method} ${r.path}`
+      // Built in two halves so the optional `requestOptional` can be inserted
+      // where it belongs, between `request` and `response`. Assigning it
+      // afterwards would append it past `transport` — a key set on an object it
+      // is not already on goes to the end — and `routes.json`'s key order is
+      // part of what the documentation reads.
       const entry: RouteArtifactEntry = {
         method: r.method,
         path: r.path,
@@ -793,6 +799,7 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
         params: r.params.map((p) => ({ name: p.name, description: p.description })),
         query: r.query === null ? null : schemaName(r.query, `${where} query`),
         request: r.request === null ? null : schemaName(r.request, `${where} request`),
+        ...(r.requestOptional === true ? { requestOptional: true as const } : {}),
         response: r.response === null ? null : schemaName(r.response, `${where} response`),
         errors: [...r.errors],
         transport: r.transport,
@@ -803,18 +810,86 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
   }
 }
 
-const SECURITY: Record<RouteEntry['auth'], object[]> = {
+const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
   developer: [{ developerSession: [] }],
   developer_or_client: [{ developerSession: [] }, { clientToken: [] }, { serverKey: [] }],
   none: [],
   robot_upload: [],
-  in_handler: [],
 }
 
-function componentSchema(name: string): Record<string, unknown> {
+/**
+ * **`auth: 'in_handler'` is three different credentials, not one**, so a single
+ * blanket entry in `SECURITY` was wrong: it said `security: []` — *this route
+ * needs no authentication* — about `POST /mcp`, which needs an OAuth access
+ * token and answers `401` with a `WWW-Authenticate` challenge without one.
+ *
+ * `POST /mcp`'s bearer is an OAuth access token, which `clientToken` already
+ * describes. The two asset-link routes carry their signed token **in the
+ * path**, and OpenAPI has no security scheme for that — `apiKey` covers a
+ * header, a query parameter or a cookie, and nothing else — so `[]` plus a
+ * sentence at the top of the operation description is the honest form. It is
+ * the one case where an empty list is a statement rather than an oversight,
+ * which is why it is written here beside the other two rather than inherited.
+ *
+ * Keyed by `METHOD /path`, and a test holds its keys to `IN_HANDLER_ROUTES`:
+ * a fourth in-handler route added without a decision here would otherwise
+ * inherit the same silent `[]` this comment exists to have removed.
+ */
+export const IN_HANDLER_SECURITY: Record<string, object[]> = {
+  'POST /mcp': [{ clientToken: [] }],
+  'GET /api/asset-links/:token': [],
+  'GET /api/asset-links/missing': [],
+}
+
+/** The sentence prepended to the description of an operation whose credential is a path segment. */
+const PATH_TOKEN_NOTE = 'The signed token in the path is the credential; no other authentication applies.'
+
+/**
+ * **A component and every definition it hides underneath it.**
+ *
+ * `z.toJSONSchema` extracts a recursive sub-schema into the document's own
+ * `$defs` and points at it with `#/$defs/<name>` — a pointer that is correct in
+ * a standalone JSON Schema file and **dangling in an OpenAPI document**, where
+ * the document root is the whole API and `$defs` is not one of its members. Two
+ * components hit this (`types-response` and `fetch-types-response`, both
+ * carrying the recursive `typeDefinition`), and the result was fourteen
+ * `$ref`s to `#/$defs/__schema0`, which resolves to nothing at all: a tool
+ * reading the document either errors or silently treats the field as untyped.
+ *
+ * So each `$defs` entry is hoisted to a component of its own, named
+ * `<component>--<defName>`, and every pointer to it is rewritten. The name is
+ * prefixed rather than used bare because zod's generated names are positional
+ * (`__schema0`) — two components would otherwise collide on one, and the later
+ * hoist would silently win.
+ *
+ * The rewrite walks the whole value, the hoisted definitions included: a
+ * recursive definition refers to *itself* through the same pointer, so
+ * rewriting only the parent would leave the inner one dangling and look fixed
+ * from the outside.
+ */
+function componentSchemas(name: string): Record<string, Record<string, unknown>> {
   const schema = exportedSchemas[name as keyof typeof exportedSchemas]
-  const { $schema: _dropped, ...rest } = z.toJSONSchema(schema, { io: schemaIo(name) }) as Record<string, unknown>
-  return rest
+  const { $schema: _dropped, $defs, ...rest } = z.toJSONSchema(schema, { io: schemaIo(name) }) as Record<string, unknown>
+  const defs = ($defs as Record<string, unknown> | undefined) ?? {}
+  const rename = new Map(Object.keys(defs).map((d) => [`#/$defs/${d}`, `#/components/schemas/${name}--${d}`]))
+  const rewrite = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(rewrite)
+    if (value === null || typeof value !== 'object') return value
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+        k,
+        k === '$ref' && typeof v === 'string' && rename.has(v) ? rename.get(v)! : rewrite(v),
+      ]),
+    )
+  }
+  const out: Record<string, Record<string, unknown>> = { [name]: rewrite(rest) as Record<string, unknown> }
+  for (const [defName, def] of Object.entries(defs)) out[`${name}--${defName}`] = rewrite(def) as Record<string, unknown>
+  return out
+}
+
+/** The component itself, for the one caller that reads a query schema's own `properties`. */
+function componentSchema(name: string): Record<string, unknown> {
+  return componentSchemas(name)[name]!
 }
 
 export function openApiDocument(): Record<string, any> {
@@ -831,13 +906,13 @@ export function openApiDocument(): Record<string, any> {
       for (const [name, schema] of Object.entries((q.properties as Record<string, unknown>) ?? {})) {
         parameters.push({ name, in: 'query', required: required.has(name), schema })
       }
-      components[r.query] = q
+      Object.assign(components, componentSchemas(r.query))
     }
     const operation: Record<string, unknown> = {
       operationId: `${r.method.toLowerCase()}_${r.path.replace(/^\//, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/_+$/, '')}`,
       summary: r.summary,
       tags: [r.section],
-      security: SECURITY[r.auth as RouteEntry['auth']],
+      security: r.auth === 'in_handler' ? IN_HANDLER_SECURITY[`${r.method} ${r.path}`] ?? [] : SECURITY[r.auth as Exclude<RouteEntry['auth'], 'in_handler'>],
       parameters,
       responses: {
         // **`status` is not always a success.** Two routes exist to refuse —
@@ -858,12 +933,22 @@ export function openApiDocument(): Record<string, any> {
         },
       },
     }
-    if (r.notes !== undefined) operation.description = r.notes
+    // The path-token sentence leads, because it is the fact that changes what a
+    // reader does: `security: []` on these two says "no scheme applies", and
+    // without this it reads as "no credential needed" — the opposite.
+    const pathToken = r.auth === 'in_handler' && (IN_HANDLER_SECURITY[`${r.method} ${r.path}`]?.length ?? 0) === 0
+    const description = pathToken ? (r.notes === undefined ? PATH_TOKEN_NOTE : `${PATH_TOKEN_NOTE} ${r.notes}`) : r.notes
+    if (description !== undefined) operation.description = description
     if (r.request !== null) {
-      operation.requestBody = { required: true, content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.request}` } } } }
-      components[r.request] = componentSchema(r.request)
+      // A route whose handler reads `request.body ?? {}` accepts a missing body,
+      // and `required: true` would document a refusal it does not make.
+      operation.requestBody = {
+        required: r.requestOptional !== true,
+        content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.request}` } } },
+      }
+      Object.assign(components, componentSchemas(r.request))
     }
-    if (r.response !== null) components[r.response] = componentSchema(r.response)
+    if (r.response !== null) Object.assign(components, componentSchemas(r.response))
     ;(paths[path] ??= {})[r.method.toLowerCase()] = operation
   }
   return {
@@ -883,7 +968,10 @@ export function openApiDocument(): Record<string, any> {
         clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
         serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
       },
-      schemas: Object.fromEntries(Object.entries(components).sort(([a], [b]) => a.localeCompare(b))),
+      // Code point, not `localeCompare`: that one's ordering depends on the
+      // host's ICU data, so the same source could emit two different documents
+      // on two machines and the staleness guard would call one of them stale.
+      schemas: Object.fromEntries(Object.entries(components).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
     },
   }
 }
