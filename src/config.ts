@@ -879,7 +879,7 @@ export const datapointNumeric = strictObject({
     examples: ['%'],
   }).optional(),
   decimals: z.number().int().min(0).max(6).meta({
-    description: 'How many decimal places every display of the value uses — tile, chart, detail page and MCP output alike. Presentation only: the stored value keeps the precision it arrived with.',
+    description: 'How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robot_describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console\'s own default rather than zero.',
     examples: [1],
   }).optional(),
 })

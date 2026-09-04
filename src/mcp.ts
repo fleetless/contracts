@@ -82,6 +82,14 @@ export const mcpExposure = z.object({
   description: z.string().max(2000).nullable(),
   /** A datapoint's `numeric.unit`, verbatim; `null` for every other kind and for a unitless datapoint. */
   unit: z.string().max(32).nullable(),
+  /**
+   * A datapoint's `numeric.decimals`, verbatim; `null` for every other kind
+   * and for a datapoint that does not set it. Required-nullable rather than
+   * optional for the same reason as `unit`: an omitted field would make a
+   * producer that forgot the datapoint's configuration indistinguishable from
+   * one reporting a datapoint that has none.
+   */
+  decimals: z.number().int().min(0).max(6).nullable(),
   input_schema: z.unknown().nullable(),
 })
 export type McpExposure = z.infer<typeof mcpExposure>

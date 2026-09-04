@@ -4,6 +4,7 @@ import {
   actionConfig,
   app,
   cameraConfig,
+  datapointNumeric,
   createAppRequest,
   datapointConfig,
   ERROR_CODES,
@@ -211,16 +212,16 @@ describe('mcp datasheet contracts', () => {
       robot_name: 'RX1',
       capabilities: { action_history: true, assets: false },
       exposures: [
-        { slug: 'battery', kind: 'datapoint', description: 'Battery charge.', unit: '%', input_schema: null },
-        { slug: 'dock', kind: 'action', description: null, unit: null, input_schema: { type: 'object', properties: {} } },
-        { slug: 'front', kind: 'camera', description: 'Front camera.', unit: null, input_schema: null },
+        { slug: 'battery', kind: 'datapoint', description: 'Battery charge.', unit: '%', decimals: 1, input_schema: null },
+        { slug: 'dock', kind: 'action', description: null, unit: null, decimals: null, input_schema: { type: 'object', properties: {} } },
+        { slug: 'front', kind: 'camera', description: 'Front camera.', unit: null, decimals: null, input_schema: null },
       ],
     })
     expect(sheet.exposures).toHaveLength(3)
   })
 
   /** One valid exposure and one valid datasheet, so a test can break exactly one thing. */
-  const EXPOSURE = { slug: 'front', kind: 'camera', description: null, unit: null, input_schema: null }
+  const EXPOSURE = { slug: 'front', kind: 'camera', description: null, unit: null, decimals: null, input_schema: null }
   const datasheet = (overrides: Record<string, unknown> = {}) => ({
     robot_id: ROBOT,
     robot_name: 'RX1',
@@ -263,6 +264,31 @@ describe('mcp datasheet contracts', () => {
     expect(preview([withoutCapabilities]).success).toBe(false)
   })
 
+  /**
+   * **`decimals` is required-nullable, like `unit`, and for the same reason.**
+   * An optional field lets a producer that has forgotten the datapoint's
+   * `numeric.decimals` look identical to one reporting a datapoint that has
+   * none — the two states this feature exists to separate. The bounds are the
+   * config field's own (`numeric.decimals`, 0..6, integer), re-derived here so
+   * that widening one side without the other fails rather than drifting.
+   */
+  it('carries a datapoint\'s decimals as a required nullable field', () => {
+    const dp = (overrides: Record<string, unknown> = {}) =>
+      ({ slug: 'battery', kind: 'datapoint', description: null, unit: '%', input_schema: null, decimals: 1, ...overrides })
+    expect(mcpExposure.parse(dp()).decimals).toBe(1)
+    expect(mcpExposure.parse(dp({ decimals: 0 })).decimals).toBe(0)
+    expect(mcpExposure.parse(dp({ decimals: null })).decimals).toBeNull()
+    const { decimals: _omitted, ...without } = dp()
+    expect(mcpExposure.safeParse(without).success).toBe(false)
+    expect(mcpExposure.safeParse(dp({ decimals: 6 })).success).toBe(true)
+    expect(mcpExposure.safeParse(dp({ decimals: 7 })).success).toBe(false)
+    expect(mcpExposure.safeParse(dp({ decimals: -1 })).success).toBe(false)
+    expect(mcpExposure.safeParse(dp({ decimals: 1.5 })).success).toBe(false)
+    // The bound this mirrors, read off the config schema rather than retyped.
+    expect(datapointNumeric.safeParse({ decimals: 6 }).success).toBe(true)
+    expect(datapointNumeric.safeParse({ decimals: 7 }).success).toBe(false)
+  })
+
   it('names the asset-link route and its lifetime', () => {
     expect(MCP_ASSET_LINK_PATH).toBe('/api/asset-links')
     expect(MCP_ASSET_LINK_TTL_MS).toBe(15 * 60 * 1000)
@@ -282,7 +308,7 @@ describe('mcp datasheet contracts', () => {
    * accepting exactly what a developer is allowed to write.
    */
   it('carries a maximal developer description verbatim', () => {
-    const exposure = { slug: 'battery', kind: 'datapoint' as const, unit: '%', input_schema: null }
+    const exposure = { slug: 'battery', kind: 'datapoint' as const, unit: '%', decimals: null, input_schema: null }
     const longest = 'x'.repeat(2000)
     expect(serviceDescription.safeParse(longest).success).toBe(true)
     // The human bound is the claim this test rests on, so it is re-derived in

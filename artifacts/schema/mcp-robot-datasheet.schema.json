@@ -72,6 +72,18 @@
               }
             ]
           },
+          "decimals": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "input_schema": {
             "anyOf": [
               {},
@@ -86,6 +98,7 @@
           "kind",
           "description",
           "unit",
+          "decimals",
           "input_schema"
         ],
         "additionalProperties": false
