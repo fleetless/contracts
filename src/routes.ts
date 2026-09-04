@@ -97,7 +97,9 @@ import {
   fetchTypesRequest,
   fetchTypesResponse,
   historyQuery,
+  historyResponse,
   introspectionResponse,
+  invokeOrServiceResponse,
   invokeRequest,
   jobResponse,
   liveSessionResponse,
@@ -1820,7 +1822,7 @@ export const ROUTES: readonly RouteEntry[] = [
       { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
       { name: 'slug', description: 'The action or service slug from the published configuration; the cloud already knows which kind it is.' },
     ],
-    query: null, request: invokeRequest, response: null,
+    query: null, request: invokeRequest, response: invokeOrServiceResponse,
     errors: [
       ...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'parameter_invalid',
       'robot_offline', 'busy', 'bridge_timeout', 'internal_error',
@@ -1828,7 +1830,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       '**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers ' +
       '`202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — ' +
-      'two shapes, so no single response schema is declared here. Parameters are checked **before** anything about the world (offline, busy): ' +
+      'two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): ' +
       'the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline ' +
       'robot never learns their parameters were wrong. A service the robot reports as failed answers `502` carrying **the job\'s own error ' +
       'code**, which is an open set and not one of the codes above.',
@@ -1960,11 +1962,11 @@ export const ROUTES: readonly RouteEntry[] = [
       { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
       { name: 'slug', description: 'The datapoint\'s slug from the published configuration.' },
     ],
-    query: historyQuery, request: null, response: null,
+    query: historyQuery, request: null, response: historyResponse,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'invalid_range', 'not_recorded', 'not_aggregatable'], transport: 'http',
     notes:
-      'Two answers, so no single response schema: without `window` it is a `historySamplesResponse`, with one it is a ' +
-      '`historyBucketsResponse`. `window` and `agg` must be given together or not at all — one without the other is refused rather than ' +
+      'Two answers, carried by one union (`historyResponse`): without `window` it is a `historySamplesResponse`, with one it is a ' +
+      '`historyBucketsResponse`, told apart by `kind`. `window` and `agg` must be given together or not at all — one without the other is refused rather than ' +
       'defaulted, since a silently chosen aggregation is a chart that lies quietly. A range and window that would produce more buckets than ' +
       '`limit` is `400 invalid_range` computed **before** the query runs: the bucket response carries no `truncated` field, so a refusal is ' +
       'the only honest answer. `409 not_recorded` says retention is off for this slug **right now** and deliberately does not claim the table ' +

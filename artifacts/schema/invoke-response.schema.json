@@ -105,14 +105,16 @@
         "result",
         "error"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "The job that now exists on this slug. It is returned as soon as the goal is accepted, so `state` is `running` here — the outcome is observed afterwards, by slug, over polling or a subscription."
     },
     "kind": {
       "type": "string",
       "enum": [
         "action",
         "service"
-      ]
+      ],
+      "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
     }
   },
   "required": [

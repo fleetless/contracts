@@ -21,7 +21,7 @@
     "token": {
       "type": "string",
       "minLength": 1,
-      "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards**."
+      "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards** — which is not the same as irrevocable: the cloud can still disconnect a participant after the fact, and does when membership, a role or a key changes."
     },
     "expires_at": {
       "type": "string",

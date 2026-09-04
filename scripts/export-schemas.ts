@@ -152,6 +152,7 @@ import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
+import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
@@ -442,6 +443,14 @@ export const exportedSchemas = {
   'robot-jobs-response': robotJobsResponse, // GET /api/robots/:id/jobs
   'cancel-request': cancelRequest, // POST /api/robots/:id/jobs/:slug/cancel
   'release-live-query': releaseLiveQuery, // DELETE /api/robots/:id/cameras/:slug/live
+  // **Two routes answer one of two shapes, so each names a union.** Both
+  // carried `response: null` while their handler demonstrably answers
+  // something — which the generated reference renders as *returns nothing*,
+  // the reading a `null` should be reserved for (`204`). The members stay
+  // registered in their own right where they already were; the union is what
+  // the route entry points at.
+  'invoke-or-service-response': invokeOrServiceResponse, // POST /api/robots/:id/jobs/:slug
+  'history-response': historyResponse, // GET /api/robots/:id/datapoints/:slug/history
   'asset-sync-request': assetSyncRequest, // POST /api/robots/:id/assets/sync
   'asset-sync-response': assetSyncResponse, // POST /api/robots/:id/assets/sync
 
@@ -631,6 +640,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'authorization-server-metadata', 'protected-resource-metadata',
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response',
+  'invoke-or-service-response', 'history-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
   // Every one of these appears only inside a response, which is what makes

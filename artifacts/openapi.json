@@ -5286,7 +5286,14 @@
         ],
         "responses": {
           "202": {
-            "description": "Success."
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/invoke-or-service-response"
+                }
+              }
+            }
           },
           "default": {
             "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `parameter_invalid`, `robot_offline`, `busy`, `bridge_timeout`, `internal_error`.",
@@ -5299,7 +5306,7 @@
             }
           }
         },
-        "description": "**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, so no single response schema is declared here. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above.",
+        "description": "**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5931,7 +5938,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success."
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/history-response"
+                }
+              }
+            }
           },
           "default": {
             "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `invalid_range`, `not_recorded`, `not_aggregatable`.",
@@ -5944,7 +5958,7 @@
             }
           }
         },
-        "description": "Two answers, so no single response schema: without `window` it is a `historySamplesResponse`, with one it is a `historyBucketsResponse`. `window` and `agg` must be given together or not at all — one without the other is refused rather than defaulted, since a silently chosen aggregation is a chart that lies quietly. A range and window that would produce more buckets than `limit` is `400 invalid_range` computed **before** the query runs: the bucket response carries no `truncated` field, so a refusal is the only honest answer. `409 not_recorded` says retention is off for this slug **right now** and deliberately does not claim the table is empty — rows written before the switch was flipped still exist, unreadable through any route and still counting against the quota."
+        "description": "Two answers, carried by one union (`historyResponse`): without `window` it is a `historySamplesResponse`, with one it is a `historyBucketsResponse`, told apart by `kind`. `window` and `agg` must be given together or not at all — one without the other is refused rather than defaulted, since a silently chosen aggregation is a chart that lies quietly. A range and window that would produce more buckets than `limit` is `400 invalid_range` computed **before** the query runs: the bucket response carries no `truncated` field, so a refusal is the only honest answer. `409 not_recorded` says retention is off for this slug **right now** and deliberately does not claim the table is empty — rows written before the switch was flipped still exist, unreadable through any route and still counting against the quota."
       }
     },
     "/api/robots/{id}/assets": {
@@ -12714,6 +12728,155 @@
           "from"
         ]
       },
+      "history-response": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                "description": "The datapoint these samples belong to."
+              },
+              "kind": {
+                "type": "string",
+                "const": "samples",
+                "description": "Says this is the raw-sample shape, which the query asked for by omitting `window`. A client reads this rather than inspecting which fields arrived."
+              },
+              "samples": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "timestamp_ms": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "When the sample was captured, as a unix timestamp in milliseconds. It is the **bridge's capture time** — the same instant the live value carried, so a recorded point and a live one sit on one axis without apology."
+                    },
+                    "value": {
+                      "description": "The value as it was stored, shaped by the datapoint. A `field` in the query narrows a message down to one number; without one the whole stored value comes back."
+                    }
+                  },
+                  "required": [
+                    "timestamp_ms",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "The samples in the queried window, oldest first. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window."
+              },
+              "truncated": {
+                "type": "boolean",
+                "description": "Whether the response was cut short. A short array that does not admit it is indistinguishable from a quiet period, and the two lead a developer to opposite conclusions."
+              },
+              "truncated_by": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "limit",
+                      "bytes"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Why it was cut, and `null` when it was not — the two causes have **different remedies** and one boolean cannot tell them apart. `limit` means too many rows, so raising `limit` helps. `bytes` means the rows are large, so raising `limit` changes nothing: narrow the range, or name a numeric `field` so whole messages are not carried."
+              }
+            },
+            "required": [
+              "slug",
+              "kind",
+              "samples",
+              "truncated",
+              "truncated_by"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                "description": "The datapoint these buckets summarise."
+              },
+              "kind": {
+                "type": "string",
+                "const": "buckets",
+                "description": "Says this is the aggregated shape, which the query asked for by naming a `window`. A separate shape rather than the sample shape with nulls in it, so a client knows by type what it received rather than by inspection."
+              },
+              "window_ms": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "The bucket width actually used, in milliseconds — the query's `window` resolved to a number, so a rendered chart can say what it is drawing without re-parsing the expression it sent."
+              },
+              "agg": {
+                "type": "string",
+                "enum": [
+                  "min",
+                  "max",
+                  "avg"
+                ],
+                "description": "How each bucket reduced the samples inside it, echoed back from the query."
+              },
+              "buckets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "bucket_start_ms": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "The instant this bucket opens, as a unix timestamp in milliseconds. Buckets are half-open and `window_ms` wide, so this one covers up to but not including `bucket_start_ms + window_ms`."
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The aggregate over this bucket's **numeric** samples, or `null` when none of them were numeric — which is **not** the same as the bucket being empty. `sample_count` separates those: `null` with a count of `0` is a gap a chart should draw as a break, `null` with a count above `0` is data that simply has no height."
+                    },
+                    "sample_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "Every sample that landed in this bucket and inside the queried range, whether or not it contributed to `value` — only a count of *all* samples can prove a bucket empty rather than merely unplottable. Two consequences: `value * sample_count` is **not** a sum, and on a first or last bucket the count reflects the range rather than the bucket, so a low edge count is a boundary effect and not a quiet period."
+                    }
+                  },
+                  "required": [
+                    "bucket_start_ms",
+                    "value",
+                    "sample_count"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "The buckets covering the queried window, oldest first. A range and window that would produce more than `limit` buckets is refused before the query runs, because this shape carries no `truncated` field and a refusal is then the only honest answer."
+              }
+            },
+            "required": [
+              "slug",
+              "kind",
+              "window_ms",
+              "agg",
+              "buckets"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
       "introspection-response": {
         "type": "object",
         "properties": {
@@ -12830,6 +12993,146 @@
           "stale"
         ],
         "additionalProperties": false
+      },
+      "invoke-or-service-response": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "job": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The job's id, minted by the cloud when the invocation is accepted. Informative: state is observed by slug, and this id is what a cancel names when a caller wants to stop one specific job rather than whatever is running."
+                  },
+                  "robot_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The robot this job is running on."
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 63,
+                    "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                    "description": "The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one."
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "running",
+                      "succeeded",
+                      "failed",
+                      "cancelled",
+                      "lost"
+                    ],
+                    "description": "Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — and is said out loud rather than left reading `running` because nobody contradicted it."
+                  },
+                  "started_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge it is **adoption time**, not the real start, because the cloud never minted it and has no honest alternative."
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When this job last changed, as an ISO 8601 timestamp."
+                  },
+                  "seq": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders."
+                  },
+                  "result": {
+                    "anyOf": [
+                      {},
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+                  },
+                  "error": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
+                          },
+                          "message": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "A human-readable sentence saying what went wrong."
+                          },
+                          "details": {
+                            "description": "The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them."
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`."
+                  }
+                },
+                "required": [
+                  "id",
+                  "robot_id",
+                  "slug",
+                  "state",
+                  "started_at",
+                  "updated_at",
+                  "seq",
+                  "result",
+                  "error"
+                ],
+                "additionalProperties": false,
+                "description": "The job that now exists on this slug. It is returned as soon as the goal is accepted, so `state` is `running` here — the outcome is observed afterwards, by slug, over polling or a subscription."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "action",
+                  "service"
+                ],
+                "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
+              }
+            },
+            "required": [
+              "job",
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "result": {
+                "description": "What the service returned, shaped by the ROS service itself. A service call is awaited to completion, so there is no job to observe afterwards and no id to hold on to."
+              }
+            },
+            "required": [
+              "result"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "invoke-request": {
         "type": "object",
@@ -13365,7 +13668,7 @@
           "token": {
             "type": "string",
             "minLength": 1,
-            "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards**."
+            "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards** — which is not the same as irrevocable: the cloud can still disconnect a participant after the fact, and does when membership, a role or a key changes."
           },
           "expires_at": {
             "type": "string",

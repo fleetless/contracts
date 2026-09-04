@@ -439,17 +439,46 @@ export const releaseLiveQuery = z.object({
 export type ReleaseLiveQuery = z.infer<typeof releaseLiveQuery>
 
 export const invokeResponse = z.object({
-  job,
+  job: job.meta({
+    description: 'The job that now exists on this slug. It is returned as soon as the goal is accepted, so `state` is `running` here — the outcome is observed afterwards, by slug, over polling or a subscription.',
+  }),
   /** The slug's kind — see `commandResult.kind` for why the caller needs it. */
-  kind: z.enum(['action', 'service']),
+  kind: z.enum(['action', 'service']).meta({
+    description: 'Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape.',
+  }),
 })
 export type InvokeResponse = z.infer<typeof invokeResponse>
 
 /** A service call answers with its result directly — no job to observe. */
 export const serviceCallResponse = z.object({
-  result: z.unknown(),
+  result: z.unknown().meta({
+    description: 'What the service returned, shaped by the ROS service itself. A service call is awaited to completion, so there is no job to observe afterwards and no id to hold on to.',
+  }),
 })
 export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
+
+/**
+ * **What `POST /api/robots/:id/jobs/:slug` answers, which is one of two
+ * shapes.**
+ *
+ * One route serves both kinds, because a path segment naming the kind would
+ * demand a fact a role grant does not carry. **The slug's kind decides, and
+ * nothing in the request does**: an *action* answers `202` with an
+ * `invokeResponse` the moment the job exists, a *service* answers `200` with
+ * a `serviceCallResponse` once the result is in. They differ only in what the
+ * cloud waits for before it answers.
+ *
+ * The two are told apart without inspecting the status code: `invokeResponse`
+ * carries `kind` and `job`, `serviceCallResponse` carries `result` alone.
+ *
+ * **This union exists so the route can name a response at all.** The entry
+ * carried `response: null` while the handler demonstrably answers something,
+ * which reads in the generated reference as *this route returns nothing* —
+ * the documented absence this project keeps paying for. A `null` there should
+ * mean `204`, and on this route it did not.
+ */
+export const invokeOrServiceResponse = z.union([invokeResponse, serviceCallResponse])
+export type InvokeOrServiceResponse = z.infer<typeof invokeOrServiceResponse>
 
 export const publishRequest = z.object({
   message: z.record(z.string(), z.unknown()).meta({
@@ -1018,7 +1047,7 @@ export const liveSessionResponse = z.object({
     description: 'The LiveKit room carrying this camera. Every viewer of one camera on one robot joins the same room, which is what makes the refcount hold meaningful.',
   }),
   token: z.string().min(1).meta({
-    description: 'The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards**.',
+    description: 'The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards** — which is not the same as irrevocable: the cloud can still disconnect a participant after the fact, and does when membership, a role or a key changes.',
   }),
   expires_at: z.iso.datetime().meta({
     description: 'The deadline for **joining**, as an ISO 8601 timestamp — not a session backstop. A viewer who has already joined keeps receiving video past this moment, so cleanup belongs in an explicit release, never in a timer built on this value.',
@@ -1182,10 +1211,23 @@ export type HistoryQuery = z.infer<typeof historyQuery>
  * developer to opposite conclusions.
  */
 export const historySamplesResponse = z.object({
-  slug,
-  kind: z.literal('samples'),
-  samples: z.array(z.object({ timestamp_ms: z.number().int().nonnegative(), value: z.unknown() })),
-  truncated: z.boolean(),
+  slug: slug.meta({ description: 'The datapoint these samples belong to.' }),
+  kind: z.literal('samples').meta({
+    description: 'Says this is the raw-sample shape, which the query asked for by omitting `window`. A client reads this rather than inspecting which fields arrived.',
+  }),
+  samples: z.array(z.object({
+    timestamp_ms: z.number().int().nonnegative().meta({
+      description: 'When the sample was captured, as a unix timestamp in milliseconds. It is the **bridge\'s capture time** — the same instant the live value carried, so a recorded point and a live one sit on one axis without apology.',
+    }),
+    value: z.unknown().meta({
+      description: 'The value as it was stored, shaped by the datapoint. A `field` in the query narrows a message down to one number; without one the whole stored value comes back.',
+    }),
+  })).meta({
+    description: 'The samples in the queried window, oldest first. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window.',
+  }),
+  truncated: z.boolean().meta({
+    description: 'Whether the response was cut short. A short array that does not admit it is indistinguishable from a quiet period, and the two lead a developer to opposite conclusions.',
+  }),
   /**
    * Why it was cut, `null` when it was not — because the two causes have
    * **different remedies** and a single boolean cannot tell them apart:
@@ -1204,7 +1246,9 @@ export const historySamplesResponse = z.object({
    * `required` in the JSON Schema artifacts, which is the contradiction this
    * project has now hit five times.
    */
-  truncated_by: z.enum(['limit', 'bytes']).nullable(),
+  truncated_by: z.enum(['limit', 'bytes']).nullable().meta({
+    description: 'Why it was cut, and `null` when it was not — the two causes have **different remedies** and one boolean cannot tell them apart. `limit` means too many rows, so raising `limit` helps. `bytes` means the rows are large, so raising `limit` changes nothing: narrow the range, or name a numeric `field` so whole messages are not carried.',
+  }),
 })
 export type HistorySamplesResponse = z.infer<typeof historySamplesResponse>
 
@@ -1219,13 +1263,21 @@ export type HistorySamplesResponse = z.infer<typeof historySamplesResponse>
  * product to draw a gap as a line.
  */
 export const historyBucketsResponse = z.object({
-  slug,
-  kind: z.literal('buckets'),
-  window_ms: z.number().int().positive(),
-  agg: z.enum(['min', 'max', 'avg']),
+  slug: slug.meta({ description: 'The datapoint these buckets summarise.' }),
+  kind: z.literal('buckets').meta({
+    description: 'Says this is the aggregated shape, which the query asked for by naming a `window`. A separate shape rather than the sample shape with nulls in it, so a client knows by type what it received rather than by inspection.',
+  }),
+  window_ms: z.number().int().positive().meta({
+    description: 'The bucket width actually used, in milliseconds — the query\'s `window` resolved to a number, so a rendered chart can say what it is drawing without re-parsing the expression it sent.',
+  }),
+  agg: z.enum(['min', 'max', 'avg']).meta({
+    description: 'How each bucket reduced the samples inside it, echoed back from the query.',
+  }),
   buckets: z.array(
     z.object({
-      bucket_start_ms: z.number().int().nonnegative(),
+      bucket_start_ms: z.number().int().nonnegative().meta({
+        description: 'The instant this bucket opens, as a unix timestamp in milliseconds. Buckets are half-open and `window_ms` wide, so this one covers up to but not including `bucket_start_ms + window_ms`.',
+      }),
       /**
        * The aggregate over this bucket's **numeric** samples — or `null` when
        * none of them were numeric, which is **not** the same as the bucket
@@ -1243,7 +1295,9 @@ export const historyBucketsResponse = z.object({
        * so the second row above was indistinguishable from the first and the
        * console rendered "empty — no samples" over live data.
        */
-      value: z.number().nullable(),
+      value: z.number().nullable().meta({
+        description: 'The aggregate over this bucket\'s **numeric** samples, or `null` when none of them were numeric — which is **not** the same as the bucket being empty. `sample_count` separates those: `null` with a count of `0` is a gap a chart should draw as a break, `null` with a count above `0` is data that simply has no height.',
+      }),
       /**
        * Every sample that landed in this bucket and inside the queried range,
        * whether or not it contributed to `value` — which is the point of the
@@ -1260,11 +1314,38 @@ export const historyBucketsResponse = z.object({
        *   and only in-range samples are counted. A low edge count is a
        *   boundary effect, not a quiet period.
        */
-      sample_count: z.number().int().nonnegative(),
+      sample_count: z.number().int().nonnegative().meta({
+        description: 'Every sample that landed in this bucket and inside the queried range, whether or not it contributed to `value` — only a count of *all* samples can prove a bucket empty rather than merely unplottable. Two consequences: `value * sample_count` is **not** a sum, and on a first or last bucket the count reflects the range rather than the bucket, so a low edge count is a boundary effect and not a quiet period.',
+      }),
     }),
-  ),
+  ).meta({
+    description: 'The buckets covering the queried window, oldest first. A range and window that would produce more than `limit` buckets is refused before the query runs, because this shape carries no `truncated` field and a refusal is then the only honest answer.',
+  }),
 })
 export type HistoryBucketsResponse = z.infer<typeof historyBucketsResponse>
+
+/**
+ * **What `GET /api/robots/:id/datapoints/:slug/history` answers, which is one
+ * of two shapes.**
+ *
+ * **The query decides, and only the query**: without `window` it is a
+ * `historySamplesResponse`, with one it is a `historyBucketsResponse`.
+ * `window` and `agg` must be given together or not at all — one without the
+ * other is refused rather than defaulted, since a silently chosen aggregation
+ * is a chart that lies quietly.
+ *
+ * Told apart by `kind`, which is `'samples'` or `'buckets'`, so a client
+ * branches on a field rather than on which other fields happen to be present.
+ * The two are deliberately not one shape with nullable halves: an aggregate
+ * and a raw reading answer different questions, and `sample_count` exists on
+ * only one of them.
+ *
+ * **This union exists so the route can name a response at all.** The entry
+ * carried `response: null` while the handler demonstrably answers something,
+ * which reads in the generated reference as *this route returns nothing*.
+ */
+export const historyResponse = z.union([historySamplesResponse, historyBucketsResponse])
+export type HistoryResponse = z.infer<typeof historyResponse>
 
 /**
  * W6a — deletion, and the one channel that reports health.

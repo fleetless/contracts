@@ -6,11 +6,13 @@
       "type": "string",
       "minLength": 2,
       "maxLength": 63,
-      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The datapoint these samples belong to."
     },
     "kind": {
       "type": "string",
-      "const": "samples"
+      "const": "samples",
+      "description": "Says this is the raw-sample shape, which the query asked for by omitting `window`. A client reads this rather than inspecting which fields arrived."
     },
     "samples": {
       "type": "array",
@@ -20,19 +22,24 @@
           "timestamp_ms": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "When the sample was captured, as a unix timestamp in milliseconds. It is the **bridge's capture time** — the same instant the live value carried, so a recorded point and a live one sit on one axis without apology."
           },
-          "value": {}
+          "value": {
+            "description": "The value as it was stored, shaped by the datapoint. A `field` in the query narrows a message down to one number; without one the whole stored value comes back."
+          }
         },
         "required": [
           "timestamp_ms",
           "value"
         ],
         "additionalProperties": false
-      }
+      },
+      "description": "The samples in the queried window, oldest first. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Whether the response was cut short. A short array that does not admit it is indistinguishable from a quiet period, and the two lead a developer to opposite conclusions."
     },
     "truncated_by": {
       "anyOf": [
@@ -46,7 +53,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Why it was cut, and `null` when it was not — the two causes have **different remedies** and one boolean cannot tell them apart. `limit` means too many rows, so raising `limit` helps. `bytes` means the rows are large, so raising `limit` changes nothing: narrow the range, or name a numeric `field` so whole messages are not carried."
     }
   },
   "required": [
