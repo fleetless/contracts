@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "issuer": {
+      "type": "string",
+      "format": "uri"
+    },
+    "authorization_endpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "token_endpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "registration_endpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "response_types_supported": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "const": "code"
+      }
+    },
+    "grant_types_supported": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "authorization_code",
+          "refresh_token"
+        ]
+      }
+    },
+    "code_challenge_methods_supported": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "S256"
+        ]
+      }
+    },
+    "token_endpoint_auth_methods_supported": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "const": "none"
+      }
+    },
+    "scopes_supported": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "issuer",
+    "authorization_endpoint",
+    "token_endpoint",
+    "response_types_supported",
+    "grant_types_supported",
+    "code_challenge_methods_supported",
+    "token_endpoint_auth_methods_supported"
+  ],
+  "additionalProperties": false
+}

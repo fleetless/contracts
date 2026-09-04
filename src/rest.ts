@@ -252,11 +252,9 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
  * published configuration exposes. This is the seed of the generated
  * per-robot API (§11.2).
  *
- * **The OpenAPI rendering does not exist.** This comment used to name a
- * release it would "arrive in", and was wrong twice over: once when that
- * release shipped without it, and a second way ever since, because a promise
- * with an expired date reads as a plan rather than as a gap. It states the
- * fact instead of a schedule.
+ * **The OpenAPI rendering exists since the route manifest (`routes.ts`):
+ * `artifacts/openapi.json`, derived from the manifest and these schemas by
+ * `scripts/export-schemas.ts`.**
  */
 export const datapointDescriptor = z.object({
   slug,

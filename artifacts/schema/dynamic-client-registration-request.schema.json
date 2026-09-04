@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "client_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "redirect_uris": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "grant_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "authorization_code",
+          "refresh_token"
+        ]
+      }
+    },
+    "response_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "code"
+        ]
+      }
+    },
+    "token_endpoint_auth_method": {
+      "type": "string",
+      "enum": [
+        "none"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "client_name",
+    "redirect_uris"
+  ],
+  "additionalProperties": false
+}

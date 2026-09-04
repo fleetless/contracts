@@ -27,6 +27,8 @@
  */
 import type { ZodType } from 'zod'
 import { brandingConfig, createAppRequest, createServerKeyResponse, app as appSchema, rolePermissions, updateAppRequest } from './apps.js'
+import { alertListResponse, orgFiringAlertsResponse } from './alerts.js'
+import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
 import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientLogoutResponse, clientRefreshRequest } from './client-auth.js'
 import type { ErrorCode } from './errors.js'
@@ -67,14 +69,59 @@ import {
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
 import { mcpRolePreviewResponse } from './mcp.js'
-import { consentGrantListResponse, consentRevokeResponse, oauthRedirectResponse } from './oauth.js'
 import {
+  authorizationServerMetadata,
+  consentDecision,
+  consentGrantListResponse,
+  consentRevokeResponse,
+  dynamicClientRegistrationRequest,
+  dynamicClientRegistrationResponse,
+  oauthClient,
+  oauthLoginRequest,
+  oauthRedirectResponse,
+  oauthTokenRequest,
+  oauthTokenResponse,
+  protectedResourceMetadata,
+} from './oauth.js'
+import {
+  cameraListResponse,
+  cancelRequest,
+  configDraftResponse,
+  configVersionResponse,
+  configVersionsResponse,
+  createRobotRequest,
+  createRobotResponse,
+  datapointListResponse,
+  datapointValue,
+  exposureListResponse,
+  fetchTypesRequest,
+  fetchTypesResponse,
+  historyQuery,
+  introspectionResponse,
+  invokeRequest,
+  jobResponse,
+  liveSessionResponse,
   orgLatencyQuery,
   orgLatencyResponse,
   orgQuotaUsage,
   orgUsageQuery,
   orgUsageResponse,
+  patchRobotRequest,
+  publishConfigResponse,
+  publishRequest,
+  putConfigDraftRequest,
+  putRobotDetailsRequest,
+  releaseLiveQuery,
+  renameSlugRequest,
+  renameSlugResponse,
   resourceHealthListResponse,
+  robotDeletionSummary,
+  robotDetailResponse,
+  robotJobsResponse,
+  robotListResponse,
+  slugUsageResponse,
+  snapshotMetaResponse,
+  typesResponse,
 } from './rest.js'
 
 export type RouteMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -827,6 +874,376 @@ export const ROUTES: readonly RouteEntry[] = [
       'nothing and records no audit event.',
   },
 
+  /* --------------------------------------------- oauth (app-scoped clients) */
+  {
+    method: 'POST', path: '/api/apps/:id/oauth-clients', section: 'oauth',
+    summary: "Registers an OAuth client on the app and returns its `client_id`.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: oauthClient,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    notes:
+      'The body is `{ "client_name": string, "redirect_uris": string[] }` and has no contract shape of its own: ' +
+      '`dynamicClientRegistrationRequest` is RFC 7591\'s wire for `POST /oauth/register` and carries four fields this route ignores, so ' +
+      'reusing it here would document a request that is not this one. A `redirect_uri` is refused as `validation_error` with rule ' +
+      '`invalid_redirect_uri`. This is a developer\'s own credential-bearing action, so it answers the `apiError` envelope, not RFC 6749\'s.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/oauth-clients', section: 'oauth',
+    summary: "Lists the app's OAuth clients, developer-registered and self-registered alike.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Answers `{ "oauth_clients": [oauthClient, …] }`. The envelope has no schema of its own in contracts; each element is an `oauthClient`, ' +
+      'and each carries its `registration` — a developer could otherwise not see the self-registered clients holding their own dynamic-client ' +
+      'ceiling shut.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/oauth-clients/:clientId', section: 'oauth',
+    summary: 'Removes an OAuth client registration from the app.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
+      { name: 'clientId', description: 'The OAuth `client_id` string, as listed by `GET /api/apps/:id/oauth-clients`; a client of another app answers `404`.' },
+    ],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The harsher of the two doors: the registration itself is gone, so the client cannot ask for consent again. ' +
+      '`DELETE …/consent` is the other one, which leaves the registration in place.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/oauth-clients/:clientId/consent', section: 'oauth',
+    summary: 'Revokes every end user\'s consent grant to one OAuth client of the app.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
+      { name: 'clientId', description: 'The OAuth `client_id` string, as listed by `GET /api/apps/:id/oauth-clients`; a client of another app answers `404`.' },
+    ],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '"Disconnect that AI tool", without deleting the registration. The revocation is read on the client\'s very next call, so no token ' +
+      'refresh has to happen first, and every other client the same end users granted is untouched. A client with no active grant answers ' +
+      '`404` rather than a `204` that would claim something was revoked.',
+  },
+
+  /* ----------------------------------------------- oauth (RFC metadata) */
+  {
+    method: 'GET', path: '/.well-known/oauth-authorization-server', section: 'oauth',
+    summary: 'Publishes the authorization-server metadata every OAuth 2.1 client reads before it does anything else.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: authorizationServerMetadata,
+    errors: [], transport: 'http',
+    notes:
+      'RFC 8414. No auth and no database read, so a client that can reach only this document can still plan the whole flow. ' +
+      '`code_challenge_methods_supported` is `["S256"]` and `token_endpoint_auth_methods_supported` is `["none"]`: every client here is public and PKCE is required.',
+  },
+  {
+    method: 'GET', path: '/.well-known/oauth-authorization-server/:appIdentifier', section: 'oauth',
+    summary: 'The same metadata for one app, whose `registration_endpoint` already carries the app identifier.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
+    query: null, request: null, response: authorizationServerMetadata,
+    errors: ['not_found'], transport: 'http',
+    notes:
+      'RFC 8414 §3.1\'s suffix-insertion rule: an issuer with a path component publishes its document here. The one functional difference from ' +
+      'the global document is `registration_endpoint`, which already names `?app_identifier=` — so a client that starts from this document ' +
+      'never needs that value from anywhere else. `authorization_endpoint` and `token_endpoint` stay the global ones, since `client_id` ' +
+      'already says which app. An unknown identifier is `404`, not a document describing nothing.',
+  },
+  {
+    method: 'GET', path: '/.well-known/oauth-protected-resource', section: 'oauth',
+    summary: 'Publishes what the stub resource says about who may authorize for it.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: protectedResourceMetadata,
+    errors: [], transport: 'http',
+    notes: 'RFC 9728, for the global `/mcp-stub/resource`. The per-app document lives under `/.well-known/oauth-protected-resource/mcp-stub/resource/:appIdentifier`.',
+  },
+
+  /* ------------------------------------------- oauth (the app sign-in flow) */
+  {
+    method: 'GET', path: '/oauth/authorize', section: 'oauth',
+    summary: 'Starts an end-user sign-in for an app and redirects the browser to the login card.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 302,
+    params: [], query: null, request: null, response: null,
+    errors: ['rate_limited'], transport: 'http',
+    notes:
+      '**`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a ' +
+      'browser to it is the attack. Those two refusals are RFC 6749\'s flat `oauthError` shape at `400`; everything validated afterwards ' +
+      '(`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a ' +
+      'configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the ' +
+      'rate limiter\'s `429 rate_limited`.',
+  },
+  {
+    method: 'POST', path: '/login', section: 'oauth',
+    summary: 'Checks an end user\'s password and hands back where the sign-in continues.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: oauthLoginRequest, response: oauthRedirectResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'invalid_credentials', 'forbidden'], transport: 'http',
+    notes:
+      '`interaction_id` travels in the **body**, never the URL: which app is being signed into is a property of the pending request the server ' +
+      'already holds, not an assertion the page gets to make. Two dialects, decided on the request body\'s content type — a real `<form>` ' +
+      'submission gets a `303` to the next step and the rendered pages for every refusal, a programmatic caller gets this `200` and the ' +
+      '`apiError` codes above. An org admin is redirected to the impersonation interstitial rather than straight on. ' +
+      '`oauthLoginResponse` is contracts\' alias for this response shape.',
+  },
+  {
+    method: 'GET', path: '/login', section: 'oauth',
+    summary: 'Serves the app login card the authorize step redirects a browser to.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML, branded per app. One path, both verbs: this GET draws the form and the POST above takes it. An expired, consumed, unknown or ' +
+      'hand-edited interaction renders one "sign-in is over" page at `410` — and so does a lapsed dynamic client, because a form whose ' +
+      'submission is already known to fail is a password typed for nothing.',
+  },
+  {
+    method: 'GET', path: '/oauth/impersonate', section: 'oauth',
+    summary: 'Serves the "sign in as" card an org admin sees instead of going straight to the app.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML, and the most disclosive page the portal has: it lists every assignable user of the app\'s group by email address. So the ' +
+      'browser-proof cookie is checked on this **GET** as well as on the POST — `interaction_id` is not a secret, since the client that ' +
+      'starts the flow learns its own from the authorize redirect, and without the cookie a self-registering client could read a customer\'s ' +
+      'roster off a page it never authenticated for. Refusals render the problem page carrying `wrong_browser` or `forbidden` as a document ' +
+      'attribute, not as an `apiError` body.',
+  },
+  {
+    method: 'POST', path: '/oauth/impersonate', section: 'oauth',
+    summary: 'Takes the org admin\'s choice of role or user and resumes the app sign-in as them.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: oauthRedirectResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'forbidden'], transport: 'http',
+    notes:
+      'The JSON body is `{ "interaction_id": string, "choice": impersonationChoice }`; that wrapper has no schema of its own, only the ' +
+      '`choice` does. A `<form>` cannot nest an object, so a browser sends one `act_as` field spelled `role:<id>` or `user:<id>`, parsed back ' +
+      'into the identical `choice` before anything downstream sees a difference. Signing in as another org admin is refused. The browser-proof ' +
+      'cookie is re-checked here, and a browser gets the rendered problem page where a JSON caller gets these codes.',
+  },
+  {
+    method: 'GET', path: '/oauth/consent', section: 'oauth',
+    summary: 'Serves the consent screen for a client asking to act for an end user.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML. The browser-proof cookie is checked on the GET as well as on the POST — the same gap that had to be closed on the impersonation ' +
+      'interstitial and the MCP consent screen. An interaction that is not authenticated yet, a lapsed dynamic client and the central client ' +
+      'all render the same `410` page.',
+  },
+  {
+    method: 'POST', path: '/oauth/consent', section: 'oauth',
+    summary: 'Records the end user\'s allow-or-deny and sends the browser back to the client.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: consentDecision, response: oauthRedirectResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'invalid_credentials'], transport: 'http',
+    notes:
+      'A JSON caller sends `consentDecision` and its bytes are untouched. A `<form>` cannot send a boolean, so a browser sends the pressed ' +
+      'button\'s `decision` value and **anything that is not exactly the Allow value denies**, including a submission carrying none — ' +
+      'fail-closed is the only defensible default on a screen whose whole job is to require a deliberate yes. `oauthConsentResponse` is ' +
+      'contracts\' alias for this response shape.',
+  },
+  {
+    method: 'POST', path: '/oauth/token', section: 'oauth',
+    summary: 'Exchanges an authorization code, or a refresh token, for an end-user access token.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
+    errors: ['rate_limited'], transport: 'http',
+    notes:
+      'Refusals use RFC 6749 §5.2\'s flat `oauthError` shape — it is a token endpoint, and that is the dialect a caller of one expects — so it ' +
+      'emits none of the other codes in this reference; only the rate limiter answers an `apiError`. The request is a discriminated union on ' +
+      '`grant_type` and is deliberately **not** strict: a conformant client may send parameters this server does not read, and refusing those ' +
+      'would be a conformance bug. `resource` (RFC 8707) is carried across every refresh rotation — a successor token minted without it would ' +
+      'be refused by the resource one token lifetime after a login that worked.',
+  },
+  {
+    method: 'POST', path: '/oauth/register', section: 'oauth',
+    summary: 'Registers a client dynamically against one app, when that app accepts dynamic clients.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
+    params: [], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
+    errors: ['rate_limited'], transport: 'http',
+    notes:
+      'RFC 7591. `?app_identifier=` names the app and is required; an app that does not accept dynamic clients answers `oauthError` ' +
+      '`access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the ' +
+      'rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.',
+  },
+
+  /* ------------------------------- oauth (the validating stub resource) */
+  {
+    method: 'GET', path: '/mcp-stub/resource', section: 'oauth',
+    summary: 'A resource that validates an access token\'s audience, so the minting side has something that refuses.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'Answers `{ ok, sub, resource }`, a cloud-local shape with no wire contract. It exists because a minting mechanism with no validator is ' +
+      'a check that cannot fail: this refuses a token whose `aud` names something else, and the gate measures the refusal. Its refusals are ' +
+      'RFC 6750\'s tiny `{ error, error_description }` with a `WWW-Authenticate` header naming its own metadata document, not `apiError`.',
+  },
+  {
+    method: 'GET', path: '/mcp-stub/resource/:appIdentifier', section: 'oauth',
+    summary: 'The same validating stub, scoped to one app.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
+    query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'The per-app half of the discovery walk: a client holding only this URL follows `401` → `WWW-Authenticate: resource_metadata=` → the ' +
+      'per-app protected-resource document → the per-app authorization-server document → `registration_endpoint`, and needs nothing told to it ' +
+      'out of band. An unknown identifier answers RFC 6750\'s `{ error: "invalid_request" }` at `404`, not the `apiError` envelope.',
+  },
+  {
+    method: 'GET', path: '/.well-known/oauth-protected-resource/mcp-stub/resource/:appIdentifier', section: 'oauth',
+    summary: 'The protected-resource metadata for one app\'s stub resource.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
+    query: null, request: null, response: protectedResourceMetadata,
+    errors: ['not_found'], transport: 'http',
+    notes:
+      'RFC 9728\'s path-suffix construction, the same rule the per-app authorization-server document follows. `authorization_servers` names the ' +
+      'per-app issuer, which is what lets a client reach the whole chain from the resource URL alone.',
+  },
+  {
+    method: 'GET', path: '/oauth/idp-callback', section: 'oauth',
+    summary: 'Takes the identity provider\'s redirect back and resumes the app sign-in as the federated user.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      '**Every failure renders the honest error page and never the Fleetless login form** — a form asking for a Fleetless password after an ' +
+      'identity-provider round trip is the phishing door this design closes by name. The page carries an `oidcCallbackError` code ' +
+      '(`invalid_request`, `exchange_failed`, `provider_misconfigured`, `idp_unreachable`, `claims_incomplete`, `jit_disabled`, ' +
+      '`email_collision`, `forbidden`), which is a different vocabulary from this reference\'s: none of these answers is an `apiError` ' +
+      'envelope. `state` is signed and checked before any database read. The SSRF defence sits at the discovery fetch and at the token ' +
+      'exchange, on the URL the provider\'s own document named.',
+  },
+
+  /* --------------------------------------------------------------- mcp */
+  {
+    method: 'GET', path: '/.well-known/oauth-protected-resource/mcp', section: 'mcp',
+    summary: 'Publishes what the MCP endpoint says about who may authorize for it.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: protectedResourceMetadata,
+    errors: [], transport: 'http',
+    notes:
+      'RFC 9728, for the one central MCP endpoint. `resource` and `authorization_servers` are the same URL: the MCP server is its own ' +
+      'authorization server here. There is no per-group document, because the path names no group — the token does.',
+  },
+  {
+    method: 'GET', path: '/.well-known/oauth-authorization-server/mcp', section: 'mcp',
+    summary: 'Publishes the authorization-server metadata an MCP client reads to sign a person in.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: authorizationServerMetadata,
+    errors: [], transport: 'http',
+    notes:
+      '`registration_endpoint` being present is the whole point of the dynamic-registration work: a client that finds it registers itself and ' +
+      'never asks a person for a `client_id`. `authorization_endpoint` is the only field that moves to the auth-portal origin when one is ' +
+      'configured — `issuer`, `token_endpoint` and the resource identifier stay canonical, because a client checks a token\'s `iss` and `aud` ' +
+      'against those strings and moving them would invalidate every token ever minted.',
+  },
+  {
+    method: 'POST', path: '/mcp/oauth/register', section: 'mcp',
+    summary: 'Registers an MCP client dynamically, with no app identifier and no human in the loop.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
+    params: [], query: null, request: null, response: dynamicClientRegistrationResponse,
+    errors: ['rate_limited'], transport: 'http',
+    notes:
+      'RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`: that shape is strict, and a strict schema here ' +
+      'would answer `400` to a conforming client and take the whole paste-the-URL flow down with it. `client_name` and `redirect_uris` are ' +
+      'read by hand; everything else is ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — ' +
+      'this authorization server issues `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly ' +
+      'that it did not get one. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`.',
+  },
+  {
+    method: 'GET', path: '/mcp/oauth/authorize', section: 'mcp',
+    summary: 'Starts an MCP sign-in and redirects the browser to the identify card.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'Client and `redirect_uri` are validated first and a failure there never redirects, the same open-redirect discipline the app flow ' +
+      'applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 ' +
+      '§7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that ' +
+      'registered itself seconds ago can name the port it bound, and widening the wildcard there would only widen where a stolen `client_id` ' +
+      'may send a browser. No group is chosen here: the email address on the next card decides it.',
+  },
+  {
+    method: 'GET', path: '/mcp/oauth/interaction/:id', section: 'mcp',
+    summary: 'Serves the "what is your email address" card of an MCP sign-in.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id minted by `GET /mcp/oauth/authorize`, which redirects the browser here.' }],
+    query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML, and a GET rather than the body of the authorize response — so it is reloadable, bookmarkable and survives a back button, which ' +
+      'the inline page it replaced was not. An expired, consumed, unknown or hand-edited interaction renders one page at `410`, and so does a ' +
+      'client whose dynamic registration lapsed in between.',
+  },
+  {
+    method: 'POST', path: '/mcp/oauth/identify', section: 'mcp',
+    summary: 'Takes the email address and decides whether this person signs in with a password or through their identity provider.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null,
+    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
+    notes:
+      'The identifier-first step: the **resolved user** decides the group and the provider, never a path segment and never the client. ' +
+      'A browser form post gets the password card, or a `303` to the identity provider; a JSON caller gets `{ "next" }`, which has no schema. ' +
+      'Rate limited per (route, ip, email) despite spending no credential, because a federated address sends this endpoint on an outbound ' +
+      'discovery request. A provider that is misconfigured or unreachable renders the problem page, not an `apiError`.',
+  },
+  {
+    method: 'POST', path: '/mcp/oauth/login', section: 'mcp',
+    summary: 'Checks the password and hands back where the MCP sign-in continues.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: oauthRedirectResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'invalid_credentials'], transport: 'http',
+    notes:
+      'The body is `{ "interaction_id", "email", "password" }`, read field by field rather than through a contract shape. A browser gets a ' +
+      '`303` — to the consent screen for a self-registered client, or straight to the callback for the central one — where a JSON caller gets ' +
+      'this `200` and `redirect_to`.',
+  },
+  {
+    method: 'GET', path: '/mcp/oauth/idp-callback', section: 'mcp',
+    summary: 'Takes the identity provider\'s redirect back and resumes the MCP sign-in as the federated user.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'One central callback for every group — the group is recovered from the interaction the signed `state` names, which is why this URL is ' +
+      'a constant a customer can register with their own identity provider once. Every failure renders the honest problem page with an ' +
+      '`oidcCallbackError` code, never the Fleetless login form and never an `apiError` envelope, for the reason the app flow\'s callback gives.',
+  },
+  {
+    method: 'GET', path: '/mcp/oauth/consent/:id', section: 'mcp',
+    summary: 'Serves the consent screen for an MCP client that registered itself.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id from the sign-in; the login step redirects the browser here.' }],
+    query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML. The browser-proof cookie is checked on this GET, not only on the POST. The **central** client never reaches this screen and ' +
+      'renders the `410` page instead: it is configured by the operator, so there is no self-registered stranger for a person to weigh up.',
+  },
+  {
+    method: 'POST', path: '/mcp/oauth/consent', section: 'mcp',
+    summary: 'Records the allow-or-deny and sends the browser back to the MCP client.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: oauthRedirectResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
+    notes:
+      'Fail-closed exactly as the app flow\'s consent POST is: the body carries the pressed button\'s `decision`, and anything that is not the ' +
+      'Allow value — a missing field included — denies. A denial still answers a `redirect_to`, carrying `error=access_denied` back to the ' +
+      'client, because a client that is refused must learn so from its own callback rather than from a page nobody sent it.',
+  },
+  {
+    method: 'POST', path: '/mcp/oauth/token', section: 'mcp',
+    summary: 'Exchanges an MCP authorization code for an access token.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: oauthTokenResponse,
+    errors: [], transport: 'http',
+    notes:
+      'Only `authorization_code` is supported — there is no refresh grant here, so a session ends when its token expires and the client signs ' +
+      'in again. Refusals are RFC 6749 §5.2\'s `oauthError`, so this route emits none of the codes in this reference. The response carries no ' +
+      '`refresh_token`; the shape is the same `oauthTokenResponse` the app flow answers, whose refresh field is optional. The code is ' +
+      'single-use, PKCE-verified, and its `resource` must match the audience it was authorized for.',
+  },
+
   /* ------------------------------- developer auth (the console\'s OAuth portal) */
   {
     method: 'GET', path: '/console/oauth/authorize', section: 'developer-auth',
@@ -917,6 +1334,36 @@ export const ROUTES: readonly RouteEntry[] = [
       'and that is the dialect a caller of one expects — so it emits none of the codes in this reference. Proof of possession is checked before ' +
       'the replay check, and the single-use consume is atomic, so exactly one caller ever mints. The Org Admins membership is re-read here: the ' +
       'code was minted earlier, and a user moved out in between must not get a console session.',
+  },
+
+  /* ---------------------------------------------------- mcp (the endpoint) */
+  {
+    method: 'GET', path: '/mcp/welcome', section: 'mcp',
+    summary: 'Serves the page that tells a person which URL to paste into their MCP client.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'HTML, one fixed document rendered once at startup — its inputs are process configuration, not request state. Cached for five minutes ' +
+      'rather than a day, because the URLs it names can change with a deployment. Its content security policy admits the page\'s own inline ' +
+      'style and script by SHA-256 rather than by `unsafe-inline`, and forbids every external fetch outright. A configured friendly URL that ' +
+      'is not a usable absolute http(s) URL is ignored rather than rendered: a typo in a deployment variable must not put a broken URL in ' +
+      'front of every end user.',
+  },
+  {
+    method: 'POST', path: '/mcp', section: 'mcp',
+    summary: 'The one MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null,
+    errors: ['unauthorized', 'forbidden', 'mcp_access_denied'], transport: 'http',
+    notes:
+      'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and ' +
+      'results are the schemas in each tool definition. **The bearer is verified inside the handler**, not by a route guard: the group comes ' +
+      'from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST ' +
+      'surface does not send. A `401 unauthorized` carries that challenge; a `403 mcp_access_denied` deliberately does not, because ' +
+      're-authenticating cannot help. `Origin` is checked against the cloud\'s own. The catalog is re-derived per request, so an admin ' +
+      'demoted mid-conversation loses the console tools on the next call — and a console tool name learned elsewhere is refused there too, ' +
+      'as a `forbidden` result rather than an unknown-tool error, since the name is real and saying otherwise sends the model hunting for a ' +
+      'spelling mistake it did not make. Stateless: a fresh transport per request, no session id, nothing survives the call.',
   },
 
   /* ------------------------------------------------------- apps (branding) */
@@ -1028,6 +1475,598 @@ export const ROUTES: readonly RouteEntry[] = [
       'shape names each of `developer_id`, `end_user_id` and `server_key_id` and fills exactly one.',
   },
 
+  /* ------------------------------------------------------------- robots */
+  {
+    method: 'POST', path: '/api/robots', section: 'robots',
+    summary: 'Creates a robot and returns its bridge token once.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [], query: null, request: createRobotRequest, response: createRobotResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'quota_exceeded'], transport: 'http',
+    notes:
+      '`token` is the only moment the raw bridge token exists outside the caller\'s hands — the cloud stores a hash, so nothing can read it ' +
+      'back and a caller who loses it rotates rather than recovers. Audited: this mints a credential that can speak for the org from anywhere, ' +
+      'and the event carries no `details`, because the one interesting value here is the token. `max_robots` is checked before anything is ' +
+      'created, which is only safe because robot deletion exists.',
+  },
+  {
+    method: 'GET', path: '/api/robots', section: 'robots',
+    summary: "Lists the org's robots with their connection state and exposure counts.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: robotListResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id', section: 'robots',
+    summary: 'Reads one robot with its published configuration state and live bridge state.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: robotDetailResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'A robot belonging to another org reads exactly like one that does not exist — `404`, never a `403`.',
+  },
+  {
+    method: 'PATCH', path: '/api/robots/:id', section: 'robots',
+    summary: 'Renames the robot.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: patchRobotRequest, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    notes:
+      'Answers `{ "robot": robot }`. The envelope has no schema of its own in contracts; the value is a `robot`. The lookup runs before the ' +
+      'body is parsed, so a robot outside the caller\'s org answers `404` whether or not the body was also malformed. Saving the name already ' +
+      'held writes nothing and records no audit event.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/deletion-preview', section: 'robots',
+    summary: 'Reports what deleting the robot would destroy, without destroying it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: robotDeletionSummary,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The same shape the delete\'s own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual ' +
+      'receipt agree by construction, and any difference between them is real drift — a robot that kept recording in between — rather than two ' +
+      'estimates that quietly disagree.',
+  },
+  {
+    method: 'DELETE', path: '/api/robots/:id', section: 'robots',
+    summary: 'Deletes a robot and everything it produced.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'robot_in_use', 'robot_deletion_partial'], transport: 'http',
+    notes:
+      'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
+      'for a robot outside their org, rather than a tier refusal that confirms the id exists. A full cascade — everything the robot produced ' +
+      'goes, except the audit trail, which is a record of what happened and must survive the thing it happened to. An open live session is ' +
+      '`409 robot_in_use` unless `?force=true` is passed, matched as the bare string so the caller has to actually say it. A cascade that ' +
+      'fails partway is `500 robot_deletion_partial` with the progress, never a bare `internal_error` that would read as "nothing happened".',
+  },
+  {
+    method: 'PUT', path: '/api/robots/:id/details', section: 'robots',
+    summary: 'Replaces the developer-maintained details document shown alongside the robot.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: putRobotDetailsRequest, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    notes:
+      'Answers `{ "details": robotDetailsDoc }`. The envelope has no schema of its own in contracts. The update is fanned out to every ' +
+      '`/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/datapoints', section: 'robots',
+    summary: 'Lists the datapoints of a robot, filtered to what the caller\'s role grants.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: datapointListResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'A developer bearer sees the robot\'s whole list unfiltered; an end user or a server key sees only the slugs their role grants, and a ' +
+      'robot their app does not attach answers `404` exactly as one that does not exist.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/exposures', section: 'robots',
+    summary: 'Lists every grantable slug of a robot with its kind — the material the roles matrix is built from.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: exposureListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'Developer-only: this is what a role *could* be granted, which is a configuration fact rather than something an end user is entitled to enumerate.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/datapoints/:slug', section: 'robots',
+    summary: 'Reads the latest value of one datapoint.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The datapoint\'s slug from the published configuration, as listed by `GET /api/robots/:id/datapoints`.' },
+    ],
+    query: null, request: null, response: datapointValue,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'unknown_datapoint', 'no_data'], transport: 'http',
+    notes:
+      'For a client caller the grant check runs **before** any existence lookup, with no extra query on either path to time: a denied slug and ' +
+      'a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is ' +
+      '`404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs ' +
+      'told apart. The plane built-ins (`bridge_state`, `robot_details`) answer here too, without appearing in any document.',
+  },
+
+  /* ------------------------------------------------- config (draft/publish) */
+  {
+    method: 'GET', path: '/api/robots/:id/config/draft', section: 'config',
+    summary: "Reads the robot's configuration draft, its author text and its current issues.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: configDraftResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a ' +
+      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses.',
+  },
+  {
+    method: 'PUT', path: '/api/robots/:id/config/draft', section: 'config',
+    summary: 'Replaces the draft with the author\'s text and answers the parsed document with its issues.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: putConfigDraftRequest, response: configDraftResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    notes:
+      'The request carries the **text**, not a document: the author\'s comments and layout are what a restore has to give back, so the source ' +
+      'is what is stored and the document is derived from it. Text that is not YAML at all is `422 invalid_yaml`, and text that parses but ' +
+      'cannot be stored is `422 unstorable_yaml`; **neither code is in `ERROR_CODES`** — they are route-local strings in the `apiError` ' +
+      'envelope, so a client matching on the catalogue will not recognise them. A document with schema errors is still stored, because the ' +
+      'draft is where a developer works; publishing is where the errors block.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/config/publish', section: 'config',
+    summary: 'Publishes the draft as an immutable version and sends it to the robot.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: publishConfigResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'draft_not_a_document'], transport: 'http',
+    notes:
+      'A draft that is valid YAML but not a Fleetless configuration is `422 draft_not_a_document`, carrying every issue rather than the ' +
+      'blocking subset — nothing about that text is publishable, so there is no subset to pick, and the warning naming the checks that could ' +
+      'not run is part of reading the list correctly. A document with `severity: "error"` issues is `422 validation_error` with just those. ' +
+      'The draft\'s own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/config/versions', section: 'config',
+    summary: 'Lists the published configuration versions of a robot with their publish times.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: configVersionsResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/config/versions/:v', section: 'config',
+    summary: 'Reads one published version: its document and the author text it was published from.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' },
+      { name: 'v', description: 'The version number, as listed by `GET /api/robots/:id/config/versions`.' },
+    ],
+    query: null, request: null, response: configVersionResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'A `:v` that is not a version number and one that names no version of this robot are the same `404`; the refusal quotes what the caller actually sent.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/config/versions/:v/restore', section: 'config',
+    summary: 'Copies a published version back into the draft, text and document both.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' },
+      { name: 'v', description: 'The version number, as listed by `GET /api/robots/:id/config/versions`.' },
+    ],
+    query: null, request: null, response: configDraftResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '**Both halves, not just the document** — a restore that put back the document alone would hand the author a configuration stripped of ' +
+      'every comment they wrote, which is the loss this format exists to prevent. The answer is read off the row that was written, not off the ' +
+      'version that was meant to be written. Nothing is published: the restored draft still has to be published to reach the robot.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/config/rename-slug', section: 'config',
+    summary: 'Renames a slug in the draft and rewrites every role grant and history row that named it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: renameSlugRequest, response: renameSlugResponse,
+    errors: [
+      ...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'draft_not_a_document',
+      'unknown_slug', 'reserved_slug', 'duplicate_slug', 'internal_error',
+    ], transport: 'http',
+    notes:
+      'One transaction over three places a slug is written down: the draft document, every app-role grant carrying it, and the recorded ' +
+      'history rows. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft ' +
+      'that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/config/slug-usage/:slug', section: 'config',
+    summary: 'Reports what a rename of one slug would touch, before a developer confirms it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' },
+      { name: 'slug', description: 'The slug in the **draft** whose blast radius is being previewed.' },
+    ],
+    query: null, request: null, response: slugUsageResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'draft_not_a_document'], transport: 'http',
+    notes:
+      'A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are ' +
+      '*this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius ' +
+      'than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole ' +
+      'purpose is to be complete is not worth the ambiguity.',
+  },
+
+  /* -------------------------------------------------------------- alerts */
+  {
+    method: 'GET', path: '/api/robots/:id/alerts', section: 'alerts',
+    summary: "Lists a robot's alerts as defined in its published configuration, joined with their runtime state.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: alertListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '**Read-only, and that is the design.** An alert used to be created, edited and deleted through this file; it is now a key in the ' +
+      'published document, which is what makes every change to one versioned, comparable and revertible. The **published** version is read, ' +
+      'never the draft: an alert typed but not published is evaluated by nothing, and reporting its state would claim a reading no machine has taken.',
+  },
+  {
+    method: 'GET', path: '/api/org/alerts', section: 'alerts',
+    summary: 'Lists every firing alert across the org, with the robot each belongs to.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: orgFiringAlertsResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
+    notes:
+      '`?state=firing` is required and is the only value accepted — refused rather than silently ignored, because a door with one answer must ' +
+      'not advertise a dial. There is no query schema; the parameter is read directly. A firing row whose definition has left the document, or ' +
+      'has been disabled, is skipped: it can never be evaluated again, so it can never resolve, and it would otherwise sit in the overview\'s ' +
+      'open-issues tile forever.',
+  },
+
+  /* ------------------------------------------------- robots (introspection) */
+  {
+    method: 'GET', path: '/api/robots/:id/introspection', section: 'robots',
+    summary: 'Reads the cached ROS graph of a robot and whether it is stale.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: introspectionResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'A robot that has never been introspected answers `200` with a **`null` body**, not a `404`: an enrichment that has not happened yet is ' +
+      'not a missing resource. The response schema describes the non-null case. `stale` is true whenever the bridge is offline — the snapshot ' +
+      'survives a disconnect, since a robot that has never connected is still configurable.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/introspection/refresh', section: 'robots',
+    summary: 'Asks the robot for a fresh ROS graph, stores it and answers it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: introspectionResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'robot_offline', 'bridge_timeout'], transport: 'http',
+    notes:
+      '`stale` is `false` by construction here: the graph came from the robot just now. `409 robot_offline` means nothing is connected; ' +
+      '`504 bridge_timeout` means something was and did not answer. Anything else is rethrown rather than turned into a tidy status.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/types', section: 'robots',
+    summary: 'Lists every ROS message type definition stored for the robot.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: typesResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'A plain read with no bridge involved — the robot need not be online.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/types/fetch', section: 'robots',
+    summary: 'Fetches named message type definitions from the robot and stores them.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: fetchTypesRequest, response: fetchTypesResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'robot_offline', 'bridge_timeout'], transport: 'http',
+    notes:
+      '`unresolved` names the types the robot could not produce; it is an answer, not a failure, because a graph often references a type whose ' +
+      'package is not installed. The robot lookup runs before the body is parsed, so a robot outside the caller\'s org answers `404` whether or ' +
+      'not the body was also malformed.',
+  },
+
+  /* ---------------------------------------------- commands (jobs, publishers) */
+  {
+    method: 'GET', path: '/api/robots/:id/jobs', section: 'commands',
+    summary: 'Reads the current job on every slug of the robot the caller is granted.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: robotJobsResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '**At most one entry per slug, and not a history endpoint.** The first version answered every job the registry still held — six rows and ' +
+      'four full result payloads after a few minutes of traffic on one robot, unbounded for a robot that has run all day. This reads the ' +
+      'one-current-job-per-slug map instead. It exists because the per-slug route alone cannot cover it: a reconciled-but-unminted job, or one ' +
+      'left on a slug a republish removed, has no slug-shaped door to be found through.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/jobs/history', section: 'commands',
+    summary: 'Reads what has run on the robot, newest first, cursor-paged.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: jobRunQuery, request: null, response: jobRunListResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'validation_error'], transport: 'http',
+    notes:
+      'Needs the `action_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing ' +
+      'durable recorded what had run. Two residuals worth stating rather than implying away. `history` is a syntactically valid slug and ' +
+      'Fastify matches a static segment first, so a robot with a service literally slugged `history` can no longer be **read** through ' +
+      '`GET /api/robots/:id/jobs/:slug`; invoking, cancelling and the listing are unaffected. And a run row names its actor by email address, ' +
+      'so an end user holding this capability learns which other people have been driving the machine. `robot_id` in the query is shared with ' +
+      'the org-wide read; a *different* one here is refused rather than quietly answered about the robot in the path.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/jobs/:slug', section: 'commands',
+    summary: 'Invokes an action or calls a service on the robot.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 202,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The action or service slug from the published configuration; the cloud already knows which kind it is.' },
+    ],
+    query: null, request: invokeRequest, response: null,
+    errors: [
+      ...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'parameter_invalid',
+      'robot_offline', 'busy', 'bridge_timeout', 'internal_error',
+    ], transport: 'http',
+    notes:
+      '**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers ' +
+      '`202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — ' +
+      'two shapes, so no single response schema is declared here. Parameters are checked **before** anything about the world (offline, busy): ' +
+      'the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline ' +
+      'robot never learns their parameters were wrong. A service the robot reports as failed answers `502` carrying **the job\'s own error ' +
+      'code**, which is an open set and not one of the codes above.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/jobs/:slug', section: 'commands',
+    summary: 'Reads the most recent job on one slug.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The action or service slug from the published configuration.' },
+    ],
+    query: null, request: null, response: jobResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: '`job` is `null` when nothing has ever run on that slug — an answer, not a `404`.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/jobs/:slug/cancel', section: 'commands',
+    summary: 'Cancels the job running on one slug.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The action slug from the published configuration; a service slug is refused.' },
+    ],
+    query: null, request: cancelRequest, response: jobResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'not_cancellable', 'robot_offline'], transport: 'http',
+    notes:
+      'The body is optional: a bodyless `POST` was every caller\'s shape before `job_id` existed, and absent or `job_id: null` both mean ' +
+      '"cancel whatever is running". A named `job_id` that is **not** what is running cancels nothing and answers `404` — the caller named an ' +
+      'id and thereby ruled the other one out. A service is `422 not_cancellable`: a service call has no goal to cancel. Nothing running is a ' +
+      '`200` with `job: null`.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/publishers/:slug', section: 'commands',
+    summary: 'Publishes one message onto a configured publisher.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The publisher slug from the published configuration.' },
+    ],
+    query: null, request: publishRequest, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'parameter_invalid', 'robot_offline', 'publisher_busy'], transport: 'http',
+    notes:
+      'Fire and forget — not a job, so there is nothing to poll and nothing to cancel. A publisher is held exclusively by one caller until it ' +
+      'has been quiet long enough, and another caller meanwhile is `409 publisher_busy` with the timeout and a retry hint. Parameters are ' +
+      'checked before offline and before exclusivity, the same order the invoke path uses and for the same reason. The **acquisition** is ' +
+      'audited, not every message: auditing only takeovers left the single-operator case with no record of who was driving at all.',
+  },
+
+  /* ------------------------------------------------------------- cameras */
+  {
+    method: 'GET', path: '/api/robots/:id/cameras', section: 'cameras',
+    summary: 'Lists the cameras of a robot, filtered to what the caller\'s role grants.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: cameraListResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/cameras/:slug/snapshot', section: 'cameras',
+    summary: 'Returns the most recent snapshot frame as image bytes.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The camera slug from the published configuration, as listed by `GET /api/robots/:id/cameras`.' },
+    ],
+    query: null, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'no_snapshot_yet'], transport: 'http',
+    notes:
+      'Image bytes, not JSON, so it has no response schema; the age, capture time and dimensions ride in the `x-fleetless-*` headers ' +
+      '`SNAPSHOT_HEADERS` names — which a browser can only read because CORS exposes them. **Never checks whether the bridge is online**: a ' +
+      'snapshot read is a pure cache read, which is what makes "the last frame, with its real age" true for free across a disconnect. There is ' +
+      'nothing here to refuse, and `age_ms` carries the whole honesty story. `cache-control: no-store`, because a picture of someone\'s ' +
+      'premises does not belong on disk longer than the request that fetched it.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/cameras/:slug/snapshot/meta', section: 'cameras',
+    summary: 'Reports the age and dimensions of the latest snapshot without downloading it.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The camera slug from the published configuration, as listed by `GET /api/robots/:id/cameras`.' },
+    ],
+    query: null, request: null, response: snapshotMetaResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Exists so a client polling at the camera\'s own interval does not re-fetch a whole frame merely to learn whether a newer one arrived. ' +
+      'Nothing captured yet is **nulls, not a `404`**: "nothing yet" is an answer.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/cameras/:slug/live', section: 'cameras',
+    summary: 'Takes a hold on a live camera stream and returns a room token.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 201,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The camera slug from the published configuration, as listed by `GET /api/robots/:id/cameras`.' },
+    ],
+    query: null, request: null, response: liveSessionResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'robot_offline', 'camera_offline', 'live_unavailable'], transport: 'http',
+    notes:
+      'Refcounted: the first viewer starts the robot publishing and the last release stops it. No token is ever minted for an ungranted or ' +
+      'offline camera — both refusals return before the hold is taken. `409 camera_offline` means the **robot itself** reported the failure; ' +
+      '`502 live_unavailable` means this cloud could not start the stream. The difference matters, and it is why a failure the robot named is ' +
+      'never dressed up as one this side invented.',
+  },
+  {
+    method: 'DELETE', path: '/api/robots/:id/cameras/:slug/live', section: 'cameras',
+    summary: 'Releases a live hold, one session or all of this caller\'s.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The camera slug from the published configuration, as listed by `GET /api/robots/:id/cameras`.' },
+    ],
+    query: releaseLiveQuery, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '`?session_id=` releases that one hold; omitting it releases every hold this caller\'s identity has on this camera, which a client that ' +
+      'lost its id — or a tab that is already closing — still needs. A malformed `session_id` is `400 invalid_uuid`, never a silent fallback ' +
+      'to the blunt form, which would strand this identity\'s other tabs over a typo. A named-and-unknown id is `404`; a stale one, real and ' +
+      'already ended, is idempotently `204`.',
+  },
+
+  /* -------------------------------------------------------- robots (history) */
+  {
+    method: 'GET', path: '/api/robots/:id/datapoints/:slug/history', section: 'robots',
+    summary: 'Reads recorded samples of one datapoint, or aggregated buckets over a window.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'slug', description: 'The datapoint\'s slug from the published configuration.' },
+    ],
+    query: historyQuery, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'invalid_range', 'not_recorded', 'not_aggregatable'], transport: 'http',
+    notes:
+      'Two answers, so no single response schema: without `window` it is a `historySamplesResponse`, with one it is a ' +
+      '`historyBucketsResponse`. `window` and `agg` must be given together or not at all — one without the other is refused rather than ' +
+      'defaulted, since a silently chosen aggregation is a chart that lies quietly. A range and window that would produce more buckets than ' +
+      '`limit` is `400 invalid_range` computed **before** the query runs: the bucket response carries no `truncated` field, so a refusal is ' +
+      'the only honest answer. `409 not_recorded` says retention is off for this slug **right now** and deliberately does not claim the table ' +
+      'is empty — rows written before the switch was flipped still exist, unreadable through any route and still counting against the quota.',
+  },
+
+  /* ------------------------------------------------------ assets (URDF, meshes) */
+  {
+    method: 'GET', path: '/api/robots/:id/assets', section: 'assets',
+    summary: "Lists the robot's synced assets and how complete its URDF is.",
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: assetListResponse,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required'], transport: 'http',
+    notes:
+      'Needs the `assets` capability, refused as `403 capability_required` rather than a bare `forbidden`: the code says a capability is ' +
+      'missing and the message says which, so a developer who switched the wrong toggle on is told what to switch. The capability is checked ' +
+      'before existence, so a denied robot and an absent one read alike to a caller with no right to tell them apart. `urdf` reports whether a ' +
+      'URDF is present and which of its mesh references have no stored asset.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/assets/:assetId', section: 'assets',
+    summary: 'Returns one stored asset as bytes.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
+      { name: 'assetId', description: 'The asset\'s uuid, as listed by `GET /api/robots/:id/assets`.' },
+    ],
+    query: null, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'internal_error'], transport: 'http',
+    notes:
+      'Bytes in the asset\'s own media type, so it has no response schema. A row whose blob has vanished from object storage is a logged ' +
+      '`500 internal_error`, not a `404`: the asset exists and this cloud could not read it, which is a different fact from "there is no such asset".',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/urdf', section: 'assets',
+    summary: 'Returns the robot\'s URDF with every mesh reference rewritten to a Fleetless URL.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'internal_error'], transport: 'http',
+    notes:
+      'XML, so no response schema. **Every `filename` is rewritten, not only a resolvable `package://` one** — an absolute URL that arrived in ' +
+      'a URDF from ROS graph input must never be served through untouched, because a mesh loader attaches the caller\'s bearer token to ' +
+      'whatever absolute URL it is handed. Anything with no stored asset points at `GET /api/robots/:id/assets/missing` instead. A robot with ' +
+      'no synced URDF is `404`.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/assets/missing', section: 'assets',
+    summary: 'The placeholder a rewritten URDF points at for a mesh Fleetless does not hold.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 404,
+    params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
+    query: null, request: null, response: null,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'asset_missing'], transport: 'http',
+    notes:
+      '**This route has no success answer** — `404 asset_missing` naming the unresolved reference is what it exists to give, and `status` says ' +
+      'so rather than declaring a `200` no caller can ever receive. `?name=` is echoed into the message and is read directly, with no query ' +
+      'schema; it discloses nothing, since it is what the caller sent. It carries the same `assets` capability gate as the real bytes would: a ' +
+      'missing-asset placeholder is not an exemption from the authorization the thing it stands in for needs.',
+  },
+  {
+    method: 'GET', path: '/api/asset-links/missing', section: 'assets',
+    summary: 'The bearer-free placeholder a *linked* URDF points at for an unresolvable mesh.',
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 404,
+    params: [], query: null, request: null, response: null,
+    errors: ['asset_missing'], transport: 'http',
+    notes:
+      '**No success answer either**, for the reason its authenticated twin has none. Unauthenticated by design and unauthenticated in fact: it ' +
+      'reads nothing and reveals nothing the caller did not put in the query string itself, so there is no credential for the handler to ' +
+      'verify and none is required. It sits under the signed-link prefix because that is where a linked URDF\'s references have to point.',
+  },
+  {
+    method: 'GET', path: '/api/asset-links/:token', section: 'assets',
+    summary: 'Serves one asset, or a rendered URDF, to whoever holds a signed link.',
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'token', description: 'The signed, time-limited link an MCP tool minted; it is the whole credential.' }],
+    query: null, request: null, response: null,
+    errors: ['not_found', 'internal_error'], transport: 'http',
+    notes:
+      '**The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is ' +
+      'refused on REST by design, so the asset tools mint a fifteen-minute signed link instead and this spends it. The capability was checked ' +
+      'at mint against the minting caller\'s own access; the residual — whoever holds the URL reads that asset until it expires — is named ' +
+      'rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with ' +
+      'one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it ' +
+      'was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending ' +
+      'a link in its last second would hand out another fifteen minutes, and each of those another. `cache-control: no-store`, since the URL ' +
+      'itself is the credential.',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/assets/sync', section: 'assets',
+    summary: 'Asks the robot to upload its URDF and meshes, and returns the sync id.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: true, status: 202,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: assetSyncRequest, response: assetSyncResponse,
+    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'validation_error', 'not_found', 'robot_offline', 'busy'], transport: 'http',
+    notes:
+      'Owner tier, unconditionally. The guard admits an end user or a server key, but only a developer session gets past the handler — and the ' +
+      'body is parsed **before** that `401`, because this route has always answered a malformed body first and the order has to survive. The ' +
+      'request is strict: a caller naming a source that does not exist learns so, instead of silently getting a bridge sync they did not ask ' +
+      'for. A robot that has reported nothing available to sync is `404`. A second sync is `409 busy` naming the `sync_id` that is actually ' +
+      'running, so the caller who pressed the button twice can pick it straight up.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/assets/sync/:syncId', section: 'assets',
+    summary: 'Reports how far an asset sync has got.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' },
+      { name: 'syncId', description: 'The sync id from `POST /api/robots/:id/assets/sync`, or from its `409 busy` refusal.' },
+    ],
+    query: null, request: null, response: assetSyncStatus,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Developer sessions only, like starting a sync: the guard admits three caller kinds and the handler answers `401 unauthorized` to the ' +
+      'other two. A sync belonging to another robot reads exactly like one that never existed, which is why the robot is resolved first.',
+  },
+
   /* ------------------------------------------------ org (quotas and fleet reads) */
   {
     method: 'GET', path: '/api/org/quotas', section: 'org',
@@ -1096,5 +2135,37 @@ export const ROUTES: readonly RouteEntry[] = [
       'A window longer than `USAGE_WINDOW_MAX_DAYS` is refused naming the field, not silently capped: a caller who asked for more than the ' +
       'platform will answer is owed a refusal, not a shorter answer they will mistake for the whole picture. `from_day <= to_day` is a ' +
       'cross-field rule no JSON Schema can express and is enforced here. The window is echoed back.',
+  },
+  /* ------------------------------------------------- assets (robot upload) */
+  {
+    method: 'POST', path: '/api/bridge/assets', section: 'assets',
+    summary: 'Takes one asset file from a robot during a sync.',
+    audience: 'internal', auth: 'robot_upload', rateLimited: false, ownerTier: false, status: 201,
+    params: [], query: null, request: null, response: asset,
+    errors: ['unauthorized', 'rate_limited', 'asset_too_large', 'validation_error', 'not_found', 'quota_exceeded', 'bad_request'], transport: 'http',
+    notes:
+      'The body is the **raw file bytes**, not JSON, so it has no request schema; everything about the file — its kind, its name, its sync id ' +
+      'and its announced size — rides in the `x-fleetless-asset-*` headers `ASSET_UPLOAD_HEADERS` names. The credential is a short-lived ' +
+      'upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than ' +
+      'following it: a `preHandler` would already have buffered the whole file. The announced size is refused there too, before a single byte ' +
+      'is read — it is an announcement and not a proof, so it only ever rejects early and never accepts early, and a body that lies small is ' +
+      'still caught by the real length check. Past both, Fastify\'s own body limit answers a bare `413 bad_request` with neither ceiling nor ' +
+      'size in it. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler ' +
+      'registered on this route.',
+  },
+
+  /* ------------------------------------ realtime and bridge transports */
+  {
+    method: 'GET', path: '/bridge', section: 'transports',
+    summary: 'The robot bridge\'s WebSocket: the versioned bridge protocol, not a client-facing surface.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 101,
+    params: [], query: null, request: null, response: null, errors: ['protocol_mismatch', 'invalid_token'], transport: 'websocket',
+  },
+  {
+    method: 'GET', path: '/realtime', section: 'transports',
+    summary: 'The client WebSocket: subscriptions on datapoints, jobs, bridge state and presence, plus full command parity with REST.',
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 101,
+    params: [], query: null, request: null, response: null, errors: ['invalid_token', 'rate_limited'], transport: 'websocket',
+    notes: 'Authentication happens in the first frame, not on the upgrade. The frame types are the `realtime` schemas.',
   },
 ]

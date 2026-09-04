@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "grant_type": {
+          "type": "string",
+          "const": "authorization_code"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "redirect_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "code_verifier": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9\\-._~]{43,128}$"
+        },
+        "resource": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "grant_type",
+        "code",
+        "redirect_uri",
+        "client_id",
+        "code_verifier"
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "grant_type": {
+          "type": "string",
+          "const": "refresh_token"
+        },
+        "refresh_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "resource": {
+          "type": "string",
+          "format": "uri"
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "grant_type",
+        "refresh_token",
+        "client_id"
+      ]
+    }
+  ]
+}

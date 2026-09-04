@@ -9,6 +9,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import { ROUTES, ROUTE_SECTIONS, type RouteEntry } from '../src/routes.js'
 import {
   bridgeHello,
   cloudHelloOk,
@@ -154,6 +155,48 @@ import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureLis
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
+import { assetSyncRequest, assetSyncResponse, urdfCompleteness } from '../src/assets.js'
+import { brandingConfig, updateAppRequest } from '../src/apps.js'
+import { clientLogoutResponse } from '../src/client-auth.js'
+import { parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import {
+  orgFederationPolicy,
+  orgFederationPolicyRequest,
+  passwordChangeRequest,
+  passwordResetConfirm,
+  passwordResetRequest,
+  refreshRequest,
+} from '../src/identity.js'
+import { busyDetails, jobState } from '../src/jobs.js'
+import {
+  authorizationServerMetadata,
+  consentDecision,
+  consentGrantListResponse,
+  consentGrantSummary,
+  consentRevokeResponse,
+  dynamicClientRegistrationRequest,
+  dynamicClientRegistrationResponse,
+  oauthClient,
+  oauthLoginRequest,
+  oauthRedirectResponse,
+  oauthTokenRequest,
+  oauthTokenResponse,
+  protectedResourceMetadata,
+} from '../src/oauth.js'
+import {
+  cameraDescriptor,
+  cancelRequest,
+  configVersionResponse,
+  configVersionsResponse,
+  fetchTypesRequest,
+  fetchTypesResponse,
+  putConfigDraftRequest,
+  putRobotDetailsRequest,
+  rateLimitDetails,
+  releaseLiveQuery,
+  robotJobsResponse,
+  typesResponse,
+} from '../src/rest.js'
 import {
   historyQuery,
   historySamplesResponse,
@@ -353,6 +396,71 @@ export const exportedSchemas = {
   'org-firing-alerts-response': orgFiringAlertsResponse,
   'datapoint-display': datapointDisplay,
   'put-datapoint-display-request': putDatapointDisplayRequest,
+
+  // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
+  //
+  // **Registration is not a formality here: it is the guard.** A route entry
+  // points at a zod object, and `schemaName` below resolves that object to the
+  // artifact name the docs and the OpenAPI document link to. A schema a route
+  // references and this map does not carry has no name to resolve to, so the
+  // export throws rather than emitting a manifest with a hole in it. Every
+  // entry below was added because a route pointed at it; the comment names
+  // that route, so the next reader can tell a wire shape from a leftover.
+  'refresh-request': refreshRequest, // POST /api/auth/refresh, POST /api/auth/logout
+  'password-change-request': passwordChangeRequest, // POST /api/auth/password/change, POST /api/client/password/change
+  'password-reset-request': passwordResetRequest, // POST /api/auth/password/reset
+  'password-reset-confirm': passwordResetConfirm, // POST /api/auth/password/reset/confirm
+  'update-app-request': updateAppRequest, // PATCH /api/apps/:id
+  'branding-config': brandingConfig, // GET/PUT /api/apps/:id/branding
+  'org-federation-policy': orgFederationPolicy, // GET/PUT /api/org/federation
+  'org-federation-policy-request': orgFederationPolicyRequest, // PUT /api/org/federation
+  'client-logout-response': clientLogoutResponse, // POST /api/client/logout
+  'consent-grant-list-response': consentGrantListResponse, // GET /api/client/grants
+  'consent-revoke-response': consentRevokeResponse, // DELETE /api/client/grants/:client_id
+  'oauth-client': oauthClient, // POST/GET /api/apps/:id/oauth-clients
+  // **One object, three contract names.** `oauthLoginResponse` and
+  // `oauthConsentResponse` are `oauthRedirectResponse` — the same value, aliased
+  // in `src/oauth.ts` so a call site reads as the endpoint it is at. Registering
+  // an alias would be registering the same object twice, which `schemaName`'s
+  // reverse map refuses by construction, so this is the one name the artifact has.
+  'oauth-redirect-response': oauthRedirectResponse, // POST /login, POST /oauth/impersonate, POST /oauth/consent, POST /console/oauth/login, POST /mcp/oauth/login, POST /mcp/oauth/consent
+  'oauth-login-request': oauthLoginRequest, // POST /login
+  'consent-decision': consentDecision, // POST /oauth/consent
+  'oauth-token-request': oauthTokenRequest, // POST /oauth/token
+  'oauth-token-response': oauthTokenResponse, // POST /oauth/token, POST /mcp/oauth/token
+  'dynamic-client-registration-request': dynamicClientRegistrationRequest, // POST /oauth/register
+  'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /oauth/register, POST /mcp/oauth/register
+  'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server{,/:appIdentifier,/mcp}
+  'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource{,/mcp,/mcp-stub/resource/:appIdentifier}
+  'put-robot-details-request': putRobotDetailsRequest, // PUT /api/robots/:id/details
+  'put-config-draft-request': putConfigDraftRequest, // PUT /api/robots/:id/config/draft
+  'config-versions-response': configVersionsResponse, // GET /api/robots/:id/config/versions
+  'config-version-response': configVersionResponse, // GET /api/robots/:id/config/versions/:v
+  'types-response': typesResponse, // GET /api/robots/:id/types
+  'fetch-types-request': fetchTypesRequest, // POST /api/robots/:id/types/fetch
+  'fetch-types-response': fetchTypesResponse, // POST /api/robots/:id/types/fetch
+  'robot-jobs-response': robotJobsResponse, // GET /api/robots/:id/jobs
+  'cancel-request': cancelRequest, // POST /api/robots/:id/jobs/:slug/cancel
+  'release-live-query': releaseLiveQuery, // DELETE /api/robots/:id/cameras/:slug/live
+  'asset-sync-request': assetSyncRequest, // POST /api/robots/:id/assets/sync
+  'asset-sync-response': assetSyncResponse, // POST /api/robots/:id/assets/sync
+
+  // --- Wire shapes the SDK re-exports as TypeScript types ------------------
+  //
+  // Not referenced by any route entry: each of these travels *inside* one of
+  // the shapes above, and would have needed no artifact of its own for the
+  // bridge or for OpenAPI. They are registered because `@fleetless/sdk`
+  // re-exports them as types, and the generated SDK reference links each name
+  // to a field table — a type a developer can import and cannot look up is the
+  // documented absence this project keeps paying for.
+  'job-state': jobState, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'busy-details': busyDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'camera-descriptor': cameraDescriptor, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'urdf-completeness': urdfCompleteness, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'rate-limit-details': rateLimitDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'consent-grant-summary': consentGrantSummary, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'parameter-invalid-details': parameterInvalidDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
 } as const
 
 /**
@@ -466,6 +574,19 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'patch-robot-request', 'rename-slug-request',
   'put-datapoint-display-request',
 
+  // --- Request bodies and queries the route manifest names ----------------
+  'refresh-request', 'password-change-request', 'password-reset-request', 'password-reset-confirm',
+  'update-app-request', 'org-federation-policy-request',
+  'oauth-login-request', 'consent-decision', 'oauth-token-request', 'dynamic-client-registration-request',
+  'put-robot-details-request', 'put-config-draft-request',
+  'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
+  // A replace, not a merge: the same document is the PUT's body and the GET's
+  // answer, so a receiver validates it and `input` is the honest mode. The
+  // consequence is the usual one — the GET's artifact does not mark a
+  // `.default()`ed field required, which is right for what a caller may send
+  // and slightly loose for what the server does send.
+  'branding-config',
+
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
   // frame, so it is an accepted document on two surfaces and never a response
@@ -503,6 +624,20 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',
   'auth-me-response', 'rename-slug-response', 'slug-usage-response',
   'datapoint-alert-row', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
+
+  // --- Responses the route manifest names ---------------------------------
+  'org-federation-policy', 'client-logout-response', 'consent-grant-list-response', 'consent-revoke-response',
+  'oauth-client', 'oauth-redirect-response', 'oauth-token-response', 'dynamic-client-registration-response',
+  'authorization-server-metadata', 'protected-resource-metadata',
+  'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
+  'robot-jobs-response', 'asset-sync-response',
+
+  // --- Embedded shapes the SDK re-exports as types -------------------------
+  // Every one of these appears only inside a response, which is what makes
+  // `output` the correct description: the artifact states what the server will
+  // send, with defaults already applied.
+  'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
+  'rate-limit-details', 'consent-grant-summary', 'parameter-invalid-details', 'parameter-violation',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
@@ -587,6 +722,172 @@ export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
   }
 }
 
+/**
+ * **The route manifest, rendered.** `src/routes.ts` declares every route once
+ * and points at zod objects; the two functions below turn that into the two
+ * artifacts the documentation site reads — `routes.json`, which is the manifest
+ * with each schema resolved to its artifact name, and `openapi.json`, which is
+ * the public half of it as an OpenAPI 3.1 document.
+ *
+ * They live in the export script rather than in `src/` on purpose: resolving a
+ * schema to a *name* is only possible where the name/schema map is, and that map
+ * is this file. `src/routes.ts` therefore never has to know what anything is
+ * called, which is what keeps a rename from having two places to be wrong.
+ */
+
+/**
+ * Artifact name of a schema object, by identity. A schema registered under
+ * two names is a registration error — the artifact a route points at would
+ * be a coin toss — so the map refuses to build.
+ */
+const nameOf = new Map<unknown, string>()
+for (const [name, schema] of Object.entries(exportedSchemas)) {
+  const seen = nameOf.get(schema)
+  if (seen !== undefined) throw new Error(`schema exported twice: as ${seen} and as ${name}`)
+  nameOf.set(schema, name)
+}
+function schemaName(schema: unknown, where: string): string {
+  const name = nameOf.get(schema)
+  if (name === undefined) {
+    throw new Error(
+      `${where}: schema is not registered in exportedSchemas — register it (and classify it in SCHEMA_IO_INPUT if it is a request or query)`,
+    )
+  }
+  return name
+}
+
+export interface RouteArtifactEntry {
+  method: string
+  path: string
+  section: string
+  summary: string
+  audience: string
+  auth: string
+  rateLimited: boolean
+  ownerTier: boolean
+  status: number
+  params: { name: string; description: string }[]
+  query: string | null
+  request: string | null
+  response: string | null
+  errors: string[]
+  transport: string
+  notes?: string
+}
+
+export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: RouteArtifactEntry[] } {
+  return {
+    sections: ROUTE_SECTIONS,
+    routes: ROUTES.map((r) => {
+      const where = `${r.method} ${r.path}`
+      const entry: RouteArtifactEntry = {
+        method: r.method,
+        path: r.path,
+        section: r.section,
+        summary: r.summary,
+        audience: r.audience,
+        auth: r.auth,
+        rateLimited: r.rateLimited,
+        ownerTier: r.ownerTier,
+        status: r.status,
+        params: r.params.map((p) => ({ name: p.name, description: p.description })),
+        query: r.query === null ? null : schemaName(r.query, `${where} query`),
+        request: r.request === null ? null : schemaName(r.request, `${where} request`),
+        response: r.response === null ? null : schemaName(r.response, `${where} response`),
+        errors: [...r.errors],
+        transport: r.transport,
+      }
+      if (r.notes !== undefined) entry.notes = r.notes
+      return entry
+    }),
+  }
+}
+
+const SECURITY: Record<RouteEntry['auth'], object[]> = {
+  developer: [{ developerSession: [] }],
+  developer_or_client: [{ developerSession: [] }, { clientToken: [] }, { serverKey: [] }],
+  none: [],
+  robot_upload: [],
+  in_handler: [],
+}
+
+function componentSchema(name: string): Record<string, unknown> {
+  const schema = exportedSchemas[name as keyof typeof exportedSchemas]
+  const { $schema: _dropped, ...rest } = z.toJSONSchema(schema, { io: schemaIo(name) }) as Record<string, unknown>
+  return rest
+}
+
+export function openApiDocument(): Record<string, any> {
+  const artifact = routesArtifact()
+  const paths: Record<string, Record<string, unknown>> = {}
+  const components: Record<string, unknown> = { 'api-error': componentSchema('api-error') }
+  for (const r of artifact.routes) {
+    if (r.audience === 'internal' || r.transport !== 'http') continue
+    const path = r.path.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, '{$1}')
+    const parameters: object[] = r.params.map((p) => ({ name: p.name, in: 'path', required: true, description: p.description, schema: { type: 'string' } }))
+    if (r.query !== null) {
+      const q = componentSchema(r.query)
+      const required = new Set((q.required as string[] | undefined) ?? [])
+      for (const [name, schema] of Object.entries((q.properties as Record<string, unknown>) ?? {})) {
+        parameters.push({ name, in: 'query', required: required.has(name), schema })
+      }
+      components[r.query] = q
+    }
+    const operation: Record<string, unknown> = {
+      operationId: `${r.method.toLowerCase()}_${r.path.replace(/^\//, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/_+$/, '')}`,
+      summary: r.summary,
+      tags: [r.section],
+      security: SECURITY[r.auth as RouteEntry['auth']],
+      parameters,
+      responses: {
+        // **`status` is not always a success.** Two routes exist to refuse —
+        // the missing-asset placeholders, whose whole job is to say
+        // `404 asset_missing` about a reference nothing resolves — and calling
+        // that "Success." in a generated document would state something no
+        // caller can ever observe. `routes.ts` declares the status the handler
+        // actually answers; this says which of the two kinds it is.
+        [String(r.status)]:
+          r.status >= 400
+            ? { description: 'The only answer this route gives; see the error codes below.' }
+            : r.response === null
+              ? { description: 'Success.' }
+              : { description: 'Success.', content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.response}` } } } },
+        default: {
+          description: `An error envelope. Codes this route is known to answer: ${r.errors.map((c) => `\`${c}\``).join(', ') || 'none listed'}.`,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/api-error' } } },
+        },
+      },
+    }
+    if (r.notes !== undefined) operation.description = r.notes
+    if (r.request !== null) {
+      operation.requestBody = { required: true, content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.request}` } } } }
+      components[r.request] = componentSchema(r.request)
+    }
+    if (r.response !== null) components[r.response] = componentSchema(r.response)
+    ;(paths[path] ??= {})[r.method.toLowerCase()] = operation
+  }
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'Fleetless API',
+      version: '1',
+      description:
+        'Generated from the route manifest the cloud is tested against. Request and response shapes are the same JSON Schemas the platform validates with.',
+    },
+    servers: [{ url: 'https://api.fleetless.dev' }],
+    tags: artifact.sections.map((s) => ({ name: s.id, description: s.title })),
+    paths,
+    components: {
+      securitySchemes: {
+        developerSession: { type: 'http', scheme: 'bearer', description: 'A developer session token from the console login.' },
+        clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
+        serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
+      },
+      schemas: Object.fromEntries(Object.entries(components).sort(([a], [b]) => a.localeCompare(b))),
+    },
+  }
+}
+
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]
 if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
@@ -640,4 +941,9 @@ if (isMain) {
   const constantsPath = join(import.meta.dirname, '..', 'artifacts', 'constants.json')
   writeFileSync(constantsPath, JSON.stringify(exportedConstants, null, 2) + '\n')
   console.log('wrote constants.json')
+
+  writeFileSync(join(import.meta.dirname, '..', 'artifacts', 'routes.json'), JSON.stringify(routesArtifact(), null, 2) + '\n')
+  console.log(`wrote routes.json (${ROUTES.length} routes)`)
+  writeFileSync(join(import.meta.dirname, '..', 'artifacts', 'openapi.json'), JSON.stringify(openApiDocument(), null, 2) + '\n')
+  console.log('wrote openapi.json')
 }
