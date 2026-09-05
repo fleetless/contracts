@@ -810,11 +810,10 @@
         "invalid_uuid",
         "validation_error",
         "not_found",
-        "email_taken",
-        "weak_password"
+        "email_taken"
       ],
       "transport": "http",
-      "notes": "The developer-authenticated door into the app's user table, and the one place `409 email_taken` is an honest answer about an app user: the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one would carry rights nothing in this app can resolve. `400 weak_password` is a password under twelve characters. An account created here is `active` immediately: a developer entering somebody by hand has made the decision the verification mail automates."
+      "notes": "The developer-authenticated door into the app's user table, and the one place `409 email_taken` is an honest answer about an app user: the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one would carry rights nothing in this app can resolve. **The password policy answers `400 validation_error`**, not a code of its own: the twelve-character minimum is the `password` field's schema rule, and every route in this repository that takes a password refuses a short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering somebody by hand has made the decision the verification mail automates."
     },
     {
       "method": "GET",
@@ -2122,11 +2121,10 @@
         "not_found",
         "registration_closed",
         "domain_not_allowed",
-        "weak_password",
         "target_state_conflict"
       ],
       "transport": "http",
-      "notes": "**`202` and an empty body for every request policy allows** — a new address and one this app already knows answer identically, and a mail goes out only in the first case. An answer that depended on existence would be the account-enumeration oracle the whole client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. \n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer's own configuration, and a stranger learns the app's policy rather than who is in it. `400 weak_password` when the password is under twelve characters — the person typed it and has to read why it was refused, which a generic `validation_error` buries. `404 not_found` names an **app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the developer's own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing."
+      "notes": "**`202` and an empty body for every request policy allows** — a new address and one this app already knows answer identically, and a mail goes out only in the first case. An answer that depended on existence would be the account-enumeration oracle the whole client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. \n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer's own configuration, and a stranger learns the app's policy rather than who is in it. **A password under twelve characters is part of that `400 validation_error`** and not a code of its own — the minimum is the `password` field's schema rule, and the error names the field, which is what a form needs to mark it. `404 not_found` names an **app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the developer's own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing."
     },
     {
       "method": "POST",
@@ -2211,11 +2209,10 @@
       "errors": [
         "rate_limited",
         "validation_error",
-        "token_spent",
-        "weak_password"
+        "token_spent"
       ],
       "transport": "http",
-      "notes": "**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and the recovery is identical either way: ask for a new link. `400 weak_password` is the replacement password being under twelve characters, named on its own rather than buried in a `validation_error`, because the person typed it and has to read why it was refused."
+      "notes": "**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and the recovery is identical either way: ask for a new link. A replacement password under twelve characters is a `400 validation_error` naming the `new_password` field — the twelve-character minimum is that field's schema rule, and it is refused the way any other malformed field is."
     },
     {
       "method": "POST",
@@ -2235,11 +2232,10 @@
         "rate_limited",
         "validation_error",
         "token_spent",
-        "weak_password",
         "email_taken"
       ],
       "transport": "http",
-      "notes": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. `400 weak_password` is the chosen password under twelve characters. `409 email_taken` is an address this app has acquired since the invitation was written — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login."
+      "notes": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login."
     },
     {
       "method": "POST",

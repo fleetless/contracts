@@ -471,6 +471,55 @@ describe('the app-user auth surface', () => {
   })
 
   /**
+   * **A short password is a `validation_error`, because that is what the cloud
+   * sends.**
+   *
+   * The first draft of these rows listed `weak_password` on all four routes that
+   * take one. `weak_password` is in `ERROR_CODES` and has been since before this
+   * train, but a grep across `cloud/src`, `cloud/test`, `sdk`, `console` and
+   * `bridge` finds **no producer at all**: `POST /api/auth/signup` and
+   * `POST /api/auth/password/change` both hand a failed parse to
+   * `validationError(reply, parsed.error)`, and the browser sign-up page sends
+   * `validation_error` with the message "password must be at least 12
+   * characters". The twelve-character minimum is the `password` field's own
+   * schema rule, so it fails the same way every other malformed field does.
+   *
+   * Documenting `weak_password` would therefore have been a refusal no caller
+   * can receive — the third failure mode in this project's list — on four routes
+   * at once. The assertion is a denial paired with the positive, over the set,
+   * because "lists `validation_error`" alone would stay green with
+   * `weak_password` sitting beside it.
+   */
+  const PASSWORD_TAKING = [
+    'POST /api/client/register',
+    'POST /api/client/password/reset/confirm',
+    'POST /api/client/invitations/accept',
+    'POST /api/apps/:id/users',
+  ]
+
+  it('answers a short password with validation_error on every route that takes one', () => {
+    const rows = ROUTES.filter((r) => PASSWORD_TAKING.includes(key(r)))
+    expect(rows.map(key).sort(), 'the password-taking routes are exactly these four').toEqual([...PASSWORD_TAKING].sort())
+
+    for (const r of rows) {
+      const errors: readonly string[] = r.errors
+      expect(errors, `${key(r)} takes a password and cannot refuse a malformed one`).toContain('validation_error')
+      expect(errors, `${key(r)} lists weak_password, which nothing in cloud/src emits`).not.toContain('weak_password')
+      expect(r.notes ?? '', `${key(r)} does not say what a short password answers`).toContain('validation_error')
+    }
+
+    // Non-vacuity, and the precedent the rule is read off: the two developer
+    // routes that have taken a password since long before this train answer the
+    // same way. If either ever grows a `weak_password`, these rows should be
+    // revisited together rather than drifting apart.
+    for (const k of ['POST /api/auth/signup', 'POST /api/auth/password/change']) {
+      const errors: readonly string[] = ROUTES.find((r) => key(r) === k)!.errors
+      expect(errors, `${k} no longer refuses a malformed body`).toContain('validation_error')
+      expect(errors, `${k} grew a weak_password; the four rows above assume it has none`).not.toContain('weak_password')
+    }
+  })
+
+  /**
    * The two `202`s that answer a body. Everything else in this train that
    * answers `202` answers nothing at all, and the difference is deliberate: on
    * the public routes the body would be an enumeration oracle, while on these
