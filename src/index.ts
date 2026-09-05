@@ -17,6 +17,7 @@ export {
   MCP_PROTOCOL_VERSION,
   MCP_ENDPOINT_PATH,
   mcpAppEndpointPath,
+  MCP_APP_PATHS,
   MCP_TOOL_NAME_MAX,
   MCP_ASSET_LINK_PATH,
   MCP_ASSET_LINK_TTL_MS,
@@ -28,6 +29,7 @@ export {
   mcpRolePreviewResponse,
 } from './mcp.js'
 export type {
+  McpAppPaths,
   McpToolKind,
   McpExposure,
   McpCapabilities,

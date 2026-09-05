@@ -33,6 +33,7 @@ import {
   bridgeCameraState,
 } from '../src/protocol.js'
 import { applyError } from '../src/common.js'
+import { MCP_APP_PATHS } from '../src/mcp.js'
 import {
   cameraListResponse,
   liveSessionResponse,
@@ -923,11 +924,25 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
  * which is why it is written here beside the other two rather than inherited.
  *
  * Keyed by `METHOD /path`, and a test holds its keys to `IN_HANDLER_ROUTES`:
- * a fourth in-handler route added without a decision here would otherwise
+ * a further in-handler route added without a decision here would otherwise
  * inherit the same silent `[]` this comment exists to have removed.
  */
+const MCP_APP = MCP_APP_PATHS(':appIdentifier')
+
 export const IN_HANDLER_SECURITY: Record<string, object[]> = {
   'POST /mcp': [{ clientToken: [] }],
+  // The per-app endpoint's three verbs carry the same OAuth access token, and
+  // the two that answer `405` carry it too: the app, its switch and the bearer
+  // are all checked before the transport is reached, so a caller without one
+  // gets the `401` challenge rather than the method refusal.
+  [`POST ${MCP_APP.endpoint}`]: [{ clientToken: [] }],
+  [`GET ${MCP_APP.endpoint}`]: [{ clientToken: [] }],
+  [`DELETE ${MCP_APP.endpoint}`]: [{ clientToken: [] }],
+  // **The one optional bearer in the manifest**, and OpenAPI spells optional as
+  // "this scheme, or nothing": the empty requirement object is the second
+  // alternative. Written as two entries rather than `[]`, which would say the
+  // token is never read — it is, and `already_granted` is what it changes.
+  'GET /api/client/mcp/interactions/:id': [{ clientToken: [] }, {}],
   'GET /api/asset-links/:token': [],
   'GET /api/asset-links/missing': [],
 }

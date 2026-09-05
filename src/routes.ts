@@ -46,6 +46,8 @@ import {
   clientIdentity,
   clientLoginRequest,
   clientLogoutRequest,
+  clientMcpInteraction,
+  clientMcpInteractionDecisionResponse,
   clientOidcCallbackQuery,
   clientOidcExchangeRequest,
   clientOidcStartQuery,
@@ -103,7 +105,7 @@ import {
   waitlistRequest,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
-import { mcpRolePreviewResponse } from './mcp.js'
+import { MCP_APP_PATHS, mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
   dynamicClientRegistrationResponse,
@@ -239,9 +241,39 @@ export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly titl
   { id: 'transports', title: 'Realtime and bridge transports' },
 ]
 
+/**
+ * **The per-app MCP paths as the manifest spells them**, built by the same
+ * function the cloud, the console and the reverse proxy call — with the
+ * display parameter `:appIdentifier` where a real identifier goes.
+ *
+ * The rows below take their `path` from this object rather than from a string
+ * literal, which is the discipline `CLIENT_OIDC_CALLBACK_PATH` established: a
+ * path an MCP client **discovers** cannot be allowed to be spelled twice, and
+ * `MCP_APP_PATHS` is where it is spelled. `test/routes.test.ts` pins the
+ * literal characters, because a row compared only against the constant it was
+ * built from is two references to one string agreeing with themselves.
+ */
+const MCP_APP = MCP_APP_PATHS(':appIdentifier')
+
+/** The one path parameter every per-app MCP route takes, described once rather than eight times. */
+const APP_IDENTIFIER: RouteParam = {
+  name: 'appIdentifier',
+  description:
+    "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool.",
+}
+
 /** The routes that verify a credential inside the handler; `auth: 'in_handler'` is refused elsewhere. */
 export const IN_HANDLER_ROUTES: readonly string[] = [
   'POST /mcp',
+  // The per-app endpoint, all three verbs: the bearer decides which app user
+  // is calling, and the path names none of that. Built from `MCP_APP` so the
+  // list cannot drift from the rows.
+  `POST ${MCP_APP.endpoint}`,
+  `GET ${MCP_APP.endpoint}`,
+  `DELETE ${MCP_APP.endpoint}`,
+  // The one route whose bearer is **optional**: it answers the same document
+  // with or without one, and only `already_granted` moves.
+  'GET /api/client/mcp/interactions/:id',
   'GET /api/asset-links/missing',
   'GET /api/asset-links/:token',
 ]
@@ -1365,6 +1397,153 @@ export const ROUTES: readonly RouteEntry[] = [
   },
 
 
+  /* ----------------------------------------- mcp (one app's own server, D7) */
+  {
+    method: 'POST', path: MCP_APP.endpoint, section: 'mcp',
+    summary: "One app's MCP endpoint: the same stateless Streamable HTTP transport, carrying that app's robots.",
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
+    params: [APP_IDENTIFIER], query: null, request: null, response: null,
+    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    notes:
+      'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes — exactly as `POST /mcp` ' +
+      'is, and stateless for the same reason: a fresh transport per request, no session id, nothing surviving the call. **App users only.** ' +
+      'The tools are this app\'s robots filtered by the caller\'s role, built by the same builder `GET /api/apps/:id/roles/:roleId/mcp-tools` ' +
+      'previews, so the console\'s preview and the live catalog cannot drift. The console tool family belongs to the central endpoint and is ' +
+      'offered here to nobody. \n\n**The bearer is verified inside the handler**, not by a route guard, for the two reasons the central ' +
+      'endpoint gives — the identity comes from the token and the path names none of it, and the refusal has to carry a `WWW-Authenticate` ' +
+      'challenge a guard shared with the REST surface does not send. The challenge names **this app\'s** protected-resource document (RFC ' +
+      '9728\'s `resource_metadata`), which is how an MCP client discovers the right authorization server from a bare `401`; pointing it at ' +
+      'the central document would send every app\'s client to the wrong sign-in. \n\n`404 not_found` is an identifier no app carries. `403 ' +
+      'mcp_disabled` is `appAuthConfig.mcp_enabled` switched off, re-read on every request rather than cached off the token, so a developer ' +
+      'turning it off ends the sessions already running. **Both are decided before the bearer is looked at**, which is the reverse of the ' +
+      'usual order and is deliberate: they are facts about the path, an app identifier is public, and a disabled app that answered `401` ' +
+      'would send a client hunting a credential no credential can satisfy. `401 unauthorized` is a missing, unverifiable or expired bearer, ' +
+      'or an `aud` that is not this endpoint. `403 forbidden` is a token that verifies and is not this app\'s user: another app\'s session, a ' +
+      'Fleetless user\'s central `mcp_session`, an account that is `blocked` or still `pending_verification`, or a foreign `Origin`.',
+  },
+  {
+    method: 'GET', path: MCP_APP.endpoint, section: 'mcp',
+    summary: "Answers the standalone SSE stream's GET, which a stateless transport does not serve.",
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 405,
+    params: [APP_IDENTIFIER], query: null, request: null, response: null,
+    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    notes:
+      'MCP\'s Streamable HTTP gives this path three verbs: `POST` carries JSON-RPC, `GET` opens the server-initiated SSE stream, and `DELETE` ' +
+      'ends a session. This server has no sessions — the argument is in `MCP_PROTOCOL_VERSION`\'s own note, and W8\'s second cloud instance is ' +
+      'where a per-process session map would break — so `GET` and `DELETE` answer `405`, which is what the SDK\'s stateless transport answers ' +
+      'and what a client is built to fall back from. \n\n**The row exists so that the `405` is not a `404`.** An unregistered verb answers ' +
+      '`404`, and at a path whose last segment is an app identifier a `404` already means *no such app* — one answer for two states, which is ' +
+      'the failure this project keeps paying for. Registering the verb lets the endpoint say "this app\'s server is here; this verb is not ' +
+      'part of it". The central `/mcp` registers neither verb and does not need to: its path takes no parameter, so nothing can misread its ' +
+      '`404`. \n\n**The `405` body is the transport\'s JSON-RPC error object, not the `apiError` envelope.** The four codes above are the ' +
+      'refusals that come *first* — the app, its switch, then the bearer, in the order `POST` describes — and they are `apiError` because ' +
+      'they are answered before the transport is reached at all. If this server ever becomes stateful, this row and the `DELETE` beside it ' +
+      'are where that lands, and the cloud\'s route-manifest test is what would make both repositories notice.',
+  },
+  {
+    method: 'DELETE', path: MCP_APP.endpoint, section: 'mcp',
+    summary: 'Answers the session-termination DELETE, which a stateless transport has no session to end.',
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 405,
+    params: [APP_IDENTIFIER], query: null, request: null, response: null,
+    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    notes:
+      'The other half of what the `GET` row above explains, and registered for the same reason: without a row here, a client tidying up after ' +
+      'itself would read `404` and could not tell a stateless server from an app that does not exist. `405`, from the same transport, with ' +
+      'the same four refusals ahead of it. A caller that wants a session to end simply stops sending requests — there is no server-side state ' +
+      'for this verb to remove, which is the point rather than a limitation.',
+  },
+  {
+    method: 'GET', path: MCP_APP.protectedResourceMetadata, section: 'mcp',
+    summary: "Publishes what one app's MCP endpoint says about who may authorize for it.",
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [APP_IDENTIFIER], query: null, request: null, response: protectedResourceMetadata,
+    errors: ['not_found'], transport: 'http',
+    notes:
+      'RFC 9728, for the resource `<PUBLIC_API_BASE_URL>/mcp/<identifier>`. `resource` and `authorization_servers` are the same URL: each ' +
+      'app\'s MCP server is its own authorization server, as the central one is, and that identity is what keeps one app\'s tokens out of ' +
+      'another\'s — the audience a token carries is this app\'s endpoint URL and nothing broader. \n\n**The identifier goes last, after the ' +
+      'document name.** §3.1 inserts `/.well-known/oauth-protected-resource` *before* the resource\'s path, so the document for `/mcp/<id>` is ' +
+      'at `/.well-known/oauth-protected-resource/mcp/<id>`; a hand-written `/.well-known/oauth-protected-resource/<id>` is a path no ' +
+      'conforming client ever fetches. `MCP_APP_PATHS` builds both, which is why this row does not spell either. \n\n**An app with MCP ' +
+      'switched off answers `404`, the same as an identifier no app carries, and that is a decision rather than a gap.** A metadata document ' +
+      'is present or it is absent; `403` is not a state a client\'s discovery code models, and one that met it would either error out or ' +
+      'retry forever. Nothing is being hidden — the identifier is public and is in this very path — the two answers are simply the same ' +
+      'answer: there is no MCP server here to authorize for. A client that registered while the switch was on learns the difference at `GET ' +
+      '/mcp/:appIdentifier/oauth/authorize`, which answers `403 mcp_disabled`.',
+  },
+  {
+    method: 'GET', path: MCP_APP.authorizationServerMetadata, section: 'mcp',
+    summary: "Publishes the authorization-server metadata an MCP client reads to sign in to one app.",
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [APP_IDENTIFIER], query: null, request: null, response: authorizationServerMetadata,
+    errors: ['not_found'], transport: 'http',
+    notes:
+      'RFC 8414, for the issuer `<PUBLIC_API_BASE_URL>/mcp/<identifier>` — the same path rule as the document above, and the same `404` for a ' +
+      'switched-off app. `registration_endpoint` is present for the reason the central document states: a client that finds it registers ' +
+      'itself and never asks a person for a `client_id`. \n\n**`issuer`, `token_endpoint` and the resource identifier are minted from the ' +
+      'canonical public base, never from the friendly `mcp.fleetless.dev` alias or the request\'s `Host`**, because a client checks a minted ' +
+      'token\'s `iss` and `aud` against these exact strings. \n\n**Unlike the central document, `authorization_endpoint` does not move to an ' +
+      'auth-portal origin**, and there is nothing here for one to serve: this authorization step renders no Fleetless page at all. It ' +
+      'redirects to the app\'s own `mcp_login_url` (D7), which is on the developer\'s origin already.',
+  },
+  {
+    method: 'POST', path: MCP_APP.register, section: 'mcp',
+    summary: 'Registers an MCP client dynamically for one app, with no human in the loop.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
+    params: [APP_IDENTIFIER], query: null, request: null, response: dynamicClientRegistrationResponse,
+    errors: ['rate_limited', 'not_found'], transport: 'http',
+    notes:
+      'RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`, for the reason `POST /mcp/oauth/register` gives: ' +
+      'that shape is strict, and a strict schema here would answer `400` to a conforming client and take the whole paste-the-URL flow down ' +
+      'with it. `client_name` and `redirect_uris` are read by hand; everything else is ignored, and what comes back is what was actually ' +
+      'granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly ' +
+      'that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here ' +
+      'authorizes at this app\'s endpoint and nowhere else, so a client registered against one app cannot walk into another\'s authorize with ' +
+      'it, and a developer who switches MCP off is not left with strangers\' registrations valid somewhere adjacent. \n\nRefusals are ' +
+      '`oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the ' +
+      'switch off, mirroring the two metadata documents this endpoint is discovered from — a client that could not read those has no business ' +
+      'registering here, and giving it a third distinct answer would only tell it something the documents deliberately do not.',
+  },
+  {
+    method: 'GET', path: MCP_APP.authorize, section: 'mcp',
+    summary: "Starts an MCP sign-in and redirects the browser to the app's own login page.",
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
+    params: [APP_IDENTIFIER], query: null, request: null, response: null,
+    errors: ['not_found', 'mcp_disabled', 'target_state_conflict'], transport: 'http',
+    notes:
+      '**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live ' +
+      '— and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own ' +
+      'UI, reads `GET /api/client/mcp/interactions/:id` to show the client\'s claimed name and the scopes it asked for, and calls approve or ' +
+      'deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET ' +
+      '/mcp/oauth/authorize` and `GET /api/client/oidc/:slug/start` both keep — and those refusals are RFC 6749\'s flat `oauthError`, which ' +
+      'is why none of them appear above. `redirect_uri` is matched **exactly** against the registration, with no loopback-port wildcard: ' +
+      'every client here registered itself minutes ago and can name the port it bound, so a wildcard would only widen where a stolen ' +
+      '`client_id` may send a browser. \n\nThe three codes above are the `apiError` envelope because they are refusals about the **app**, ' +
+      'decided before an OAuth parameter is looked at. `404 not_found` is an identifier no app carries. `403 mcp_disabled` is the switch off ' +
+      '— **the one place a client learns that**, where the metadata documents and `register` both answer `404`, because a client that got ' +
+      'this far registered while the switch was on and its user is owed the difference between "turned off" and "mistyped". `409 ' +
+      'target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It ' +
+      'is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — ' +
+      'Fleetless has nowhere to redirect, and rendering a page of its own instead would contradict D2.',
+  },
+  {
+    method: 'POST', path: MCP_APP.token, section: 'mcp',
+    summary: "Exchanges one app's MCP authorization code for an access token.",
+    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [APP_IDENTIFIER], query: null, request: null, response: oauthTokenResponse,
+    errors: [], transport: 'http',
+    notes:
+      'Only `authorization_code`, PKCE-verified and single-use. There is no refresh grant here either, so a session ends when its token ' +
+      'expires and the client signs in again; the shape is the same `oauthTokenResponse` the central endpoint answers, whose refresh field is ' +
+      'optional and stays empty. **The `aud` is this app\'s endpoint URL on the canonical public base**, and the code\'s `resource` must match ' +
+      'it — that is the whole of what stops a token minted for one app being spent at another\'s endpoint. \n\n**Every refusal is RFC 6749 ' +
+      '§5.2\'s `oauthError`, so this route emits none of the codes in this reference — including the ones about the app.** An unknown ' +
+      'identifier and a switched-off app are `invalid_client` here, not the `404` and `403` the authorize route beside it answers. The ' +
+      'difference is who reads the answer: authorize is walked by a browser and its refusal is read by a person, while this endpoint is ' +
+      'called by a client\'s own code in the middle of a flow, and handing that code an envelope its OAuth library cannot parse turns a clean ' +
+      'refusal into an unexplained crash.',
+  },
+
   /* -------------------------------------------------- app-user (client) auth */
   {
     method: 'POST', path: '/api/client/login', section: 'client-auth',
@@ -1618,6 +1797,65 @@ export const ROUTES: readonly RouteEntry[] = [
       'ever existed, and the recovery is the same in all four — start the sign-in again. That is why it is `token_spent` and not ' +
       '`interaction_expired`, which the MCP interaction routes answer: an interaction id is not a credential, its own client learns it from ' +
       'its own redirect, so there is nothing there to be vague about.',
+  },
+
+  /* --------------------------- the app's own MCP consent screen (D7) */
+  {
+    method: 'GET', path: '/api/client/mcp/interactions/:id', section: 'client-auth',
+    summary: 'Reads a pending MCP authorization so the app can draw its own consent screen.',
+    audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id, as `GET /mcp/:appIdentifier/oauth/authorize` put it into the app\'s `mcp_login_url`.' }],
+    query: null, request: null, response: clientMcpInteraction,
+    errors: ['not_found', 'interaction_expired'], transport: 'http',
+    notes:
+      '**The bearer is optional, which is why the credential is decided in the handler rather than by a guard.** An app renders this page ' +
+      'before it knows who is at the keyboard — the client\'s claimed name, marked unverified, and the scopes it asked for — and reads the ' +
+      'document again once the person has signed in. The only field that moves is `already_granted`: a grant belongs to a user, so without a ' +
+      'token there is no user for it to be about and it is `false`. An app-user token for a **different** app is treated as absent rather ' +
+      'than refused, for the same reason: nothing in this document is that user\'s, so there is nothing to refuse them, and a `401` would ' +
+      'break the page for somebody whose browser happens to hold another app\'s session. \n\n`404 not_found` is an id no interaction carries; ' +
+      '`410 interaction_expired` is one past its ten minutes or already decided. Two codes rather than one, because **an interaction id is ' +
+      'not a credential** — its own client learns it from its own redirect — so there is nothing to be vague about, and the app can say "that ' +
+      'took too long, start again" instead of "that link is invalid". `POST /api/client/oidc/exchange` states the other half of that ' +
+      'distinction, about a code that *is* a credential. \n\n**Not rate limited**, unlike most of the public client family: the id is ' +
+      'unguessable and names a request the server already holds, the answer says nothing about any person, and the app\'s consent page fetches ' +
+      'it on every render. There is nothing behind it to enumerate — to somebody who did not start the flow, an id that resolves and one ' +
+      'that does not are equally uninformative.',
+  },
+  {
+    method: 'POST', path: '/api/client/mcp/interactions/:id/approve', section: 'client-auth',
+    summary: 'Approves a pending MCP authorization on behalf of the signed-in app user.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id the app read with `GET /api/client/mcp/interactions/:id`.' }],
+    query: null, request: null, response: clientMcpInteractionDecisionResponse,
+    errors: [...CLIENT_GUARD, 'not_found', 'interaction_expired', 'mcp_disabled'], transport: 'http',
+    notes:
+      'The person is already signed in **at the app**, by whatever means that app uses, and this is the app telling Fleetless what they ' +
+      'decided. Fleetless never sees that sign-in, which is D7 in one sentence. \n\nThe guard admits all three caller kinds and the handler ' +
+      'takes one: a developer bearer or a server key reaching this is `401 unauthorized`, because a consent is a person\'s and a server key ' +
+      'is not a person — the same shape `POST /api/client/password/change` has. `403 forbidden` is an app-user token whose `app_id` is not ' +
+      'the interaction\'s: an interaction of one app cannot be approved with a session from another, which is what stops a developer running ' +
+      'two apps from letting one speak for the other. `403 mcp_disabled` is the app\'s switch, re-read here as it is on every request. `404 ' +
+      'not_found` is an id no interaction carries and `410 interaction_expired` one past its ten minutes or already decided — approve and ' +
+      'deny spend it alike. \n\n**The answer is a redirect target, not a redirect.** `redirect_to` is the MCP client\'s own callback carrying ' +
+      'the authorization code, and the app\'s page sends the browser there. The app is holding that browser and Fleetless is answering its ' +
+      'JSON call, so a `302` here would be a redirect on the wrong request. Approving records the grant for this user and this client, which ' +
+      'is what a later `already_granted` reads back.',
+  },
+  {
+    method: 'POST', path: '/api/client/mcp/interactions/:id/deny', section: 'client-auth',
+    summary: 'Denies a pending MCP authorization on behalf of the signed-in app user.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id the app read with `GET /api/client/mcp/interactions/:id`.' }],
+    query: null, request: null, response: clientMcpInteractionDecisionResponse,
+    errors: [...CLIENT_GUARD, 'not_found', 'interaction_expired', 'mcp_disabled'], transport: 'http',
+    notes:
+      'The same route with the opposite decision, and **it answers a `redirect_to` as well** — the client\'s own callback carrying ' +
+      '`error=access_denied`. A client that is refused must learn so from the place it is waiting rather than from a page nobody sent it, ' +
+      'the discipline `POST /mcp/oauth/consent` already keeps. \n\n**Two routes rather than one with a `decision` field**, which is what the ' +
+      'hosted consent screen has to be: there the decision arrives from a browser form, so anything that is not the Allow value must deny, ' +
+      'and a missing field failing closed is a rule somebody has to keep getting right. Here the caller is the app\'s own server-side code ' +
+      'and the path *is* the decision — there is no value to misread. The refusals are the approve route\'s, for the reasons stated there.',
   },
 
   /* ------------------------------------------------------------- robots */

@@ -80,6 +80,73 @@ export function mcpAppEndpointPath(appIdentifier: string): string {
 }
 
 /**
+ * **Every path one app's MCP server answers on, built from its identifier
+ * once** (D7).
+ *
+ * Six strings, and each of them is spelled in at least three places that
+ * cannot see one another: the cloud registers the route, the console renders a
+ * copy button beside it, the reverse proxy in front of `mcp.fleetless.dev`
+ * routes on it, and the documentation site prints it. `mcpAppEndpointPath`
+ * already made that argument for the endpoint alone; the five paths around it
+ * are worse to get wrong, because an MCP client **discovers** them — it reads
+ * the two metadata documents and follows what they say — so a divergence is
+ * not a `404` a developer sees, it is a sign-in that stops halfway in somebody
+ * else's client.
+ *
+ * **The two `.well-known` paths are not ours to choose.** RFC 9728 §3.1 and
+ * RFC 8414 §3 both say the same thing: take the resource (or issuer) URL, and
+ * insert `/.well-known/<document>` *before* its path component. The resource
+ * here is `<base>/mcp/<identifier>`, so the documents are at
+ * `<base>/.well-known/oauth-protected-resource/mcp/<identifier>` — the app
+ * identifier last, not `…/oauth-protected-resource/<identifier>`, which is the
+ * spelling the design note used in prose and which no conforming client would
+ * ever fetch. Writing them here is what keeps that reading from being made
+ * twice.
+ *
+ * **These are paths, not URLs.** Append them to `PUBLIC_API_BASE_URL`, for the
+ * reason `mcpAppEndpointPath` states: the cloud mints every issuer, resource
+ * and `aud` from the canonical base and compares a token's `aud` against that
+ * string, never against the request's `Host`. The friendly alias is a proxy in
+ * front of the same cloud, and a URL built on it hands a client an audience
+ * the token endpoint will refuse.
+ *
+ * Named in the shape `OAUTH_PATHS` had, and deliberately a **function** rather
+ * than the object that constant was: there is one set of these per app, and a
+ * frozen object would have to be built at a call site that knows the
+ * identifier anyway. The lesson kept from `OAUTH_PATHS` is the other one — it
+ * stood for months with an entry naming a route the cloud had deleted — so
+ * `routes.ts` builds its manifest rows *from this function*, passing
+ * `':appIdentifier'`, and the cloud's route-manifest test holds the registered
+ * routes to the manifest. A path that stops existing cannot stay spelled here.
+ */
+export interface McpAppPaths {
+  /** The Streamable HTTP transport itself: `POST` carries JSON-RPC, `GET` and `DELETE` are the stateless transport's `405`. */
+  readonly endpoint: string
+  /** RFC 9728 protected-resource metadata for the endpoint. */
+  readonly protectedResourceMetadata: string
+  /** RFC 8414 authorization-server metadata; this app's MCP server is its own authorization server. */
+  readonly authorizationServerMetadata: string
+  /** RFC 7591 dynamic client registration, per app. */
+  readonly register: string
+  /** The authorization endpoint, which redirects to the app's own `mcp_login_url` rather than rendering a page. */
+  readonly authorize: string
+  /** The token endpoint; `authorization_code` with PKCE and nothing else. */
+  readonly token: string
+}
+
+export function MCP_APP_PATHS(appIdentifier: string): McpAppPaths {
+  const endpoint = mcpAppEndpointPath(appIdentifier)
+  return {
+    endpoint,
+    protectedResourceMetadata: `/.well-known/oauth-protected-resource${endpoint}`,
+    authorizationServerMetadata: `/.well-known/oauth-authorization-server${endpoint}`,
+    register: `${endpoint}/oauth/register`,
+    authorize: `${endpoint}/oauth/authorize`,
+    token: `${endpoint}/oauth/token`,
+  }
+}
+
+/**
  * Which exposed kind a tool came from. Not the MCP protocol's vocabulary —
  * ours, so the console can group a preview the way the services editor is
  * grouped.

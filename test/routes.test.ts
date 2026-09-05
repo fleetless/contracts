@@ -2,7 +2,11 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH, clientOidcCallbackQuery, clientOidcErrorCode } from '../src/index.js'
+import {
+  ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH,
+  clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
+  clientMcpInteraction, clientMcpInteractionDecisionResponse,
+} from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
   IN_HANDLER_SECURITY,
@@ -44,7 +48,7 @@ describe('the route manifest', () => {
     for (const r of ROUTES) expect(r.path, key(r)).not.toMatch(/[()]/)
   })
 
-  it('allows in_handler auth only on the three routes that verify a credential themselves', () => {
+  it('allows in_handler auth only on the routes that verify a credential themselves', () => {
     const inHandler = ROUTES.filter((r) => r.auth === 'in_handler').map(key).sort()
     expect(inHandler).toEqual([...IN_HANDLER_ROUTES].sort())
   })
@@ -952,6 +956,340 @@ describe('the per-app OIDC surface', () => {
 })
 
 /**
+ * **The per-app MCP surface (train 4), pinned as three sets, six paths and one
+ * error code.**
+ *
+ * Eleven rows: eight under the app's own MCP server — the transport's three
+ * verbs, its two discovery documents and its three OAuth endpoints — and three
+ * under `/api/client/mcp`, which is the app's half of the delegated consent
+ * (D7). Tasks 4.2 and 4.3 register exactly these, and the cloud's
+ * `route-manifest.test.ts` asserts set equality with `ROUTES` in both
+ * directions.
+ *
+ * Written the way the train-2 and train-3 blocks are: each assertion names
+ * every member, asserts the count, then asserts the property over all of them.
+ * A guard written against one hand-picked row proves that row and nothing
+ * about the ten beside it — which is the shape seven guards in FL-005 had, and
+ * every one of them was caught by a review rather than by its author.
+ */
+describe('the per-app MCP surface', () => {
+  const APP_PATHS = MCP_APP_PATHS(':appIdentifier')
+
+  const TRANSPORT_ROUTES = [
+    `POST ${APP_PATHS.endpoint}`,
+    `GET ${APP_PATHS.endpoint}`,
+    `DELETE ${APP_PATHS.endpoint}`,
+  ]
+  const DISCOVERY_ROUTES = [
+    `GET ${APP_PATHS.protectedResourceMetadata}`,
+    `GET ${APP_PATHS.authorizationServerMetadata}`,
+  ]
+  const APP_OAUTH_ROUTES = [
+    `POST ${APP_PATHS.register}`,
+    `GET ${APP_PATHS.authorize}`,
+    `POST ${APP_PATHS.token}`,
+  ]
+  const INTERACTION_ROUTES = [
+    'GET /api/client/mcp/interactions/:id',
+    'POST /api/client/mcp/interactions/:id/approve',
+    'POST /api/client/mcp/interactions/:id/deny',
+  ]
+
+  it('adds exactly eleven rows for the train, and nothing else under any of the prefixes', () => {
+    const added = ROUTES.filter(
+      (r) =>
+        r.path === APP_PATHS.endpoint ||
+        r.path.startsWith(`${APP_PATHS.endpoint}/`) ||
+        r.path.startsWith('/.well-known/oauth-protected-resource/mcp/') ||
+        r.path.startsWith('/.well-known/oauth-authorization-server/mcp/') ||
+        r.path.startsWith('/api/client/mcp'),
+    )
+    const expected = [...TRANSPORT_ROUTES, ...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES, ...INTERACTION_ROUTES]
+    expect(added.map(key).sort(), 'the per-app MCP surface is exactly these eleven routes').toEqual([...expected].sort())
+    expect(added.length).toBe(11)
+    // Non-vacuity for the filter itself: the central endpoint and its own
+    // OAuth server must stay OUT of it, because a filter that swept them in
+    // would make the count above pass for the wrong reason.
+    expect(added.map(key)).not.toContain(`POST ${MCP_ENDPOINT_PATH}`)
+    expect(added.map(key)).not.toContain('POST /mcp/oauth/token')
+  })
+
+  /**
+   * **The six paths, as literal characters.**
+   *
+   * The rows are built *from* `MCP_APP_PATHS`, so comparing a row to the
+   * function that built it would be two references to one string agreeing with
+   * themselves — the mistake `CLIENT_OIDC_CALLBACK_PATH`'s own pin names. What
+   * is asserted here is the characters an MCP client fetches and a reverse
+   * proxy routes on.
+   *
+   * **The two `.well-known` paths are the reason this test exists.** RFC 9728
+   * §3.1 and RFC 8414 §3 insert the document name *before* the resource's
+   * path, so the identifier comes last; the design note wrote them the other
+   * way round in prose, and a client fetching
+   * `/.well-known/oauth-protected-resource/<identifier>` would find nothing at
+   * all, silently, at the one step where a failure means the sign-in never
+   * starts.
+   */
+  it('builds every per-app path from one function, spelled these six ways', () => {
+    const paths = MCP_APP_PATHS('demo')
+    expect(paths).toEqual({
+      endpoint: '/mcp/demo',
+      protectedResourceMetadata: '/.well-known/oauth-protected-resource/mcp/demo',
+      authorizationServerMetadata: '/.well-known/oauth-authorization-server/mcp/demo',
+      register: '/mcp/demo/oauth/register',
+      authorize: '/mcp/demo/oauth/authorize',
+      token: '/mcp/demo/oauth/token',
+    })
+    // The endpoint is the one that already had a helper; the family must not
+    // become a second spelling of it.
+    expect(paths.endpoint).toBe(mcpAppEndpointPath('demo'))
+    // The identifier is last in both documents, asserted as the property
+    // rather than only as a literal above — a rewrite that moved it would
+    // otherwise have to be caught by a reader noticing one changed character.
+    expect(paths.protectedResourceMetadata.endsWith('/mcp/demo')).toBe(true)
+    expect(paths.authorizationServerMetadata.endsWith('/mcp/demo')).toBe(true)
+    // And every row in the manifest carries one of these strings with the
+    // display parameter in it, so no row spells a path by hand.
+    const declared = new Set(Object.values(APP_PATHS))
+    for (const k of [...TRANSPORT_ROUTES, ...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES]) {
+      const r = ROUTES.find((x) => key(x) === k)!
+      expect(declared.has(r.path), `${k} spells a path MCP_APP_PATHS does not build`).toBe(true)
+    }
+  })
+
+  /**
+   * **The transport's three verbs**, held to the same guard and the same four
+   * refusals, because they are one handler reached three ways: the app is
+   * resolved, its switch read, and only then the bearer verified.
+   *
+   * `GET` and `DELETE` answer `405` — this server is stateless — and the rows
+   * exist so that the `405` is not a `404`, which at a path ending in an app
+   * identifier already means *no such app*. Asserted as a partition over all
+   * three rather than as a check on the two, because the shape this catches is
+   * a `POST` that quietly acquired the refusal status.
+   */
+  it('puts all three transport verbs on the in-handler bearer, with 405 on the two the transport does not serve', () => {
+    const rows = ROUTES.filter((r) => TRANSPORT_ROUTES.includes(key(r)))
+    expect(rows.map(key).sort(), 'the transport is exactly these three rows').toEqual([...TRANSPORT_ROUTES].sort())
+    expect(rows.length).toBe(3)
+
+    for (const r of rows) {
+      expect(r.auth, `${key(r)} is not verified inside its handler`).toBe('in_handler')
+      expect(IN_HANDLER_ROUTES, `${key(r)} is in_handler and unlisted`).toContain(key(r))
+      expect(r.section, `${key(r)} is filed outside the mcp section`).toBe('mcp')
+      expect(r.audience, `${key(r)} is not addressed to an app's own users`).toBe('client')
+      expect(r.response, 'the transport speaks JSON-RPC and declares no contracts shape').toBeNull()
+      expect(r.params.map((p) => p.name), `${key(r)} does not take the app identifier`).toEqual(['appIdentifier'])
+      expect([...r.errors].sort(), `${key(r)} refuses on a different list from its siblings`).toEqual(
+        ['forbidden', 'mcp_disabled', 'not_found', 'unauthorized'],
+      )
+      const stateless = key(r) !== `POST ${APP_PATHS.endpoint}`
+      expect(r.status === 405, `${key(r)} status ${r.status} disagrees with the stateless ruling`).toBe(stateless)
+    }
+
+    // The `405` is a decision, so the rows say so — a bare status is the state
+    // somebody "fixes" to 200 by making the server stateful without noticing
+    // that W8's second instance is what the statelessness is for.
+    for (const k of TRANSPORT_ROUTES.slice(1)) {
+      const notes = ROUTES.find((r) => key(r) === k)!.notes ?? ''
+      expect(notes, `${k} does not say why it answers 405`).toContain('stateless')
+      expect(notes, `${k} does not say why the row exists at all`).toContain('404')
+    }
+  })
+
+  /**
+   * **The two discovery documents are public, and a switched-off app is a
+   * `404` there and nowhere else.**
+   *
+   * The interesting half is the denial: `mcp_disabled` on either document
+   * would hand a discovering client a `403` its code does not model, and would
+   * split an answer that is one answer — there is no MCP server here to
+   * authorize for. So both directions are asserted, and the prose that makes
+   * the short `errors` list a claim rather than a gap is asserted with it.
+   */
+  it('opens both metadata documents without a credential and answers 404 for a disabled app', () => {
+    const rows = ROUTES.filter((r) => DISCOVERY_ROUTES.includes(key(r)))
+    expect(rows.map(key).sort(), 'the discovery half is exactly these two routes').toEqual([...DISCOVERY_ROUTES].sort())
+    expect(rows.length).toBe(2)
+
+    for (const r of rows) {
+      expect(r.auth, `${key(r)} asks a discovering client for a credential it cannot have`).toBe('none')
+      expect(r.rateLimited, `${key(r)} limits a document a client must read before anything else`).toBe(false)
+      expect(r.status, key(r)).toBe(200)
+      expect(r.response, `${key(r)} publishes no shape`).not.toBeNull()
+      expect([...r.errors], `${key(r)} answers more than not_found now; say which`).toEqual(['not_found'])
+      expect(r.errors, `${key(r)} distinguishes a disabled app from an unknown one`).not.toContain('mcp_disabled')
+      expect(r.notes ?? '', `${key(r)} does not say a disabled app answers 404`).toContain('404')
+    }
+    // Non-vacuity: `mcp_disabled` IS answered somewhere in this train, so the
+    // denial above is a fact about these two rows and not about the code.
+    expect(ROUTES.filter((r) => (r.errors as readonly string[]).includes('mcp_disabled')).length).toBeGreaterThan(1)
+  })
+
+  /**
+   * **Where a client learns the switch is off — exactly one place.**
+   *
+   * The two documents and `register` answer `404`, because a client that could
+   * not read the documents has no business registering. `authorize` answers
+   * `403 mcp_disabled`, because a client that got that far registered while
+   * the switch was on and its user is owed the difference between *turned off*
+   * and *mistyped*. `token` answers neither: its refusals are RFC 6749's flat
+   * `oauthError`, which is what an OAuth library mid-flow can parse.
+   *
+   * Written as a partition over all eight app-server rows, because the value
+   * of the rule is entirely in which rows do **not** carry the code.
+   */
+  it('reports mcp_disabled on the authorize route and on no other public app-server route', () => {
+    const publicRows = ROUTES.filter((r) => [...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES].includes(key(r)))
+    expect(publicRows.length).toBe(5)
+    for (const r of publicRows) {
+      const isAuthorize = key(r) === `GET ${APP_PATHS.authorize}`
+      expect((r.errors as readonly string[]).includes('mcp_disabled'), `${key(r)} disagrees with the ruling on mcp_disabled`).toBe(isAuthorize)
+      expect(r.auth, `${key(r)} is reached before any credential exists`).toBe('none')
+    }
+    const register = ROUTES.find((r) => key(r) === `POST ${APP_PATHS.register}`)!
+    expect([...register.errors].sort(), 'register no longer mirrors the central row plus not_found').toEqual(['not_found', 'rate_limited'])
+    expect(register.rateLimited, 'an unauthenticated endpoint that mints a client id is unlimited').toBe(true)
+    expect(register.status, 'RFC 7591 registers with a 201').toBe(201)
+  })
+
+  /**
+   * **The authorize row redirects to the app and refuses three ways.**
+   *
+   * The codes and the prose are both asserted: on its own, a three-code list
+   * says nothing about *why* an OAuth endpoint answers the `apiError` envelope
+   * at all, and `target_state_conflict` in particular is unreadable without
+   * the field it names — a developer who enabled MCP and left `mcp_login_url`
+   * empty has to be able to find that from the reference.
+   */
+  it('sends the authorize route to the app own login page, with the three app-level refusals', () => {
+    const r = ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!
+    expect(r.status, 'the authorize route answers a redirect on the happy path').toBe(302)
+    expect(r.response, 'a 302 carries no body').toBeNull()
+    expect([...r.errors].sort()).toEqual(['mcp_disabled', 'not_found', 'target_state_conflict'])
+    const notes = r.notes ?? ''
+    expect(notes, 'the row does not name the app URL it redirects to').toContain('mcp_login_url')
+    expect(notes, 'the row does not say Fleetless renders no page here').toContain('renders no page')
+    expect(notes, 'the row does not say the OAuth refusals are a different envelope').toContain('oauthError')
+    expect(notes, 'the row does not say the redirect URI is matched exactly').toContain('exactly')
+  })
+
+  /**
+   * **The token row lists no code, and that is a claim rather than an empty
+   * cell.** Every refusal it makes is RFC 6749 §5.2's flat shape, the app-level
+   * ones included — so the row has to say so, or a reader cannot tell a
+   * deliberate silence from a row somebody forgot to fill in. This is the pair
+   * the train-3 callback pin is built on, and for the same reason.
+   */
+  it('leaves the token row with no apiError code, and says where its refusals go instead', () => {
+    const r = ROUTES.find((x) => key(x) === `POST ${APP_PATHS.token}`)!
+    expect([...r.errors], 'the token endpoint answers an apiError now; the row must say which code').toEqual([])
+    expect(r.status).toBe(200)
+    expect(r.response, 'the token endpoint declares no response shape').not.toBeNull()
+    const notes = r.notes ?? ''
+    expect(notes, 'the row does not name the refusal envelope').toContain('oauthError')
+    expect(notes, 'the row does not say the app-level refusals use it too').toContain('invalid_client')
+    expect(notes, 'the row does not say what binds a token to one app').toContain('aud')
+    // Non-vacuity for the empty list: rows in this very train list several.
+    expect(ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!.errors.length).toBeGreaterThan(1)
+  })
+
+  /**
+   * **The three client interaction rows, and the auth ruling that separates
+   * them.**
+   *
+   * The `GET` is `in_handler` because its bearer is **optional** — the app
+   * draws its consent screen before anybody has signed in, and reads the same
+   * document again afterwards with only `already_granted` moving. Approve and
+   * deny take the app user's own access token through the ordinary client
+   * guard.
+   *
+   * Asserted as a partition, because the failure this catches is the `GET`
+   * drifting onto `developer_or_client` — which would typecheck, pass every
+   * other test here, and make an app's consent screen `401` for every visitor
+   * who has not signed in yet.
+   */
+  it('decides the interaction rows auth three ways: optional bearer to read, app-user token to answer', () => {
+    const rows = ROUTES.filter((r) => INTERACTION_ROUTES.includes(key(r)))
+    expect(rows.map(key).sort(), 'the interaction family is exactly these three routes').toEqual([...INTERACTION_ROUTES].sort())
+    expect(rows.length).toBe(3)
+
+    for (const r of rows) {
+      const reads = key(r) === 'GET /api/client/mcp/interactions/:id'
+      expect(r.auth, `${key(r)} auth disagrees with the ruling`).toBe(reads ? 'in_handler' : 'developer_or_client')
+      expect(r.section, `${key(r)} is filed outside the client-auth section`).toBe('client-auth')
+      expect(r.audience, `${key(r)} is not addressed to an app's own users`).toBe('client')
+      expect(r.status, key(r)).toBe(200)
+      expect(r.rateLimited, `${key(r)} claims a limiter the ruling does not give it`).toBe(false)
+      expect(r.errors, `${key(r)} cannot say the interaction has run out`).toContain('interaction_expired')
+      expect(r.errors, `${key(r)} cannot say the id names nothing`).toContain('not_found')
+      expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
+    }
+
+    // The optional bearer is the whole reason the GET is in_handler, so the
+    // sentence that says so is pinned with the flag — a flag without its
+    // argument is the state that gets flipped back.
+    const read = ROUTES.find((r) => key(r) === 'GET /api/client/mcp/interactions/:id')!
+    expect(IN_HANDLER_ROUTES).toContain(key(read))
+    expect(read.notes ?? '', 'the row does not say the bearer is optional').toContain('optional')
+    expect(read.notes ?? '', 'the row does not say what the bearer changes').toContain('already_granted')
+    expect(read.response, 'the read answers a shape other than the interaction').toBe(clientMcpInteraction)
+    // And the one place OpenAPI can express "optional": the scheme, or nothing.
+    expect(IN_HANDLER_SECURITY[key(read)], 'the optional bearer is not spelled as an OpenAPI alternative').toEqual([{ clientToken: [] }, {}])
+    for (const k of TRANSPORT_ROUTES) {
+      expect(IN_HANDLER_SECURITY[k], `${k} does not require the OAuth access token`).toEqual([{ clientToken: [] }])
+    }
+  })
+
+  /**
+   * **Approve and deny are two routes and one contract**, and both answer a
+   * `redirect_to` — a denial redirects too, carrying `error=access_denied`, so
+   * the MCP client learns the outcome from the place it is waiting.
+   *
+   * The guard codes are read off `GET /api/client/me` rather than retyped, the
+   * way the train-3 block reads the developer guard: `CLIENT_GUARD` is private
+   * to `routes.ts`, and a literal copy here would be the second list that
+   * drifts.
+   */
+  it('gives approve and deny the client guard, the app switch and one response shape', () => {
+    const guard = ROUTES.find((r) => key(r) === 'GET /api/client/me')!.errors
+    expect(guard.length, 'GET /api/client/me no longer lists the bare client guard').toBe(4)
+
+    const decisions = INTERACTION_ROUTES.slice(1)
+    const rows = ROUTES.filter((r) => decisions.includes(key(r)))
+    expect(rows.map(key).sort(), 'the decision half is exactly these two routes').toEqual([...decisions].sort())
+    expect(rows.length).toBe(2)
+
+    for (const r of rows) {
+      for (const c of guard) expect(r.errors, `${key(r)} does not list the guard's ${c}`).toContain(c)
+      expect(r.errors, `${key(r)} cannot say the app switched MCP off`).toContain('mcp_disabled')
+      expect(r.request, 'the decision is the path; there is no body to describe').toBeNull()
+      expect(r.response, `${key(r)} answers a shape other than the decision response`).toBe(clientMcpInteractionDecisionResponse)
+      expect(r.notes ?? '', `${key(r)} does not say the answer is a redirect target`).toContain('redirect_to')
+    }
+    // The denial's own property, which is the half a reader is most likely to
+    // assume away: it redirects as well.
+    const deny = ROUTES.find((r) => key(r) === 'POST /api/client/mcp/interactions/:id/deny')!
+    expect(deny.notes ?? '', 'the deny row does not say a refusal redirects too').toContain('access_denied')
+    // And the GET does NOT carry the guard, which is what makes the partition
+    // above a partition rather than a coincidence.
+    const read = ROUTES.find((r) => key(r) === 'GET /api/client/mcp/interactions/:id')!
+    for (const c of ['unauthorized', 'token_expired', 'token_revoked', 'forbidden']) {
+      expect(read.errors, `the optional-bearer read lists the guard's ${c}`).not.toContain(c)
+    }
+  })
+
+  /** The code this family answers, registered rather than assumed, and distinct from the credential one. */
+  it('registers interaction_expired, distinct from token_spent', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes).toContain('interaction_expired')
+    expect(codes).toContain('token_spent')
+    expect(codes.indexOf('interaction_expired')).not.toBe(codes.indexOf('token_spent'))
+  })
+})
+
+/**
  * The parked items carried over from the 0.15.0 route-manifest round: the
  * routes whose shape the manifest knew only in prose.
  */
@@ -980,6 +1318,17 @@ describe('the parked-items round', () => {
   })
 
   it('gives every documented JSON route a response schema or a content type', () => {
+    // **The MCP endpoints are the one JSON surface contracts deliberately does
+    // not describe.** Their bodies are JSON-RPC defined by the Model Context
+    // Protocol, and writing zod copies of somebody else's specification is the
+    // second source of truth this package exists to avoid — `mcp.ts` says so
+    // on the file itself. The per-app endpoint (D7) is that same surface with
+    // an identifier in the path, `GET` and `DELETE` included: their `405` body
+    // is the transport's own JSON-RPC error object, not an `apiError`.
+    //
+    // Named as two paths rather than loosened into a status or a section
+    // exemption, so a future silent route anywhere else still fails here.
+    const MCP_ENDPOINTS = [MCP_ENDPOINT_PATH, MCP_APP_PATHS(':appIdentifier').endpoint]
     const silent = ROUTES.filter(
       (r) =>
         r.audience !== 'internal' &&
@@ -987,7 +1336,7 @@ describe('the parked-items round', () => {
         r.response === null &&
         r.contentType === undefined &&
         ![204, 302, 202, 404].includes(r.status) &&
-        r.path !== '/mcp',
+        !MCP_ENDPOINTS.includes(r.path),
     )
     expect(silent.map(key)).toEqual([])
   })
