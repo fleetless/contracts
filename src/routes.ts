@@ -1794,9 +1794,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'carried. Sixty seconds, single-use, and worth nothing to whoever intercepted the redirect without the verifier. \n\n**One refusal for ' +
       'every code that does not work: `410 token_spent`** — unknown, past its sixty seconds, already exchanged, or presented with a verifier ' +
       'that does not match. There is one code because this code **is a credential**: telling the four apart would say whether a given value ' +
-      'ever existed, and the recovery is the same in all four — start the sign-in again. That is why it is `token_spent` and not ' +
-      '`interaction_expired`, which the MCP interaction routes answer: an interaction id is not a credential, its own client learns it from ' +
-      'its own redirect, so there is nothing there to be vague about.',
+      'ever existed, and the recovery is the same in all four — start the sign-in again. The MCP interaction routes collapse their four ' +
+      'states the same way and for the same reason, and answer `interaction_expired` rather than this code — the difference is what the value ' +
+      'is, not how vague the answer is: a mailed one-time code is a credential, an interaction id names a pending request, and the two ' +
+      'deserve different advice on the app\'s own page.',
   },
 
   /* --------------------------- the app's own MCP consent screen (D7) */
@@ -1806,18 +1807,20 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The interaction id, as `GET /mcp/:appIdentifier/oauth/authorize` put it into the app\'s `mcp_login_url`.' }],
     query: null, request: null, response: clientMcpInteraction,
-    errors: ['not_found', 'interaction_expired'], transport: 'http',
+    errors: ['interaction_expired'], transport: 'http',
     notes:
       '**The bearer is optional, which is why the credential is decided in the handler rather than by a guard.** An app renders this page ' +
       'before it knows who is at the keyboard — the client\'s claimed name, marked unverified, and the scopes it asked for — and reads the ' +
       'document again once the person has signed in. The only field that moves is `already_granted`: a grant belongs to a user, so without a ' +
       'token there is no user for it to be about and it is `false`. An app-user token for a **different** app is treated as absent rather ' +
       'than refused, for the same reason: nothing in this document is that user\'s, so there is nothing to refuse them, and a `401` would ' +
-      'break the page for somebody whose browser happens to hold another app\'s session. \n\n`404 not_found` is an id no interaction carries; ' +
-      '`410 interaction_expired` is one past its ten minutes or already decided. Two codes rather than one, because **an interaction id is ' +
-      'not a credential** — its own client learns it from its own redirect — so there is nothing to be vague about, and the app can say "that ' +
-      'took too long, start again" instead of "that link is invalid". `POST /api/client/oidc/exchange` states the other half of that ' +
-      'distinction, about a code that *is* a credential. \n\n**Not rate limited**, unlike most of the public client family: the id is ' +
+      'break the page for somebody whose browser happens to hold another app\'s session. \n\n**One code for every interaction that is not live: ' +
+      '`410 interaction_expired`.** Unknown, past its ten minutes, already decided, or an interaction of the central flow — one status and ' +
+      'one body, so an id nobody holds cannot be told from one that ran out. A `404` beside it would let a caller who did not start the flow ' +
+      'ask whether somebody else\'s sign-in is in progress, which is the only question this document could be used to answer. The word is ' +
+      'still `interaction_expired` rather than `token_spent`, because an interaction id names a pending request rather than a credential and ' +
+      'the app\'s page owes the person the better advice: "that took too long, start again". \n\n**Not rate limited**, unlike most of the ' +
+      'public client family and unlike the two decisions beside it: the id is ' +
       'unguessable and names a request the server already holds, the answer says nothing about any person, and the app\'s consent page fetches ' +
       'it on every render. There is nothing behind it to enumerate — to somebody who did not start the flow, an id that resolves and one ' +
       'that does not are equally uninformative.',
@@ -1825,19 +1828,22 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/client/mcp/interactions/:id/approve', section: 'client-auth',
     summary: 'Approves a pending MCP authorization on behalf of the signed-in app user.',
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    audience: 'client', auth: 'developer_or_client', rateLimited: true, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The interaction id the app read with `GET /api/client/mcp/interactions/:id`.' }],
     query: null, request: null, response: clientMcpInteractionDecisionResponse,
-    errors: [...CLIENT_GUARD, 'not_found', 'interaction_expired', 'mcp_disabled'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'rate_limited', 'interaction_expired', 'mcp_disabled'], transport: 'http',
     notes:
       'The person is already signed in **at the app**, by whatever means that app uses, and this is the app telling Fleetless what they ' +
       'decided. Fleetless never sees that sign-in, which is D7 in one sentence. \n\nThe guard admits all three caller kinds and the handler ' +
       'takes one: a developer bearer or a server key reaching this is `401 unauthorized`, because a consent is a person\'s and a server key ' +
       'is not a person — the same shape `POST /api/client/password/change` has. `403 forbidden` is an app-user token whose `app_id` is not ' +
       'the interaction\'s: an interaction of one app cannot be approved with a session from another, which is what stops a developer running ' +
-      'two apps from letting one speak for the other. `403 mcp_disabled` is the app\'s switch, re-read here as it is on every request. `404 ' +
-      'not_found` is an id no interaction carries and `410 interaction_expired` one past its ten minutes or already decided — approve and ' +
-      'deny spend it alike. \n\n**The answer is a redirect target, not a redirect.** `redirect_to` is the MCP client\'s own callback carrying ' +
+      'two apps from letting one speak for the other. `403 mcp_disabled` is the app\'s switch, re-read here as it is on every request. `410 ' +
+      'interaction_expired` is the read route\'s one code for everything that is not live — unknown, expired, or already decided; approve ' +
+      'and deny spend an interaction alike, so the second call gets it whichever route made the first. \n\n**Rate limited per app user, ' +
+      'unlike the read.** The read is a public document about a request the server already holds; this one spends something, and a decision ' +
+      'is the one thing a leaked interaction id would be worth hammering for. The limit is on the signed-in account rather than on the ip, ' +
+      'because that is what the caller has had to prove. \n\n**The answer is a redirect target, not a redirect.** `redirect_to` is the MCP client\'s own callback carrying ' +
       'the authorization code, and the app\'s page sends the browser there. The app is holding that browser and Fleetless is answering its ' +
       'JSON call, so a `302` here would be a redirect on the wrong request. Approving records the grant for this user and this client, which ' +
       'is what a later `already_granted` reads back.',
@@ -1845,17 +1851,19 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/client/mcp/interactions/:id/deny', section: 'client-auth',
     summary: 'Denies a pending MCP authorization on behalf of the signed-in app user.',
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    audience: 'client', auth: 'developer_or_client', rateLimited: true, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The interaction id the app read with `GET /api/client/mcp/interactions/:id`.' }],
     query: null, request: null, response: clientMcpInteractionDecisionResponse,
-    errors: [...CLIENT_GUARD, 'not_found', 'interaction_expired', 'mcp_disabled'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'rate_limited', 'interaction_expired', 'mcp_disabled'], transport: 'http',
     notes:
       'The same route with the opposite decision, and **it answers a `redirect_to` as well** — the client\'s own callback carrying ' +
       '`error=access_denied`. A client that is refused must learn so from the place it is waiting rather than from a page nobody sent it, ' +
       'the discipline `POST /mcp/oauth/consent` already keeps. \n\n**Two routes rather than one with a `decision` field**, which is what the ' +
       'hosted consent screen has to be: there the decision arrives from a browser form, so anything that is not the Allow value must deny, ' +
       'and a missing field failing closed is a rule somebody has to keep getting right. Here the caller is the app\'s own server-side code ' +
-      'and the path *is* the decision — there is no value to misread. The refusals are the approve route\'s, for the reasons stated there.',
+      'and the path *is* the decision — there is no value to misread. The refusals are the approve route\'s, for the reasons stated there, ' +
+      'including the limiter: **rate limited per app user**, on the signed-in account rather than the ip, because a denial spends the ' +
+      'interaction exactly as an approval does and a caller holding a leaked id must not be able to burn other people\'s sign-ins in a loop.',
   },
 
   /* ------------------------------------------------------------- robots */

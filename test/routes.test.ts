@@ -1221,9 +1221,22 @@ describe('the per-app MCP surface', () => {
       expect(r.section, `${key(r)} is filed outside the client-auth section`).toBe('client-auth')
       expect(r.audience, `${key(r)} is not addressed to an app's own users`).toBe('client')
       expect(r.status, key(r)).toBe(200)
-      expect(r.rateLimited, `${key(r)} claims a limiter the ruling does not give it`).toBe(false)
+      // **The limiter is a partition too, and the same one.** The read is a
+      // public document about a request the server already holds and is
+      // fetched on every render of the app's consent page; the two decisions
+      // spend something, which is the one thing a leaked interaction id would
+      // be worth hammering for.
+      expect(r.rateLimited, `${key(r)} disagrees with the ruling on which of these three is limited`).toBe(!reads)
+      expect(r.errors.includes('rate_limited'), `${key(r)} lists rate_limited without a limiter, or the reverse`).toBe(!reads)
       expect(r.errors, `${key(r)} cannot say the interaction has run out`).toContain('interaction_expired')
-      expect(r.errors, `${key(r)} cannot say the id names nothing`).toContain('not_found')
+      // **And none of them may answer `not_found`.** Unknown, expired,
+      // already-decided and central-flow interactions are ONE code with one
+      // body: an id nobody holds must not be distinguishable from one that ran
+      // out, or a caller who did not start the flow learns whether somebody
+      // else's sign-in is in progress. A row that listed `404` would document
+      // a refusal the cloud does not produce — and a reader implementing
+      // against it would build the oracle back.
+      expect(r.errors, `${key(r)} answers a 404 that would tell an unknown id from an expired one`).not.toContain('not_found')
       expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
     }
 
@@ -1234,6 +1247,9 @@ describe('the per-app MCP surface', () => {
     expect(IN_HANDLER_ROUTES).toContain(key(read))
     expect(read.notes ?? '', 'the row does not say the bearer is optional').toContain('optional')
     expect(read.notes ?? '', 'the row does not say what the bearer changes').toContain('already_granted')
+    // The one-code ruling, pinned as prose beside the empty `not_found` above:
+    // a flag without its argument is the state that gets flipped back.
+    expect(read.notes ?? '', 'the read does not say it answers one code for every dead interaction').toContain('interaction_expired')
     expect(read.response, 'the read answers a shape other than the interaction').toBe(clientMcpInteraction)
     // And the one place OpenAPI can express "optional": the scheme, or nothing.
     expect(IN_HANDLER_SECURITY[key(read)], 'the optional bearer is not spelled as an OpenAPI alternative').toEqual([{ clientToken: [] }, {}])
@@ -1264,6 +1280,8 @@ describe('the per-app MCP surface', () => {
     for (const r of rows) {
       for (const c of guard) expect(r.errors, `${key(r)} does not list the guard's ${c}`).toContain(c)
       expect(r.errors, `${key(r)} cannot say the app switched MCP off`).toContain('mcp_disabled')
+      expect(r.errors, `${key(r)} carries a limiter and cannot say so`).toContain('rate_limited')
+      expect(r.notes ?? '', `${key(r)} does not say who the limit is counted against`).toContain('per app user')
       expect(r.request, 'the decision is the path; there is no body to describe').toBeNull()
       expect(r.response, `${key(r)} answers a shape other than the decision response`).toBe(clientMcpInteractionDecisionResponse)
       expect(r.notes ?? '', `${key(r)} does not say the answer is a redirect target`).toContain('redirect_to')

@@ -778,13 +778,17 @@ export const ERROR_CODES = [
    * minutes, the one-time code sixty seconds, and an MCP interaction ten
    * minutes.
    *
-   * Deliberately **not** `token_spent`, which covers *unknown, expired and
-   * already-used* on a mailed credential and collapses them on purpose so that
-   * a stranger cannot learn whether a token ever existed. An interaction id is
-   * not a credential — the client that started the flow learns its own from
-   * its own redirect — so there is nothing to protect by being vague, and the
-   * app's page can say "that took too long, start again" instead of "that link
-   * is invalid".
+   * Deliberately **not** `token_spent`, and the difference is what the value
+   * IS rather than how many states the answer covers. `token_spent` is the one
+   * answer to a mailed credential that does not work; this is the one answer to
+   * an interaction that is no longer live. **The MCP interaction routes collapse
+   * unknown, expired, already-decided and not-this-surface into this single
+   * code**, exactly as `token_spent` collapses its four — an id nobody holds
+   * must not be distinguishable from one that ran out, or a caller who did not
+   * start the flow learns whether somebody else's sign-in is in progress. What
+   * survives the collapse is the word: an app's page can say "that took too
+   * long, start again" rather than "that link is invalid", which is the right
+   * advice for the state a person is actually in.
    */
   'interaction_expired',
 ] as const
