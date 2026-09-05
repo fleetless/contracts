@@ -420,6 +420,57 @@ describe('the app-user auth surface', () => {
   })
 
   /**
+   * **Every dead token collapses onto one code, on all three routes that spend
+   * one.** The first draft of this manifest split them — `token_expired` for one
+   * past its lifetime, `invalid_token` for a string that is no token,
+   * `invite_expired` and `invite_used` on the invitation route — on the argument
+   * that the recoveries differ and the app should be able to say which.
+   *
+   * They do not differ enough to pay for it. `token_spent`'s own entry in
+   * `errors.ts` makes the call: distinguishing them tells a stranger whether a
+   * token ever existed, and asking for a new link is the recovery in every case.
+   * A split here would also have been the only place on the client surface where
+   * an answer varies by whether something exists, which is the discipline the
+   * whole family is built around.
+   *
+   * The assertion is written as a **denial over the set**, not as a check that
+   * `token_spent` is listed: listing the right code proves nothing about the
+   * four wrong ones sitting beside it, and a row that answered both would pass a
+   * presence-only test while documenting exactly the oracle this forbids. The
+   * `notes` check is the third arm — the lead's ruling asked each row to say why
+   * there is one code, and prose that goes missing is invisible to a test over
+   * `errors` alone.
+   */
+  const TOKEN_SPENDING = [
+    'POST /api/client/verify-email',
+    'POST /api/client/password/reset/confirm',
+    'POST /api/client/invitations/accept',
+  ]
+
+  it('collapses every dead token onto token_spent, and says so, on all three routes that spend one', () => {
+    const rows = ROUTES.filter((r) => TOKEN_SPENDING.includes(key(r)))
+    expect(rows.map(key).sort(), 'the token-spending routes are exactly these three').toEqual([...TOKEN_SPENDING].sort())
+
+    for (const r of rows) {
+      const errors: readonly string[] = r.errors
+      expect(errors, `${key(r)} spends a token and cannot say the token is dead`).toContain('token_spent')
+      for (const split of ['token_expired', 'token_revoked', 'invalid_token', 'invite_expired', 'invite_used']) {
+        expect(errors, `${key(r)} splits a dead token into ${split}, which is the enumeration oracle`).not.toContain(split)
+      }
+      expect(r.notes ?? '', `${key(r)} does not explain its one refusal`).toContain('token_spent')
+    }
+
+    // The two codes that existed only for the split. Asserted here as well as in
+    // `identity-apps-and-roles.test.ts` because this is the file that would
+    // re-introduce them: a row listing a code is what puts it back in use, and a
+    // catalogue entry with no producer is how it got here the first time.
+    const codes: readonly string[] = ERROR_CODES
+    for (const gone of ['invite_expired', 'invite_used']) {
+      expect(codes, `${gone} is back in the catalogue with nothing to emit it`).not.toContain(gone)
+    }
+  })
+
+  /**
    * The two `202`s that answer a body. Everything else in this train that
    * answers `202` answers nothing at all, and the difference is deliberate: on
    * the public routes the body would be an enumeration oracle, while on these

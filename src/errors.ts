@@ -87,8 +87,19 @@ export const ERROR_CODES = [
   'invalid_credentials',
   'token_expired',
   'token_revoked',
-  'invite_expired',
-  'invite_used',
+  /* `invite_expired` and `invite_used` were removed on 2026-09-05, by the same
+   * reasoning that removed `not_a_member` and with the same evidence: a `grep`
+   * across contracts, cloud, sdk, console and bridge found their own entries
+   * here and one test asserting those entries existed. Nothing has ever emitted
+   * either.
+   *
+   * They were written for `POST /api/client/invitations/accept`, to tell an
+   * expired invitation from an already-accepted one. That route answers `410
+   * token_spent` to both, and to an unknown token and a revoked one as well —
+   * see that code's own entry for why. Keeping two codes for a distinction the
+   * wire deliberately refuses to make is the third failure mode in this
+   * project's list: a documented refusal no caller can receive, which a reader
+   * would reasonably branch on. */
   /**
    * The address is already taken — **globally, across every org** (Andre,
    * 2026-08-29).

@@ -734,9 +734,9 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'An invitation that was already accepted is not pending and answers `404`, the same answer one that never existed gets — the account it ' +
-      'created is a user now, and deleting that is `DELETE /api/apps/:id/users/:userId`. A revoked token answers `401 invalid_token` at ' +
-      '`POST /api/client/invitations/accept` rather than `410 invite_expired`: the developer withdrew it, which is not the same fact as time ' +
-      'running out, and only the first is worth re-issuing against.',
+      'created is a user now, and deleting that is `DELETE /api/apps/:id/users/:userId`. A revoked token answers `410 token_spent` at ' +
+      '`POST /api/client/invitations/accept`, the same answer one that expired or never existed gets — the developer withdrew it deliberately, ' +
+      'and an answer saying so would tell whoever still holds the link that it was once real.',
   },
 
   /* ------------------------------- the app's auth configuration and mails */
@@ -1285,16 +1285,15 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Spends a verification token, activates the account and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: clientVerifyEmailRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'token_expired', 'token_spent', 'invalid_token'], transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
     notes:
       '**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their ' +
       'password again on the next screen, and the app has an access token to carry them into it. The account moves from ' +
       '`pending_verification` to `active` and the token is spent in the same write, so a link opened twice cannot mint two sessions. ' +
-      '\n\nThree refusals, and they are three because this token is a link a person clicks rather than a credential a client stores: `410 ' +
-      'token_expired` for one past its twenty-four hours, which is the one an app answers by offering `POST /api/client/resend-verification`; ' +
-      '`410 token_spent` for one already used, which needs no new mail because the account is already active; `401 invalid_token` for a string ' +
-      'that is not a token of this kind at all. A single collapsed code would leave the app unable to tell the person which of the three ' +
-      'happened, and each has a different next step.',
+      '\n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its twenty-four hours, or already used. ' +
+      'There is one code because distinguishing them would tell a stranger whether a token ever existed, and because the recovery is the same ' +
+      'in all three cases: ask for a fresh link with `POST /api/client/resend-verification`. An app rendering this refusal should offer that ' +
+      'and nothing conditional on which of the three it was.',
   },
   {
     method: 'POST', path: '/api/client/resend-verification', section: 'client-auth',
@@ -1328,33 +1327,32 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Spends a reset token, sets the new password and answers a fresh session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: clientPasswordResetConfirmRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'token_expired', 'token_spent', 'invalid_token', 'weak_password'], transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'weak_password'], transport: 'http',
     notes:
       '**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two ' +
       'states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The ' +
       'account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. ' +
-      '\n\nThe token\'s three refusals are the ones `POST /api/client/verify-email` makes, for the same reason — `410 token_expired` past its ' +
-      'hour, `410 token_spent` for one already used, `401 invalid_token` for a string that is no token. `400 weak_password` is the new ' +
-      'password being under twelve characters, named on its own rather than as a `validation_error`, because the person typed it.',
+      '\n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code ' +
+      'because distinguishing them would tell a stranger whether a token ever existed, and the recovery is identical either way: ask for a new ' +
+      'link. `400 weak_password` is the replacement password being under twelve characters, named on its own rather than buried in a ' +
+      '`validation_error`, because the person typed it and has to read why it was refused.',
   },
   {
     method: 'POST', path: '/api/client/invitations/accept', section: 'client-auth',
     summary: 'Spends an invitation token, creates or activates the app user and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: clientAcceptInvitationRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'invite_expired', 'invite_used', 'invalid_token', 'weak_password', 'email_taken'],
-    transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'weak_password', 'email_taken'], transport: 'http',
     notes:
       '**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a ' +
       'session, because the person is landing in the developer\'s app and there is no second door for them to sign in through. The role is the ' +
       'one the invitation fixed at creation, so a later change to the app\'s default role does not re-aim a link already in somebody\'s inbox, ' +
       'and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist ' +
-      'automates. \n\nThe two token refusals are split because the recoveries differ and the app has to say which: `410 invite_expired` past the ' +
-      'seven days, which the developer fixes by re-issuing, and `409 invite_used` for one already accepted, whose holder should simply log in. ' +
-      '`401 invalid_token` is a string that is no invitation token, including a revoked one — a revoked invitation must not read as one that ' +
-      'merely expired, since the developer withdrew it deliberately. `400 weak_password` is the chosen password under twelve characters, and ' +
-      '`409 email_taken` is an address this app has acquired since the invitation was written; the invitation stays outstanding rather than ' +
-      'being spent, so the developer can revoke it.',
+      'automates. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by ' +
+      'the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because ' +
+      'the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. `400 weak_password` is ' +
+      'the chosen password under twelve characters. `409 email_taken` is an address this app has acquired since the invitation was written — ' +
+      'the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login.',
   },
   {
     method: 'POST', path: '/api/client/refresh', section: 'client-auth',

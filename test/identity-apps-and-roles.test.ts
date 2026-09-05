@@ -267,8 +267,6 @@ describe('error vocabulary', () => {
       'invalid_credentials',
       'token_expired',
       'token_revoked',
-      'invite_expired',
-      'invite_used',
       'email_taken',
       'registration_closed',
       'domain_not_allowed',
@@ -280,14 +278,24 @@ describe('error vocabulary', () => {
   })
 
   /**
-   * The other half: a code this file used to assert the *presence* of, now
+   * The other half: codes this file used to assert the *presence* of, now
    * asserted absent. `not_a_member` had no producer and named the deleted
-   * model's noun; re-adding it would be re-adding a refusal nothing can
-   * answer with. See the tombstone in `errors.ts` for the reasoning.
+   * model's noun. `invite_expired` and `invite_used` had no producer either,
+   * and the route they were written for answers `410 token_spent` to every
+   * invitation token that does not work — so branching on them was branching on
+   * an answer no caller can receive. Re-adding any of the three would be
+   * re-adding a refusal nothing can answer with. See the tombstones in
+   * `errors.ts` for the reasoning.
+   *
+   * Asserted as a set rather than one by one: this list is the record of what
+   * was retired, and a code dropped from the assertion is a code that quietly
+   * stops being guarded.
    */
-  it('has dropped the refusal that named the deleted model', () => {
+  it('has dropped the refusals nothing can answer with', () => {
     const codes: readonly string[] = ERROR_CODES
-    expect(codes).not.toContain('not_a_member')
+    for (const gone of ['not_a_member', 'invite_expired', 'invite_used']) {
+      expect(codes, `${gone} is back in the catalogue`).not.toContain(gone)
+    }
   })
 })
 
