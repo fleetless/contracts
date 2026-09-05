@@ -105,6 +105,7 @@ import {
   patchOrgRequest,
   patchAuthMeRequest,
 } from '../src/identity.js'
+import { groupFilterQuery, groupPreviewQuery, patchOrgResponse } from '../src/identity.js'
 import {
   app,
   createAppRequest,
@@ -113,6 +114,7 @@ import {
   role,
   rolePermissions,
 } from '../src/apps.js'
+import { appListResponse, roleListResponse, serverKeyListResponse } from '../src/apps.js'
 import {
   clientLoginRequest,
   clientRefreshRequest,
@@ -127,6 +129,7 @@ import {
   datapointDisplay,
   putDatapointDisplayRequest,
 } from '../src/alerts.js'
+import { orgAlertsQuery } from '../src/alerts.js'
 import { job, jobEvent } from '../src/jobs.js'
 import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary } from '../src/jobs.js'
 import { actionConfig, serviceConfig, publisherConfig, parameterSpec } from '../src/config.js'
@@ -148,6 +151,7 @@ import {
   bridgeAssetProgress,
 } from '../src/protocol.js'
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
+import { missingAssetQuery } from '../src/assets.js'
 import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
 import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
@@ -155,6 +159,7 @@ import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureLis
 import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
+import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, urdfCompleteness } from '../src/assets.js'
 import { brandingConfig, updateAppRequest } from '../src/apps.js'
@@ -184,6 +189,7 @@ import {
   oauthTokenResponse,
   protectedResourceMetadata,
 } from '../src/oauth.js'
+import { oauthAuthorizeQuery, oauthClientListResponse, oauthRegisterQuery } from '../src/oauth.js'
 import {
   cameraDescriptor,
   cancelRequest,
@@ -454,6 +460,34 @@ export const exportedSchemas = {
   'asset-sync-request': assetSyncRequest, // POST /api/robots/:id/assets/sync
   'asset-sync-response': assetSyncResponse, // POST /api/robots/:id/assets/sync
 
+  // --- Queries and envelopes the manifest names (2026-09-05 parked items) ---
+  //
+  // Every documented query string and every list/detail envelope the routes
+  // above answer with. They were the fifteen holes the guard above describes:
+  // a route pointed at each of them and `schemaName` had no name to resolve
+  // to, so the export refused rather than emitting a manifest with a gap in
+  // it. Comment names the route, same as the block above.
+  'oauth-authorize-query': oauthAuthorizeQuery, // GET /oauth/authorize
+  'oauth-register-query': oauthRegisterQuery, // POST /oauth/register
+  'org-alerts-query': orgAlertsQuery, // GET /api/org/alerts
+  'group-filter-query': groupFilterQuery, // GET /api/org/users
+  'group-preview-query': groupPreviewQuery, // GET /api/org/users/:id/usage, GET /api/apps/:id/group-usage
+  'robot-delete-query': robotDeleteQuery, // DELETE /api/robots/:id
+  'org-health-query': orgHealthQuery, // GET /api/org/health
+  'missing-asset-query': missingAssetQuery, // GET /api/robots/:id/assets/missing
+  'app-list-response': appListResponse, // GET /api/apps
+  'role-list-response': roleListResponse, // GET /api/apps/:id/roles
+  'server-key-list-response': serverKeyListResponse, // GET /api/apps/:id/server-keys
+  'oauth-client-list-response': oauthClientListResponse, // GET /api/apps/:id/oauth-clients
+  'patch-org-response': patchOrgResponse, // PATCH /api/org
+  'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
+  'put-robot-details-response': putRobotDetailsResponse, // PUT /api/robots/:id/details
+  // The other half of `invoke-or-service-response`. `invokeResponse` was
+  // already registered in its own right and this one was not, so the union
+  // named a member the reference could not link to — the documented absence
+  // the union comment above exists to have removed.
+  'service-call-response': serviceCallResponse, // POST /api/robots/:id/jobs/:slug (the service half of the union)
+
   // --- Wire shapes the SDK re-exports as TypeScript types ------------------
   //
   // Not referenced by any route entry: each of these travels *inside* one of
@@ -589,6 +623,12 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'oauth-login-request', 'consent-decision', 'oauth-token-request', 'dynamic-client-registration-request',
   'put-robot-details-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
+  // The eight documented query strings (2026-09-05). A query is a document
+  // the server validates on arrival, so `input` for the same reason every
+  // other `*-query` above is.
+  'oauth-authorize-query', 'oauth-register-query', 'org-alerts-query',
+  'group-filter-query', 'group-preview-query', 'robot-delete-query',
+  'org-health-query', 'missing-asset-query',
   // A replace, not a merge: the same document is the PUT's body and the GET's
   // answer, so a receiver validates it and `input` is the honest mode. The
   // consequence is the usual one — the GET's artifact does not mark a
@@ -641,6 +681,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response',
   'invoke-or-service-response', 'history-response',
+  'app-list-response', 'role-list-response', 'server-key-list-response',
+  'oauth-client-list-response', 'patch-org-response', 'patch-robot-response',
+  'put-robot-details-response', 'service-call-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
   // Every one of these appears only inside a response, which is what makes
@@ -781,6 +824,7 @@ export interface RouteArtifactEntry {
   request: string | null
   requestOptional?: true
   response: string | null
+  contentType?: string
   errors: string[]
   transport: string
   notes?: string
@@ -811,6 +855,11 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
         request: r.request === null ? null : schemaName(r.request, `${where} request`),
         ...(r.requestOptional === true ? { requestOptional: true as const } : {}),
         response: r.response === null ? null : schemaName(r.response, `${where} response`),
+        // Same reason `requestOptional` is spread in above rather than assigned
+        // afterwards: `routes.json`'s key order is part of what the
+        // documentation site reads, and a key set on an object it is not
+        // already on goes to the end.
+        ...(r.contentType !== undefined ? { contentType: r.contentType } : {}),
         errors: [...r.errors],
         transport: r.transport,
       }
@@ -877,7 +926,37 @@ const PATH_TOKEN_NOTE = 'The signed token in the path is the credential; no othe
  * rewriting only the parent would leave the inner one dangling and look fixed
  * from the outside.
  */
-function componentSchemas(name: string): Record<string, Record<string, unknown>> {
+/**
+ * **The editor's keywords, which OpenAPI has no idea what to do with.**
+ *
+ * `src/config.ts` annotates the config document with `defaultSnippets`,
+ * `patternErrorMessage` and `enumDescriptions` so the console's Monaco YAML
+ * editor can offer a snippet, explain a failed pattern in words, and gloss an
+ * enum member. Those are `monaco-yaml`/`vscode-json-languageservice` vendor
+ * keywords: they belong in `artifacts/schema/*.json`, which is the file the
+ * editor loads, and nowhere near a document a client generator reads.
+ *
+ * JSON Schema says an unknown keyword is ignored, so nothing *breaks* — but
+ * 122 of them travelled into `openapi.json` as noise a reader has to learn is
+ * not part of the API, and one (`defaultSnippets`) carries whole example
+ * documents. So they are stripped **here and only here**: the per-file write
+ * path below renders straight from zod and keeps every one.
+ *
+ * Recursive, because they sit on nested properties rather than at the root,
+ * and applied after the `$defs` hoist so a hoisted definition is stripped too.
+ */
+const EDITOR_KEYWORDS = ['defaultSnippets', 'patternErrorMessage', 'enumDescriptions', 'markdownDescription', 'markdownEnumDescriptions']
+function stripEditorKeywords<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(stripEditorKeywords) as unknown as T
+  if (value === null || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([k]) => !EDITOR_KEYWORDS.includes(k))
+      .map(([k, v]) => [k, stripEditorKeywords(v)]),
+  ) as unknown as T
+}
+
+function componentSchemasRaw(name: string): Record<string, Record<string, unknown>> {
   const schema = exportedSchemas[name as keyof typeof exportedSchemas]
   const { $schema: _dropped, $defs, ...rest } = z.toJSONSchema(schema, { io: schemaIo(name) }) as Record<string, unknown>
   const defs = ($defs as Record<string, unknown> | undefined) ?? {}
@@ -897,9 +976,23 @@ function componentSchemas(name: string): Record<string, Record<string, unknown>>
   return out
 }
 
+/** The same components, with the editor-only keywords removed — what OpenAPI gets. */
+function componentSchemas(name: string): Record<string, Record<string, unknown>> {
+  return stripEditorKeywords(componentSchemasRaw(name))
+}
+
 /** The component itself, for the one caller that reads a query schema's own `properties`. */
 function componentSchema(name: string): Record<string, unknown> {
   return componentSchemas(name)[name]!
+}
+
+/**
+ * The unstripped render of one component, exported for the test that proves the
+ * strip is scoped to OpenAPI. Nothing in the export path calls it: the per-file
+ * artifacts are written straight from `z.toJSONSchema` below, not from here.
+ */
+export function componentSchemaRaw(name: string): Record<string, unknown> {
+  return componentSchemasRaw(name)[name]!
 }
 
 export function openApiDocument(): Record<string, any> {
@@ -916,7 +1009,12 @@ export function openApiDocument(): Record<string, any> {
       for (const [name, schema] of Object.entries((q.properties as Record<string, unknown>) ?? {})) {
         parameters.push({ name, in: 'query', required: required.has(name), schema })
       }
-      Object.assign(components, componentSchemas(r.query))
+      // **The query schema itself is deliberately NOT registered as a
+      // component.** Its properties are inlined into the parameters above, so
+      // nothing in the document ever `$ref`s it — registering it produced
+      // fifteen components (seven queries plus the definitions hoisted with
+      // them) that no pointer reaches, which is exactly the shape of a
+      // dangling name a reader cannot tell from a real one.
     }
     const operation: Record<string, unknown> = {
       operationId: `${r.method.toLowerCase()}_${r.path.replace(/^\//, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/_+$/, '')}`,
@@ -934,9 +1032,18 @@ export function openApiDocument(): Record<string, any> {
         [String(r.status)]:
           r.status >= 400
             ? { description: 'The only answer this route gives; see the error codes below.' }
-            : r.response === null
-              ? { description: 'Success.' }
-              : { description: 'Success.', content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.response}` } } } },
+            : r.contentType !== undefined
+              // **A route that answers bytes has no response schema, and
+              // `{ description: 'Success.' }` alone reads as "no body".** Five
+              // routes are in that position — the audit CSV, a camera frame,
+              // two asset downloads and the URDF — so the media type the
+              // manifest declares becomes the response's `content` key. The
+              // schema is the OpenAPI spelling for "opaque bytes"; `text/csv`
+              // is text, the other four are binary.
+              ? { description: 'Success.', content: { [r.contentType]: { schema: r.contentType === 'text/csv' ? { type: 'string' } : { type: 'string', format: 'binary' } } } }
+              : r.response === null
+                ? { description: 'Success.' }
+                : { description: 'Success.', content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.response}` } } } },
         default: {
           description: `An error envelope. Codes this route is known to answer: ${r.errors.map((c) => `\`${c}\``).join(', ') || 'none listed'}.`,
           content: { 'application/json': { schema: { $ref: '#/components/schemas/api-error' } } },

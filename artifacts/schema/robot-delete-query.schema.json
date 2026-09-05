@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "force": {
+      "description": "Pass `true` to delete a robot with a live session open; without it that is `409 robot_in_use`. Matched as the exact string, so the caller has to actually say it — and the deletion is a full cascade, so saying it is the whole decision.",
+      "type": "string",
+      "const": "true"
+    }
+  },
+  "description": "The one optional parameter of `DELETE /api/robots/:id`, and it is the difference between a refusal and a cascade."
+}

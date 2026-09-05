@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "result": {
+      "description": "What the service returned, shaped by the ROS service itself. A service call is awaited to completion, so there is no job to observe afterwards and no id to hold on to."
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "additionalProperties": false
+}

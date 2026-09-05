@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES } from '../src/index.js'
-import { IN_HANDLER_SECURITY, exportedSchemas, openApiDocument, routesArtifact } from '../scripts/export-schemas.js'
+import { IN_HANDLER_SECURITY, componentSchemaRaw, exportedSchemas, openApiDocument, routesArtifact } from '../scripts/export-schemas.js'
 
 const key = (r: { method: string; path: string }) => `${r.method} ${r.path}`
 
@@ -139,7 +139,12 @@ describe('the route artifacts', () => {
     const referenced = new Set(
       routesArtifact()
         .routes.filter((r) => r.audience !== 'internal' && r.transport === 'http')
-        .flatMap((r) => [r.query, r.request, r.response])
+        // **`r.query` is deliberately absent.** A query schema's properties are
+        // inlined into the operation's `parameters`, so nothing in the document
+        // ever points at the schema by name and it is not registered as a
+        // component. Listing it here would demand a component no `$ref`
+        // reaches — the orphan the hygiene block below refuses.
+        .flatMap((r) => [r.request, r.response])
         .filter((n): n is string => n !== null),
     )
     // A recursive sub-schema is hoisted out of its component's `$defs` and named
@@ -391,5 +396,61 @@ describe('the parked-items round', () => {
     // vacuous `.every()` over an empty array rather than a green run.
     expect([...new Set(siblings)].sort()).toEqual(['history'])
     for (const l of siblings) expect([...RESERVED_SLUGS], `a literal \`${l}\` segment shadows a slug of that name`).toContain(l)
+  })
+})
+
+/**
+ * **OpenAPI is not the editor's copy of a schema.** `src/config.ts` carries
+ * `defaultSnippets`, `patternErrorMessage` and `enumDescriptions` in its
+ * `.meta()` for the console's Monaco YAML editor — vendor keywords no OpenAPI
+ * reader knows, which travel into every component hoisted from a schema that
+ * has them. They stay in the per-file `artifacts/schema/*.json`, which is
+ * where the editor reads them from; the first assertion below proves the strip
+ * is scoped to the OpenAPI render rather than applied to the source.
+ */
+describe('openapi hygiene', () => {
+  const EDITOR_KEYS = ['defaultSnippets', 'patternErrorMessage', 'enumDescriptions', 'markdownDescription', 'markdownEnumDescriptions']
+  const walk = (v: unknown, hit: (k: string) => void) => {
+    if (Array.isArray(v)) v.forEach((x) => walk(x, hit))
+    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { hit(k); walk(x, hit) }
+  }
+
+  it('carries no editor keyword anywhere', () => {
+    const doc = openApiDocument()
+    const hits: string[] = []
+    walk(doc, (k) => { if (EDITOR_KEYS.includes(k)) hits.push(k) })
+    expect(hits).toEqual([])
+    // the per-file artifacts keep them — the strip is OpenAPI-only
+    expect(JSON.stringify(componentSchemaRaw('robot-config-doc'))).toContain('defaultSnippets')
+  })
+
+  it('registers exactly the components something references', () => {
+    const doc = openApiDocument()
+    const refs = new Set<string>()
+    JSON.stringify(doc, (k, v) => { if (k === '$ref' && typeof v === 'string') refs.add(v.replace('#/components/schemas/', '')); return v })
+    expect(refs.size, 'no $ref found at all — the walk is looking at the wrong shape').toBeGreaterThan(0)
+    expect(Object.keys(doc.components.schemas).sort()).toEqual([...refs].sort())
+  })
+
+  it('answers bytes with a content entry on the five byte routes', () => {
+    const doc = openApiDocument()
+    const op = doc.paths['/api/audit/export'].get
+    expect(op.responses['200'].content['text/csv'].schema).toEqual({ type: 'string' })
+    const snap = doc.paths['/api/robots/{id}/cameras/{slug}/snapshot'].get
+    expect(snap.responses['200'].content['image/*'].schema).toEqual({ type: 'string', format: 'binary' })
+  })
+
+  it('carries contentType in routes.json, once per byte route', () => {
+    const carriers = routesArtifact().routes.filter((r) => r.contentType !== undefined)
+    expect(carriers.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
+      ROUTES.filter((r) => r.contentType !== undefined).map(key).sort(),
+    )
+    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(5)
+    // Key order is what the documentation site reads: `contentType` sits
+    // between `response` and `errors`, not appended past `transport`.
+    for (const r of carriers) {
+      const keys = Object.keys(r)
+      expect(keys.indexOf('contentType'), `${r.method} ${r.path}`).toBe(keys.indexOf('response') + 1)
+    }
   })
 })

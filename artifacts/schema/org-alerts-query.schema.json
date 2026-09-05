@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "state": {
+      "type": "string",
+      "const": "firing",
+      "description": "Required, and the only accepted value — this endpoint lists the alerts that are firing now. Anything else, the parameter's absence included, is `400 validation_error`: a door with one answer must not advertise a dial."
+    }
+  },
+  "required": [
+    "state"
+  ],
+  "description": "The query of `GET /api/org/alerts`. One required parameter with one accepted value."
+}

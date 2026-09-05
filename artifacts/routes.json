@@ -361,6 +361,7 @@
       "query": "audit-query",
       "request": null,
       "response": null,
+      "contentType": "text/csv",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -369,7 +370,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "Answers `text/csv` with a `Content-Disposition` attachment, not JSON — so it has no response schema. `AUDIT_CSV_COLUMNS` names the columns and their order. Takes the same filters as `GET /api/audit` but refuses `before_seq` and `limit` with `400 validation_error`: an export is not a page, it is everything the filter matches up to a fixed row ceiling."
+      "notes": "Answers `text/csv; charset=utf-8` with a `Content-Disposition` attachment, not JSON — so it has no response schema. `AUDIT_CSV_COLUMNS` names the columns and their order. Takes the same filters as `GET /api/audit` but refuses `before_seq` and `limit` with `400 validation_error`: an export is not a page, it is everything the filter matches up to a fixed row ceiling."
     },
     {
       "method": "POST",
@@ -411,7 +412,7 @@
       "params": [],
       "query": null,
       "request": null,
-      "response": null,
+      "response": "app-list-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -419,7 +420,7 @@
         "forbidden"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"apps\": [app, …] }`. The envelope has no schema of its own in contracts; each element is an `app`."
+      "notes": "Answers `{ \"apps\": [app, …] }` — the whole org, unpaged; an org's app count is bounded by quota."
     },
     {
       "method": "GET",
@@ -500,7 +501,7 @@
       ],
       "query": null,
       "request": null,
-      "response": null,
+      "response": "role",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -511,7 +512,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "The body is `{ \"name\": string }` — non-empty, trimmed, at most 120 characters — and is deliberately not a contract shape: contracts define the `role` this answers with, not this one trivial request. The answer is a `role`."
+      "notes": "The body is `{ \"name\": string }` — non-empty, trimmed, at most 120 characters — and is deliberately not a contract shape: contracts define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the listing beside it."
     },
     {
       "method": "GET",
@@ -531,7 +532,7 @@
       ],
       "query": null,
       "request": null,
-      "response": null,
+      "response": "role-list-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -541,7 +542,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"roles\": [role, …] }`. The envelope has no schema of its own in contracts; each element is a `role`."
+      "notes": "Answers `{ \"roles\": [role, …] }`, builtin roles included — a role a developer never created is still one a user can hold."
     },
     {
       "method": "PUT",
@@ -695,7 +696,7 @@
       ],
       "query": null,
       "request": null,
-      "response": null,
+      "response": "server-key-list-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -705,7 +706,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"server_keys\": [serverKey, …] }`. The envelope has no schema of its own in contracts; each element is a `serverKey`, which names the five fields it carries rather than spreading the stored row — that is what keeps this listing from becoming a second place a credential leaves the cloud."
+      "notes": "Answers `{ \"server_keys\": [serverKey, …] }`. `serverKey` names the five fields it carries rather than spreading the stored row — that is what keeps this listing from becoming a second place a credential leaves the cloud."
     },
     {
       "method": "POST",
@@ -957,7 +958,7 @@
       "ownerTier": false,
       "status": 200,
       "params": [],
-      "query": null,
+      "query": "group-filter-query",
       "request": null,
       "response": "org-user-list-response",
       "errors": [
@@ -969,7 +970,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "`?group_id=` narrows it; there is no query schema, the parameter is read directly. A group of another org answers `404` rather than an empty list, which would be indistinguishable from \"that group exists here and is empty\" — a statement about somebody else's org. A malformed value is `400 invalid_uuid`, so a typo can be told from a deletion."
+      "notes": "`?group_id=` narrows it; omitted, the answer is the whole pool. A group of another org answers `404` rather than an empty list, which would be indistinguishable from \"that group exists here and is empty\" — a statement about somebody else's org. A malformed value is `400 invalid_uuid`, so a typo can be told from a deletion."
     },
     {
       "method": "GET",
@@ -1002,7 +1003,7 @@
     },
     {
       "method": "POST",
-      "path": "/api/org/users/invitations",
+      "path": "/api/org/invitations",
       "section": "users",
       "summary": "Invites an address into a group and returns the accept link.",
       "audience": "developer",
@@ -1025,11 +1026,11 @@
         "email_taken"
       ],
       "transport": "http",
-      "notes": "One invitation flow for every group; what the invitee becomes is `group_id`. **Inviting an Owner is Owner-only** — an invitation carrying `tier: \"owner\"` is a promotion with an extra step, since the response hands back the `accept_url`. `ownerTier` is `false` here because the gate is on that value, not on the route: any org admin may invite a developer. A tier is required for the Org Admins group and refused for every other."
+      "notes": "One invitation flow for every group; what the invitee becomes is `group_id`. **Inviting an Owner is Owner-only** — an invitation carrying `tier: \"owner\"` is a promotion with an extra step, since the response hands back the `accept_url`. `ownerTier` is `false` here because the gate is on that value, not on the route: any org admin may invite a developer. A tier is required for the Org Admins group and refused for every other. **This collection sits beside `/api/org/users`, not under it**: an invitation is not a user yet, and the old spelling put a literal `invitations` where `GET /api/org/users/:id` expects a uuid — reachable only because a router ranks a static segment above a parametric one. A path that reads correctly only under one routing library's tie-break is a path worth moving."
     },
     {
       "method": "GET",
-      "path": "/api/org/users/invitations",
+      "path": "/api/org/invitations",
       "section": "users",
       "summary": "Lists the pending invitations of the org, without their tokens.",
       "audience": "developer",
@@ -1052,7 +1053,7 @@
     },
     {
       "method": "DELETE",
-      "path": "/api/org/users/invitations/:id",
+      "path": "/api/org/invitations/:id",
       "section": "users",
       "summary": "Revokes a pending invitation so its link stops resolving.",
       "audience": "developer",
@@ -1063,7 +1064,7 @@
       "params": [
         {
           "name": "id",
-          "description": "The invitation's uuid, as listed by `GET /api/org/users/invitations`."
+          "description": "The invitation's uuid, as listed by `GET /api/org/invitations`."
         }
       ],
       "query": null,
@@ -1082,7 +1083,7 @@
     },
     {
       "method": "POST",
-      "path": "/api/org/users/invitations/:id/reissue",
+      "path": "/api/org/invitations/:id/reissue",
       "section": "users",
       "summary": "Mints a fresh token onto the same invitation and returns the new accept link.",
       "audience": "developer",
@@ -1093,7 +1094,7 @@
       "params": [
         {
           "name": "id",
-          "description": "The invitation's uuid, as listed by `GET /api/org/users/invitations`."
+          "description": "The invitation's uuid, as listed by `GET /api/org/invitations`."
         }
       ],
       "query": null,
@@ -1114,7 +1115,7 @@
     },
     {
       "method": "POST",
-      "path": "/api/org/users/invitations/accept",
+      "path": "/api/org/invitations/accept",
       "section": "users",
       "summary": "Spends an invitation token and creates the login it was addressed to.",
       "audience": "developer",
@@ -1156,7 +1157,7 @@
       "response": null,
       "errors": [],
       "transport": "http",
-      "notes": "HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/users/invitations/accept`. An unknown, spent or expired token renders the \"link no longer valid\" page at `410`, which offers the password-reset page — the only self-service door the portal has, since an invitation cannot be re-issued by the person holding it."
+      "notes": "HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/invitations/accept`. An unknown, spent or expired token renders the \"link no longer valid\" page at `410`, which offers the password-reset page — the only self-service door the portal has, since an invitation cannot be re-issued by the person holding it."
     },
     {
       "method": "PATCH",
@@ -1205,7 +1206,7 @@
           "description": "The user's uuid, as listed by `GET /api/org/users`."
         }
       ],
-      "query": null,
+      "query": "group-preview-query",
       "request": null,
       "response": "group-usage-response",
       "errors": [
@@ -1218,7 +1219,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "`?group_id=` names the group the user would move into and is required; there is no query schema, the parameter is read directly. Absent is `400 validation_error` with rule `required`, malformed is `400 invalid_uuid`, and well-formed but not a group of this org is `validation_error` with rule `unknown_group` — three different facts a caller needs told apart. Reads only, and never a lock."
+      "notes": "`?group_id=` names the group the user would move into and is required. Absent is `400 validation_error` with rule `required`, malformed is `400 invalid_uuid`, and well-formed but not a group of this org is `validation_error` with rule `unknown_group` — three different facts a caller needs told apart. **The same parameter on `GET /api/org/users` is a different contract**: optional there, and an unknown group is a `404`. Reads only, and never a lock."
     },
     {
       "method": "POST",
@@ -1434,7 +1435,7 @@
           "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
         }
       ],
-      "query": null,
+      "query": "group-preview-query",
       "request": null,
       "response": "group-usage-response",
       "errors": [
@@ -1447,7 +1448,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "`?group_id=` names the target group and is required, with the same three distinct refusals `GET /api/org/users/:id/usage` gives. The app is scoped first, so none of them can confirm that an app the caller does not own exists."
+      "notes": "`?group_id=` names the target group and is required, with the same three distinct refusals `GET /api/org/users/:id/usage` gives — one `groupPreviewQuery` describes both. The app is scoped first, so none of them can confirm that an app the caller does not own exists."
     },
     {
       "method": "PUT",
@@ -1634,7 +1635,7 @@
       "params": [],
       "query": null,
       "request": "patch-org-request",
-      "response": null,
+      "response": "patch-org-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -1644,7 +1645,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"org\": org }`. The envelope has no schema of its own in contracts; the value is an `org`. Owner tier, and the gate runs before the body is looked at, so a malformed rename and a forbidden one answer the same way. Renaming to the name already held writes nothing and records no audit event."
+      "notes": "Answers `{ \"org\": org }`. Owner tier, and the gate runs before the body is looked at, so a malformed rename and a forbidden one answer the same way. Renaming to the name already held writes nothing and records no audit event."
     },
     {
       "method": "POST",
@@ -1695,7 +1696,7 @@
       ],
       "query": null,
       "request": null,
-      "response": null,
+      "response": "oauth-client-list-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -1705,7 +1706,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"oauth_clients\": [oauthClient, …] }`. The envelope has no schema of its own in contracts; each element is an `oauthClient`, and each carries its `registration` — a developer could otherwise not see the self-registered clients holding their own dynamic-client ceiling shut."
+      "notes": "Answers `{ \"oauth_clients\": [oauthClient, …] }`, and each element carries its `registration` — a developer could otherwise not see the self-registered clients holding their own dynamic-client ceiling shut."
     },
     {
       "method": "DELETE",
@@ -1847,14 +1848,14 @@
       "ownerTier": false,
       "status": 302,
       "params": [],
-      "query": null,
+      "query": "oauth-authorize-query",
       "request": null,
       "response": null,
       "errors": [
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "The query is RFC 6749 §4.1.1's — `client_id`, `redirect_uri`, `response_type`, `code_challenge`, `code_challenge_method`, `state`, `resource` — read parameter by parameter, and contracts declares no schema for it, so nothing here pins its shape. **`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a browser to it is the attack. Those two refusals are RFC 6749's flat `oauthError` shape at `400`; everything validated afterwards (`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the rate limiter's `429 rate_limited`."
+      "notes": "`oauthAuthorizeQuery` is RFC 6749 §4.1.1's query, `scope` included — the cloud reads it parameter by parameter rather than parsing it whole, because the parameters do not share one refusal. **`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a browser to it is the attack. Those two refusals are RFC 6749's flat `oauthError` shape at `400`; everything validated afterwards (`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the rate limiter's `429 rate_limited`."
     },
     {
       "method": "POST",
@@ -2013,14 +2014,14 @@
       "ownerTier": false,
       "status": 201,
       "params": [],
-      "query": null,
+      "query": "oauth-register-query",
       "request": "dynamic-client-registration-request",
       "response": "dynamic-client-registration-response",
       "errors": [
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "RFC 7591. `?app_identifier=` names the app and is required; it is read directly and contracts declares no schema for this query, so it appears in no parameter table. An app that does not accept dynamic clients answers `oauthError` `access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count."
+      "notes": "RFC 7591. `?app_identifier=` names the app and is required — RFC 7591's body has no field for it and one endpoint serves every app. An app that does not accept dynamic clients answers `oauthError` `access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count."
     },
     {
       "method": "GET",
@@ -2895,7 +2896,7 @@
       ],
       "query": null,
       "request": "patch-robot-request",
-      "response": null,
+      "response": "patch-robot-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -2906,7 +2907,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"robot\": robot }`. The envelope has no schema of its own in contracts; the value is a `robot`. The lookup runs before the body is parsed, so a robot outside the caller's org answers `404` whether or not the body was also malformed. Saving the name already held writes nothing and records no audit event."
+      "notes": "Answers `{ \"robot\": robot }`. The lookup runs before the body is parsed, so a robot outside the caller's org answers `404` whether or not the body was also malformed. Saving the name already held writes nothing and records no audit event."
     },
     {
       "method": "GET",
@@ -2954,7 +2955,7 @@
           "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`."
         }
       ],
-      "query": null,
+      "query": "robot-delete-query",
       "request": null,
       "response": null,
       "errors": [
@@ -2989,7 +2990,7 @@
       ],
       "query": null,
       "request": "put-robot-details-request",
-      "response": null,
+      "response": "put-robot-details-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -3000,7 +3001,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"details\": robotDetailsDoc }`. The envelope has no schema of its own in contracts. The update is fanned out to every `/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling."
+      "notes": "Answers `{ \"details\": robotDetailsDoc }` — the stored document, which is the one that was sent. The update is fanned out to every `/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling."
     },
     {
       "method": "GET",
@@ -3402,7 +3403,7 @@
       "ownerTier": false,
       "status": 200,
       "params": [],
-      "query": null,
+      "query": "org-alerts-query",
       "request": null,
       "response": "org-firing-alerts-response",
       "errors": [
@@ -3413,7 +3414,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "`?state=firing` is required and is the only value accepted — refused rather than silently ignored, because a door with one answer must not advertise a dial. There is no query schema; the parameter is read directly. A firing row whose definition has left the document, or has been disabled, is skipped: it can never be evaluated again, so it can never resolve, and it would otherwise sit in the overview's open-issues tile forever."
+      "notes": "`?state=firing` is required and is the only value accepted — refused rather than silently ignored, because a door with one answer must not advertise a dial. A firing row whose definition has left the document, or has been disabled, is skipped: it can never be evaluated again, so it can never resolve, and it would otherwise sit in the overview's open-issues tile forever."
     },
     {
       "method": "GET",
@@ -3804,6 +3805,7 @@
       "query": null,
       "request": null,
       "response": null,
+      "contentType": "image/*",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -3814,7 +3816,7 @@
         "no_snapshot_yet"
       ],
       "transport": "http",
-      "notes": "Image bytes, not JSON, so it has no response schema; the age, capture time and dimensions ride in the `x-fleetless-*` headers `SNAPSHOT_HEADERS` names — which a browser can only read because CORS exposes them. **Never checks whether the bridge is online**: a snapshot read is a pure cache read, which is what makes \"the last frame, with its real age\" true for free across a disconnect. There is nothing here to refuse, and `age_ms` carries the whole honesty story. `cache-control: no-store`, because a picture of someone's premises does not belong on disk longer than the request that fetched it."
+      "notes": "Image bytes, not JSON, so it has no response schema. `contentType` is the family rather than a type: the frame is served in **the mime the producer sent it as**, so which image format arrives is the camera configuration's answer, not this route's. The age, capture time and dimensions ride in the `x-fleetless-*` headers `SNAPSHOT_HEADERS` names — which a browser can only read because CORS exposes them. **Never checks whether the bridge is online**: a snapshot read is a pure cache read, which is what makes \"the last frame, with its real age\" true for free across a disconnect. There is nothing here to refuse, and `age_ms` carries the whole honesty story. `cache-control: no-store`, because a picture of someone's premises does not belong on disk longer than the request that fetched it."
     },
     {
       "method": "GET",
@@ -4013,6 +4015,7 @@
       "query": null,
       "request": null,
       "response": null,
+      "contentType": "application/octet-stream",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -4024,7 +4027,7 @@
         "internal_error"
       ],
       "transport": "http",
-      "notes": "Bytes in the asset's own media type, so it has no response schema. A row whose blob has vanished from object storage is a logged `500 internal_error`, not a `404`: the asset exists and this cloud could not read it, which is a different fact from \"there is no such asset\"."
+      "notes": "Bytes, so it has no response schema. **`contentType` here is the floor, not the answer**: the header carries the asset's own stored media type when that type is on the cloud's allow-list, and `application/octet-stream` only when it is not — an allow-list rather than a pass-through, because a stored type is developer-supplied and a browser will act on it. `X-Content-Type-Options: nosniff` rides along for the same reason. A row whose blob has vanished from object storage is a logged `500 internal_error`, not a `404`: the asset exists and this cloud could not read it, which is a different fact from \"there is no such asset\"."
     },
     {
       "method": "GET",
@@ -4045,6 +4048,7 @@
       "query": null,
       "request": null,
       "response": null,
+      "contentType": "application/xml",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -4074,7 +4078,7 @@
           "description": "The robot's uuid; an end user reaches it through an app that attaches it."
         }
       ],
-      "query": null,
+      "query": "missing-asset-query",
       "request": null,
       "response": null,
       "errors": [
@@ -4088,7 +4092,7 @@
         "asset_missing"
       ],
       "transport": "http",
-      "notes": "**This route has no success answer** — `404 asset_missing` naming the unresolved reference is what it exists to give, and `status` says so rather than declaring a `200` no caller can ever receive. `?name=` is echoed into the message and is read directly, with no query schema; it discloses nothing, since it is what the caller sent. It carries the same `assets` capability gate as the real bytes would: a missing-asset placeholder is not an exemption from the authorization the thing it stands in for needs."
+      "notes": "**This route has no success answer** — `404 asset_missing` naming the unresolved reference is what it exists to give, and `status` says so rather than declaring a `200` no caller can ever receive. `?name=` is echoed into the message and changes the sentence, never the outcome; it discloses nothing, since it is what the caller sent. It carries the same `assets` capability gate as the real bytes would: a missing-asset placeholder is not an exemption from the authorization the thing it stands in for needs."
     },
     {
       "method": "GET",
@@ -4129,12 +4133,13 @@
       "query": null,
       "request": null,
       "response": null,
+      "contentType": "application/octet-stream",
       "errors": [
         "not_found",
         "internal_error"
       ],
       "transport": "http",
-      "notes": "**The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is refused on REST by design, so the asset tools mint a fifteen-minute signed link instead and this spends it. The capability was checked at mint against the minting caller's own access; the residual — whoever holds the URL reads that asset until it expires — is named rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending a link in its last second would hand out another fifteen minutes, and each of those another. `cache-control: no-store`, since the URL itself is the credential."
+      "notes": "**The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is refused on REST by design, so the asset tools mint a fifteen-minute signed link instead and this spends it. The capability was checked at mint against the minting caller's own access; the residual — whoever holds the URL reads that asset until it expires — is named rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending a link in its last second would hand out another fifteen minutes, and each of those another. **`contentType` is the floor, not the answer**: an asset is served in its own stored media type where that type is allow-listed and `application/octet-stream` otherwise, and a linked URDF is `application/xml`. `cache-control: no-store`, since the URL itself is the credential."
     },
     {
       "method": "POST",
@@ -4238,7 +4243,7 @@
       "ownerTier": false,
       "status": 200,
       "params": [],
-      "query": null,
+      "query": "org-health-query",
       "request": null,
       "response": "resource-health-list-response",
       "errors": [
@@ -4250,7 +4255,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "`?robot_id=` narrows it to one robot; there is no query schema, the parameter is read directly. Org-wide rather than per-robot because the console shows health on the robot list too, and a per-robot path would make that N requests to render one screen. This is the snapshot half of the channel; the live half is the `/realtime` socket."
+      "notes": "`?robot_id=` narrows it to one robot; omitted, the answer is the whole org. Org-wide rather than per-robot because the console shows health on the robot list too, and a per-robot path would make that N requests to render one screen. This is the snapshot half of the channel; the live half is the `/realtime` socket."
     },
     {
       "method": "GET",
