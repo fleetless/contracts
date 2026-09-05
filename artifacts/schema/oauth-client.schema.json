@@ -5,29 +5,34 @@
     "id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The client row, and what `DELETE /api/apps/:id/oauth-clients/:clientId` addresses. It is **not** the `client_id` sent on the wire; that is the field below."
     },
     "app_id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The app this client authorizes against. It decides which resources a token issued to the client may name."
     },
     "client_id": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 200
+      "maxLength": 200,
+      "description": "The `client_id` an OAuth request carries — opaque, and not the app identifier."
     },
     "client_name": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 200
+      "maxLength": 200,
+      "description": "The name shown to the end user on the consent screen. A `dynamic` client chooses its own, so it is a claim rather than a vetted label."
     },
     "registration": {
       "type": "string",
       "enum": [
         "developer",
         "dynamic"
-      ]
+      ],
+      "description": "How this client came to exist: `developer` for one a developer registered in the console, `dynamic` for one that self-registered through `POST /oauth/register`. The two differ in what may be trusted, not merely in how they were made, so every consumer can ask."
     },
     "redirect_uris": {
       "minItems": 1,
@@ -37,12 +42,14 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 2000
-      }
+      },
+      "description": "The URIs this client may be sent back to. Compared **exactly** at `GET /oauth/authorize` — string equality against this list, never a prefix and never a host match. At least one, at most twenty."
     },
     "created_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the client was registered, as an ISO 8601 timestamp. `GET /api/apps/:id/oauth-clients` orders by this field."
     },
     "expires_at": {
       "anyOf": [
@@ -54,7 +61,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "When an unused `dynamic` client is swept away, or `null` once it has completed its first token exchange. A `developer` client is always `null` — it is a configured thing that should not vanish under whoever configured it."
     },
     "last_used_at": {
       "anyOf": [
@@ -66,7 +74,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "When this client was last used, or `null` if it never has been."
     }
   },
   "required": [

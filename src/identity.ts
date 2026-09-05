@@ -95,14 +95,24 @@ export const mcpAccess = z.enum(['default', 'allowed', 'denied'])
 export type McpAccess = z.infer<typeof mcpAccess>
 
 export const org = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(120),
-  created_at: z.iso.datetime(),
+  id: z.uuid().meta({
+    description: 'The organisation. Every developer route is scoped to the caller\'s org already, so a client rarely has to send this anywhere.',
+  }),
+  name: z.string().min(1).max(120).meta({
+    description: 'The organisation\'s display name. Free text, changed through `PATCH /api/org`.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the organisation was created, as an ISO 8601 timestamp.',
+  }),
 })
 export type Org = z.infer<typeof org>
 
 /** What `PATCH /api/org` answers: the org as it now stands. */
-export const patchOrgResponse = z.object({ org })
+export const patchOrgResponse = z.object({
+  org: org.meta({
+    description: 'The organisation as it now stands, after the patch was applied. The whole resource comes back, not only the fields that changed.',
+  }),
+})
 export type PatchOrgResponse = z.infer<typeof patchOrgResponse>
 
 /**

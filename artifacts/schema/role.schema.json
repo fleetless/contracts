@@ -5,20 +5,24 @@
     "id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The role, and what `putAssignmentRequest` and an app's `default_role_id` refer to."
     },
     "app_id": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`."
     },
     "name": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 60
+      "maxLength": 60,
+      "description": "The role's name, shown wherever a user's access is chosen. The two roles every app starts with are named `observe` and `operate`."
     },
     "builtin": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them."
     }
   },
   "required": [

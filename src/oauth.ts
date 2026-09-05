@@ -174,14 +174,28 @@ export type RedirectUri = z.infer<typeof redirectUri>
 export const codeChallengeMethod = z.enum(['S256'])
 
 export const oauthClient = z.object({
-  id: z.uuid(),
-  app_id: z.uuid(),
+  id: z.uuid().meta({
+    description: 'The client row, and what `DELETE /api/apps/:id/oauth-clients/:clientId` addresses. It is **not** the `client_id` sent on the wire; that is the field below.',
+  }),
+  app_id: z.uuid().meta({
+    description: 'The app this client authorizes against. It decides which resources a token issued to the client may name.',
+  }),
   /** The `client_id` on the wire — opaque, and not the app identifier. */
-  client_id: z.string().min(1).max(200),
-  client_name: z.string().min(1).max(200),
-  registration: oauthClientRegistration,
-  redirect_uris: z.array(redirectUri).min(1).max(20),
-  created_at: z.iso.datetime(),
+  client_id: z.string().min(1).max(200).meta({
+    description: 'The `client_id` an OAuth request carries — opaque, and not the app identifier.',
+  }),
+  client_name: z.string().min(1).max(200).meta({
+    description: 'The name shown to the end user on the consent screen. A `dynamic` client chooses its own, so it is a claim rather than a vetted label.',
+  }),
+  registration: oauthClientRegistration.meta({
+    description: 'How this client came to exist: `developer` for one a developer registered in the console, `dynamic` for one that self-registered through `POST /oauth/register`. The two differ in what may be trusted, not merely in how they were made, so every consumer can ask.',
+  }),
+  redirect_uris: z.array(redirectUri).min(1).max(20).meta({
+    description: 'The URIs this client may be sent back to. Compared **exactly** at `GET /oauth/authorize` — string equality against this list, never a prefix and never a host match. At least one, at most twenty.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the client was registered, as an ISO 8601 timestamp. `GET /api/apps/:id/oauth-clients` orders by this field.',
+  }),
   /**
    * **Only `dynamic` clients expire, and the field is nullable rather than
    * absent so a consumer must decide what it means.** A self-registered client
@@ -189,13 +203,21 @@ export const oauthClient = z.object({
    * behind; a developer's own client is a configured thing that should not
    * vanish under them.
    */
-  expires_at: z.iso.datetime().nullable(),
-  last_used_at: z.iso.datetime().nullable(),
+  expires_at: z.iso.datetime().nullable().meta({
+    description: 'When an unused `dynamic` client is swept away, or `null` once it has completed its first token exchange. A `developer` client is always `null` — it is a configured thing that should not vanish under whoever configured it.',
+  }),
+  last_used_at: z.iso.datetime().nullable().meta({
+    description: 'When this client was last used, or `null` if it never has been.',
+  }),
 })
 export type OauthClient = z.infer<typeof oauthClient>
 
 /** What `GET /api/apps/:id/oauth-clients` answers: developer-registered and self-registered clients in one list, each carrying its `registration`. */
-export const oauthClientListResponse = z.object({ oauth_clients: z.array(oauthClient) })
+export const oauthClientListResponse = z.object({
+  oauth_clients: z.array(oauthClient).meta({
+    description: 'Every OAuth client of this app, developer-registered and self-registered alike, oldest first by `created_at`. An expired `dynamic` client stays in the listing until the sweep removes it, so read `expires_at` rather than assuming every row is live.',
+  }),
+})
 export type OauthClientListResponse = z.infer<typeof oauthClientListResponse>
 
 /**

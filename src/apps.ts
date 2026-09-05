@@ -23,10 +23,18 @@ import { slug } from './common.js'
 export const appIdentifier = slug
 
 export const app = z.object({
-  id: z.uuid(),
-  org_id: z.uuid(),
-  name: z.string().min(1).max(120),
-  identifier: appIdentifier,
+  id: z.uuid().meta({
+    description: 'The app in the API, assigned by the cloud and stable for the life of the app. Everything app-scoped takes this as its `:id`.',
+  }),
+  org_id: z.uuid().meta({
+    description: 'The organisation that owns this app. Every developer route is already scoped to the caller\'s org, so this confirms what a client is looking at rather than being a filter it applies.',
+  }),
+  name: z.string().min(1).max(120).meta({
+    description: 'The display name, shown in the console and on the hosted login and consent pages. Free text, changed through `PATCH /api/apps/:id`.',
+  }),
+  identifier: appIdentifier.meta({
+    description: 'The stable handle a client sends at login, lowercase and underscore-separated. **Globally unique, not per organisation** — `clientLoginRequest` carries no org context to disambiguate with, so a collision is refused with `identifier_taken`.',
+  }),
   /**
    * **Exactly one group owns this app** (2026-08-29 identity redesign, D2).
    * The app uses that group's auth provider, and only users of that group can
@@ -40,9 +48,13 @@ export const app = z.object({
    * Changing it is `PUT /api/apps/:id/group` with `putAppGroupRequest`, never
    * `updateAppRequest` — see the comment there.
    */
-  group_id: z.uuid(),
+  group_id: z.uuid().meta({
+    description: 'The one group that owns this app. The app uses that group\'s auth provider, and only users of that group may hold an assignment for it. Changed through `PUT /api/apps/:id/group`, never through `updateAppRequest`, because re-linking cascade-deletes the assignments that stop being valid.',
+  }),
   /** Robots are referenced individually; tags never grant rights (§12.2). */
-  robot_ids: z.array(z.uuid()),
+  robot_ids: z.array(z.uuid()).meta({
+    description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants.',
+  }),
   /**
    * Whether this app accepts **self-registering** OAuth clients (RFC 7591).
    *
@@ -67,7 +79,9 @@ export const app = z.object({
    * field with a live door behind it (`cloud/src/mcp-access.ts`); the two
    * shared a name and never a meaning.
    */
-  accepts_dynamic_clients: z.boolean(),
+  accepts_dynamic_clients: z.boolean().meta({
+    description: 'Whether this app accepts **self-registering** OAuth clients through `POST /oauth/register`. Off by default and per app: a normal app\'s client is registered by the developer with known redirect URIs, and an app driven by an AI tool is the case that needs it.',
+  }),
   /**
    * **The app's default role** (2026-08-29 identity redesign, D1: *"role +
    * rights matrix and default role in app settings"*).
@@ -88,13 +102,21 @@ export const app = z.object({
    * The role must belong to **this** app; the schema sees a uuid and cannot
    * check that, so `PATCH /api/apps/:id` does.
    */
-  default_role_id: z.uuid().nullable(),
-  created_at: z.iso.datetime(),
+  default_role_id: z.uuid().nullable().meta({
+    description: 'The role the console prefills when an admin assigns a user, and the role an **org admin** logs in with — admins hold no assignments of their own. `null` means this app has not chosen one, which is the normal state of a freshly created app and where an app whose default role was deleted lands; the cloud then falls back to the built-in `observe` role by name. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
+  }),
 })
 export type App = z.infer<typeof app>
 
 /** What `GET /api/apps` answers: every app in the caller's org, in one envelope. */
-export const appListResponse = z.object({ apps: z.array(app) })
+export const appListResponse = z.object({
+  apps: z.array(app).meta({
+    description: 'Every app of the caller\'s organisation, oldest first by `created_at`. The org scope is the whole filter — there is no id to narrow by and nothing to refuse.',
+  }),
+})
 export type AppListResponse = z.infer<typeof appListResponse>
 
 /**
@@ -183,17 +205,31 @@ export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 export const serverKeyToken = z.string().regex(/^flk_[0-9a-f]{32}$/)
 
 export const serverKey = z.object({
-  id: z.uuid(),
-  app_id: z.uuid(),
-  name: z.string().min(1).max(120),
-  created_at: z.iso.datetime(),
+  id: z.uuid().meta({
+    description: 'The key row, and what the rotate and delete routes address. It is not the key: the secret itself is never carried by this shape.',
+  }),
+  app_id: z.uuid().meta({
+    description: 'The app whose full rights this key carries. A key is never shared between apps.',
+  }),
+  name: z.string().min(1).max(120).meta({
+    description: 'A label the developer chose, so a key can be recognised before it is rotated or deleted.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the key was minted, as an ISO 8601 timestamp. `GET /api/apps/:id/server-keys` orders by this field.',
+  }),
   /** Null until first use — the cheapest way to spot a key nobody needs. */
-  last_used_at: z.iso.datetime().nullable(),
+  last_used_at: z.iso.datetime().nullable().meta({
+    description: 'When this key last authenticated a request, or `null` if it never has — the cheapest way to spot a key nobody needs.',
+  }),
 })
 export type ServerKey = z.infer<typeof serverKey>
 
 /** What `GET /api/apps/:id/server-keys` answers — metadata only; the raw secret exists once, in `createServerKeyResponse`, and never here. */
-export const serverKeyListResponse = z.object({ server_keys: z.array(serverKey) })
+export const serverKeyListResponse = z.object({
+  server_keys: z.array(serverKey).meta({
+    description: 'The app\'s server keys as metadata, oldest first by `created_at`. The raw secret is not here and never will be: it exists once, in the answer to the request that created or rotated the key.',
+  }),
+})
 export type ServerKeyListResponse = z.infer<typeof serverKeyListResponse>
 
 export const createServerKeyResponse = z.object({
@@ -209,15 +245,27 @@ export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
  * they came from.
  */
 export const role = z.object({
-  id: z.uuid(),
-  app_id: z.uuid(),
-  name: z.string().min(1).max(60),
-  builtin: z.boolean(),
+  id: z.uuid().meta({
+    description: 'The role, and what `putAssignmentRequest` and an app\'s `default_role_id` refer to.',
+  }),
+  app_id: z.uuid().meta({
+    description: 'The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`.',
+  }),
+  name: z.string().min(1).max(60).meta({
+    description: 'The role\'s name, shown wherever a user\'s access is chosen. The two roles every app starts with are named `observe` and `operate`.',
+  }),
+  builtin: z.boolean().meta({
+    description: '`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them.',
+  }),
 })
 export type Role = z.infer<typeof role>
 
 /** What `GET /api/apps/:id/roles` answers: the app's roles, builtin and custom alike. */
-export const roleListResponse = z.object({ roles: z.array(role) })
+export const roleListResponse = z.object({
+  roles: z.array(role).meta({
+    description: 'The app\'s roles, built-in and custom alike, ordered by `created_at` and then by `name`. The tie-break is not cosmetic — the two built-in roles are inserted in one statement and share a creation time to the microsecond, so never read a role by position.',
+  }),
+})
 export type RoleListResponse = z.infer<typeof roleListResponse>
 
 /**

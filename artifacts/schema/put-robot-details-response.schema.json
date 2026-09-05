@@ -32,7 +32,8 @@
             "additionalProperties": {}
           }
         ]
-      }
+      },
+      "description": "The stored `robot_details` document, which is the one that was just sent — this route **replaces** the document rather than merging into it. Keys are the developer's own, lowercase and at most 64 characters; a value is a string of at most 4096 characters, a number, a boolean, an array or an object."
     }
   },
   "required": [

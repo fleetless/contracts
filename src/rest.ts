@@ -11,14 +11,24 @@ import { job } from './jobs.js'
  */
 
 export const robot = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(63),
-  created_at: z.iso.datetime(),
+  id: z.uuid().meta({
+    description: 'The robot, and what every robot-scoped route takes as its `:id`.',
+  }),
+  name: z.string().min(1).max(63).meta({
+    description: 'The robot\'s display name, at most 63 characters. Free text, changed through `PATCH /api/robots/:id`.',
+  }),
+  created_at: z.iso.datetime().meta({
+    description: 'When the robot was created, as an ISO 8601 timestamp.',
+  }),
 })
 export type Robot = z.infer<typeof robot>
 
 /** What `PATCH /api/robots/:id` answers: the robot as it now stands. */
-export const patchRobotResponse = z.object({ robot })
+export const patchRobotResponse = z.object({
+  robot: robot.meta({
+    description: 'The robot as it now stands, after the patch was applied. The whole resource comes back, not only the fields that changed.',
+  }),
+})
 export type PatchRobotResponse = z.infer<typeof patchRobotResponse>
 
 export const createRobotRequest = z.object({
@@ -303,7 +313,11 @@ export const robotDetailsDoc = z.record(
 export type RobotDetailsDoc = z.infer<typeof robotDetailsDoc>
 
 /** What `PUT /api/robots/:id/details` answers: the stored document, which is the one that was sent. */
-export const putRobotDetailsResponse = z.object({ details: robotDetailsDoc })
+export const putRobotDetailsResponse = z.object({
+  details: robotDetailsDoc.meta({
+    description: 'The stored `robot_details` document, which is the one that was just sent — this route **replaces** the document rather than merging into it. Keys are the developer\'s own, lowercase and at most 64 characters; a value is a string of at most 4096 characters, a number, a boolean, an array or an object.',
+  }),
+})
 export type PutRobotDetailsResponse = z.infer<typeof putRobotDetailsResponse>
 
 export const putRobotDetailsRequest = z.object({ details: robotDetailsDoc })
@@ -1496,24 +1510,27 @@ export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 /**
  * The query of `DELETE /api/robots/:id`.
  *
- * **The handler compares against the bare string `'true'`** and refuses
- * nothing: `?force=1`, `?force=TRUE` and no parameter at all are one case, and
- * that case is *not forced*. Declared as the literal because it is the only
- * value that does anything — a `z.boolean()` here would describe a wire shape
- * a query string cannot carry, and a `z.string()` would document nothing.
+ * **`force=true` or nothing, and every other value is refused.** The handler
+ * parses the query with this schema and answers `400 validation_error` on
+ * anything else, so `?force=1` and `?force=TRUE` are neither forced nor
+ * quietly un-forced. That is the whole point of the strictness: silently
+ * false was the worst answer available, because a caller who believes they
+ * authorised a cascade and did not then gets a `409` naming the very flag
+ * they passed, and cannot tell which of the two happened.
  *
- * **What this schema does not say is that the other values are refused.** They
- * are silently false today, so a caller that parses this strictly refuses a
- * request the cloud currently accepts. That is a decision for whoever wires
- * the parse, not a fact about the route as it stands.
+ * Declared as the literal string because it is the only value that does
+ * anything — a `z.boolean()` here would describe a wire shape a query string
+ * cannot carry, and a `z.string()` would document nothing. The MCP door takes
+ * a real boolean and cannot express the ambiguity at all, so the two are one
+ * policy in two vocabularies rather than two policies.
  */
 export const robotDeleteQuery = z
   .object({
     force: z.literal('true').optional().meta({
-      description: 'Pass `true` to delete a robot with a live session open; without it that is `409 robot_in_use`. Matched as the exact string, so the caller has to actually say it — and the deletion is a full cascade, so saying it is the whole decision.',
+      description: 'Pass `true` to delete a robot that has a live session open; without it that is `409 robot_in_use`. **`true` and nothing else** — any other value is `400 validation_error`, reported against the field `force` with rule `invalid_value`, so a caller is never left believing they forced a deletion they did not. The deletion is a full cascade, which is why saying it is the whole decision.',
     }),
   })
-  .meta({ description: 'The one optional parameter of `DELETE /api/robots/:id`, and it is the difference between a refusal and a cascade.' })
+  .meta({ description: 'The one optional parameter of `DELETE /api/robots/:id`, and it is the difference between a refusal and a cascade. It accepts the exact string `true`, or its own absence, and refuses everything else.' })
 export type RobotDeleteQuery = z.infer<typeof robotDeleteQuery>
 
 /**
