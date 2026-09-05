@@ -7086,7 +7086,7 @@
               "not_configured",
               "failed"
             ],
-            "description": "What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what `send_mail: false` answers; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
+            "description": "What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted — the caller asked for none, or the app has no `invite_url` for a link to point at; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
           }
         },
         "required": [
@@ -12513,7 +12513,7 @@
               "not_configured",
               "failed"
             ],
-            "description": "What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what a caller who asked for no mail gets; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
+            "description": "What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted, because the caller asked for none or there was no link to carry; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
           }
         },
         "required": [

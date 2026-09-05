@@ -235,13 +235,15 @@ export type DeveloperLoginRequest = z.infer<typeof developerLoginRequest>
  * - `sent`           — the SMTP server accepted the message. Not "delivered":
  *                      no sender can promise that, and this value must never
  *                      be rendered as if it could.
- * - `not_requested`  — the caller asked for no mail (`send_mail: false`), so
- *                      none was attempted. **A fourth word rather than a
- *                      reuse of `not_configured`**: the deployment's mailer is
- *                      irrelevant here, and a console reading "mail server not
- *                      configured" beside an invitation whose mail checkbox
- *                      was off would send a developer to fix something that is
- *                      not broken.
+ * - `not_requested`  — no mail was attempted: the caller asked for none
+ *                      (`send_mail: false`), or there was no link for one to
+ *                      carry (the app has configured no `invite_url`, which
+ *                      the `null` `accept_url` beside it says). **A fourth
+ *                      word rather than a reuse of `not_configured`**: the
+ *                      deployment's mailer is irrelevant in both cases, and a
+ *                      console reading "mail server not configured" beside an
+ *                      invitation whose mail checkbox was off would send a
+ *                      developer to fix something that is not broken.
  * - `not_configured` — no SMTP is set up. **An expected state, not a failure**
  *                      (invitations work without mail; the link is the primary
  *                      path). The console must not show it as an error.

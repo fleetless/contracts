@@ -223,7 +223,7 @@ export const appInvitation = z.object({
     description: 'The link to give the invitee, built from the app\'s `invite_url` with the token substituted for `{token}`. **`null` when the app has configured no `invite_url`** — there is nowhere for the link to point, and Fleetless serves no page of its own for an app user. Bounded like every other URL that gets mailed, logged and rendered.',
   }),
   mail: mailStatus.meta({
-    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what `send_mail: false` answers; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted — the caller asked for none, or the app has no `invite_url` for a link to point at; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
   }),
 })
 export type AppInvitation = z.infer<typeof appInvitation>
@@ -667,7 +667,7 @@ export type MailTemplateProblemDetails = z.infer<typeof mailTemplateProblemDetai
  */
 export const mailOutcome = z.object({
   mail: mailStatus.meta({
-    description: 'What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what a caller who asked for no mail gets; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+    description: 'What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted, because the caller asked for none or there was no link to carry; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
   }),
 })
 export type MailOutcome = z.infer<typeof mailOutcome>
