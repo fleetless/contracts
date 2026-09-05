@@ -409,19 +409,95 @@ describe('the parked-items round', () => {
  * is scoped to the OpenAPI render rather than applied to the source.
  */
 describe('openapi hygiene', () => {
-  const EDITOR_KEYS = ['defaultSnippets', 'patternErrorMessage', 'enumDescriptions', 'markdownDescription', 'markdownEnumDescriptions']
-  const walk = (v: unknown, hit: (k: string) => void) => {
-    if (Array.isArray(v)) v.forEach((x) => walk(x, hit))
-    else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { hit(k); walk(x, hit) }
-  }
+  // The three the config schemas actually carry. `stripEditorKeywords` removes
+  // five; the other two (`markdownDescription`, `markdownEnumDescriptions`) are
+  // stripped pre-emptively and appear in no source, so asserting their presence
+  // here would assert something untrue about the artifact.
+  const EDITOR_KEYS_IN_USE = ['defaultSnippets', 'patternErrorMessage', 'enumDescriptions']
 
-  it('carries no editor keyword anywhere', () => {
+  /**
+   * **An allowlist, because a denylist here shares its list with the thing it
+   * is checking.** The first version of this assertion walked the document for
+   * the same five keys `stripEditorKeywords` removes — so a *sixth* vendor
+   * keyword added to `src/config.ts` would pass the exporter and pass the test,
+   * for the same reason and at the same moment. Two halves of one list is one
+   * mechanism, and a guard cannot be the thing it guards.
+   *
+   * So the assertion is inverted: every key at a schema-keyword position must
+   * be a keyword JSON Schema 2020-12 or OpenAPI 3.1 defines. The exporter keeps
+   * its denylist — an allowlist that *strips* would silently drop a legitimate
+   * keyword a zod upgrade starts emitting, which is a worse failure than noise
+   * because nothing would report it.
+   *
+   * A red here is not automatically a bug: it says a key nobody classified
+   * reached the document, and names it and its path so the reader can decide
+   * whether to strip it or widen this list.
+   */
+  const OPENAPI_SCHEMA_KEYWORDS = new Set(
+    ('$ref $defs $comment $id $schema type properties required additionalProperties items prefixItems anyOf oneOf allOf ' +
+      'not enum const default description title examples deprecated readOnly writeOnly format pattern minLength maxLength ' +
+      'minimum maximum exclusiveMinimum exclusiveMaximum multipleOf minItems maxItems uniqueItems minProperties maxProperties ' +
+      'propertyNames patternProperties contains minContains maxContains if then else dependentRequired dependentSchemas ' +
+      'unevaluatedProperties unevaluatedItems contentMediaType contentEncoding contentSchema discriminator xml externalDocs ' +
+      'example nullable').split(' '),
+  )
+
+  // Which keywords hold schemas, and in what shape. Descending is driven by
+  // this rather than by "anything that is an object", because `enum`, `const`,
+  // `examples` and `default` hold **data** — a user-supplied object in an
+  // `examples` array would otherwise have its own field names read as
+  // keywords. The keys of the name-keyed maps are names too, and are skipped
+  // for the same reason: `properties.defaultSnippets` is a field called
+  // `defaultSnippets`, not the editor keyword.
+  const NAME_KEYED_SCHEMA_MAPS = ['properties', '$defs', 'patternProperties', 'dependentSchemas']
+  const SINGLE_SCHEMA = ['items', 'additionalProperties', 'not', 'if', 'then', 'else', 'contains', 'propertyNames', 'unevaluatedProperties', 'unevaluatedItems', 'contentSchema']
+  const SCHEMA_LIST = ['anyOf', 'oneOf', 'allOf', 'prefixItems']
+
+  it('carries only JSON Schema and OpenAPI keywords, and leaves the editor its own', () => {
     const doc = openApiDocument()
-    const hits: string[] = []
-    walk(doc, (k) => { if (EDITOR_KEYS.includes(k)) hits.push(k) })
-    expect(hits).toEqual([])
-    // the per-file artifacts keep them — the strip is OpenAPI-only
-    expect(JSON.stringify(componentSchemaRaw('robot-config-doc'))).toContain('defaultSnippets')
+    const offenders: string[] = []
+    const distinct = new Set<string>()
+    let nodes = 0
+    const walkSchema = (node: unknown, path: string) => {
+      if (node === null || typeof node !== 'object' || Array.isArray(node)) return
+      nodes += 1
+      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+        distinct.add(k)
+        if (!OPENAPI_SCHEMA_KEYWORDS.has(k)) offenders.push(`${k} at ${path}.${k}`)
+        if (NAME_KEYED_SCHEMA_MAPS.includes(k)) for (const [n, sub] of Object.entries((v as Record<string, unknown>) ?? {})) walkSchema(sub, `${path}.${k}.${n}`)
+        else if (SINGLE_SCHEMA.includes(k)) walkSchema(v, `${path}.${k}`)
+        else if (SCHEMA_LIST.includes(k)) (v as unknown[]).forEach((sub, i) => walkSchema(sub, `${path}.${k}[${i}]`))
+      }
+    }
+
+    // The schema positions, enumerated rather than found by shape: a walk of
+    // the whole document would read `info`, `servers`, `tags` and every
+    // operation's own keys as schema keywords and drown the assertion.
+    let entries = 0
+    for (const [name, schema] of Object.entries(doc.components.schemas as Record<string, unknown>)) { entries += 1; walkSchema(schema, `components.schemas.${name}`) }
+    for (const [p, item] of Object.entries(doc.paths as Record<string, Record<string, any>>)) {
+      for (const [m, op] of Object.entries(item)) {
+        for (const [i, par] of ((op.parameters ?? []) as any[]).entries()) if (par.schema) { entries += 1; walkSchema(par.schema, `paths.${p}.${m}.parameters[${i}].schema`) }
+        for (const [mt, c] of Object.entries((op.requestBody?.content ?? {}) as Record<string, any>)) if (c.schema) { entries += 1; walkSchema(c.schema, `paths.${p}.${m}.requestBody.content['${mt}'].schema`) }
+        for (const [code, r] of Object.entries((op.responses ?? {}) as Record<string, any>)) for (const [mt, c] of Object.entries((r.content ?? {}) as Record<string, any>)) if (c.schema) { entries += 1; walkSchema(c.schema, `paths.${p}.${m}.responses.${code}.content['${mt}'].schema`) }
+      }
+    }
+
+    // **The walk has to be shown to have happened.** An assertion over an
+    // empty `offenders` is green whether the document is clean or the walker
+    // descended into nothing at all — the vacuous `.every()` in another shape.
+    // Floors rather than exact counts, so adding a route does not edit this.
+    expect(entries, 'no schema position was visited').toBeGreaterThan(300)
+    expect(nodes, 'the walker never descended past the entry points').toBeGreaterThan(1000)
+    // Three keywords that can only be reached by descending through a
+    // name-keyed map, a schema list and a `$ref` respectively.
+    for (const k of ['properties', 'oneOf', '$ref']) expect([...distinct], `never reached a ${k}`).toContain(k)
+
+    expect(offenders).toEqual([])
+
+    // The strip is OpenAPI-only: the per-file artifact the console's editor
+    // loads still carries every one of them.
+    for (const k of EDITOR_KEYS_IN_USE) expect(JSON.stringify(componentSchemaRaw('robot-config-doc')), k).toContain(k)
   })
 
   it('registers exactly the components something references', () => {
