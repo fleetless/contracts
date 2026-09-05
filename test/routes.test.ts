@@ -269,11 +269,24 @@ describe('the parked-items round', () => {
     ])
   })
 
-  it('declares a query schema on the three routes that read one by hand', () => {
-    const q = (m: string, p: string) => ROUTES.find((r) => r.method === m && r.path === p)?.query
-    expect(q('GET', '/oauth/authorize')).not.toBeNull()
-    expect(q('POST', '/oauth/register')).not.toBeNull()
-    expect(q('GET', '/api/org/alerts')).not.toBeNull()
+  it('declares a query schema on the six routes that read one by hand', () => {
+    for (const [m, p] of [
+      ['GET', '/oauth/authorize'],
+      ['POST', '/oauth/register'],
+      ['GET', '/api/org/alerts'],
+      ['GET', '/api/org/users'],
+      ['GET', '/api/org/users/:id/usage'],
+      ['GET', '/api/apps/:id/group-usage'],
+    ] as const) {
+      const entry = ROUTES.find((r) => r.method === m && r.path === p)
+      // **The entry is asserted before its `query` is.** `find(...)?.query` is
+      // `undefined` both when a route declares no schema and when the route is
+      // not in the manifest at all — one value for the two states this test
+      // exists to tell apart, so a renamed path would have read as a passing
+      // check on a route that no longer exists.
+      expect(entry, `${m} ${p} is not in the manifest`).toBeDefined()
+      expect(entry!.query, `${m} ${p} declares no query schema`).not.toBeNull()
+    }
   })
 
   it('reserves every literal segment that shadows a slug in the same collection', async () => {
@@ -290,11 +303,25 @@ describe('the parked-items round', () => {
     // any path ending `/jobs/<word>` and flagged `GET /api/org/jobs/summary`,
     // which is a different collection with no `:slug` in it at all — a guard
     // shaped like the assumption instead of like the collision.
+    //
+    // `indexOf`, not `endsWith`: a slug collection whose routes **continue
+    // past the slug** is still a slug collection. `/api/robots/:id/cameras`
+    // has no route ending in `/:slug` at all — every one goes on to
+    // `/snapshot`, `/meta` or `/live` — so an `endsWith` derivation never
+    // looked at it, and the sweep silently covered four of the five
+    // collections while reporting on all of them.
     const { RESERVED_SLUGS } = await import('../src/index.js')
-    const prefixes = new Set(ROUTES.filter((r) => r.path.endsWith('/:slug')).map((r) => r.path.slice(0, -'/:slug'.length)))
+    const prefixes = new Set(ROUTES.filter((r) => r.path.includes('/:slug')).map((r) => r.path.slice(0, r.path.indexOf('/:slug'))))
     expect(prefixes.size, 'no :slug route to be shadowed').toBeGreaterThan(0)
+    expect([...prefixes].sort()).toEqual([
+      '/api/robots/:id/cameras',
+      '/api/robots/:id/config/slug-usage',
+      '/api/robots/:id/datapoints',
+      '/api/robots/:id/jobs',
+      '/api/robots/:id/publishers',
+    ])
     const siblings = ROUTES.filter(
-      (r) => [...prefixes].some((p) => r.path.startsWith(`${p}/`) && !r.path.slice(p.length + 1).includes('/')) && !r.path.endsWith('/:slug'),
+      (r) => [...prefixes].some((p) => r.path.startsWith(`${p}/`) && !r.path.slice(p.length + 1).includes('/') && r.path !== `${p}/:slug`),
     ).map((r) => r.path.slice(r.path.lastIndexOf('/') + 1))
     // Named, so that a sibling silently disappearing turns this into the
     // vacuous `.every()` over an empty array rather than a green run.

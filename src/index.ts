@@ -422,6 +422,8 @@ export {
   putAssignmentRequest,
   tierChangeRequest,
   groupUsageResponse,
+  groupFilterQuery,
+  groupPreviewQuery,
   // W6c — identity.
   mailStatus,
   tierRequiredDetails,
@@ -477,6 +479,8 @@ export type {
   PutAssignmentRequest,
   TierChangeRequest,
   GroupUsageResponse,
+  GroupFilterQuery,
+  GroupPreviewQuery,
   MailStatus,
   TierRequiredDetails,
   PasswordChangeRequest,

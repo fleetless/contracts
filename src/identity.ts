@@ -601,6 +601,47 @@ export const groupUsageResponse = z.object({
 export type GroupUsageResponse = z.infer<typeof groupUsageResponse>
 
 /**
+ * `?group_id=` where it **narrows** a listing — `GET /api/org/users`.
+ *
+ * Optional, and its absence is not a mistake: without it the route answers the
+ * org's whole user pool. A well-formed uuid naming a group of another org is
+ * `404 not_found` rather than an empty list, which would be indistinguishable
+ * from "that group exists here and is empty" — a statement about somebody
+ * else's org.
+ *
+ * **Kept apart from `groupPreviewQuery` on purpose.** The two look identical
+ * and are not: there the parameter is required, and an unknown group is a
+ * `validation_error` rather than a `404`. One schema over both would have to
+ * call the parameter optional, which would document a refusal the preview
+ * routes make and the schema denies.
+ */
+export const groupFilterQuery = z
+  .object({
+    group_id: z.uuid().optional().meta({
+      description: 'Narrows the listing to one group. Omit it for the whole org. A malformed value is `400 invalid_uuid`, so a typo can be told from a deletion; a valid uuid that is not a group of this org is `404 not_found`.',
+    }),
+  })
+  .meta({ description: 'The optional group filter of `GET /api/org/users`.' })
+export type GroupFilterQuery = z.infer<typeof groupFilterQuery>
+
+/**
+ * `?group_id=` where it **names the target of a preview** —
+ * `GET /api/org/users/:id/usage` and `GET /api/apps/:id/group-usage`.
+ *
+ * Required: a preview of "what would moving into that group destroy" has no
+ * meaning without the group. Both routes answer a `groupUsageResponse` and
+ * refuse identically, so one schema covers the pair.
+ */
+export const groupPreviewQuery = z
+  .object({
+    group_id: z.uuid().meta({
+      description: 'The group the subject would move into. **Required** — absent is `400 validation_error` with rule `required`, malformed is `400 invalid_uuid`, and a well-formed uuid that is not a group of this org is `400 validation_error` with rule `unknown_group`. Three refusals rather than one, because they are three different facts a caller needs told apart.',
+    }),
+  })
+  .meta({ description: 'The required target group of the two move-preview routes.' })
+export type GroupPreviewQuery = z.infer<typeof groupPreviewQuery>
+
+/**
  * `POST /api/org/groups` — `.strict()`, and **`is_org_admins` is absent**: the
  * one group carrying it is created with the org, and a caller able to set it
  * would be minting themselves console access.

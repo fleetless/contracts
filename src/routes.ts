@@ -51,7 +51,9 @@ import {
   createGroupRequest,
   createUserInviteRequest,
   groupListResponse,
+  groupFilterQuery,
   groupOidcProvider,
+  groupPreviewQuery,
   groupUsageResponse,
   moveUserGroupRequest,
   orgFederationPolicy,
@@ -649,10 +651,10 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/org/users', section: 'users',
     summary: "Lists the org's user pool, optionally narrowed to one group.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: orgUserListResponse,
+    params: [], query: groupFilterQuery, request: null, response: orgUserListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      '`?group_id=` narrows it; there is no query schema, the parameter is read directly. A group of another org answers `404` rather than an ' +
+      '`?group_id=` narrows it; omitted, the answer is the whole pool. A group of another org answers `404` rather than an ' +
       'empty list, which would be indistinguishable from "that group exists here and is empty" — a statement about somebody else\'s org. A ' +
       'malformed value is `400 invalid_uuid`, so a typo can be told from a deletion.',
   },
@@ -748,12 +750,13 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Previews what moving a user into another group would delete.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: null, request: null, response: groupUsageResponse,
+    query: groupPreviewQuery, request: null, response: groupUsageResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      '`?group_id=` names the group the user would move into and is required; there is no query schema, the parameter is read directly. Absent ' +
+      '`?group_id=` names the group the user would move into and is required. Absent ' +
       'is `400 validation_error` with rule `required`, malformed is `400 invalid_uuid`, and well-formed but not a group of this org is ' +
-      '`validation_error` with rule `unknown_group` — three different facts a caller needs told apart. Reads only, and never a lock.',
+      '`validation_error` with rule `unknown_group` — three different facts a caller needs told apart. **The same parameter on ' +
+      '`GET /api/org/users` is a different contract**: optional there, and an unknown group is a `404`. Reads only, and never a lock.',
   },
   {
     method: 'POST', path: '/api/org/users/:id/move-group', section: 'users',
@@ -835,10 +838,11 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Previews what re-linking an app to another group would delete.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: groupUsageResponse,
+    query: groupPreviewQuery, request: null, response: groupUsageResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      '`?group_id=` names the target group and is required, with the same three distinct refusals `GET /api/org/users/:id/usage` gives. The app ' +
+      '`?group_id=` names the target group and is required, with the same three distinct refusals `GET /api/org/users/:id/usage` gives — one ' +
+      '`groupPreviewQuery` describes both. The app ' +
       'is scoped first, so none of them can confirm that an app the caller does not own exists.',
   },
   {
