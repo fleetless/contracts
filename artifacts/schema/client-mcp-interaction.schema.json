@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The interaction, as it arrived in the app's `mcp_login_url`. Not a credential: it names a pending request the server already holds, and approving it needs the app user's own access token."
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The app this authorization is for. The approving token's `app_id` must match it — an interaction of one app cannot be approved with a session from another."
+    },
+    "client_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "What the MCP client calls itself, or `null` if it named nothing. **Unverified** — see `client_name_verified`."
+    },
+    "client_name_verified": {
+      "type": "boolean",
+      "const": false,
+      "description": "Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The scopes the client asked for, to show the person before they approve."
+    },
+    "already_granted": {
+      "type": "boolean",
+      "description": "Whether this user has already approved this client for these scopes. The app may skip its consent step when true; it is a convenience, and the server re-checks the grant either way."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the interaction stops being approvable. Ten minutes from the authorize step; afterwards both approve and deny answer `interaction_expired`."
+    }
+  },
+  "required": [
+    "id",
+    "app_id",
+    "client_name",
+    "client_name_verified",
+    "scopes",
+    "already_granted",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

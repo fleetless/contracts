@@ -1,20 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import * as barrel from '../src/index.js'
 import {
   app,
-  brandingConfig,
   codeChallengeMethod,
   dynamicClientRegistrationRequest,
   ERROR_CODES,
-  idpConfig,
   idpIssuer,
-  OAUTH_PATHS,
-  oauthClient,
-  oauthClientRegistration,
-  oauthConsentInteraction,
   oauthError,
-  idpConfigRequest,
-  oauthLoginRequest,
-  oauthConsentResponse,
+  oauthRedirectResponse,
   oauthTokenRequest,
   oauthTokenResponse,
   redirectUri,
@@ -22,7 +15,7 @@ import {
 } from '../src/index.js'
 
 /**
- * The hosted authorization server.
+ * The MCP authorization server — the only OAuth surface left (D8).
  *
  * Every test here names a thing that would otherwise be believed without
  * evidence. The rule this file was written to: name what would make the
@@ -71,22 +64,21 @@ describe('redirectUri', () => {
 })
 
 describe('the client model', () => {
-  it('can express both registration kinds and demands one', () => {
-    expect(oauthClientRegistration.options).toEqual(['developer', 'dynamic'])
-    const base = {
-      id: '00000000-0000-4000-8000-000000000001',
-      app_id: '00000000-0000-4000-8000-000000000002',
-      client_id: 'c_abc',
-      client_name: 'Some Tool',
-      redirect_uris: ['https://app.example.com/cb'],
-      created_at: '2026-08-18T00:00:00.000Z',
-      expires_at: null,
-      last_used_at: null,
+  /**
+   * **The developer-registered client is gone; every MCP client registers
+   * itself.** `oauthClient`, `oauthClientRegistration` and the app-level
+   * registration routes described a distinction between a client the developer
+   * vetted and one nobody did — and with the app OAuth flow deleted, only the
+   * second kind exists. The distinction did not become untrue; it became
+   * one-sided, so the marker moved to where the person actually sees it:
+   * `clientMcpInteraction.client_name_verified`, a `z.literal(false)`.
+   */
+  it('no longer models a developer-registered client', () => {
+    for (const gone of ['oauthClient', 'oauthClientListResponse', 'oauthClientRegistration']) {
+      expect(gone in barrel, gone).toBe(false)
     }
-    // The whole point of the discriminator is that it cannot be omitted and
-    // then inferred later from some other field's nullability.
-    expect(oauthClient.safeParse(base).success).toBe(false)
-    expect(oauthClient.safeParse({ ...base, registration: 'dynamic' }).success).toBe(true)
+    expect(barrel.clientMcpInteraction.shape.client_name_verified.safeParse(false).success).toBe(true)
+    expect(barrel.clientMcpInteraction.shape.client_name_verified.safeParse(true).success).toBe(false)
   })
 
   it('refuses PKCE downgrade: there is no `plain`', () => {
@@ -122,117 +114,34 @@ describe('dynamicClientRegistrationRequest', () => {
   })
 })
 
-describe('brandingConfig', () => {
-  const png = 'data:image/png;base64,iVBORw0KGgo='
-
-  it('accepts a raster logo and one canonical colour spelling', () => {
-    expect(brandingConfig.safeParse({ primary_color: '#0b5fff', logo_data_uri: png }).success).toBe(true)
-    // Two configs that look identical must be identical.
-    expect(brandingConfig.safeParse({ primary_color: '#0B5FFF' }).success).toBe(false)
-  })
-
-  it('refuses SVG — the login page holds a password field', () => {
-    expect(
-      brandingConfig.safeParse({ primary_color: '#0b5fff', logo_data_uri: 'data:image/svg+xml;base64,PHN2Zz4=' })
-        .success,
-    ).toBe(false)
-  })
-
-  it('refuses an off-platform logo URL', () => {
-    // An outbound fetch from the login page is a beacon on every attempt.
-    expect(
-      brandingConfig.safeParse({ primary_color: '#0b5fff', logo_data_uri: 'https://cdn.evil.test/logo.png' }).success,
-    ).toBe(false)
-  })
-
-  it('bounds the logo', () => {
-    const huge = `data:image/png;base64,${'A'.repeat(349_600)}`
-    expect(brandingConfig.safeParse({ primary_color: '#0b5fff', logo_data_uri: huge }).success).toBe(false)
-  })
-})
-
-describe('idpConfig', () => {
-  it('cannot carry the client secret back out', () => {
-    const parsed = idpConfig.parse({
-      app_id: '00000000-0000-4000-8000-000000000002',
-      issuer: 'https://idp.example.com',
-      client_id: 'fleetless',
-      client_secret: 'hunter2',
-      scopes: ['openid', 'email'],
-      claims: { subject_claim: 'sub', email_claim: 'email' },
-      // `link_verified_emails` ist auf die Org gewandert — es entschied ueber
-      // eine org-weite Identitaet und sass auf einem App-Objekt. Der Paritaets-Waechter unten gilt unveraendert weiter.
-      has_client_secret: true,
-      updated_at: '2026-08-18T00:00:00.000Z',
-    })
-    // A secret a response can return is a secret in every log that captured one.
-    expect('client_secret' in parsed).toBe(false)
-    expect(parsed.has_client_secret).toBe(true)
-  })
-})
-
-describe('the new error codes', () => {
-  it('are present and the list has no duplicates', () => {
+describe('the error codes this surface answers', () => {
+  it('keeps the ones a dynamic registration can meet, and the list has no duplicates', () => {
     for (const code of [
       'dynamic_registration_disabled',
       'client_limit_reached',
-      'identity_conflict',
       'idp_unavailable',
+      'invalid_redirect_uri',
+      'interaction_expired',
     ]) {
       expect(ERROR_CODES, code).toContain(code)
     }
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
   })
-})
 
-describe('OAUTH_PATHS', () => {
-  it('has one definition per path and they are distinct', () => {
-    const values = Object.values(OAUTH_PATHS)
-    expect(new Set(values).size).toBe(values.length)
-    for (const v of values) expect(v.startsWith('/'), v).toBe(true)
-    // Non-vacuity: this test is worthless if the object is ever emptied.
-    expect(values.length).toBeGreaterThan(5)
-  })
-})
-
-describe('accepts_dynamic_clients', () => {
-  const base = {
-    id: '00000000-0000-4000-8000-000000000001',
-    org_id: '00000000-0000-4000-8000-000000000002',
-    name: 'Some App',
-    identifier: 'some_app',
-    robot_ids: [],
-    // `base` deliberately carries every required field of `app` EXCEPT
-    // `accepts_dynamic_clients`, so `safeParse(base)` can only fail for that
-    // one reason. When MCP briefly added a second required switch it was put
-    // here for exactly that reason; it was removed with the field on
-    // 2026-08-29, and the discipline is what has to survive: anything new and
-    // required on `app` belongs in `base`, never left out beside the field
-    // under test, or this check stops measuring its own claim.
-    group_id: '00000000-0000-4000-8000-00000000000a',
-    default_role_id: null,
-    created_at: '2026-08-18T00:00:00.000Z',
-  }
-
-  it('is required on `app` — an unauthenticated write endpoint is not gated by an optional field', () => {
-    // Optional here would mean `undefined` at every reader, and `undefined` is
-    // not `false` until somebody remembers to make it so. The gate is a fact
-    // about the app, so every app states it.
-    expect(app.safeParse(base).success).toBe(false)
-    expect(app.safeParse({ ...base, accepts_dynamic_clients: false }).success).toBe(true)
-  })
-
-  it('can be turned on and off through an update', () => {
-    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: true }).success).toBe(true)
-    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: false }).success).toBe(true)
-    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: 'yes' }).success).toBe(false)
-  })
-
-  it('keeps branding off the app shape', () => {
-    // A logo is up to 256 KiB. If it ever lands on `app`, every app list pays
-    // for it — so this test is the tripwire for that refactor.
-    expect('branding' in app.shape).toBe(false)
-    expect('logo_data_uri' in app.shape).toBe(false)
+  /**
+   * **The two federated-login codes went with the flow that produced them.**
+   * `identity_conflict` and `identity_not_provisioned` answered an app user
+   * signing in through the hosted flow; that flow is deleted, and the per-app
+   * OIDC callback redirects `clientOidcErrorCode` to the developer's own page
+   * instead of answering an `apiError`. Their meanings survive there —
+   * `email_taken` and `no_access` — where the app renders them.
+   */
+  it('has dropped the two the hosted federated login produced', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes).not.toContain('identity_conflict')
+    expect(codes).not.toContain('identity_not_provisioned')
+    expect(barrel.clientOidcErrorCode.options).toContain('email_taken')
+    expect(barrel.clientOidcErrorCode.options).toContain('no_access')
   })
 })
 
@@ -314,33 +223,6 @@ describe('the token endpoint', () => {
   })
 })
 
-describe('the hosted page handoff', () => {
-  it('does not let the page name the app it is authenticating against', () => {
-    // `clientLoginRequest` carries `app_identifier`; this one must not. The app
-    // is a property of the pending request the server holds. If the page named
-    // it, a caller could authenticate against one app and get a code for
-    // another — and the two shapes are similar enough that somebody will one
-    // day paste one into the other.
-    expect('app_identifier' in oauthLoginRequest.shape).toBe(false)
-    expect('interaction_id' in oauthLoginRequest.shape).toBe(true)
-  })
-
-  it('refuses an extra field rather than stripping it', () => {
-    const ok = { interaction_id: 'i_1', email: 'a@b.test', password: 'x' }
-    expect(oauthLoginRequest.safeParse(ok).success).toBe(true)
-    expect(oauthLoginRequest.safeParse({ ...ok, app_identifier: 'other-app' }).success).toBe(false)
-  })
-
-  it('names on the consent screen every noun the grant binds', () => {
-    // `consentGrant` binds client, app, role and scope. A screen that shows
-    // fewer is asking about something other than what it records.
-    const shown = new Set(Object.keys(oauthConsentInteraction.shape))
-    for (const noun of ['app_name', 'client_name', 'role_name', 'scope']) {
-      expect(shown.has(noun), noun).toBe(true)
-    }
-  })
-})
-
 describe('oauthError.fleetless_code', () => {
   it('keeps two policy refusals distinguishable inside one standard code', () => {
     // Both map to `access_denied`, which is the honest RFC code for either.
@@ -357,36 +239,6 @@ describe('oauthError.fleetless_code', () => {
 
   it('is optional, so an ordinary RFC error needs nothing extra', () => {
     expect(oauthError.safeParse({ error: 'invalid_request' }).success).toBe(true)
-  })
-})
-
-describe('idpConfigRequest', () => {
-  const base = {
-    issuer: 'https://idp.example.com',
-    client_id: 'fleetless',
-    scopes: ['openid', 'email'],
-  }
-
-  it('can set every field `idpConfig` can show', () => {
-    // A field a response exposes and a request cannot set is a field nobody
-    // can turn on. This has happened twice here; the test is the guard.
-    expect(idpConfigRequest.safeParse(base).success).toBe(true)
-  })
-
-  it('keeps the secret write-only and refuses unknown keys', () => {
-    const ok = { ...base }
-    expect(idpConfigRequest.safeParse({ ...ok, client_secret: 'hunter2' }).success).toBe(true)
-    expect(idpConfigRequest.safeParse({ ...ok, has_client_secret: true }).success).toBe(false)
-  })
-})
-
-describe('oauthConsentResponse', () => {
-  it('exists and is the same shape the login page already handles', () => {
-    // A consumer forced to hand-write a schema for a documented response is a
-    // consumer guessing. Somebody said so instead of importing something near
-    // enough, which is why this exists.
-    expect(oauthConsentResponse.safeParse({ redirect_to: 'https://app.example.com/cb?code=x' }).success).toBe(true)
-    expect(oauthConsentResponse.safeParse({}).success).toBe(false)
   })
 })
 
@@ -417,30 +269,68 @@ describe('idpIssuer', () => {
   })
 })
 
-describe('one provisioning policy, not two', () => {
-  it('idpConfig carries no role of its own', () => {
-    // There was briefly a `default_role_id` here — a weaker copy of
-    // `selfRegistration` that the federated path read while reading none of
-    // the app's actual policy, so a developer who had turned self-registration
-    // off still handed out accounts through the federated door. Removed
-    // 2026-08-18. This test is the tripwire for it coming back.
-    expect('default_role_id' in idpConfig.shape).toBe(false)
-    expect('default_role_id' in idpConfigRequest.shape).toBe(false)
+describe('what the app OAuth flow took with it', () => {
+  /**
+   * Removed-symbol guards for the hosted app flow. Each named a page or a
+   * stored decision that only existed because Fleetless owned the app user's
+   * browser; it does not (D2), so a re-appearance is a merge accident.
+   *
+   * `OAUTH_PATHS` is here rather than merely deleted quietly: it was created
+   * *after* this repository found five hand-written copies of one constant,
+   * and then reproduced the same defect itself, standing for months with an
+   * `idpStart` entry naming a route the cloud had deleted. Every one of its
+   * nine values named a route this train removes.
+   */
+  it('exports none of the hosted-flow shapes', () => {
+    for (const gone of [
+      'OAUTH_PATHS',
+      'oauthInteraction',
+      'oauthConsentInteraction',
+      'oauthLoginRequest',
+      'oauthLoginResponse',
+      'oauthConsentResponse',
+      'consentDecision',
+      'consentGrant',
+      'consentGrantSummary',
+      'consentGrantListResponse',
+      'consentRevokeResponse',
+      'idpConfig',
+      'idpConfigRequest',
+      'brandingConfig',
+    ]) {
+      expect(gone in barrel, gone).toBe(false)
+    }
   })
 
   /**
-   * The other half of this pair asserted that `selfRegistration` still carried
-   * all four controls the decision needed. That policy was deleted on
-   * 2026-08-29 (D6: *"the old per-app self-registration dies with no
-   * successor"*), so the assertion is replaced by the one thing that must stay
-   * true across the gap: **while there is no policy, the federated path must
-   * not grow a role of its own to fill the hole.** The successor is D3's
-   * `jit_grants` on the group provider, in the oidc-federation plan.
+   * The redirect shape survived because three live routes still answer it —
+   * the console portal's login and sign-up steps, and the MCP login and
+   * consent. Asserted so this file is not claiming an empty world, which is
+   * how a removed-symbol sweep goes vacuous.
    */
-  it('grows no substitute policy while the successor is unbuilt', () => {
-    for (const field of ['default_role_id', 'jit_enabled', 'jit_grants', 'self_registration']) {
-      expect(field in idpConfig.shape, field).toBe(false)
-      expect(field in idpConfigRequest.shape, field).toBe(false)
-    }
+  it('keeps oauthRedirectResponse, which the console portal and MCP still answer', () => {
+    expect(oauthRedirectResponse.safeParse({ redirect_to: 'https://app.example.com/cb?code=x' }).success).toBe(true)
+    expect(oauthRedirectResponse.safeParse({}).success).toBe(false)
+  })
+
+  /**
+   * The app shape lost the switch that gated app-level dynamic registration.
+   * Strict on both write shapes, so an offered value is a `400` naming the
+   * field rather than a `200` that changed nothing.
+   */
+  it('drops accepts_dynamic_clients from the app and refuses it on a write', () => {
+    expect('accepts_dynamic_clients' in app.shape).toBe(false)
+    expect(updateAppRequest.safeParse({ accepts_dynamic_clients: true }).success).toBe(false)
+  })
+
+  /**
+   * A logo was up to 256 KiB, and the reason it never sat on `app` was that
+   * every app list would pay for it. Branding is deleted outright now — a
+   * developer who wants it writes it into a mail template — so this is the
+   * tripwire for it arriving back on the shape that least needs it.
+   */
+  it('keeps branding off the app shape', () => {
+    expect('branding' in app.shape).toBe(false)
+    expect('logo_data_uri' in app.shape).toBe(false)
   })
 })

@@ -58,8 +58,11 @@ describe('constants the bridge cannot import', () => {
 
 describe('creating an app with robots', () => {
   it('accepts `robot_ids` instead of dropping it in silence', () => {
-    // `group_id` is required since D2: an app belongs to exactly one group.
-    const base = { name: 'Ops', identifier: 'ops', group_id: '00000000-0000-4000-8000-00000000000a' }
+    // `group_id` was required while an app belonged to exactly one group.
+    // Groups are deleted (2026-09-05, D1) and the shape is `.strict()`, so
+    // offering one now is a refusal rather than a silent drop — pinned in
+    // `identity-shapes.test.ts`.
+    const base = { name: 'Ops', identifier: 'ops' }
     expect(createAppRequest.safeParse(base).success).toBe(true)
     const withRobots = createAppRequest.safeParse({ ...base, robot_ids: [UUID] })
     expect(withRobots.success).toBe(true)
@@ -69,7 +72,7 @@ describe('creating an app with robots', () => {
   })
 
   it('refuses a key nobody defined rather than stripping it', () => {
-    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: '00000000-0000-4000-8000-00000000000a', robotIds: [UUID] }).success).toBe(false)
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', robotIds: [UUID] }).success).toBe(false)
   })
 })
 

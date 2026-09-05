@@ -36,15 +36,14 @@ import { slug } from './common.js'
 export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
 
 /**
- * The path of the one central MCP server — what an end user pastes into their
- * AI tool, appended to the cloud's public base URL.
+ * The path of the **central** MCP server — what a *Fleetless user* pastes into
+ * their AI tool, appended to the cloud's public base URL.
  *
- * **There is exactly one server, and this path is not parameterised.** It
- * replaced `mcpEndpointPath(appIdentifier)`, which returned the per-app
- * `/mcp/<identifier>` deleted in the identity redesign (D5/D6) — a URL that
- * answered `404` live while the console still offered it with a copy button.
- * A helper that takes an argument invites the deleted shape back; a constant
- * cannot.
+ * **Not parameterised, and that is now a statement rather than the absence of
+ * one.** The central endpoint serves the org's team with the console tool
+ * family (2026-09-05, D7); an app's users reach a different endpoint, whose
+ * path `mcpAppEndpointPath` builds. Two constants for two audiences, so a call
+ * site says which it means instead of an argument deciding it.
  *
  * **The canonical URL is `<PUBLIC_API_BASE_URL>${MCP_ENDPOINT_PATH}`, not the
  * friendly alias.** `mcp.fleetless.dev` is a reverse proxy onto the same
@@ -53,6 +52,32 @@ export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
  * never against the request's `Host`. Hand out the canonical one.
  */
 export const MCP_ENDPOINT_PATH = '/mcp' as const
+
+/**
+ * The path of **one app's** MCP server (D7) — what an app user pastes into
+ * their AI tool, served only while the app's `appAuthConfig.mcp_enabled` is on.
+ *
+ * A helper rather than a template literal at four call sites, for
+ * `OAUTH_PATHS`' reason: the console shows this string with a copy button, the
+ * cloud registers the route from it, and the docs render it. A path spelled in
+ * three places is a path two of them will one day spell differently — and this
+ * repository has already paid for exactly that, with an `idpStart` entry naming
+ * a route the cloud had deleted.
+ *
+ * **This is the path, not the URL.** Append it to `PUBLIC_API_BASE_URL`, the
+ * canonical origin the cloud mints every issuer and audience from, rather than
+ * to the friendly `mcp.fleetless.dev` alias — a token's `aud` is compared
+ * against the canonical string and never against the request's `Host`.
+ *
+ * There was a `mcpEndpointPath(appIdentifier)` before, deleted with the per-app
+ * endpoint in the central-MCP cut and remembered here because the shape of that
+ * mistake is worth not repeating: the console kept offering a copy button for a
+ * URL that answered `404`. This one exists **with** its endpoint, and the
+ * cloud's route-manifest test is what keeps them together.
+ */
+export function mcpAppEndpointPath(appIdentifier: string): string {
+  return `/mcp/${appIdentifier}`
+}
 
 /**
  * Which exposed kind a tool came from. Not the MCP protocol's vocabulary —

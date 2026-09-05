@@ -30,88 +30,45 @@ export const app = z.object({
     description: 'The organisation that owns this app. Every developer route is already scoped to the caller\'s org, so this confirms what a client is looking at rather than being a filter it applies.',
   }),
   name: z.string().min(1).max(120).meta({
-    description: 'The display name, shown in the console and on the hosted login and consent pages. Free text, changed through `PATCH /api/apps/:id`.',
+    description: 'The display name, shown in the console and available to the developer\'s own pages through the `app.name` mail-template variable. Free text, changed through `PATCH /api/apps/:id`.',
   }),
   identifier: appIdentifier.meta({
     description: 'The stable handle a client sends at login, lowercase and underscore-separated. **Globally unique, not per organisation** — `clientLoginRequest` carries no org context to disambiguate with, so a collision is refused with `identifier_taken`.',
-  }),
-  /**
-   * **Exactly one group owns this app** (2026-08-29 identity redesign, D2).
-   * The app uses that group's auth provider, and only users of that group can
-   * hold an assignment for it — which is why re-linking cascade-deletes the
-   * assignments that stop being valid.
-   *
-   * Not nullable and not optional: "an app with no group" is not a state the
-   * model has, and an optional field here would let a mapper that forgot the
-   * column produce one anyway.
-   *
-   * Changing it is `PUT /api/apps/:id/group` with `putAppGroupRequest`, never
-   * `updateAppRequest` — see the comment there.
-   */
-  group_id: z.uuid().meta({
-    description: 'The one group that owns this app. The app uses that group\'s auth provider, and only users of that group may hold an assignment for it. Changed through `PUT /api/apps/:id/group`, never through `updateAppRequest`, because re-linking cascade-deletes the assignments that stop being valid.',
   }),
   /** Robots are referenced individually; tags never grant rights (§12.2). */
   robot_ids: z.array(z.uuid()).meta({
     description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants.',
   }),
   /**
-   * Whether this app accepts **self-registering** OAuth clients (RFC 7591).
+   * **The app's default role — and the two-space cut gave it a server-side
+   * reader it did not have.**
    *
-   * Off by default and per app, because a normal app has no reason to accept
-   * them: its own client is registered by the developer with known redirect
-   * URIs. An MCP app does, because the end user *"trägt nur die URL ein"*
-   * (§17) and the client registers itself — nobody vetted it, and
-   * `POST /oauth/register` is therefore an **unauthenticated write endpoint**
-   * standing in front of tools that move a physical robot.
+   * Through the assignment model this was a console prefill and nothing more:
+   * `putAssignmentRequest` always carried the role explicitly, so no part of
+   * the cloud authorized anybody with it. Assignments are gone. An app user is
+   * created or invited **with** a role, and when the request omits one this is
+   * the role they get — so the field now decides access on two write paths
+   * (`createAppUserRequest`, `createAppInvitationRequest`) rather than
+   * pre-filling a form.
    *
-   * The flag is app state rather than a deployment setting so that turning it
-   * on is a decision somebody made about one app, visible in the console and
-   * in the audit log.
-   *
-   * **It is the only switch left on an app, and the sibling it used to have
-   * is worth remembering.** W7c added `mcp_enabled` beside it — "whether this
-   * app serves a remote MCP server at `/mcp/<identifier>`" — and the
-   * central-MCP cut (D5, 2026-08-29) deleted the per-app endpoint it named.
-   * The field outlived its endpoint by a release, gating nothing but one
-   * `resource` branch of the legacy OAuth stub, and was removed on
-   * 2026-08-29. `orgGroup.mcp_enabled` in `identity.ts` is a **different**
-   * field with a live door behind it (`cloud/src/mcp-access.ts`); the two
-   * shared a name and never a meaning.
-   */
-  accepts_dynamic_clients: z.boolean().meta({
-    description: 'Whether this app accepts **self-registering** OAuth clients through `POST /oauth/register`. Off by default and per app: a normal app\'s client is registered by the developer with known redirect URIs, and an app driven by an AI tool is the case that needs it.',
-  }),
-  /**
-   * **The app's default role, and it has exactly one reader left.**
-   *
-   * The console prefills the role picker with it when an admin assigns a user
-   * to this app; `putAssignmentRequest` still carries the role explicitly, so
-   * a prefill is a suggestion in a form and not a default the server applies.
-   * Nothing in the cloud authorizes anybody with this field.
-   *
-   * **It used to have a second reader and no longer does.** Through the
-   * identity redesign it was also the role an org admin authorized with, since
-   * an admin holds no assignment to read one from. That shim was removed with
-   * the OIDC federation work: `appAccessFor` is now purely the assignment
-   * check, and an admin reaches an app through the impersonation interstitial,
-   * which mints a token carrying both the effective identity and the real
-   * admin. There is no by-name fallback to a builtin role anywhere in that
-   * path — an earlier version of this comment said there was, and there was
-   * not.
+   * That is worth saying out loud because it changes what a wrong value costs.
+   * A prefill somebody can see and correct became a default applied on the
+   * server, and the obvious next question — should it be required instead? —
+   * has a deliberate answer: no, because an invitation resolves the role at
+   * *creation* time and stores it, so an outstanding invitation is never
+   * re-aimed by a later change here.
    *
    * `null` — and nullable rather than absent — means *this app has not chosen
    * one*. That is a normal state, not an unset field: every app is created
-   * before its roles are configured, and the console then falls back to the
-   * first role it lists. The column is `ON DELETE SET NULL` so that a deleted
-   * role can never be left dangling here, but no route deletes a role, so
-   * nothing exercises that today.
+   * before its roles are configured. A create or invite that omits `role_id`
+   * against an app in that state is a `validation_error`, not a user with no
+   * role.
    *
    * The role must belong to **this** app; the schema sees a uuid and cannot
    * check that, so `PATCH /api/apps/:id` does.
    */
   default_role_id: z.uuid().nullable().meta({
-    description: 'The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
+    description: 'The role an app user gets when they are created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` is a `validation_error` rather than a user with no role. An invitation resolves the role when it is issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
   }),
   created_at: z.iso.datetime().meta({
     description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
@@ -150,33 +107,27 @@ export const createAppRequest = z.object({
   name: z.string().min(1).max(120),
   identifier: appIdentifier,
   robot_ids: z.array(z.uuid()).optional(),
-  /** Optional, defaulting to `false` — same reasoning as `robot_ids` above: setting it at creation is the obvious operation, and refusing it here would make a `.strict()` request reject the field the caller can plainly see on `app`. */
-  accepts_dynamic_clients: z.boolean().optional(),
-  /**
-   * Required, unlike the switch above: an app belongs to exactly one
-   * group from the moment it exists (D2), there is no sensible default — the
-   * Org Admins group would be the one group whose members never hold
-   * assignments — and a defaulted answer here decides who can log into the app.
-   */
-  group_id: z.uuid(),
 }).strict()
 export type CreateAppRequest = z.infer<typeof createAppRequest>
 
 /**
- * **`group_id` is absent here on purpose, and `.strict()` is what makes that
- * absence mean something.** Re-linking an app to another group cascade-deletes
- * every assignment that stops being valid, so it is its own route with its own
- * acknowledgement (`putAppGroupRequest`). A rename must not be able to arrive
- * carrying that.
+ * **`.strict()` is what makes an absent field mean something here.**
  *
- * This shape was not strict until 2026-08-29, which meant an offered
- * `group_id` was *dropped* — the caller got a `200`, the app kept its old
- * group, and nothing anywhere said so. That is the exact silence
+ * This shape was not strict until 2026-08-29, which meant an offered field the
+ * route does not implement was *dropped* — the caller got a `200`, nothing
+ * changed, and nothing anywhere said so. That is the exact silence
  * `createAppRequest` above already learned about in W7a (*"a create shape that
  * silently drops a field cost two people a day each"*), and the lesson had not
- * been carried one shape over. A caller who sends `group_id` here is asking
- * for something this route does not do, and the honest answer is `400`, not a
- * success that means less than it looks.
+ * been carried one shape over. A caller who sends a field this route does not
+ * do is asking for something, and the honest answer is `400`, not a success
+ * that means less than it looks.
+ *
+ * Two fields left with the two-space cut and are worth naming, because both
+ * were on this shape and neither has a successor here.
+ * `accepts_dynamic_clients` gated app-level OAuth dynamic client registration,
+ * which is deleted: apps use the JSON client-auth API and OAuth 2.1 remains
+ * only for MCP. `group_id` named the group that owned the app, and groups are
+ * gone; who may log into an app is now the app's own user list.
  *
  * The route keeps its own check as belt-and-braces; a schema and a handler
  * agreeing is not two policies, it is one policy stated where each half can
@@ -185,7 +136,6 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
-  accepts_dynamic_clients: z.boolean().optional(),
   /**
    * `app.default_role_id`'s write half — an app *setting*, which is where D1
    * put the default role, so it belongs on the app's own PATCH and not on a
@@ -194,12 +144,8 @@ export const updateAppRequest = z.object({
    * **`.nullable().optional()`, and the two mean different things.** Absent
    * leaves the current default alone; an explicit `null` clears it. A field
    * that could only be set and never unset would make "we changed our mind"
-   * unreachable through the API — the same silence `group_id` above was made
-   * strict to avoid, from the other direction.
-   *
-   * Unlike `group_id`, this carries no cascade: changing it invalidates no
-   * assignment and cuts nobody off, so it needs no acknowledgement and no
-   * route of its own.
+   * unreachable through the API — the same silence `.strict()` above exists to
+   * avoid, from the other direction.
    */
   default_role_id: z.uuid().nullable().optional(),
 }).strict()
@@ -254,7 +200,7 @@ export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
  */
 export const role = z.object({
   id: z.uuid().meta({
-    description: 'The role, and what `putAssignmentRequest` and an app\'s `default_role_id` refer to.',
+    description: 'The role, and what an app user\'s `role_id` and an app\'s `default_role_id` refer to.',
   }),
   app_id: z.uuid().meta({
     description: 'The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`.',
@@ -344,57 +290,3 @@ export const rolePermissions = z.object({
 })
 export type RolePermissions = z.infer<typeof rolePermissions>
 
-/* `appMembership` (end_user_id, app_id, role_id) was deleted on 2026-08-29:
- * it is `appAssignment` in `identity.ts` now, keyed by `user_id` because there
- * is one pool. Not renamed in place — the field name was the whole of what
- * changed, and a shape that kept `end_user_id` would have let the deleted
- * model survive in every consumer that only reads keys. */
-
-/**
- * Per-app branding for the hosted login page (André, 2026-08-18).
- *
- * **Neutral Fleetless is the default and the absence of this object means
- * exactly that** — there is no "unbranded" state to distinguish from "not
- * configured", so nothing here is nullable-with-a-meaning.
- *
- * **Why the logo is a bounded data URI and not a URL or an asset.** Three
- * options existed and two are worse. The asset store is robot-scoped; giving
- * it an app scope is a subsystem nobody asked for in this wave. An external
- * URL means the page that collects credentials makes an outbound request to a
- * host the developer controls — a CSP hole and a beacon on every login
- * attempt, on the most security-sensitive page the platform serves. So the
- * bytes travel in the config, bounded.
- *
- * **SVG is refused, and that is not an oversight.** An SVG is a script host:
- * it can carry `<script>`, `onload` handlers and foreign objects. Rendering
- * one inside the login page would put developer-supplied script next to a
- * password field. Raster only until somebody sanitises, and sanitising an SVG
- * properly is its own project.
- */
-/**
- * Per-app branding for the hosted login page (§3.4). Neutral Fleetless when
- * absent, which is the default for every app that never configures one.
- *
- * **Deliberately not a field on `app`.** A logo is up to 256 KiB, and putting
- * it on the app shape means every list of apps carries every logo — a cost
- * nobody asked for, paid on the request that least needs it. It is a
- * sub-resource of an app, fetched when the login page is served and when the
- * branding editor opens, and nowhere else. `idpConfig` is separate for the
- * stronger version of the same reason: it carries secret state.
- */
-export const brandingConfig = z.object({
-  /** `#rrggbb`, lowercase — one canonical spelling so two configs that look identical are identical. */
-  primary_color: z.string().regex(/^#[0-9a-f]{6}$/, 'primary_color must be lowercase #rrggbb'),
-  /**
-   * 256 KiB of raw image at most. Base64 costs 4 bytes per 3, so the encoded
-   * ceiling is stated here in encoded characters — the unit the validator can
-   * actually count, rather than one it would have to infer.
-   */
-  logo_data_uri: z
-    .string()
-    .max(349_528)
-    .regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/, 'logo must be a base64 data URI of image/png or image/jpeg')
-    .optional(),
-  footer_text: z.string().min(1).max(200).optional(),
-})
-export type BrandingConfig = z.infer<typeof brandingConfig>

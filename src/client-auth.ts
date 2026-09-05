@@ -1,34 +1,52 @@
 import { z } from 'zod'
 import { appIdentifier } from './apps.js'
+import { APP_USER_DISPLAY_NAME_MAX, providerSlug } from './app-users.js'
+import { password } from './identity.js'
 
 /**
- * What a client app sends to become someone (spec §3.4, §11.1).
+ * **The client auth API: the whole of what an app user's browser talks to**
+ * (spec `2026-09-05-app-user-auth`, §4).
  *
- * Two kinds of caller reach the client API, and both use the `Authorization:
- * Bearer` header:
+ * Fleetless shows an app user **no page** (D2). The developer's own UI owns
+ * every screen — login, registration, verification, invitation acceptance,
+ * password reset, the provider buttons, the MCP consent — and calls these
+ * routes as JSON. The hosted, app-branded login and consent pages this file
+ * used to describe are deleted.
  *
- * - an **end user**, with the JWT access token issued here;
- * - a **server key** (`flk_…`), for server-side code, carrying full app
- *   rights.
+ * Everything here is public: `app_identifier` travels in the body (in the
+ * query for a GET), CORS is answered only for the app's `allowed_origins`, and
+ * the whole family is rate-limited per app, address and IP.
+ *
+ * **Two kinds of caller reach the authenticated half**, and both use
+ * `Authorization: Bearer`:
+ *
+ * - an **app user**, with the JWT access token issued here;
+ * - a **server key** (`flk_…`), for server-side code, carrying full app rights.
  *
  * The cloud tells them apart by shape — a `flk_` prefix is a server key,
  * anything else is parsed as a JWT. That rule is written down once, here, so
  * the SDK and the cloud cannot drift into disagreeing about it.
  *
- * The credentials path is the whole of W3. The OIDC redirect flow of §3.4
- * arrives in W7 with the hosted login page, and ends in exactly these same
- * tokens.
+ * **The enumeration discipline is the design's, not a preference** (§4):
+ * `register`, `resend-verification` and `password/reset` answer `202` for every
+ * policy-allowed request whether or not the address exists, and `login` answers
+ * the identical `invalid_credentials` for a wrong password, a `blocked` account
+ * and a `pending_verification` one. Policy refusals are honest —
+ * `registration_closed` and `domain_not_allowed` say what they are, because
+ * neither reveals whether a *person* exists.
  */
+
+/* ------------------------------------------------------ password login -- */
 
 export const clientLoginRequest = z.object({
   app_identifier: appIdentifier.meta({
     description: 'The app being logged in to, as its globally unique identifier — the lowercase, underscore-separated string the developer chose when the app was created. There is no organisation context at login, so this is what decides which app the credentials are checked for.',
   }),
   email: z.email().meta({
-    description: 'The end user\'s email address. Addresses are global across Fleetless rather than per app, so one person is one identity however many apps they reach.',
+    description: 'The app user\'s address. Addresses are unique **per app**, not across Fleetless: the same address may be an unrelated account in another app of the same organisation, so this pair is what identifies a person here.',
   }),
   password: z.string().min(1).meta({
-    description: 'The end user\'s password. A wrong pair is refused without saying which half was wrong, so a failed login is not an account-enumeration oracle.',
+    description: 'The app user\'s password. A wrong pair is refused without saying which half was wrong — and a `blocked` or not-yet-verified account is refused identically, so a failed login is not an account-enumeration oracle in any of its three forms.',
   }),
 })
 export type ClientLoginRequest = z.infer<typeof clientLoginRequest>
@@ -44,131 +62,298 @@ export type ClientRefreshRequest = z.infer<typeof clientRefreshRequest>
  * Logging out revokes the whole token family server-side. Without this, a
  * refresh token stolen before the user pressed "log out" keeps working —
  * clearing a client-side store is a UI gesture, not a revocation.
+ *
+ * **The route answers `204` and has no response shape.** It used to answer a
+ * `clientLogoutResponse` reporting what was left of the session at the identity
+ * provider — RP-initiated logout, an `end_session_endpoint` to redirect to,
+ * four ways of saying "we cannot end that session". That whole apparatus
+ * belonged to the hosted login flow, where Fleetless owned the browser. It does
+ * not own it any more: the developer's app does, and an app that wants to end
+ * a provider session redirects there itself, knowing its own provider, which
+ * Fleetless never did better than it. Listed as a breaking change rather than
+ * quietly kept as a field nobody fills.
  */
 export const clientLogoutRequest = z.object({
   refresh_token: z.string().min(1).meta({
-    description: 'Any refresh token of the session to end. The whole token family is revoked server-side, so a token stolen before this call stops working too — clearing a client-side store is a gesture, not a revocation.',
+    description: 'Any refresh token of the session to end. The whole token family is revoked server-side, so a token stolen before this call stops working too — clearing a client-side store is a gesture, not a revocation. The answer is `204`: a token the server does not recognise gets it too, since the end state a caller asked for is the end state they get.',
   }),
 })
 export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
 
+/* ---------------------------------------------- registration and mails -- */
+
 /**
- * **What logout can and cannot end, said in three separable facts (W9c,
- * DEF-098).**
+ * **Self-registration** (D6) — and the account it creates cannot log in yet.
  *
- * Until now this route answered `204`: the Fleetless session was over and the
- * response had nothing to say about the *other* session. For a federated user
- * that is the larger half — they clicked "log out", the IdP's cookie survived,
- * and the next login goes straight through without a password. The register
- * row calls that an expectation gap, and it is: the word on the button is
- * "log out", not "log out of this app".
+ * `register` writes the user as `pending_verification` and mails the app's
+ * `verify_url`. Without that step the domain whitelist would prove nothing:
+ * anybody could claim any address at an allowed domain and be `active`
+ * immediately.
  *
- * **The Fleetless session is ended before this is computed, unconditionally.**
- * Nothing below can fail in a way that leaves the caller logged in here — a
- * logout that depends on reaching a third party is not a logout.
- *
- * **Four outcomes**, and they are deliberately not collapsed into a nullable
- * URL. *No IdP was involved* and *an IdP was involved and publishes no
- * `end_session_endpoint`* are different things: the first needs no action and
- * the second means a session survives that this platform cannot end. A caller
- * that renders them identically is choosing to; a contract that cannot tell
- * them apart makes the choice for everyone.
- *
- * **This sentence said "three" for a whole wave, directly above a four-branch
- * union in this same file.** The count was correct when it was written and was
- * never carried forward when `hint_unavailable` was added; the type is derived
- * (`ClientLogoutResponse['idp_logout']`), so `tsc` had nothing to say about a
- * prose count drifting from the union it describes. A number stated in a
- * comment beside the thing it counts is a claim nothing checks.
- *
- * The count is not the point. **`hint_unavailable` is precisely the case this
- * comment warns about** — the IdP session survives — so a caller who handles
- * the three documented branches drops it into an `else` they believe means
- * *nothing to do*.
+ * **The answer is `202` for every policy-allowed request**, whether the address
+ * was new or already known — a mail goes out only in the first case. A `202`
+ * that depended on existence would be the enumeration oracle the whole family
+ * is built to avoid. The two refusals it *does* make are honest, because
+ * neither is about a person: `403 registration_closed` when the app has
+ * self-registration off, and `403 domain_not_allowed` when the address is
+ * outside `allowed_domains`.
  */
-export const clientLogoutResponse = z.object({
-  idp_logout: z.discriminatedUnion('status', [
-    z.object({
-      status: z.literal('redirect').meta({
-        description: 'The identity provider publishes an `end_session_endpoint` and `url` says where to send the browser to finish logging out there.',
-      }),
-      url: z.url().max(2000).meta({
-        description: 'Send the browser here to end the session at the identity provider. Built from the provider\'s own `end_session_endpoint`.',
-      }),
+export const clientRegisterRequest = z
+  .object({
+    app_identifier: appIdentifier.meta({
+      description: 'The app to register with. An app that does not exist answers exactly as one with self-registration off does.',
     }),
-    z.object({
-      status: z.literal('not_federated').meta({
-        description: 'This session did not come from an identity provider, so there is no second session and nothing further to do.',
-      }),
+    email: z.email().meta({
+      description: 'The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists.',
     }),
-    /**
-     * It did, and the IdP's discovery document names no `end_session_endpoint`
-     * (RP-initiated logout is optional in OIDC). **The IdP session survives and
-     * this platform cannot end it** — say so rather than implying success.
-     */
-    z.object({
-      status: z.literal('unsupported_by_idp').meta({
-        description: 'The session was federated and the provider\'s discovery document names no `end_session_endpoint`, which OpenID Connect leaves optional. **The provider session survives and Fleetless cannot end it.**',
-      }),
+    password: password.meta({
+      description: 'The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around.',
     }),
-    /**
-     * **Federated, the IdP *can* end the session, and we cannot ask it to
-     * (W9c, Nimbus-W9c's proposal).**
-     *
-     * `id_token_hint` is missing: the stored value could not be decrypted, or
-     * the session predates the fix that started keeping one. Deliberately not
-     * folded into `unsupported_by_idp` — there the cause is **the IdP's**, here
-     * it is **ours**, and an operator reading a rise in these needs to know
-     * which of the two they are looking at.
-     *
-     * **No `url` field, and that is the whole point.** Sending somebody to a
-     * bare `end_session_endpoint` produces a page that *asks* rather than one
-     * that ends — measured against real Keycloak, which renders *"Do you want
-     * to log out?"* and leaves the session alive. An outcome that promises
-     * something it does not deliver is worse than one that admits it.
-     *
-     * **The two causes are one status on purpose.** A caller can do nothing
-     * differently between "decryption failed" and "this session is older than
-     * the fix" — both mean *the IdP session survives and you cannot end it
-     * from here*. The distinction matters to whoever runs this platform, and
-     * it belongs in the server's log, not on the wire: splitting a wire enum
-     * to carry a fact no consumer can act on is how a contract grows keys
-     * nobody reads.
-     */
-    z.object({
-      status: z.literal('hint_unavailable').meta({
-        description: 'The session was federated, the provider *could* end it, and the `id_token_hint` needed to ask is not available. The provider session survives, as with `unsupported_by_idp` — the difference is that here the cause is on the Fleetless side.',
-      }),
+    display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
+      description: 'An optional human name for the account. The developer\'s own UI decides whether to ask for it.',
     }),
-    /**
-     * **The server does not know this session, so it can say nothing about an
-     * IdP** (W9 review, Argus-W9; André, 2026-08-19).
-     *
-     * The token was unknown, already superseded, revoked, or expired. There is
-     * nothing to end here and — this is the whole point — **nothing to claim
-     * either**. `not_federated` would be a statement about a login this server
-     * never saw.
-     *
-     * Same shape of argument that produced `hint_unavailable`: *there the cause
-     * is the IdP's, here it is ours.* Here it is neither — it is an **absence
-     * of knowledge**, and a contract whose job on this route is to keep facts
-     * apart should not spend a fact it does not have.
-     *
-     * **What a caller does with it: nothing, but not the same nothing as
-     * `not_federated`.** A first logout in the same flow may well have returned
-     * a `redirect` that is still worth following. Reading this as *"the user is
-     * fully logged out"* is exactly the mistake a second logout invites.
-     */
-    z.object({
-      status: z.literal('session_unknown').meta({
-        description: 'The token was unknown, already superseded, revoked or expired, so the server knows nothing about this session and claims nothing about a provider. Not the same as `not_federated`, and not a statement that the user is fully logged out.',
-      }),
+  })
+  .strict()
+export type ClientRegisterRequest = z.infer<typeof clientRegisterRequest>
+
+/** Spending the verification token: the account becomes `active` and the answer is a session, so the person is not asked to log in immediately after proving they can read the mail. */
+export const clientVerifyEmailRequest = z
+  .object({
+    token: z.string().min(1).meta({
+      description: 'The opaque token from the verification link, valid 24 hours. Unknown, expired and already-spent all answer `410 token_spent` — telling them apart would say whether a token ever existed.',
     }),
-  ]).meta({
-    description: 'What is left of the login at the identity provider, if one was involved. The Fleetless session is already over before this is computed, so it says only whether a second session survives and whether this platform can end it.',
+  })
+  .strict()
+export type ClientVerifyEmailRequest = z.infer<typeof clientVerifyEmailRequest>
+
+/** Asking for the verification mail again. **Always `202`**, for the reason `register` is: an answer that depended on the address existing would be the oracle by another door. */
+export const clientResendVerificationRequest = z
+  .object({
+    app_identifier: appIdentifier.meta({ description: 'The app the address belongs to.' }),
+    email: z.email().meta({
+      description: 'The address to re-send to. The answer is `202` whether or not it names an account, and whether or not that account is already verified.',
+    }),
+  })
+  .strict()
+export type ClientResendVerificationRequest = z.infer<typeof clientResendVerificationRequest>
+
+/**
+ * Asking for a reset link **as an app user**.
+ *
+ * Same act as `passwordResetRequest`, different shape, because the two surfaces
+ * identify a person differently. A Fleetless user's address is globally unique
+ * and resolves alone; an app user's is unique only within their app, so the
+ * pair is what names them.
+ *
+ * The response is identical for a known and an unknown pair, and for an app
+ * that does not exist — otherwise this becomes the enumeration oracle the rest
+ * of the family is carefully built not to be.
+ *
+ * Moved here from `identity.ts`, where it sat because the client surface had no
+ * file of its own for it. It is an app-user shape and belongs with them.
+ */
+export const clientPasswordResetRequest = z
+  .object({
+    app_identifier: appIdentifier.meta({ description: 'The app the address belongs to.' }),
+    email: z.email().meta({
+      description: 'The address to mail a reset link to. The answer is `202` for a known address, an unknown one and an app that does not exist alike, in status, body and timing.',
+    }),
+  })
+  .strict()
+export type ClientPasswordResetRequest = z.infer<typeof clientPasswordResetRequest>
+
+/** Spending the reset token. **Every refresh family of that user is revoked**, because a forgotten password is one of the two states where somebody else may be holding a session. */
+export const clientPasswordResetConfirmRequest = z
+  .object({
+    token: z.string().min(1).meta({
+      description: 'The opaque token from the reset link, valid one hour. Single-use; unknown, expired and spent all answer `410 token_spent`.',
+    }),
+    new_password: password.meta({
+      description: 'The replacement password. Accepting it revokes every refresh family the account holds — the answer carries a fresh pair, so the person is signed in on the device that completed the reset and nowhere else.',
+    }),
+  })
+  .strict()
+export type ClientPasswordResetConfirmRequest = z.infer<typeof clientPasswordResetConfirmRequest>
+
+/**
+ * Accepting an app invitation. Creates the account, or activates one that was
+ * invited before it existed, with the role the invitation fixed at creation.
+ *
+ * An invitation **always bypasses the domain whitelist**: a developer inviting
+ * somebody by hand has already made the decision the whitelist automates.
+ */
+export const clientAcceptInvitationRequest = z
+  .object({
+    token: z.string().min(1).meta({
+      description: 'The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`.',
+    }),
+    password: password.meta({ description: 'The password the new account will use.' }),
+    display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
+      description: 'An optional name, overriding whatever the invitation pre-filled.',
+    }),
+  })
+  .strict()
+export type ClientAcceptInvitationRequest = z.infer<typeof clientAcceptInvitationRequest>
+
+/* ------------------------------------------------------ OIDC, per app -- */
+
+/** The query of `GET /api/client/providers` — which app's sign-in buttons to draw. */
+export const clientProviderListQuery = z
+  .object({
+    app_identifier: appIdentifier.meta({ description: 'The app whose enabled providers to list.' }),
+  })
+  .meta({ description: 'The one parameter of the public provider listing.' })
+export type ClientProviderListQuery = z.infer<typeof clientProviderListQuery>
+
+/**
+ * What the developer's login page needs to draw its provider buttons, and
+ * **nothing more**. This route is public and unauthenticated: the issuer, the
+ * client id, the scopes and the linking policy are all management-side facts
+ * that would tell a stranger how the app's federation is configured.
+ *
+ * Only **enabled** providers appear. A disabled one is not a button that
+ * refuses; it is a button that is not there.
+ */
+export const clientProviderListResponse = z.object({
+  providers: z
+    .array(
+      z.object({
+        slug: providerSlug.meta({ description: 'The handle to put in the start URL: `GET /api/client/oidc/<slug>/start`.' }),
+        name: z.string().meta({ description: 'What to write on the button, as the developer configured it.' }),
+      }),
+    )
+    .meta({
+      description: 'The app\'s **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password login alone.',
+    }),
+})
+export type ClientProviderListResponse = z.infer<typeof clientProviderListResponse>
+
+/**
+ * The query of `GET /api/client/oidc/:slug/start`.
+ *
+ * **The app runs its own PKCE** here, against Fleetless — a second, independent
+ * exchange from the one Fleetless runs against the identity provider. So the
+ * one-time code the callback hands back is bound to a verifier only the app's
+ * page holds, and a code intercepted in the redirect is worth nothing on its
+ * own.
+ *
+ * `redirect_uri` is validated against the app's `allowed_origins` **before
+ * anything else**, and a failure there never redirects: until the target is
+ * known-good, sending a browser to it is the attack.
+ */
+export const clientOidcStartQuery = z.object({
+  app_identifier: appIdentifier.meta({ description: 'The app being signed in to.' }),
+  redirect_uri: z.url().max(2000).meta({
+    description: 'Where to send the browser when the flow finishes, with `code` and `state` or with `error` and `state`. **Its origin must be one of the app\'s `allowed_origins`**; a failure here is refused flat, with no redirect, because until the target is confirmed there is nowhere trusted to bounce a browser to.',
+  }),
+  state: z.string().min(8).max(512).meta({
+    description: 'Returned unchanged on the callback, and on the error redirect too, so the app can bind either answer to the request it started. At least eight characters: this is what ties the callback to the browser that began the flow, and a guessable value defends nothing.',
+  }),
+  code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43,128}$/).meta({
+    description: 'The app\'s own PKCE challenge (RFC 7636, S256 base64url). The verifier is presented at `oidc/exchange`, so the one-time code is worth nothing to whoever intercepts the redirect. `plain` is not accepted: a challenge equal to its verifier defends against nothing.',
   }),
 })
-export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>
+export type ClientOidcStartQuery = z.infer<typeof clientOidcStartQuery>
+
+/** Trading the one-time code for a session. The code lives 60 seconds and is bound to the challenge from `start`. */
+export const clientOidcExchangeRequest = z
+  .object({
+    code: z.string().min(1).meta({
+      description: 'The one-time code from the callback redirect. Valid 60 seconds, single-use, and bound to the PKCE challenge the start step carried.',
+    }),
+    code_verifier: z.string().regex(/^[A-Za-z0-9_.~-]{43,128}$/).meta({
+      description: 'The verifier for the challenge sent at `start`. RFC 7636 §4.1\'s alphabet and length.',
+    }),
+  })
+  .strict()
+export type ClientOidcExchangeRequest = z.infer<typeof clientOidcExchangeRequest>
+
+/**
+ * **Why a federated sign-in ended without a session, in a code the app can
+ * branch on** — carried back to the app's own `redirect_uri` as `error`, not
+ * rendered by Fleetless (D2). The only Fleetless-rendered page in this flow is
+ * the one for a state that can no longer be resolved to a redirect URI, because
+ * then there is nowhere to send the answer.
+ *
+ * The five rows of D4's table are the first five values plus `no_access`:
+ *
+ * - `no_access` — the identity is unknown and nothing admits it, or the account
+ *   it names is not `active`. **One code for both**, because to the person the
+ *   remedy is the same — ask somebody to let you in — and a code that split an
+ *   outcome nobody acts on differently would tell a stranger which half applied.
+ * - `email_taken` — the address already belongs to another app user, and the
+ *   provider is not permitted to link (`link_verified_emails`, or the provider
+ *   did not assert `email_verified`). Deliberately not `no_access`: the remedy
+ *   is different — *sign in the way you signed up*.
+ * - `email_unverified` — the provider asserted an address without
+ *   `email_verified`. **An unverified address never produces or links an
+ *   account**, whatever the rest of the policy says.
+ * - `domain_not_allowed`, `registration_closed` — the self-registration policy
+ *   refused. Honest, because neither is about whether a person exists.
+ * - `idp_unavailable`, `exchange_failed`, `claims_incomplete`,
+ *   `provider_misconfigured`, `provider_disabled` — the provider's or the
+ *   developer's to fix, and the app can say so.
+ * - `invalid_request` — the start parameters did not hold up.
+ */
+export const clientOidcErrorCode = z.enum([
+  'no_access',
+  'email_taken',
+  'email_unverified',
+  'domain_not_allowed',
+  'registration_closed',
+  'idp_unavailable',
+  'exchange_failed',
+  'claims_incomplete',
+  'provider_misconfigured',
+  'provider_disabled',
+  'invalid_request',
+])
+export type ClientOidcErrorCode = z.infer<typeof clientOidcErrorCode>
+
+/* ------------------------------------------------ MCP, delegated login -- */
+
+/**
+ * **A pending MCP authorization, as the app's own consent screen reads it**
+ * (D7). Fleetless renders no page here either: `authorize` redirects to the
+ * app's `mcp_login_url` with an interaction id, the app authenticates the user
+ * with its normal UI, shows this, and approves or denies through the API.
+ *
+ * `client_name_verified` is `z.literal(false)`, and that is the whole point of
+ * the field. The name comes from an **unauthenticated** dynamic registration —
+ * the client typed it about itself, nobody checked it — so a consent screen
+ * that rendered it as though it were an identity would be teaching people to
+ * trust a string an attacker chooses. A literal rather than a boolean because
+ * there is no verified case to distinguish: an app that reads this field at all
+ * has to handle the untrusted one, and a `true` branch would be dead code
+ * pretending to be a safeguard.
+ */
+export const clientMcpInteraction = z.object({
+  id: z.string().meta({ description: 'The interaction, as it arrived in the app\'s `mcp_login_url`. Not a credential: it names a pending request the server already holds, and approving it needs the app user\'s own access token.' }),
+  app_id: z.uuid().meta({ description: 'The app this authorization is for. The approving token\'s `app_id` must match it — an interaction of one app cannot be approved with a session from another.' }),
+  client_name: z.string().nullable().meta({ description: 'What the MCP client calls itself, or `null` if it named nothing. **Unverified** — see `client_name_verified`.' }),
+  client_name_verified: z.literal(false).meta({
+    description: 'Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
+  }),
+  scopes: z.array(z.string()).meta({ description: 'The scopes the client asked for, to show the person before they approve.' }),
+  already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client for these scopes. The app may skip its consent step when true; it is a convenience, and the server re-checks the grant either way.' }),
+  expires_at: z.iso.datetime().meta({ description: 'When the interaction stops being approvable. Ten minutes from the authorize step; afterwards both approve and deny answer `interaction_expired`.' }),
+})
+export type ClientMcpInteraction = z.infer<typeof clientMcpInteraction>
+
+/**
+ * What approve and deny both answer: **where to send the browser**. A denial
+ * carries a redirect too, with `error=access_denied` on it — a client that is
+ * refused must learn so from its own callback rather than from a page nobody
+ * sent it.
+ */
+export const clientMcpInteractionDecisionResponse = z.object({
+  redirect_to: z.url().meta({
+    description: 'Send the browser here. It is the MCP client\'s own callback, carrying either the authorization code or `error=access_denied` — a denial redirects as well, so the client learns the outcome from the place it is waiting.',
+  }),
+})
+export type ClientMcpInteractionDecisionResponse = z.infer<typeof clientMcpInteractionDecisionResponse>
+
+/* -------------------------------------------------------- who am I -- */
 
 /**
  * Who the caller turned out to be. Returned by the "who am I" endpoint and by
@@ -176,44 +361,37 @@ export type ClientLogoutResponse = z.infer<typeof clientLogoutResponse>
  * decoding a token itself — decoding a JWT in the client is how apps end up
  * trusting claims nobody verified.
  *
- * **Three kinds of caller reach the client API, not two.** Besides end users
- * and server keys, a **developer** does: spec §15.2 says the console's
- * playground runs over the real client API and appears in the audit as the
- * developer, and the console's own live views (robot list badges, the Live
- * tab) subscribe on `/realtime` as one. A developer is **org-scoped, not
+ * **Three kinds of caller reach the client API.** Besides app users and server
+ * keys, a **developer** does: the console's playground runs over the real
+ * client API and appears in the audit as the developer, and the console's own
+ * live views subscribe on `/realtime` as one. A developer is **org-scoped, not
  * app-scoped** — they own the configuration of every robot in their org — so
  * `app_id` and `role_id` are null for them, and roles do not filter what they
- * see. `kind` states this explicitly rather than leaving it to be inferred
- * from which id happens to be set.
+ * see. `kind` states this explicitly rather than leaving it to be inferred from
+ * which id happens to be set.
  *
- * **`act` is the real admin behind an impersonation** (spec
- * `2026-08-29-org-identity-redesign`, D4, the `act`-claim pattern of RFC
- * 8693). An Org Admins member entering an app through the interstitial
- * (`impersonationChoice`) gets a token whose *effective* identity is the role
- * or user they chose — that is what the rest of this shape describes — while
- * `act` names **the admin who is actually driving**. So every action can
- * audit as "Admin A as User B / as role X", and a client can render the "you
- * are acting as …" banner without decoding the token.
+ * **`end_user_id` became `app_user_id`, and that is a rename with a meaning.**
+ * The old subject was a member of the org's one pool, reachable through an
+ * assignment; the new one is a row that belongs to exactly one app. Renaming
+ * rather than keeping the key is deliberate: a consumer reading `.end_user_id`
+ * would have typechecked and meant something subtly different, which is the
+ * quietest way for a cut like this to go wrong.
  *
- * **Optional, not a nullable actor, for `orgUser.tier`'s reason:** absence
- * means *this is an ordinary session, nobody is delegating*, which is not the
- * same fact as *the actor is unknown*. The overwhelming majority of sessions
- * are ordinary and carry no `act` at all; a session that has one is a
- * delegation and says who by. The schema cannot check that `act` is present
- * exactly when the effective identity was impersonated — that pairing is the
- * cloud's, minted at the authorize step. Only the admin's **id** rides here:
- * the label is resolved by whoever renders it, not carried as a second
- * unverified name on the wire.
+ * **`act` is gone.** It named the org admin behind an impersonation (the RFC
+ * 8693 pattern). Impersonation is deleted with no successor (D1), so a field
+ * that could still arrive would describe a delegation nothing can mint — and a
+ * client rendering "you are acting as …" from it would be showing a state the
+ * platform cannot enter.
  */
 export const clientIdentity = z.object({
-  kind: z.enum(['developer', 'end_user', 'server_key']).meta({
-    description: 'Which of the three kinds of caller this is: a `developer` working through the console, an `end_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set.',
+  kind: z.enum(['developer', 'app_user', 'server_key']).meta({
+    description: 'Which of the three kinds of caller this is: a `developer` working through the console, an `app_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set.',
   }),
   developer_id: z.uuid().nullable().meta({
-    description: 'The developer behind this session, or `null` when `kind` is not `developer`.',
+    description: 'The Fleetless user behind this session, or `null` when `kind` is not `developer`.',
   }),
-  end_user_id: z.uuid().nullable().meta({
-    description: 'The end user behind this session, or `null` when `kind` is not `end_user`.',
+  app_user_id: z.uuid().nullable().meta({
+    description: 'The app user behind this session, or `null` when `kind` is not `app_user`. An app user belongs to exactly one app and is unrelated to any Fleetless user with the same address.',
   }),
   server_key_id: z.uuid().nullable().meta({
     description: 'The server key this session was authenticated with, or `null` when `kind` is not `server_key`.',
@@ -225,14 +403,7 @@ export const clientIdentity = z.object({
     description: 'The role that decides what this caller may reach, and `null` for a developer. Roles are the only visibility filter: what a role does not grant does not exist for that user.',
   }),
   email: z.email().nullable().meta({
-    description: 'The email of the developer or end user behind this session, and `null` for a server key, which is not a person.',
-  }),
-  act: z.object({
-    admin_user_id: z.uuid().meta({
-      description: 'The real admin\'s user id. Only the id travels; whoever renders the "you are acting as …" banner resolves the name itself rather than trusting a second unverified one on the wire.',
-    }),
-  }).strict().optional().meta({
-    description: 'Present only under impersonation, naming the organisation admin who is actually driving. The rest of this shape describes the identity they are acting **as**; absence means an ordinary session with nobody delegating, which is not the same fact as an unknown actor.',
+    description: 'The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person.',
   }),
 })
 export type ClientIdentity = z.infer<typeof clientIdentity>

@@ -100,9 +100,13 @@ export const ERROR_CODES = [
    * somewhere already has this address* — the pre-redesign meaning the code's
    * name always implied. There is no per-org reading of it any more.
    *
-   * It stays an answer to a *write* an authenticated admin made — signing up,
-   * inviting or creating — never to a login. `identity_conflict` is the
-   * login-side neighbour, and it deliberately says less.
+   * It stays an answer to a *write* an authenticated caller made — signing up,
+   * inviting or creating — never to a login, which may not say whether an
+   * address exists. The app-user surface has the same split: creating a user
+   * through the developer-authenticated route may answer `email_taken`, while
+   * `POST /api/client/register` answers `202` either way. On an app user the
+   * code means *this app already has this address*, since app-user email is
+   * unique per app rather than globally.
    */
   'email_taken',
   'identifier_taken',
@@ -350,7 +354,8 @@ export const ERROR_CODES = [
   //
   // **This comment was wrong in its first form and a teammate followed it
   // faithfully into a conformance bug.** It said these were "management-side
-  // codes only" and then listed two whose only producer is `/oauth/register`,
+  // codes only" and then listed two whose only producer is the dynamic client
+  // registration endpoint,
   // which is an OAuth endpoint. Read literally — correctly — that instructs
   // you to answer a *standard* client with an `apiError` body it cannot parse.
   //
@@ -361,8 +366,9 @@ export const ERROR_CODES = [
   // and the distinction between "not opted in" and "ceiling full" survives.
   //
   // These codes therefore appear in BOTH places by design: as the value of
-  // `fleetless_code` inside an RFC envelope at `/oauth/register`, and as an
-  // ordinary `apiError` code at the developer-facing management routes.
+  // `fleetless_code` inside an RFC envelope at the registration endpoint
+  // (`/mcp/oauth/register` today), and as an ordinary `apiError` code at the
+  // developer-facing management routes.
   //
   // Every code below has a producer landing in this same wave. W6b's lesson:
   // an enum value with no producer is precisely the defect that wave was
@@ -380,43 +386,6 @@ export const ERROR_CODES = [
    * both numbers for the same reason `asset_too_large` does.
    */
   'client_limit_reached',
-  /**
-   * A federated identity asserts an email that already belongs to an
-   * integrated user, and the conditions for linking them are not both met
-   * (see `idpConfig.link_verified_emails`). Deliberately not `email_taken`:
-   * that one answers a registration attempt, this one answers a *login* that
-   * cannot safely be told which account it nearly reached.
-   */
-  'identity_conflict',
-  /**
-   * **A federated login that got as far as an identity and found no route into
-   * this app** — and nothing admits them unasked, so federation here is a
-   * login mechanism rather than a signup path.
-   *
-   * Two shapes reach it, and the name is about the outcome rather than about
-   * which one:
-   *
-   *   1. No existing user matches at all.
-   *   2. One matches **and was approved to link** (`link_verified_emails` and
-   *      `email_verified` both true) but holds no assignment for *this* app,
-   *      and nothing provisions them either.
-   *
-   * **The admitting policy this comment used to name is gone** (2026-08-29,
-   * D6): `selfRegistration` was deleted with the per-app pools. Its successor
-   * is the group provider's `jit_enabled`/`jit_grants` (D3), which lands in
-   * the oidc-federation plan. Until it does, case 2's second half reads
-   * *"and nothing provisions them"* simply because nothing does.
-   *
-   * The second was found by Nimbus-W7b while giving these codes their
-   * producers, and the first version of this comment did not cover it — it
-   * described case 1 as though it were the definition. **Widened rather than
-   * given a code of its own**: to the caller both are one remedy, *ask
-   * somebody to grant you access to this app*, and a code that splits an
-   * outcome the caller cannot act on differently is a distinction paid for and
-   * never used. `identity_conflict` stays separate precisely because its
-   * remedy is different — *sign in the way you signed up*.
-   */
-  'identity_not_provisioned',
   /**
    * The developer's IdP could not be reached or its discovery document could
    * not be read. Distinct from `server_error` on purpose — the fault is in a
@@ -453,39 +422,32 @@ export const ERROR_CODES = [
   // them, and if one ever seems to belong there, the answer is a JSON-RPC
   // error whose message says the same thing.
   /**
-   * **Unproduced, and now also unproducible — the switch it named is gone.**
-   * This code was reserved for an app whose `mcp_enabled` switch was off. The
-   * central-MCP cut (D5) deleted the per-app `/mcp/<identifier>` endpoint that
-   * switch gated, and 2026-08-29 removed the field itself from `app`,
-   * `createAppRequest` and `updateAppRequest`. There is no app-level MCP
-   * switch left to be off.
+   * **This app does not serve an MCP endpoint** — `appAuthConfig.mcp_enabled`
+   * is off. `403` from the app's whole OAuth surface, not merely from its tool
+   * calls, and re-read on every request rather than cached off a token, so
+   * turning it off bites at the next call.
    *
-   * It had no producer before that either: the sentence that once stood here
-   * named the role tool preview, while `cloud/src/routes/apps.ts` says the
-   * opposite in its own words — *"Does not require `mcp_enabled` … The switch
-   * only gates the live endpoint, never this management-side read."*
+   * **It has had a switch, lost it, and has one again, which is why the
+   * history is worth keeping.** It was reserved for a per-app `mcp_enabled`
+   * flag; the central-MCP cut deleted the per-app `/mcp/<identifier>` endpoint
+   * that flag gated, and 2026-08-29 removed the field itself from `app`, so
+   * the code stood for a year with nothing able to produce it. The
+   * app-user-auth design brings the per-app endpoint back (D7) with the switch
+   * on `appAuthConfig` rather than on `app`, and this is its refusal again.
    *
-   * Kept rather than removed, because the reserved shape is the point and
-   * because removing an enum member is a change every consumer's exhaustive
-   * `switch` has to absorb for no gain. This is DEF-039's form (an enum member
-   * with no producer) in its most honest state: named as unproduced, with the
-   * reason it can no longer acquire one.
+   * The lesson that survives is about the year in between: an enum member with
+   * no producer is not harmless, because a reader arriving at it takes it for
+   * a live refusal. Say which it is, and say when it changes.
    *
-   * **What refuses MCP today is `mcp_access_denied` below**, from the group
-   * flag `orgGroup.mcp_enabled` crossed with the per-user `mcp_access`
-   * override. A reader who arrives here looking for "MCP said no" wants that
-   * code, not this one.
-   *
-   * `tool_not_available` below has no producer either — `grep` finds it
-   * nowhere in `cloud/src`. Same standing, same reason for keeping it.
+   * `tool_not_available` below still has no producer — `grep` finds it nowhere
+   * in `cloud/src`. Named as unproduced, for the same reason.
    */
   'mcp_disabled',
   /**
    * A tool the caller cannot use on this robot — because the role grants
    * neither the slug it needs nor the capability behind it.
    *
-   * **Deliberately one code for both**, on the same reasoning that widened
-   * `identity_not_provisioned` in W7b: to a developer holding the console,
+   * **Deliberately one code for both**: to a developer holding the console,
    * the role's datasheet (`mcpRobotDatasheet`) already lists every exposure
    * the role does grant, so a second code would split an outcome nobody acts
    * on differently. To anyone else the two must be indistinguishable anyway —
@@ -534,59 +496,22 @@ export const ERROR_CODES = [
    * caller could infer from a silence about existence.
    */
   'last_owner',
-  /**
-   * **The Org Admins group cannot be deleted** (D1: exactly one per org,
-   * renamable, never deletable). 409 on `DELETE /api/org/groups/:id`.
-   *
-   * Not `forbidden`, which would say *you may not* and invite an owner to go
-   * looking for the tier that would let them: no tier does, and no future one
-   * will. The console can render "this group is the org's admin group" from
-   * `is_org_admins` without asking, so this code exists for the caller that
-   * did not look first.
-   *
-   * **Scope, stated because the neighbouring case is unresolved:** this code
-   * is about `is_org_admins` and nothing else. Whether a group that still has
-   * members or apps may be deleted — refuse, or cascade — is the cloud's
-   * decision in the routes task; if it refuses, that refusal needs its own
-   * code rather than this one widened to cover an outcome with a different
-   * remedy.
-   */
-  'group_not_deletable',
-  /**
-   * **A group that still has members or apps.** 409 on
-   * `DELETE /api/org/groups/:id`, and the house precedent is `robot_in_use` /
-   * `credential_in_use`: a refusal that names the *state* blocking the delete,
-   * so the caller knows the remedy is to empty the group first — move the
-   * users, re-link or delete the apps.
-   *
-   * Deliberately separate from `group_not_deletable`, which is about the Org
-   * Admins group and can **never** be satisfied. This one clears the moment
-   * the last member and the last app leave, and the two remedies have nothing
-   * in common; one code for both would tell an owner to go looking for a way
-   * to empty a group that no amount of emptying will let them delete.
-   *
-   * Registered now, ahead of its producer, so the routes task does not need a
-   * second contracts commit and re-pin for one string. **That makes it
-   * unproduced until then** — the same standing as `mcp_disabled`, said out
-   * loud for the same reason.
-   */
-  'group_in_use',
   // 2026-08-29 — oidc-federation (D3/D4).
   /**
    * **The target is in a state that refuses the operation** — not the caller's
    * rights, not the target's existence, but *what the target currently is*.
    * 409.
    *
-   * It is the home for three refusals identity-core left riding a `400
-   * validation_error` with a `rule` string — `org_admins_group`,
-   * `not_in_org_admins_group`, `group_mismatch` — none of which is a
-   * malformed-input problem: the body is well-formed and names a real target
-   * whose *state* is the obstacle. Attaching a group OIDC provider to the Org
-   * Admins group is the D3 case (that group never carries a provider); the
-   * other two are the state checks around impersonation and group membership.
-   * A `400` said "you sent something invalid" for a request that was nothing
-   * of the kind, and a bare `rule` string on the validation envelope is not a
-   * code a consumer can switch on.
+   * It exists because refusals of this shape were riding a `400
+   * validation_error` with a `rule` string: the body is well-formed and names a
+   * real target whose *state* is the obstacle. A `400` said "you sent something
+   * invalid" for a request that was nothing of the kind, and a bare `rule`
+   * string on the validation envelope is not a code a consumer can switch on.
+   *
+   * Its producers in the two-space model are the ones about an app's
+   * configuration rather than about a caller: `send_mail: true` on an app that
+   * has configured no `invite_url` (the `details` name the field), and a tier
+   * change aimed at somebody who is not a Fleetless user of this org.
    *
    * Deliberately not `forbidden` (which is silent about existence and about
    * the target) and not `tier_required` (which is about the caller's own
@@ -594,42 +519,8 @@ export const ERROR_CODES = [
    * obstacle is the target's state, and the remedy is to change that state or
    * pick a different target, neither of which a silence would reveal.
    *
-   * **The cloud maps the three `rule` strings to this code in the
-   * oidc-federation routes task; registered here ahead of that producer, so
-   * that task needs no second contracts commit and re-pin. That makes it
-   * unproduced until then** — the same standing as `group_in_use`, said out
-   * loud for the same reason.
    */
   'target_state_conflict',
-  // 2026-08-29 — central-mcp (D5).
-  /**
-   * **MCP access is gated off for this caller.** The central MCP server
-   * (canonically `<PUBLIC_API_BASE_URL>/mcp`; `mcp.fleetless.dev` is an alias
-   * onto the same cloud) decides access from the group flag `mcp_enabled`
-   * crossed with the per-user override `mcp_access` (`default | allowed |
-   * denied`): `denied` beats a group that is on, `allowed` beats a group
-   * that is off, `default` follows the group. When the answer is "no", this
-   * is the refusal — enforced at token issue **and** on every request, so a
-   * revocation bites at the next call, not the next refresh (D5).
-   *
-   * **A member of the org's `is_org_admins` group never meets it.** The door
-   * permits them unconditionally, before it reads either input (Andre,
-   * 2026-08-29), so that matrix decides for customer groups and for nobody
-   * else.
-   *
-   * Deliberately its own code, not `forbidden`: `forbidden` is silent about
-   * existence and is the app-role refusal REST already speaks; this one is
-   * about a caller's *own* MCP entitlement, which the caller can act on
-   * (ask an admin to flip the flag or the override). Not `tier_required`
-   * either — that is about owner/developer rank, an orthogonal axis.
-   *
-   * **Produced since 0.5.0** by `cloud/src/mcp-access.ts`, the one door both
-   * enforcement points call — the OAuth surface (`routes/mcp-oauth.ts`) and
-   * every request at `POST /mcp` (`routes/mcp.ts`). Unlike `mcp_disabled` and
-   * `tool_not_available` above, this one has a live producer.
-   */
-  'mcp_access_denied',
-
   // 2026-09-04 — the public site (closed beta).
   /**
    * `403` from `POST /api/auth/signup` and the portal's sign-up pages while
@@ -690,15 +581,22 @@ export const ERROR_CODES = [
    */
   'unsupported_media_type',
   /**
-   * `401` from the multi-step browser flows — console sign-up and the OAuth
-   * consent and impersonation screens. The step being finished was started in a
-   * *different* browser: the per-interaction proof cookie is missing or does not
-   * match the hash recorded on the interaction row.
+   * `401` from the multi-step browser flows — console sign-up, and the MCP
+   * consent screen. The step being finished was started in a *different*
+   * browser: the per-interaction proof cookie is missing or does not match the
+   * hash recorded on the interaction row.
+   *
+   * **The impersonation interstitial it also named is deleted** with the rest
+   * of the app OAuth flow (2026-09-05, D1/D2). That page is where this defence
+   * was found missing on a GET rather than a POST — three times over, on three
+   * different screens — which is the reason worth carrying forward: the check
+   * belongs on every verb that *renders* the step, not only on the one that
+   * completes it.
    *
    * Deliberately not `invalid_token` or `unauthorized`: nothing about the
    * caller's credential is being refused, and the remedy is specific and
    * actionable — start the flow again in this browser. Produced by
-   * `cloud/src/routes/console-oauth.ts` and `cloud/src/routes/oauth.ts`.
+   * `cloud/src/routes/console-oauth.ts` and `cloud/src/routes/mcp-oauth.ts`.
    */
   'wrong_browser',
   /**
@@ -727,5 +625,107 @@ export const ERROR_CODES = [
    * is YAML I cannot keep". Produced by `cloud/src/routes/config.ts`.
    */
   'unstorable_yaml',
+
+  // 2026-09-05 — app-user auth (two identity spaces, the JSON client API).
+  //
+  // **What is honest here and what is not, in one place.** The client auth
+  // family answers `202` for `register`, `resend-verification` and
+  // `password/reset` whether or not the address exists, and answers one
+  // `invalid_credentials` for a wrong password, a `blocked` account and an
+  // unverified one. The codes below are the exceptions, and each is an
+  // exception for the same reason: it describes the **app's policy or
+  // configuration**, which the developer set and which reveals nothing about
+  // whether a particular person has an account.
+  /**
+   * `403` from `POST /api/client/register`: this app has `self_registration`
+   * off, so nobody may create an account without an invitation. Not
+   * `forbidden` — nothing about the caller is refused, the door is closed for
+   * everyone — and honest for the reason above: a stranger learns the app's
+   * policy, not who is in it. Also the reason an unknown federated identity is
+   * turned away at an OIDC callback, where it travels as
+   * `clientOidcErrorCode` rather than as an `apiError`: one switch, one
+   * decision, whichever door somebody arrives at.
+   */
+  'registration_closed',
+  /**
+   * `403` from `POST /api/client/register`: the address is outside the app's
+   * `allowed_domains`. Same standing as `registration_closed` — it is about
+   * the domain the caller typed, which they already know, and about a list the
+   * developer configured. **An invitation always bypasses it**, so this is
+   * never the answer to accepting one.
+   */
+  'domain_not_allowed',
+  /**
+   * The address has not been confirmed, and something that is not a login
+   * needs it to have been.
+   *
+   * **Never the answer to `POST /api/client/login`**, which refuses a
+   * `pending_verification` account with the same `invalid_credentials` a wrong
+   * password gets — that is the whole of the enumeration discipline, and a
+   * code that leaked the distinction there would undo it. Its producer is the
+   * federated path: an identity provider that asserts an address without
+   * `email_verified` never produces or links an account, and the app is told
+   * why so it can say "confirm your address with your provider first".
+   */
+  'email_unverified',
+  /**
+   * `403`: the request's `Origin` is not one of the app's `allowed_origins`.
+   * The same list is the CORS allow-list and the OIDC `redirect_uri` check, so
+   * this is the refusal for both — a browser sees a failed preflight, and a
+   * start request naming an unlisted redirect target sees this code with no
+   * redirect, because until the target is confirmed there is nowhere trusted
+   * to bounce a browser to.
+   */
+  'origin_not_allowed',
+  /**
+   * `422` from the mail-template PUT and preview: the Liquid template does not
+   * render. `details` is a `mailTemplateProblemDetails` naming **which of the
+   * three parts** failed and the renderer's own message — an error that did not
+   * say which part leaves the developer re-reading all three.
+   *
+   * Liquid runs in strict mode, so an unknown variable is one of these rather
+   * than an empty string in a mail somebody already received. A template that
+   * renders at save time and fails at send time falls back to the Fleetless
+   * default and writes an audit event; nothing on the wire can promise that a
+   * template which rendered once will render for every recipient.
+   */
+  'template_invalid',
+  /**
+   * The named OIDC provider exists on this app and is turned off. Distinct
+   * from `not_found`, which is what an unknown slug gets: `enabled` is a
+   * switch the developer flipped, and a disabled provider keeps its row and
+   * its linked identities, so telling the two apart is what lets a developer's
+   * page say "that button is temporarily off" rather than "that provider was
+   * deleted". It reaches an app user as a `clientOidcErrorCode` of the same
+   * name, redirected to the app rather than rendered here.
+   */
+  'provider_disabled',
+  /**
+   * A redirect URI that is not usable: malformed, or an origin the app has not
+   * listed. Refused **flat, with no redirect** — sending a browser to an
+   * unconfirmed target is the attack this check exists to prevent, so an
+   * open-redirect attempt cannot be reported by redirecting.
+   *
+   * It was a `validation_error` with rule `invalid_redirect_uri` on the deleted
+   * app-level OAuth client routes. Promoted to a code of its own because a
+   * bare `rule` string on the validation envelope is not something a consumer
+   * can switch on, and this is a refusal a developer's own login page has to
+   * branch on.
+   */
+  'invalid_redirect_uri',
+  /**
+   * `410`: an interaction is past its window. OIDC interactions live ten
+   * minutes, the one-time code sixty seconds, and an MCP interaction ten
+   * minutes.
+   *
+   * Deliberately **not** `token_spent`, which covers *unknown, expired and
+   * already-used* on a mailed credential and collapses them on purpose so that
+   * a stranger cannot learn whether a token ever existed. An interaction id is
+   * not a credential — the client that started the flow learns its own from
+   * its own redirect — so there is nothing to protect by being vague, and the
+   * app's page can say "that took too long, start again" instead of "that link
+   * is invalid".
+   */
+  'interaction_expired',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

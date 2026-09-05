@@ -19,7 +19,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   mailStatus,
-  userInvite,
+  teamInvite,
   tierRequiredDetails,
   passwordChangeRequest,
   passwordResetRequest,
@@ -83,18 +83,18 @@ describe('mail, in three words instead of one', () => {
 
   it('has removed the boolean rather than leaving both', () => {
     const inv = {
-      id: UUID, email: 'dev@example.com', group_id: UUID,
+      id: UUID, email: 'dev@example.com', tier: 'developer' as const,
       expires_at: LATER, accept_url: 'https://console.example/accept?t=x', mail: 'sent',
     }
-    expect(userInvite.parse(inv).mail).toBe('sent')
+    expect(teamInvite.parse(inv).mail).toBe('sent')
     const { mail: _dropped, ...withBooleanInstead } = inv
-    expect(userInvite.safeParse({ ...withBooleanInstead, mail_sent: true }).success).toBe(false)
+    expect(teamInvite.safeParse({ ...withBooleanInstead, mail_sent: true }).success).toBe(false)
   })
 
   it('lets an invitation be complete with no mail server at all', () => {
     // The link is the primary path. An org with no SMTP still invites.
-    expect(userInvite.parse({
-      id: UUID, email: 'dev@example.com', group_id: UUID,
+    expect(teamInvite.parse({
+      id: UUID, email: 'dev@example.com', tier: 'developer',
       expires_at: LATER, accept_url: 'https://console.example/accept?t=x',
       mail: 'not_configured',
     }).mail).toBe('not_configured')

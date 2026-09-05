@@ -576,74 +576,33 @@ export type JobResponse = z.infer<typeof jobResponse>
  * schema does not imply a path**, and three consumers were about to derive
  * nine paths independently from one implementation.
  *
- * **One pool, one prefix.** The `/api/org/` vs `/api/end-users/` split that
- * this table used to insist on ("the two identity spaces must never
- * authenticate each other") described two identity spaces that no longer
- * exist. Users, groups and assignments are org-scoped and live under
- * `/api/org/`; what is still separated is not *who a person is* but *what they
- * are claiming*: the console surface (`/api/auth/`, Org Admins only) and the
- * app surface (`/api/client/`, an assignment for a named app).
+ * **Two identity spaces, two prefixes** (2026-09-05 app-user-auth, D1). The
+ * `/api/org/` vs `/api/end-users/` split this table once insisted on, and the
+ * one pool that replaced it, are both gone. `/api/org/users` is the **team**:
+ * Fleetless users, console access, a tier each. An app's users live under
+ * `/api/apps/:id/users` and authenticate through `/api/client/`, and nothing
+ * joins the two — a credential from one never authenticates the other, and the
+ * same address in both is two unrelated accounts.
  *
- * | route | body | answers |
- * |---|---|---|
- * | `GET    /api/org/groups`                    | —                          | `groupListResponse` |
- * | `GET    /api/org/groups/:id`                | —                          | `orgGroup` |
- * | `POST   /api/org/groups`                    | `createGroupRequest`       | `orgGroup` |
- * | `PATCH  /api/org/groups/:id`                | `patchGroupRequest`        | `orgGroup` — the Org Admins group is renamable here |
- * | `DELETE /api/org/groups/:id`                | —                          | 204 — `group_not_deletable` for the Org Admins group, `group_in_use` while it holds members or apps |
- * | `GET    /api/org/groups/:id/usage`          | —                         | `groupUsageResponse` — the members + apps attached to this group (delete preview) |
- * | `GET    /api/org/groups/:id/oidc-provider`  | —                          | `groupOidcProvider` — `404` when the group has none configured |
- * | `PUT    /api/org/groups/:id/oidc-provider`  | `putGroupOidcProviderRequest` | `groupOidcProvider` — the Org Admins group is refused `target_state_conflict` / `org_admins_group`; the first write must carry `client_secret` |
- * | `DELETE /api/org/groups/:id/oidc-provider`  | —                          | 204 — `404` when the group has none configured |
- * | `GET    /api/org/users`                     | —                          | `orgUserListResponse` |
- * | `GET    /api/org/users/:id`                 | —                          | `orgUser` |
- * | `PATCH  /api/org/users/:id`                 | `patchUserRequest`         | `orgUser` — **no email, no group, no tier** |
- * | `DELETE /api/org/users/:id`                 | —                          | 204 — **and every session of that user ends** |
- * | `GET    /api/org/users/:id/usage?group_id=` | —                          | `groupUsageResponse` — the move preview |
- * | `POST   /api/org/users/:id/move-group`      | `moveUserGroupRequest`     | `orgUser` — cascade, behind the acknowledgement |
- * | `PUT    /api/org/users/:id/tier`            | `tierChangeRequest`        | `orgUser` — **Owner**, last-owner guarded |
- * | `GET    /api/org/users/:id/assignments`     | —                          | `appAssignmentListResponse` |
- * | `PUT    /api/org/users/:id/assignments/:appId` | `putAssignmentRequest`  | `appAssignment` |
- * | `DELETE /api/org/users/:id/assignments/:appId` | —                       | 204 |
- * | `GET    /api/apps/:id/group-usage?group_id=` | —                         | `groupUsageResponse` — the re-link preview |
- * | `PUT    /api/apps/:id/group`                | `putAppGroupRequest`       | `app` — cascade, behind the acknowledgement |
- * | `POST   /api/org/invitations`               | `createUserInviteRequest`  | `userInvite` |
- * | `GET    /api/org/invitations`               | —                          | `userInviteListResponse` — pending only, **no tokens** |
- * | `DELETE /api/org/invitations/:id`           | —                          | 204 |
- * | `POST   /api/org/invitations/accept`        | `acceptUserInviteRequest`  | 204 — unauthenticated, **and the login is created; sign in next** |
- * | `POST   /api/auth/password/change`          | `passwordChangeRequest`    | `sessionTokens` — authenticated, **console** |
- * | `POST   /api/auth/password/reset`           | `passwordResetRequest`     | 202 — unauthenticated, **always the same answer** |
- * | `POST   /api/auth/password/reset/confirm`   | `passwordResetConfirm`     | 204 — unauthenticated |
- * | `POST   /api/client/password/change`        | `passwordChangeRequest`     | `sessionTokens` — authenticated, **app session** |
- * | `POST   /api/client/password/reset`         | `clientPasswordResetRequest`| 202 — unauthenticated, **carries the app** |
- * | `POST   /api/client/password/reset/confirm` | `passwordResetConfirm`      | 204 — unauthenticated |
+ * **`src/routes.ts` is the manifest of record, and this table was not.** Every
+ * route, its schemas, its `errors` list and its guard are declared there, and
+ * the cloud's `route-manifest.test.ts` asserts set equality with the running
+ * server in both directions. This block kept a hand-written copy beside it and
+ * the copy drifted: it went on describing groups, assignments, a group's OIDC
+ * provider and the app OAuth flow after each was deleted. The table is removed
+ * rather than re-typed, because a second list is how the first one stops being
+ * read.
  *
- * **Deleted with no successor** (D6), listed so that a consumer looking for
- * them finds the reason rather than a 404: `POST /api/client/register` and
- * `/register/confirm`, `GET|PUT /api/apps/:id/self-registration`, the per-app
- * end-user CRUD and invitation routes, and `GET|DELETE|PATCH
- * /api/org/members[/:id]`. Client apps move to the new flow; there are no
- * compatibility aliases, because an alias here is how the deleted model would
- * survive in production while the contract said otherwise.
+ * What stays here is the *reasoning* the manifest has no field for. Each
+ * paragraph below is a decision, not a route listing.
  *
- * **A group's OIDC provider is config, the login it enables is not.** The three
- * `oidc-provider` rows above are the developer-facing CRUD (Org Admins only) for
- * *which* IdP a group federates to (`groupOidcProvider` / D3). The *login* that
- * uses it — the federated authorize/callback legs and the org-admin
- * impersonation interstitial — is not a `/api/` REST shape but a browser flow
- * of server-owned redirect targets, and it lives with the other OAuth paths in
- * `OAUTH_PATHS` (`idpCallback`, `impersonate`), for the same reason
- * `authorize` and `token` do: a client never constructs those paths, it is sent
- * to them. The cloud is the authorization server; toward the group's IdP it is a
- * relying party (see `oauth.ts`).
- *
- * **A group move and an app re-link are their own routes, not fields on a
- * PATCH.** Both cascade-delete assignments, both are preceded by a
- * `groupUsageResponse` read, and both refuse without
- * `acknowledge_assignment_loss: true` (see `moveUserGroupRequest` for why the
- * acknowledgement is unconditional and a literal). The preview is a separate
- * GET rather than a dry-run flag on the write, so that fetching it can never
- * perform anything.
+ * **Deleted with no successor, listed so a consumer looking for them finds the
+ * reason rather than a `404`:** every `/api/org/groups*` route, the per-user
+ * `assignments`, `move-group` and `usage` routes, `/api/org/federation`, the
+ * app's `group`, `group-usage`, `branding` and `oauth-clients` routes, the whole
+ * app OAuth sign-in flow (`/oauth/*` and `/login`), and `/api/client/grants*`.
+ * There are no compatibility aliases, because an alias here is how a deleted
+ * model survives in production while the contract says otherwise.
  *
  * **`POST /api/auth/password/reset` answers `202` for every well-formed
  * address**, known or not. It is the one route where §3.3's silence about
@@ -656,13 +615,16 @@ export type JobResponse = z.infer<typeof jobResponse>
  * redesign briefly took (multi-candidate verify on login, mail-every-match on
  * reset) is retired, with no shape change. See `passwordResetRequest`.
  *
- * **Both surfaces get the password routes, mirrored.** Cluster D named the end
+ * **Both surfaces get the password routes, mirrored.** Cluster D named the app
  * user explicitly — *"an end user cannot change their own password, and there
  * is no reset path"* — and a console user needs the same thing; the first
- * version of this table gave the routes only one prefix, which would have
- * shipped the wave's named item for the wrong principal. The shapes are shared
- * because the operation is identical; the **prefix** is what says which
- * session is being spent, exactly as it does for `login`.
+ * version of this block gave the routes only one prefix, which would have
+ * shipped the wave's named item for the wrong principal. `passwordChangeRequest`
+ * is shared because the operation is identical; the **prefix** is what says
+ * which session is being spent, exactly as it does for `login`. The two *reset*
+ * requests are separate shapes rather than one, because the surfaces identify a
+ * person differently: a Fleetless user by a globally unique address, an app
+ * user by app **and** address.
  *
  * **A password change answers with fresh `sessionTokens`, not `204`.** The
  * promise is that the session which made the change survives while every other
@@ -691,15 +653,20 @@ export type JobResponse = z.infer<typeof jobResponse>
  *
  * | purpose | URL |
  * |---|---|
- * | password reset             | `{portal}/reset-password/{token}` |
- * | user invitation            | `{portal}/accept-invite/{token}` — one link for every user now, admin or not |
+ * | password reset, Fleetless user | `{portal}/reset-password/{token}` |
+ * | team invitation                | `{portal}/accept-invite/{token}` |
  *
- * The **app** password reset row is deleted rather than re-pointed: that flow
- * has no producer and no route. Nothing in the cloud ever built or mailed
- * `{console}/app/{identifier}/reset-password/{token}`, and the endpoint its
- * page posted to was never registered — train C deleted the page and said so.
- * If an app's end users are ever to reset a password, that is a feature to
- * design, not a row to restore.
+ * **An app user's links are not in this table, and cannot be** (2026-09-05,
+ * D2/D5). Fleetless renders an app user no page, so there is no `{portal}` path
+ * to name: the link points into the **developer's own app**, at the template
+ * they configured (`appAuthConfig.invite_url`, `verify_url`, `reset_url`), with
+ * the token substituted for `{token}`. That is why those fields are validated
+ * as templates rather than as URLs, and why an app with none configured is
+ * refused a `send_mail` instead of being mailed a link to nowhere.
+ *
+ * The paragraph this replaces said an app-user reset *"is a feature to design,
+ * not a row to restore"*. It was designed; the answer was that the row belongs
+ * to the developer and not to this table.
  *
  * The strings themselves live in `cloud/src/portal-paths.ts`, read by the
  * route that serves each page AND by the builder that mails it — one constant,

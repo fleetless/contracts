@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The address to invite. An invitation always bypasses the domain whitelist — a developer inviting somebody by hand has already made the decision the whitelist automates."
+    },
+    "role_id": {
+      "description": "The role the invitee gets on acceptance. Absent means the app's `default_role_id`.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "display_name": {
+      "description": "An optional name to pre-fill the account with; the invitee can change it afterwards.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "send_mail": {
+      "type": "boolean",
+      "description": "Whether Fleetless mails the invitation. **Refused with `409 target_state_conflict` naming `invite_url` when the app has configured none** — there would be nowhere for the link to point, and a mail carrying a Fleetless-hosted page is a surface this product does not have."
+    }
+  },
+  "required": [
+    "email",
+    "send_mail"
+  ],
+  "additionalProperties": false
+}

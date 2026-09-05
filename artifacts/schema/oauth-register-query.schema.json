@@ -5,11 +5,11 @@
     "app_identifier": {
       "type": "string",
       "minLength": 1,
-      "description": "The app the dynamic client registers under, as `appIdentifier` spells it. Required: missing and unknown answer the same `400 invalid_request` in the `oauthError` dialect. Whether that app *accepts* dynamic clients is a separate, later refusal (`access_denied`)."
+      "description": "The app the dynamic client registers under, as `appIdentifier` spells it. Required: missing and unknown answer the same `400 invalid_request` in the `oauthError` dialect. Whether that app has MCP enabled at all is a separate, later refusal (`access_denied`)."
     }
   },
   "required": [
     "app_identifier"
   ],
-  "description": "The query of `POST /oauth/register` — the one parameter RFC 7591 has no body field for."
+  "description": "The app a dynamic client registers under — the one parameter RFC 7591 has no body field for."
 }

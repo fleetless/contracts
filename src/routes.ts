@@ -28,7 +28,6 @@
 import type { ZodType } from 'zod'
 import {
   appListResponse,
-  brandingConfig,
   createAppRequest,
   createServerKeyResponse,
   app as appSchema,
@@ -41,62 +40,36 @@ import {
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
 import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
-import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientLogoutResponse, clientRefreshRequest } from './client-auth.js'
+import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientRefreshRequest } from './client-auth.js'
 import type { ErrorCode } from './errors.js'
 import {
-  acceptUserInviteRequest,
-  appAssignment,
-  appAssignmentListResponse,
+  acceptTeamInviteRequest,
   authMeResponse,
-  createGroupRequest,
-  createUserInviteRequest,
-  groupListResponse,
-  groupFilterQuery,
-  groupOidcProvider,
-  groupPreviewQuery,
-  groupUsageResponse,
-  moveUserGroupRequest,
-  orgFederationPolicy,
-  orgFederationPolicyRequest,
-  orgGroup,
-  orgUser,
-  orgUserListResponse,
+  createTeamInviteRequest,
+  fleetlessUser,
+  fleetlessUserListResponse,
   passwordChangeRequest,
   passwordResetConfirm,
   passwordResetRequest,
   patchAuthMeRequest,
-  patchGroupRequest,
+  patchFleetlessUserRequest,
   patchOrgRequest,
   patchOrgResponse,
-  patchUserRequest,
-  putAppGroupRequest,
-  putAssignmentRequest,
-  putGroupOidcProviderRequest,
+  pendingTeamInviteListResponse,
   refreshRequest,
   sessionTokens,
   signUpRequest,
   signUpResponse,
+  teamInvite,
   tierChangeRequest,
-  userInvite,
-  userInviteListResponse,
   waitlistRequest,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
 import { mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
-  consentDecision,
-  consentGrantListResponse,
-  consentRevokeResponse,
-  dynamicClientRegistrationRequest,
   dynamicClientRegistrationResponse,
-  oauthAuthorizeQuery,
-  oauthClient,
-  oauthClientListResponse,
-  oauthLoginRequest,
   oauthRedirectResponse,
-  oauthRegisterQuery,
-  oauthTokenRequest,
   oauthTokenResponse,
   protectedResourceMetadata,
 } from './oauth.js'
@@ -154,7 +127,7 @@ export type RouteTransport = 'http' | 'websocket'
 export type RouteSection =
   | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'users' | 'apps'
   | 'robots' | 'config' | 'alerts' | 'commands' | 'cameras' | 'assets'
-  | 'oauth' | 'mcp' | 'transports'
+  | 'mcp' | 'transports'
 
 export interface RouteParam {
   readonly name: string
@@ -214,9 +187,9 @@ export interface RouteEntry {
 export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly title: string }[] = [
   { id: 'health', title: 'Health' },
   { id: 'developer-auth', title: 'Developer auth' },
-  { id: 'client-auth', title: 'End-user (client) auth' },
+  { id: 'client-auth', title: 'App-user (client) auth' },
   { id: 'org', title: 'Org' },
-  { id: 'users', title: 'Users, groups and assignments' },
+  { id: 'users', title: 'Team' },
   { id: 'apps', title: 'Apps' },
   { id: 'robots', title: 'Robots' },
   { id: 'config', title: 'Configuration (draft/publish)' },
@@ -224,7 +197,6 @@ export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly titl
   { id: 'commands', title: 'Commands (jobs, publishers)' },
   { id: 'cameras', title: 'Cameras' },
   { id: 'assets', title: 'Assets (URDF, meshes)' },
-  { id: 'oauth', title: 'OAuth 2.1' },
   { id: 'mcp', title: 'MCP' },
   { id: 'transports', title: 'Realtime and bridge transports' },
 ]
@@ -587,106 +559,46 @@ export const ROUTES: readonly RouteEntry[] = [
     notes: 'Owner tier, like minting and rotating: all three decide who may speak for the whole app.',
   },
 
-  /* ------------------------------------- users, groups and assignments */
-  {
-    method: 'GET', path: '/api/org/groups', section: 'users',
-    summary: 'Lists every group in the org with its member and app counts.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: groupListResponse,
-    errors: [...DEVELOPER_GUARD], transport: 'http',
-  },
-  {
-    method: 'GET', path: '/api/org/groups/:id', section: 'users',
-    summary: 'Reads one group with its member and app counts.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: null, response: orgGroup,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'A group of another org reads exactly like one that does not exist.',
-  },
-  {
-    method: 'POST', path: '/api/org/groups', section: 'users',
-    summary: 'Creates a group, optionally with MCP access enabled for its members.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
-    params: [], query: null, request: createGroupRequest, response: orgGroup,
-    errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
-    notes:
-      'The `is_org_admins` flag is not an argument here and cannot be: it has exactly one writer, org creation, so no door can mint a second ' +
-      'admin group even by accident.',
-  },
-  {
-    method: 'PATCH', path: '/api/org/groups/:id', section: 'users',
-    summary: "Renames a group or flips its MCP gate.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: patchGroupRequest, response: orgGroup,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'The Org Admins group is renamable through exactly this door. `is_org_admins` cannot arrive at all — the shape is strict and does not ' +
-      'carry it, so offering it is a refusal rather than a silent drop.',
-  },
-  {
-    method: 'DELETE', path: '/api/org/groups/:id', section: 'users',
-    summary: 'Deletes an empty group.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'group_not_deletable', 'group_in_use'], transport: 'http',
-    notes:
-      'The Org Admins group answers `409 group_not_deletable`; a group still holding users or apps answers `409 group_in_use` with both ' +
-      'counts. Both refusals are re-counted inside the deleting transaction rather than pre-checked, so there is one policy and not a weaker ' +
-      'second one. `GET /api/org/groups/:id/usage` is the read that explains them.',
-  },
-  {
-    method: 'GET', path: '/api/org/groups/:id/usage', section: 'users',
-    summary: 'Reports what a group holds, before an admin decides to delete it.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: null, response: groupUsageResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      '`users_affected` is the group\'s whole membership, not only the members holding assignments: deleting a group affects everyone in it, ' +
-      'and a count that excluded the unassigned would understate exactly the people an admin has to re-home first. Counts for showing, never ' +
-      'for deciding — the delete re-counts in its own transaction.',
-  },
+  /* ------------------------------------------- the team and its invites */
   {
     method: 'GET', path: '/api/org/users', section: 'users',
-    summary: "Lists the org's user pool, optionally narrowed to one group.",
+    summary: "Lists the organisation's Fleetless users — the team who reach the console.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: groupFilterQuery, request: null, response: orgUserListResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    params: [], query: null, request: null, response: fleetlessUserListResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
     notes:
-      '`?group_id=` narrows it; omitted, the answer is the whole pool. A group of another org answers `404` rather than an ' +
-      'empty list, which would be indistinguishable from "that group exists here and is empty" — a statement about somebody else\'s org. A ' +
-      'malformed value is `400 invalid_uuid`, so a typo can be told from a deletion.',
+      '**Fleetless users, not an app\'s users.** The two identity spaces are separate and nothing joins them, so an app\'s users are listed ' +
+      'per app and never appear here. There is nothing to narrow by: the group filter this route used to take described a model with no ' +
+      'successor, and every Fleetless user of the org is in this answer.',
   },
   {
     method: 'GET', path: '/api/org/users/:id', section: 'users',
-    summary: 'Reads one user of the org.',
+    summary: 'Reads one Fleetless user of the org.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: null, request: null, response: orgUser,
+    params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
+    query: null, request: null, response: fleetlessUser,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
   },
   {
     method: 'POST', path: '/api/org/invitations', section: 'users',
-    summary: 'Invites an address into a group and returns the accept link.',
+    summary: 'Invites an address onto the team and returns the accept link.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
-    params: [], query: null, request: createUserInviteRequest, response: userInvite,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'target_state_conflict', 'email_taken'], transport: 'http',
+    params: [], query: null, request: createTeamInviteRequest, response: teamInvite,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'email_taken'], transport: 'http',
     notes:
-      'One invitation flow for every group; what the invitee becomes is `group_id`. **Inviting an Owner is Owner-only** — an invitation ' +
-      'carrying `tier: "owner"` is a promotion with an extra step, since the response hands back the `accept_url`. `ownerTier` is `false` ' +
-      'here because the gate is on that value, not on the route: any org admin may invite a developer. A tier is required for the Org Admins ' +
-      'group and refused for every other. **This collection sits beside `/api/org/users`, not under it**: an invitation is not a user yet, and ' +
-      'the old spelling put a literal `invitations` where `GET /api/org/users/:id` expects a uuid — reachable only because a router ranks a ' +
-      'static segment above a parametric one. A path that reads correctly only under one routing library\'s tie-break is a path worth moving.',
+      '**A Fleetless user, not an app user.** Inviting somebody into an app is `POST /api/apps/:id/invitations` and is a different link into ' +
+      'a different space. `tier` is required, because "I did not think about it" and "I meant developer" must not be the same request on the ' +
+      'field that decides who can remove whom. **Inviting an Owner is Owner-only** — an invitation carrying `tier: "owner"` is a promotion ' +
+      'with an extra step, since the response hands back the `accept_url`. `ownerTier` is `false` here because the gate is on that value, not ' +
+      'on the route: any team member may invite a developer. **This collection sits beside `/api/org/users`, not under it**: an invitation is ' +
+      'not a user yet, and the old spelling put a literal `invitations` where `GET /api/org/users/:id` expects a uuid — reachable only because ' +
+      'a router ranks a static segment above a parametric one.',
   },
   {
     method: 'GET', path: '/api/org/invitations', section: 'users',
-    summary: 'Lists the pending invitations of the org, without their tokens.',
+    summary: 'Lists the pending team invitations of the org, without their tokens.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: userInviteListResponse,
+    params: [], query: null, request: null, response: pendingTeamInviteListResponse,
     errors: [...DEVELOPER_GUARD], transport: 'http',
     notes:
       'No `accept_url` is in this listing, and that omission is the point: it exists so an admin can spot a backdoor invitation planted for an ' +
@@ -706,7 +618,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Mints a fresh token onto the same invitation and returns the new accept link.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The invitation\'s uuid, as listed by `GET /api/org/invitations`.' }],
-    query: null, request: null, response: userInvite,
+    query: null, request: null, response: teamInvite,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'rate_limited'], transport: 'http',
     notes:
       'The old link stops resolving the instant this returns — the row is looked up by token hash and the previous hash is gone. Two live ' +
@@ -718,11 +630,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/org/invitations/accept', section: 'users',
     summary: 'Spends an invitation token and creates the login it was addressed to.',
     audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 204,
-    params: [], query: null, request: acceptUserInviteRequest, response: null,
+    params: [], query: null, request: acceptTeamInviteRequest, response: null,
     errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken'], transport: 'http',
     notes:
-      '**`204`, not a session.** Most invitees are not org admins, so a console session minted here would be refused on the very next request; ' +
-      'and a body whose shape depended on the invitee\'s group would give one route two answers. Unknown, expired and already-accepted tokens ' +
+      '**`204`, not a session.** The console signs in through its own OAuth portal, so a session minted here would be a second credential door ' +
+      'for one account — and every security property would then have to be right in two places. Unknown, expired and already-accepted tokens ' +
       'collapse into `410 token_spent`. A browser form post gets the rendered "you\'re in" page instead.',
   },
   {
@@ -738,181 +650,44 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'PATCH', path: '/api/org/users/:id', section: 'users',
-    summary: "Changes a user's display name or their MCP access override.",
+    summary: "Changes a team member's display name.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: null, request: patchUserRequest, response: orgUser,
+    params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
+    query: null, request: patchFleetlessUserRequest, response: fleetlessUser,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'Nothing here has a consequence a PATCH body cannot carry: the group and the tier are their own routes, because both cascade. The audit ' +
-      'event records which fields were addressed, never their values.',
-  },
-  {
-    method: 'GET', path: '/api/org/users/:id/usage', section: 'users',
-    summary: 'Previews what moving a user into another group would delete.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: groupPreviewQuery, request: null, response: groupUsageResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      '`?group_id=` names the group the user would move into and is required. Absent ' +
-      'is `400 validation_error` with rule `required`, malformed is `400 invalid_uuid`, and well-formed but not a group of this org is ' +
-      '`validation_error` with rule `unknown_group` — three different facts a caller needs told apart. **The same parameter on ' +
-      '`GET /api/org/users` is a different contract**: optional there, and an unknown group is a `404`. Reads only, and never a lock.',
-  },
-  {
-    method: 'POST', path: '/api/org/users/:id/move-group', section: 'users',
-    summary: 'Moves a user into another group, deleting every assignment the move invalidates.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: null, request: moveUserGroupRequest, response: orgUser,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error', 'last_owner'], transport: 'http',
-    notes:
-      '`acknowledge_assignment_loss: true` is a literal in the shape, so there is no request of this form without it and nothing has to ' +
-      'remember to check. **Moving an Owner needs Owner tier** — it takes the Owner capability away, which is a demotion by another door — but ' +
-      '`ownerTier` is `false` because that gate fires only when the target is an Owner. Moving the last Owner out is `409 last_owner`. A move ' +
-      'out of Org Admins closes the user\'s open `/realtime` socket.',
+      'Nothing here has a consequence a PATCH body cannot carry: the tier is its own route, because it is owner-only and has a last-owner ' +
+      'guard, and the address is immutable. The audit event records which fields were addressed, never their values.',
   },
   {
     method: 'DELETE', path: '/api/org/users/:id', section: 'users',
-    summary: 'Removes a user and ends every session they hold.',
+    summary: 'Removes a team member and ends every session they hold.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
+    params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'last_owner'], transport: 'http',
     notes:
       'Sessions are revoked before the row is deleted: a still-existing user with a dead session is recoverable by retrying, a deleted user ' +
-      'whose old token still works is not. Both kinds go, since one row can hold console and app sessions at once. Any invitation still ' +
-      'outstanding for that address is expired too — a link mailed before the removal is a standing re-admission ticket. Removing an Owner ' +
-      'needs Owner tier, and removing the last one is `409 last_owner`.',
+      'whose old token still works is not. Any team invitation still outstanding for that address is expired too — a link mailed before the ' +
+      'removal is a standing re-admission ticket. **App accounts sharing the address are untouched**, in this org and in every other: they are ' +
+      'separate identities in a separate space, and deleting a colleague must not delete a customer. Removing an Owner needs Owner tier, and ' +
+      'removing the last one is `409 last_owner`.',
   },
   {
     method: 'PUT', path: '/api/org/users/:id/tier', section: 'users',
-    summary: "Promotes or demotes an org admin between Owner and developer tier.",
+    summary: 'Promotes or demotes a team member between Owner and developer tier.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`; must be a member of the Org Admins group.' }],
-    query: null, request: tierChangeRequest, response: orgUser,
+    params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
+    query: null, request: tierChangeRequest, response: fleetlessUser,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error', 'target_state_conflict', 'last_owner'],
     transport: 'http',
     notes:
-      'Owner tier, unconditionally — this is the route the whole owner-exclusive list is about. A user outside the Org Admins group carries no ' +
-      'tier at all and answers `409 target_state_conflict`. Demoting the last Owner is `409 last_owner`, decided by a row lock inside the ' +
-      'writing transaction rather than by a read beforehand. Setting the tier already held changes nothing and writes no audit event. No ' +
-      'session is revoked: a tier is re-read from the row on every request, so no issued token carries a stale copy of it.',
-  },
-  {
-    method: 'GET', path: '/api/org/users/:id/assignments', section: 'users',
-    summary: 'Lists the apps a user is assigned to and the role they hold in each.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' }],
-    query: null, request: null, response: appAssignmentListResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-  },
-  {
-    method: 'PUT', path: '/api/org/users/:id/assignments/:appId', section: 'users',
-    summary: 'Assigns a user to an app in a role, or changes the role they already hold.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' },
-      { name: 'appId', description: 'The app\'s uuid; it must belong to the same group as the user.' },
-    ],
-    query: null, request: putAssignmentRequest, response: appAssignment,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict', 'validation_error'], transport: 'http',
-    notes:
-      'An app outside the user\'s group is `409 target_state_conflict` with rule `group_mismatch` — the group is what pairs a user with the ' +
-      'apps they can be assigned to. A role belonging to another app is a `validation_error`. Re-roling closes the user\'s live subscriptions ' +
-      'on that app.',
-  },
-  {
-    method: 'DELETE', path: '/api/org/users/:id/assignments/:appId', section: 'users',
-    summary: 'Removes a user\'s assignment to one app and ends their sessions for it.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [
-      { name: 'id', description: 'The user\'s uuid, as listed by `GET /api/org/users`.' },
-      { name: 'appId', description: 'The app\'s uuid; only sessions and subscriptions for this app are ended.' },
-    ],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Only that app\'s sessions end; the user\'s access to every other app they are assigned to is untouched.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/group-usage', section: 'users',
-    summary: 'Previews what re-linking an app to another group would delete.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: groupPreviewQuery, request: null, response: groupUsageResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      '`?group_id=` names the target group and is required, with the same three distinct refusals `GET /api/org/users/:id/usage` gives — one ' +
-      '`groupPreviewQuery` describes both. The app ' +
-      'is scoped first, so none of them can confirm that an app the caller does not own exists.',
-  },
-  {
-    method: 'PUT', path: '/api/apps/:id/group', section: 'users',
-    summary: 'Re-links an app to another group, deleting every assignment the move invalidates.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: putAppGroupRequest, response: appSchema,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'target_state_conflict'], transport: 'http',
-    notes:
-      'The destructive half of the pair: every assignment naming this app whose user is not in the new group dies with the change, which is why ' +
-      'the shape demands a literal acknowledgement. The Org Admins group is refused for the reason app creation refuses it. One edit can cut a ' +
-      'whole team off at once, so every live subscription on the app is closed.',
+      'Owner tier, unconditionally — this is the route the whole owner-exclusive list is about. A uuid that is not a Fleetless user of this ' +
+      'org answers `409 target_state_conflict`. Demoting the last Owner is `409 last_owner`, decided by a row lock inside the writing ' +
+      'transaction rather than by a read beforehand. Setting the tier already held changes nothing and writes no audit event. No session is ' +
+      'revoked: a tier is re-read from the row on every request, so no issued token carries a stale copy of it.',
   },
 
-  /* ------------------------------------------------ org (federation, OIDC) */
-  {
-    method: 'GET', path: '/api/org/federation', section: 'org',
-    summary: 'Reads whether a federated login may join an existing account by verified email.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: orgFederationPolicy,
-    errors: [...DEVELOPER_GUARD], transport: 'http',
-    notes: 'Any org admin may read it; only an Owner may change it.',
-  },
-  {
-    method: 'PUT', path: '/api/org/federation', section: 'org',
-    summary: 'Sets whether a federated login may join an existing account by verified email.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
-    params: [], query: null, request: orgFederationPolicyRequest, response: orgFederationPolicy,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error'], transport: 'http',
-    notes:
-      'Owner tier: what this flag decides is account linking across the whole org, not a per-app setting. It lives on the org rather than on an ' +
-      'app because the thing it governs — one user row per address — is org-scoped.',
-  },
-  {
-    method: 'GET', path: '/api/org/groups/:id/oidc-provider', section: 'org',
-    summary: "Reads a group's OIDC provider configuration, without the client secret.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: null, response: groupOidcProvider,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      'A group with no provider answers `404`, not an empty object. The secret is write-only and comes back through nothing — not this read, ' +
-      'not the PUT\'s own response, not an audit detail; the stored row this maps from has none to carry.',
-  },
-  {
-    method: 'PUT', path: '/api/org/groups/:id/oidc-provider', section: 'org',
-    summary: "Sets or rotates a group's OIDC provider and its just-in-time grants.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: putGroupOidcProviderRequest, response: groupOidcProvider,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict', 'validation_error'], transport: 'http',
-    notes:
-      'Any org admin, not Owner only: configuring a group\'s provider is member management. The Org Admins group is refused with ' +
-      '`409 target_state_conflict` — console login is always the Fleetless password provider. `client_secret` is optional so a rotation need ' +
-      'not resend it, but the first write of a provider must carry one. Each JIT grant\'s app must belong to this group, its role to that app, ' +
-      'and no two grants may name the same app. An issuer resolving to a loopback or private address is refused here as a shape check; the ' +
-      'authoritative SSRF defence is at the discovery fetch.',
-  },
-  {
-    method: 'DELETE', path: '/api/org/groups/:id/oidc-provider', section: 'org',
-    summary: "Removes a group's OIDC provider.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The group\'s uuid, as listed by `GET /api/org/groups`.' }],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Deleting a provider a group never had is an honest `404`, not a silent `204`.',
-  },
   {
     method: 'PATCH', path: '/api/org', section: 'org',
     summary: 'Renames the org.',
@@ -925,251 +700,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'nothing and records no audit event.',
   },
 
-  /* --------------------------------------------- oauth (app-scoped clients) */
-  {
-    method: 'POST', path: '/api/apps/:id/oauth-clients', section: 'oauth',
-    summary: "Registers an OAuth client on the app and returns its `client_id`.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: oauthClient,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'The body is `{ "client_name": string, "redirect_uris": string[] }` and has no contract shape of its own: ' +
-      '`dynamicClientRegistrationRequest` is RFC 7591\'s wire for `POST /oauth/register` and carries four fields this route ignores, so ' +
-      'reusing it here would document a request that is not this one. A `redirect_uri` is refused as `validation_error` with rule ' +
-      '`invalid_redirect_uri`. This is a developer\'s own credential-bearing action, so it answers the `apiError` envelope, not RFC 6749\'s.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/oauth-clients', section: 'oauth',
-    summary: "Lists the app's OAuth clients, developer-registered and self-registered alike.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: oauthClientListResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      'Answers `{ "oauth_clients": [oauthClient, …] }`, and each element carries its `registration` — a developer could otherwise not see ' +
-      'the self-registered clients holding their own dynamic-client ceiling shut.',
-  },
-  {
-    method: 'DELETE', path: '/api/apps/:id/oauth-clients/:clientId', section: 'oauth',
-    summary: 'Removes an OAuth client registration from the app.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'clientId', description: 'The OAuth `client_id` string, as listed by `GET /api/apps/:id/oauth-clients`; a client of another app answers `404`.' },
-    ],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      'The harsher of the two doors: the registration itself is gone, so the client cannot ask for consent again. ' +
-      '`DELETE …/consent` is the other one, which leaves the registration in place.',
-  },
-  {
-    method: 'DELETE', path: '/api/apps/:id/oauth-clients/:clientId/consent', section: 'oauth',
-    summary: 'Revokes every end user\'s consent grant to one OAuth client of the app.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'clientId', description: 'The OAuth `client_id` string, as listed by `GET /api/apps/:id/oauth-clients`; a client of another app answers `404`.' },
-    ],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      '"Disconnect that AI tool", without deleting the registration. The revocation is read on the client\'s very next call, so no token ' +
-      'refresh has to happen first, and every other client the same end users granted is untouched. A client with no active grant answers ' +
-      '`404` rather than a `204` that would claim something was revoked.',
-  },
 
-  /* ----------------------------------------------- oauth (RFC metadata) */
-  {
-    method: 'GET', path: '/.well-known/oauth-authorization-server', section: 'oauth',
-    summary: 'Publishes the authorization-server metadata every OAuth 2.1 client reads before it does anything else.',
-    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: authorizationServerMetadata,
-    errors: [], transport: 'http',
-    notes:
-      'RFC 8414. No auth and no database read, so a client that can reach only this document can still plan the whole flow. ' +
-      '`code_challenge_methods_supported` is `["S256"]` and `token_endpoint_auth_methods_supported` is `["none"]`: every client here is public and PKCE is required.',
-  },
-  {
-    method: 'GET', path: '/.well-known/oauth-authorization-server/:appIdentifier', section: 'oauth',
-    summary: 'The same metadata for one app, whose `registration_endpoint` already carries the app identifier.',
-    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
-    query: null, request: null, response: authorizationServerMetadata,
-    errors: ['not_found'], transport: 'http',
-    notes:
-      'RFC 8414 §3.1\'s suffix-insertion rule: an issuer with a path component publishes its document here. The one functional difference from ' +
-      'the global document is `registration_endpoint`, which already names `?app_identifier=` — so a client that starts from this document ' +
-      'never needs that value from anywhere else. `authorization_endpoint` and `token_endpoint` stay the global ones, since `client_id` ' +
-      'already says which app. An unknown identifier is `404`, not a document describing nothing.',
-  },
-  {
-    method: 'GET', path: '/.well-known/oauth-protected-resource', section: 'oauth',
-    summary: 'Publishes what the stub resource says about who may authorize for it.',
-    audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: protectedResourceMetadata,
-    errors: [], transport: 'http',
-    notes: 'RFC 9728, for the global `/mcp-stub/resource`. The per-app document lives under `/.well-known/oauth-protected-resource/mcp-stub/resource/:appIdentifier`.',
-  },
 
-  /* ------------------------------------------- oauth (the app sign-in flow) */
-  {
-    method: 'GET', path: '/oauth/authorize', section: 'oauth',
-    summary: 'Starts an end-user sign-in for an app and redirects the browser to the login card.',
-    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 302,
-    params: [], query: oauthAuthorizeQuery, request: null, response: null,
-    errors: ['rate_limited'], transport: 'http',
-    notes:
-      '`oauthAuthorizeQuery` is RFC 6749 §4.1.1\'s query, `scope` included — the cloud reads it parameter by parameter rather than parsing it ' +
-      'whole, because the parameters do not share one refusal. ' +
-      '**`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a ' +
-      'browser to it is the attack. Those two refusals are RFC 6749\'s flat `oauthError` shape at `400`; everything validated afterwards ' +
-      '(`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a ' +
-      'configured OIDC provider is sent to that provider instead of to the Fleetless login card. The only `apiError` this route sends is the ' +
-      'rate limiter\'s `429 rate_limited`.',
-  },
-  {
-    method: 'POST', path: '/login', section: 'oauth',
-    summary: 'Checks an end user\'s password and hands back where the sign-in continues.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: oauthLoginRequest, response: oauthRedirectResponse,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'invalid_credentials', 'forbidden'], transport: 'http',
-    notes:
-      '`interaction_id` travels in the **body**, never the URL: which app is being signed into is a property of the pending request the server ' +
-      'already holds, not an assertion the page gets to make. Two dialects, decided on the request body\'s content type — a real `<form>` ' +
-      'submission gets a `303` to the next step and the rendered pages for every refusal, a programmatic caller gets this `200` and the ' +
-      '`apiError` codes above. An org admin is redirected to the impersonation interstitial rather than straight on. ' +
-      '`oauthLoginResponse` is contracts\' alias for this response shape.',
-  },
-  {
-    method: 'GET', path: '/login', section: 'oauth',
-    summary: 'Serves the app login card the authorize step redirects a browser to.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, branded per app. One path, both verbs: this GET draws the form and the POST above takes it. An expired, consumed, unknown or ' +
-      'hand-edited interaction renders one "sign-in is over" page at `410` — and so does a lapsed dynamic client, because a form whose ' +
-      'submission is already known to fail is a password typed for nothing.',
-  },
-  {
-    method: 'GET', path: '/oauth/impersonate', section: 'oauth',
-    summary: 'Serves the "sign in as" card an org admin sees instead of going straight to the app.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, and the most disclosive page the portal has: it lists every assignable user of the app\'s group by email address. So the ' +
-      'browser-proof cookie is checked on this **GET** as well as on the POST — `interaction_id` is not a secret, since the client that ' +
-      'starts the flow learns its own from the authorize redirect, and without the cookie a self-registering client could read a customer\'s ' +
-      'roster off a page it never authenticated for. Refusals render the problem page carrying `wrong_browser` or `forbidden` as a document ' +
-      'attribute, not as an `apiError` body.',
-  },
-  {
-    method: 'POST', path: '/oauth/impersonate', section: 'oauth',
-    summary: 'Takes the org admin\'s choice of role or user and resumes the app sign-in as them.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: oauthRedirectResponse,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'forbidden'], transport: 'http',
-    notes:
-      'The JSON body is `{ "interaction_id": string, "choice": impersonationChoice }`; that wrapper has no schema of its own, only the ' +
-      '`choice` does. A `<form>` cannot nest an object, so a browser sends one `act_as` field spelled `role:<id>` or `user:<id>`, parsed back ' +
-      'into the identical `choice` before anything downstream sees a difference. Signing in as another org admin is refused. The browser-proof ' +
-      'cookie is re-checked here, and a browser gets the rendered problem page where a JSON caller gets these codes.',
-  },
-  {
-    method: 'GET', path: '/oauth/consent', section: 'oauth',
-    summary: 'Serves the consent screen for a client asking to act for an end user.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML. The browser-proof cookie is checked on the GET as well as on the POST — the same gap that had to be closed on the impersonation ' +
-      'interstitial and the MCP consent screen. An interaction that is not authenticated yet, a lapsed dynamic client and the central client ' +
-      'all render the same `410` page.',
-  },
-  {
-    method: 'POST', path: '/oauth/consent', section: 'oauth',
-    summary: 'Records the end user\'s allow-or-deny and sends the browser back to the client.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: consentDecision, response: oauthRedirectResponse,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'invalid_credentials'], transport: 'http',
-    notes:
-      'A JSON caller sends `consentDecision` and its bytes are untouched. A `<form>` cannot send a boolean, so a browser sends the pressed ' +
-      'button\'s `decision` value and **anything that is not exactly the Allow value denies**, including a submission carrying none — ' +
-      'fail-closed is the only defensible default on a screen whose whole job is to require a deliberate yes. `oauthConsentResponse` is ' +
-      'contracts\' alias for this response shape.',
-  },
-  {
-    method: 'POST', path: '/oauth/token', section: 'oauth',
-    summary: 'Exchanges an authorization code, or a refresh token, for an end-user access token.',
-    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
-    errors: ['rate_limited'], transport: 'http',
-    notes:
-      'Refusals use RFC 6749 §5.2\'s flat `oauthError` shape — it is a token endpoint, and that is the dialect a caller of one expects — so it ' +
-      'emits none of the other codes in this reference; only the rate limiter answers an `apiError`. The request is a discriminated union on ' +
-      '`grant_type` and is deliberately **not** strict: a conformant client may send parameters this server does not read, and refusing those ' +
-      'would be a conformance bug. `resource` (RFC 8707) is carried across every refresh rotation — a successor token minted without it would ' +
-      'be refused by the resource one token lifetime after a login that worked.',
-  },
-  {
-    method: 'POST', path: '/oauth/register', section: 'oauth',
-    summary: 'Registers a client dynamically against one app, when that app accepts dynamic clients.',
-    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
-    params: [], query: oauthRegisterQuery, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
-    errors: ['rate_limited'], transport: 'http',
-    notes:
-      'RFC 7591. `?app_identifier=` names the app and is required — RFC 7591\'s body has no field for it and one endpoint serves every app. ' +
-      'An app that does not accept dynamic clients answers `oauthError` ' +
-      '`access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the ' +
-      'rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.',
-  },
 
-  /* ------------------------------- oauth (the validating stub resource) */
-  {
-    method: 'GET', path: '/mcp-stub/resource', section: 'oauth',
-    summary: 'A resource that validates an access token\'s audience, so the minting side has something that refuses.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'Answers `{ ok, sub, resource }`, a cloud-local shape with no wire contract. It exists because a minting mechanism with no validator is ' +
-      'a check that cannot fail: this refuses a token whose `aud` names something else, and the gate measures the refusal. Its refusals are ' +
-      'RFC 6750\'s tiny `{ error, error_description }` with a `WWW-Authenticate` header naming its own metadata document, not `apiError`.',
-  },
-  {
-    method: 'GET', path: '/mcp-stub/resource/:appIdentifier', section: 'oauth',
-    summary: 'The same validating stub, scoped to one app.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
-    query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'The per-app half of the discovery walk: a client holding only this URL follows `401` → `WWW-Authenticate: resource_metadata=` → the ' +
-      'per-app protected-resource document → the per-app authorization-server document → `registration_endpoint`, and needs nothing told to it ' +
-      'out of band. An unknown identifier answers RFC 6750\'s `{ error: "invalid_request" }` at `404`, not the `apiError` envelope.',
-  },
-  {
-    method: 'GET', path: '/.well-known/oauth-protected-resource/mcp-stub/resource/:appIdentifier', section: 'oauth',
-    summary: 'The protected-resource metadata for one app\'s stub resource.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'appIdentifier', description: 'The app\'s `identifier`, the slug a developer chose when the app was created.' }],
-    query: null, request: null, response: protectedResourceMetadata,
-    errors: ['not_found'], transport: 'http',
-    notes:
-      'RFC 9728\'s path-suffix construction, the same rule the per-app authorization-server document follows. `authorization_servers` names the ' +
-      'per-app issuer, which is what lets a client reach the whole chain from the resource URL alone.',
-  },
-  {
-    method: 'GET', path: '/oauth/idp-callback', section: 'oauth',
-    summary: 'Takes the identity provider\'s redirect back and resumes the app sign-in as the federated user.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      '**Every failure renders the honest error page and never the Fleetless login form** — a form asking for a Fleetless password after an ' +
-      'identity-provider round trip is the phishing door this design closes by name. The page carries an `oidcCallbackError` code ' +
-      '(`invalid_request`, `exchange_failed`, `provider_misconfigured`, `idp_unreachable`, `claims_incomplete`, `jit_disabled`, ' +
-      '`email_collision`, `forbidden`), which is a different vocabulary from this reference\'s: none of these answers is an `apiError` ' +
-      'envelope. `state` is signed and checked before any database read. The SSRF defence sits at the discovery fetch and at the token ' +
-      'exchange, on the URL the provider\'s own document named.',
-  },
 
   /* --------------------------------------------------------------- mcp */
   {
@@ -1404,55 +937,24 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/mcp', section: 'mcp',
-    summary: 'The one MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
+    summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
-    errors: ['unauthorized', 'forbidden', 'mcp_access_denied'], transport: 'http',
+    errors: ['unauthorized', 'forbidden'], transport: 'http',
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and ' +
-      'results are the schemas in each tool definition. **The bearer is verified inside the handler**, not by a route guard: the group comes ' +
-      'from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST ' +
-      'surface does not send. A `401 unauthorized` carries that challenge; a `403 mcp_access_denied` deliberately does not, because ' +
-      're-authenticating cannot help. `Origin` is checked against the cloud\'s own. The catalog is re-derived per request, so an admin ' +
-      'demoted mid-conversation loses the console tools on the next call — and a console tool name learned elsewhere is refused there too, ' +
-      'as a `forbidden` result rather than an unknown-tool error, since the name is real and saying otherwise sends the model hunting for a ' +
-      'spelling mistake it did not make. Stateless: a fresh transport per request, no session id, nothing survives the call.',
+      'results are the schemas in each tool definition. **Fleetless users only** — an app\'s users reach their own app endpoint instead. ' +
+      '**The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and ' +
+      'the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked ' +
+      'against the cloud\'s own. The catalog is re-derived per request, so a member demoted mid-conversation loses the console tools on the ' +
+      'next call — and a console tool name learned elsewhere is refused there too, as a `forbidden` result rather than an unknown-tool error, ' +
+      'since the name is real and saying otherwise sends the model hunting for a spelling mistake it did not make. `mcp_access_denied` is ' +
+      'gone with the per-user override and the group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh ' +
+      'transport per request, no session id, nothing survives the call.',
   },
 
-  /* ------------------------------------------------------- apps (branding) */
-  {
-    method: 'GET', path: '/api/apps/:id/branding', section: 'apps',
-    summary: "Reads the app's login-page branding, or null when it has none.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: brandingConfig,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      '`null` is an answer, not an absence: an app that never configured branding is in that state and renders neutral Fleetless. So this is ' +
-      '`200` with a `null` body rather than a `404`, and rather than a default object a caller could mistake for a stored one.',
-  },
-  {
-    method: 'PUT', path: '/api/apps/:id/branding', section: 'apps',
-    summary: "Replaces the app's login-page branding.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: brandingConfig, response: brandingConfig,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'A replace, not a merge. The app is scoped before the body is parsed, so an app the caller does not own answers `404` whether or not the ' +
-      'colour was also malformed.',
-  },
-  {
-    method: 'DELETE', path: '/api/apps/:id/branding', section: 'apps',
-    summary: 'Drops the app back to neutral Fleetless branding.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Deleting branding an app never had is not an error: the end state is what was asked for.',
-  },
 
-  /* --------------------------------------------------- end-user (client) auth */
+  /* -------------------------------------------------- app-user (client) auth */
   {
     method: 'POST', path: '/api/client/login', section: 'client-auth',
     summary: 'Signs an app user in with an app identifier, an email address and a password.',
@@ -1460,9 +962,9 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: clientLoginRequest, response: sessionTokens,
     errors: ['rate_limited', 'validation_error', 'invalid_credentials'], transport: 'http',
     notes:
-      'One refusal for every miss — unknown app, unknown address, wrong password, or no assignment to this app — because the caller supplies ' +
-      'the `app_identifier` unauthenticated, so "this app knows this user" is not a fact the answer may carry. The argon2 verify is paid ' +
-      'unconditionally, including for an unknown app identifier, so response time is not an oracle either.',
+      'One refusal for every miss — unknown app, unknown address, wrong password, a `blocked` account and one still `pending_verification` — ' +
+      'because the caller supplies the `app_identifier` unauthenticated, so "this app knows this user" is not a fact the answer may carry. ' +
+      'The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either.',
   },
   {
     method: 'POST', path: '/api/client/refresh', section: 'client-auth',
@@ -1471,21 +973,21 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: clientRefreshRequest, response: sessionTokens,
     errors: ['rate_limited', 'validation_error', 'token_expired', 'token_revoked'], transport: 'http',
     notes:
-      'The assignment is re-proved here, not just the token: refresh is where every session eventually re-proves itself, so a user whose ' +
-      'assignment to this app was removed loses the family here even if the proactive revoke had not landed. A family minted from a ' +
-      '`resource`-carrying token exchange keeps its audience across every rotation.',
+      'The account is re-proved here, not just the token: refresh is where every session eventually re-proves itself, so a user who was ' +
+      'blocked or deleted loses the family here even if the proactive revoke had not landed. A family minted from a `resource`-carrying token ' +
+      'exchange keeps its audience across every rotation.',
   },
   {
     method: 'POST', path: '/api/client/logout', section: 'client-auth',
-    summary: 'Revokes an app-user refresh family and reports whether the identity provider can also be signed out.',
-    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientLogoutRequest, response: clientLogoutResponse,
+    summary: 'Revokes an app-user refresh family.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 204,
+    params: [], query: null, request: clientLogoutRequest, response: null,
     errors: ['rate_limited', 'validation_error'], transport: 'http',
     notes:
-      'The Fleetless session is over before the identity provider is consulted, and nothing in that outbound call can put it back. ' +
-      '`idp_logout` reports which of five outcomes applies; `session_unknown` means no live session was found for the token, which is not the ' +
-      'same fact as "this session had no identity provider". A row that cannot produce an `id_token_hint` is never reported as `redirect`. ' +
-      'Open `/realtime` sockets are closed.',
+      '**`204`, and a token the server does not recognise gets it too** — the end state a caller asked for is the end state they get, and ' +
+      'distinguishing the two would say whether a token ever existed. It answered a body until 2026-09-05, reporting what was left of the ' +
+      'session at the identity provider; that belonged to the hosted login flow, where Fleetless owned the browser. The developer\'s app owns ' +
+      'it now and redirects to its own provider itself, knowing which one it is. Open `/realtime` sockets for the session are closed.',
   },
   {
     method: 'POST', path: '/api/client/password/change', section: 'client-auth',
@@ -1495,27 +997,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD, 'validation_error', 'invalid_credentials'], transport: 'http',
     notes:
       'The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key ' +
-      'reaching this is `401 unauthorized`. Every session of the account ends, across every app, since a password is account-wide; the answer ' +
-      'is the replacement pair.',
-  },
-  {
-    method: 'GET', path: '/api/client/grants', section: 'client-auth',
-    summary: 'Lists the OAuth clients this app user has consented to.',
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: consentGrantListResponse,
-    errors: [...CLIENT_GUARD], transport: 'http',
-    notes: 'App-user only: a developer bearer or a server key reaching this through the client surface is `401 unauthorized`.',
-  },
-  {
-    method: 'DELETE', path: '/api/client/grants/:client_id', section: 'client-auth',
-    summary: 'Revokes one consent grant and every refresh family issued under it.',
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'client_id', description: 'The OAuth client id, as listed by `GET /api/client/grants`.' }],
-    query: null, request: null, response: consentRevokeResponse,
-    errors: [...CLIENT_GUARD, 'not_found'], transport: 'http',
-    notes:
-      'Ends both the future and the already-issued: the consent stops being usable, and every refresh family for that client and user is ' +
-      'revoked. `tokens_revoked` reports how many. App-user only.',
+      'reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made ' +
+      'the change stays signed in. An app user belongs to one app, so "every session" is this app\'s.',
   },
   {
     method: 'GET', path: '/api/client/me', section: 'client-auth',
@@ -1525,7 +1008,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
       'The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the ' +
-      'shape names each of `developer_id`, `end_user_id` and `server_key_id` and fills exactly one.',
+      'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one.',
   },
 
   /* ------------------------------------------------------------- robots */

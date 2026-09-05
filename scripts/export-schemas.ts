@@ -79,33 +79,21 @@ import {
   signUpResponse,
   waitlistRequest,
   developerLoginRequest,
-  orgUser,
-  orgGroup,
-  appAssignment,
-  groupListResponse,
-  orgUserListResponse,
-  appAssignmentListResponse,
-  createGroupRequest,
-  patchGroupRequest,
-  createUserInviteRequest,
-  userInvite,
-  userInviteListResponse,
-  acceptUserInviteRequest,
-  patchUserRequest,
-  moveUserGroupRequest,
-  putAppGroupRequest,
-  putAssignmentRequest,
+  fleetlessUser,
+  fleetlessUserListResponse,
+  createTeamInviteRequest,
+  teamInvite,
+  pendingTeamInvite,
+  pendingTeamInviteListResponse,
+  acceptTeamInviteRequest,
+  patchFleetlessUserRequest,
   tierChangeRequest,
-  groupUsageResponse,
-  groupOidcProvider,
-  putGroupOidcProviderRequest,
   oidcCallbackError,
-  impersonationChoice,
   authMeResponse,
   patchOrgRequest,
   patchAuthMeRequest,
 } from '../src/identity.js'
-import { groupFilterQuery, groupPreviewQuery, patchOrgResponse } from '../src/identity.js'
+import { patchOrgResponse } from '../src/identity.js'
 import {
   app,
   createAppRequest,
@@ -119,8 +107,39 @@ import {
   clientLoginRequest,
   clientRefreshRequest,
   clientLogoutRequest,
+  clientRegisterRequest,
+  clientVerifyEmailRequest,
+  clientResendVerificationRequest,
+  clientPasswordResetRequest,
+  clientPasswordResetConfirmRequest,
+  clientAcceptInvitationRequest,
+  clientProviderListResponse,
+  clientOidcExchangeRequest,
+  clientMcpInteraction,
+  clientMcpInteractionDecisionResponse,
   clientIdentity,
 } from '../src/client-auth.js'
+import {
+  appUser,
+  appUserListResponse,
+  createAppUserRequest,
+  patchAppUserRequest,
+  createAppInvitationRequest,
+  appInvitation,
+  appInvitationListResponse,
+  appOidcProvider,
+  appOidcProviderListResponse,
+  createAppOidcProviderRequest,
+  patchAppOidcProviderRequest,
+  appAuthConfig,
+  putAppAuthConfigRequest,
+  appMailTemplate,
+  appMailTemplateListResponse,
+  putAppMailTemplateRequest,
+  mailTemplatePreviewRequest,
+  mailTemplatePreviewResponse,
+  mailTemplateProblemDetails,
+} from '../src/app-users.js'
 import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
 import {
   datapointAlertRow,
@@ -162,12 +181,9 @@ import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
 import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, urdfCompleteness } from '../src/assets.js'
-import { brandingConfig, updateAppRequest } from '../src/apps.js'
-import { clientLogoutResponse } from '../src/client-auth.js'
+import { updateAppRequest } from '../src/apps.js'
 import { parameterInvalidDetails, parameterViolation } from '../src/errors.js'
 import {
-  orgFederationPolicy,
-  orgFederationPolicyRequest,
   passwordChangeRequest,
   passwordResetConfirm,
   passwordResetRequest,
@@ -176,20 +192,14 @@ import {
 import { busyDetails, jobState } from '../src/jobs.js'
 import {
   authorizationServerMetadata,
-  consentDecision,
-  consentGrantListResponse,
-  consentGrantSummary,
-  consentRevokeResponse,
   dynamicClientRegistrationRequest,
   dynamicClientRegistrationResponse,
-  oauthClient,
-  oauthLoginRequest,
   oauthRedirectResponse,
   oauthTokenRequest,
   oauthTokenResponse,
   protectedResourceMetadata,
 } from '../src/oauth.js'
-import { oauthAuthorizeQuery, oauthClientListResponse, oauthRegisterQuery } from '../src/oauth.js'
+import { oauthAuthorizeQuery, oauthRegisterQuery } from '../src/oauth.js'
 import {
   cameraDescriptor,
   cancelRequest,
@@ -317,32 +327,40 @@ export const exportedSchemas = {
   'sign-up-response': signUpResponse,
   'waitlist-request': waitlistRequest,
   'developer-login-request': developerLoginRequest,
-  'org-user': orgUser,
-  'org-group': orgGroup,
-  'app-assignment': appAssignment,
-  'group-list-response': groupListResponse,
-  'org-user-list-response': orgUserListResponse,
-  'app-assignment-list-response': appAssignmentListResponse,
-  'create-group-request': createGroupRequest,
-  'patch-group-request': patchGroupRequest,
-  'create-user-invite-request': createUserInviteRequest,
-  'user-invite': userInvite,
-  'user-invite-list-response': userInviteListResponse,
-  'accept-user-invite-request': acceptUserInviteRequest,
-  'patch-user-request': patchUserRequest,
-  'move-user-group-request': moveUserGroupRequest,
-  'put-app-group-request': putAppGroupRequest,
-  'put-assignment-request': putAssignmentRequest,
+  // 2026-09-05 — the two identity spaces (app-user-auth, D1).
+  'fleetless-user': fleetlessUser,
+  'fleetless-user-list-response': fleetlessUserListResponse,
+  'create-team-invite-request': createTeamInviteRequest,
+  'team-invite': teamInvite,
+  'pending-team-invite': pendingTeamInvite,
+  'pending-team-invite-list-response': pendingTeamInviteListResponse,
+  'accept-team-invite-request': acceptTeamInviteRequest,
+  'patch-fleetless-user-request': patchFleetlessUserRequest,
   'tier-change-request': tierChangeRequest,
-  'group-usage-response': groupUsageResponse,
-  // oidc-federation (D3/D4). `jitGrant` (embedded in the two provider shapes)
-  // and `oidcCallbackErrorCode` (embedded in `oidcCallbackError`) are not
-  // registered on their own — the `idpClaimMapping` / `alertRowCondition`
-  // precedent for a shape that only ever appears inside another.
-  'group-oidc-provider': groupOidcProvider,
-  'put-group-oidc-provider-request': putGroupOidcProviderRequest,
+  // The per-app identity space. `providerSlug`, `allowedOrigin`, `emailDomain`
+  // and the `appUrlTemplate` results are **not** registered on their own: each
+  // is a string rule that only ever appears as a field of one of the objects
+  // below, the `idpClaimMapping` precedent for a shape with no life of its own.
+  'app-user': appUser,
+  'app-user-list-response': appUserListResponse,
+  'create-app-user-request': createAppUserRequest,
+  'patch-app-user-request': patchAppUserRequest,
+  'create-app-invitation-request': createAppInvitationRequest,
+  'app-invitation': appInvitation,
+  'app-invitation-list-response': appInvitationListResponse,
+  'app-oidc-provider': appOidcProvider,
+  'app-oidc-provider-list-response': appOidcProviderListResponse,
+  'create-app-oidc-provider-request': createAppOidcProviderRequest,
+  'patch-app-oidc-provider-request': patchAppOidcProviderRequest,
+  'app-auth-config': appAuthConfig,
+  'put-app-auth-config-request': putAppAuthConfigRequest,
+  'app-mail-template': appMailTemplate,
+  'app-mail-template-list-response': appMailTemplateListResponse,
+  'put-app-mail-template-request': putAppMailTemplateRequest,
+  'mail-template-preview-request': mailTemplatePreviewRequest,
+  'mail-template-preview-response': mailTemplatePreviewResponse,
+  'mail-template-problem-details': mailTemplateProblemDetails,
   'oidc-callback-error': oidcCallbackError,
-  'impersonation-choice': impersonationChoice,
   app: app,
   'create-app-request': createAppRequest,
   'server-key': serverKey,
@@ -352,6 +370,16 @@ export const exportedSchemas = {
   'client-login-request': clientLoginRequest,
   'client-refresh-request': clientRefreshRequest,
   'client-logout-request': clientLogoutRequest,
+  'client-register-request': clientRegisterRequest,
+  'client-verify-email-request': clientVerifyEmailRequest,
+  'client-resend-verification-request': clientResendVerificationRequest,
+  'client-password-reset-request': clientPasswordResetRequest,
+  'client-password-reset-confirm-request': clientPasswordResetConfirmRequest,
+  'client-accept-invitation-request': clientAcceptInvitationRequest,
+  'client-provider-list-response': clientProviderListResponse,
+  'client-oidc-exchange-request': clientOidcExchangeRequest,
+  'client-mcp-interaction': clientMcpInteraction,
+  'client-mcp-interaction-decision-response': clientMcpInteractionDecisionResponse,
   'client-identity': clientIdentity,
   'audit-actor': auditActor,
   'audit-event': auditEvent,
@@ -418,27 +446,20 @@ export const exportedSchemas = {
   'password-reset-request': passwordResetRequest, // POST /api/auth/password/reset
   'password-reset-confirm': passwordResetConfirm, // POST /api/auth/password/reset/confirm
   'update-app-request': updateAppRequest, // PATCH /api/apps/:id
-  'branding-config': brandingConfig, // GET/PUT /api/apps/:id/branding
-  'org-federation-policy': orgFederationPolicy, // GET/PUT /api/org/federation
-  'org-federation-policy-request': orgFederationPolicyRequest, // PUT /api/org/federation
-  'client-logout-response': clientLogoutResponse, // POST /api/client/logout
-  'consent-grant-list-response': consentGrantListResponse, // GET /api/client/grants
-  'consent-revoke-response': consentRevokeResponse, // DELETE /api/client/grants/:client_id
-  'oauth-client': oauthClient, // POST/GET /api/apps/:id/oauth-clients
-  // **One object, three contract names.** `oauthLoginResponse` and
-  // `oauthConsentResponse` are `oauthRedirectResponse` — the same value, aliased
-  // in `src/oauth.ts` so a call site reads as the endpoint it is at. Registering
-  // an alias would be registering the same object twice, which `schemaName`'s
-  // reverse map refuses by construction, so this is the one name the artifact has.
-  'oauth-redirect-response': oauthRedirectResponse, // POST /login, POST /oauth/impersonate, POST /oauth/consent, POST /console/oauth/login, POST /mcp/oauth/login, POST /mcp/oauth/consent
-  'oauth-login-request': oauthLoginRequest, // POST /login
-  'consent-decision': consentDecision, // POST /oauth/consent
-  'oauth-token-request': oauthTokenRequest, // POST /oauth/token
-  'oauth-token-response': oauthTokenResponse, // POST /oauth/token, POST /mcp/oauth/token
-  'dynamic-client-registration-request': dynamicClientRegistrationRequest, // POST /oauth/register
-  'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /oauth/register, POST /mcp/oauth/register
-  'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server{,/:appIdentifier,/mcp}
-  'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource{,/mcp,/mcp-stub/resource/:appIdentifier}
+  'oauth-redirect-response': oauthRedirectResponse, // POST /console/oauth/login, POST /console/oauth/signup/organization, POST /mcp/oauth/login, POST /mcp/oauth/consent
+  // **Registered without a route entry, and each says so on its own doc
+  // comment.** `oauthTokenRequest` and `dynamicClientRegistrationRequest`
+  // describe wires the MCP authorization server reads by hand rather than
+  // through a contract shape, which is what the manifest records for those
+  // routes; the two queries below are the same case. They are documentation of
+  // a live wire, not leftovers — the distinction this repository has been wrong
+  // about before, so it is written down rather than inferred from a `grep`.
+  'oauth-token-request': oauthTokenRequest, // the MCP token endpoint's wire, read by hand
+  'oauth-token-response': oauthTokenResponse, // POST /mcp/oauth/token
+  'dynamic-client-registration-request': dynamicClientRegistrationRequest, // RFC 7591's wire; /mcp/oauth/register reads it by hand
+  'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
+  'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
+  'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource/mcp
   'put-robot-details-request': putRobotDetailsRequest, // PUT /api/robots/:id/details
   'put-config-draft-request': putConfigDraftRequest, // PUT /api/robots/:id/config/draft
   'config-versions-response': configVersionsResponse, // GET /api/robots/:id/config/versions
@@ -467,18 +488,15 @@ export const exportedSchemas = {
   // a route pointed at each of them and `schemaName` had no name to resolve
   // to, so the export refused rather than emitting a manifest with a gap in
   // it. Comment names the route, same as the block above.
-  'oauth-authorize-query': oauthAuthorizeQuery, // GET /oauth/authorize
-  'oauth-register-query': oauthRegisterQuery, // POST /oauth/register
+  'oauth-authorize-query': oauthAuthorizeQuery, // the MCP authorize wire, read parameter by parameter
+  'oauth-register-query': oauthRegisterQuery, // reserved for the per-app MCP registration endpoint
   'org-alerts-query': orgAlertsQuery, // GET /api/org/alerts
-  'group-filter-query': groupFilterQuery, // GET /api/org/users
-  'group-preview-query': groupPreviewQuery, // GET /api/org/users/:id/usage, GET /api/apps/:id/group-usage
   'robot-delete-query': robotDeleteQuery, // DELETE /api/robots/:id
   'org-health-query': orgHealthQuery, // GET /api/org/health
   'missing-asset-query': missingAssetQuery, // GET /api/robots/:id/assets/missing
   'app-list-response': appListResponse, // GET /api/apps
   'role-list-response': roleListResponse, // GET /api/apps/:id/roles
   'server-key-list-response': serverKeyListResponse, // GET /api/apps/:id/server-keys
-  'oauth-client-list-response': oauthClientListResponse, // GET /api/apps/:id/oauth-clients
   'patch-org-response': patchOrgResponse, // PATCH /api/org
   'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
   'put-robot-details-response': putRobotDetailsResponse, // PUT /api/robots/:id/details
@@ -501,7 +519,6 @@ export const exportedSchemas = {
   'camera-descriptor': cameraDescriptor, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'urdf-completeness': urdfCompleteness, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'rate-limit-details': rateLimitDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
-  'consent-grant-summary': consentGrantSummary, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'parameter-invalid-details': parameterInvalidDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
 } as const
@@ -605,11 +622,21 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // --- REST request bodies and queries -------------------------------------
   'create-robot-request', 'sign-up-request', 'waitlist-request', 'developer-login-request',
   'create-app-request',
-  'create-group-request', 'patch-group-request', 'create-user-invite-request',
-  'accept-user-invite-request', 'patch-user-request', 'move-user-group-request',
-  'put-app-group-request', 'put-assignment-request', 'tier-change-request',
-  'put-group-oidc-provider-request', 'impersonation-choice',
+  'create-team-invite-request', 'accept-team-invite-request',
+  'patch-fleetless-user-request', 'tier-change-request',
   'client-login-request', 'client-refresh-request', 'client-logout-request',
+  // The client auth API (2026-09-05). Every one is a document the server
+  // validates on arrival, which is what `input` means.
+  'client-register-request', 'client-verify-email-request',
+  'client-resend-verification-request', 'client-password-reset-request',
+  'client-password-reset-confirm-request', 'client-accept-invitation-request',
+  'client-oidc-exchange-request',
+  // The app-user management surface.
+  'create-app-user-request', 'patch-app-user-request',
+  'create-app-invitation-request',
+  'create-app-oidc-provider-request', 'patch-app-oidc-provider-request',
+  'put-app-auth-config-request', 'put-app-mail-template-request',
+  'mail-template-preview-request',
   'history-query', 'invoke-request', 'publish-request',
   'role-permissions', 'job-run-query', 'job-run-summary-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
@@ -619,22 +646,15 @@ const SCHEMA_IO_INPUT: readonly string[] = [
 
   // --- Request bodies and queries the route manifest names ----------------
   'refresh-request', 'password-change-request', 'password-reset-request', 'password-reset-confirm',
-  'update-app-request', 'org-federation-policy-request',
-  'oauth-login-request', 'consent-decision', 'oauth-token-request', 'dynamic-client-registration-request',
+  'update-app-request',
+  'oauth-token-request', 'dynamic-client-registration-request',
   'put-robot-details-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
   // other `*-query` above is.
   'oauth-authorize-query', 'oauth-register-query', 'org-alerts-query',
-  'group-filter-query', 'group-preview-query', 'robot-delete-query',
-  'org-health-query', 'missing-asset-query',
-  // A replace, not a merge: the same document is the PUT's body and the GET's
-  // answer, so a receiver validates it and `input` is the honest mode. The
-  // consequence is the usual one — the GET's artifact does not mark a
-  // `.default()`ed field required, which is right for what a caller may send
-  // and slightly loose for what the server does send.
-  'branding-config',
+  'robot-delete-query', 'org-health-query', 'missing-asset-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -662,10 +682,16 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'robot-detail-response', 'config-draft-response', 'publish-config-response',
   'introspection-response', 'datapoint-list-response', 'api-error', 'org',
   'session-tokens', 'sign-up-response', 'app', 'server-key',
-  'org-user', 'org-group', 'app-assignment', 'group-list-response',
-  'org-user-list-response', 'app-assignment-list-response', 'user-invite',
-  'user-invite-list-response', 'group-usage-response',
-  'group-oidc-provider', 'oidc-callback-error',
+  'fleetless-user', 'fleetless-user-list-response', 'team-invite',
+  'pending-team-invite', 'pending-team-invite-list-response',
+  'app-user', 'app-user-list-response', 'app-invitation',
+  'app-invitation-list-response', 'app-oidc-provider',
+  'app-oidc-provider-list-response', 'app-auth-config',
+  'app-mail-template', 'app-mail-template-list-response',
+  'mail-template-preview-response', 'mail-template-problem-details',
+  'client-provider-list-response', 'client-mcp-interaction',
+  'client-mcp-interaction-decision-response',
+  'oidc-callback-error',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
@@ -675,14 +701,13 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'datapoint-alert-row', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
 
   // --- Responses the route manifest names ---------------------------------
-  'org-federation-policy', 'client-logout-response', 'consent-grant-list-response', 'consent-revoke-response',
-  'oauth-client', 'oauth-redirect-response', 'oauth-token-response', 'dynamic-client-registration-response',
+  'oauth-redirect-response', 'oauth-token-response', 'dynamic-client-registration-response',
   'authorization-server-metadata', 'protected-resource-metadata',
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response',
   'invoke-or-service-response', 'history-response',
   'app-list-response', 'role-list-response', 'server-key-list-response',
-  'oauth-client-list-response', 'patch-org-response', 'patch-robot-response',
+  'patch-org-response', 'patch-robot-response',
   'put-robot-details-response', 'service-call-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
@@ -690,7 +715,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // `output` the correct description: the artifact states what the server will
   // send, with defaults already applied.
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
-  'rate-limit-details', 'consent-grant-summary', 'parameter-invalid-details', 'parameter-violation',
+  'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

@@ -10,6 +10,7 @@ import {
   ERROR_CODES,
   MCP_PROTOCOL_VERSION,
   MCP_ENDPOINT_PATH,
+  mcpAppEndpointPath,
   parameterSpec,
   publisherConfig,
   serviceDescription,
@@ -137,32 +138,31 @@ describe('descriptions on the configuration', () => {
   })
 })
 
-describe('the app-level MCP switch is gone (2026-08-29)', () => {
+describe('the app-level MCP switch, gone and back', () => {
   const base = {
     id: '00000000-0000-4000-8000-000000000001',
     org_id: '00000000-0000-4000-8000-000000000002',
     name: 'Ops',
     identifier: 'ops',
-    group_id: '00000000-0000-4000-8000-00000000000a',
     robot_ids: [],
-    accepts_dynamic_clients: false,
     default_role_id: null,
     created_at: '2026-08-18T10:00:00.000Z',
   }
 
   /**
    * W7c gave an app an `mcp_enabled` switch for the per-app endpoint
-   * `/mcp/<identifier>`. The central-MCP cut (D5) deleted that endpoint; the
-   * field then gated nothing but one `resource` branch of the legacy OAuth
-   * stub, and Andre removed it on 2026-08-29. What gates MCP now is
-   * `orgGroup.mcp_enabled` x `orgUser.mcp_access` — a different field with a
-   * live door behind it, deliberately not renamed here.
+   * `/mcp/<identifier>`. The central-MCP cut deleted that endpoint, so Andre
+   * removed the field on 2026-08-29. The app-user-auth design brings the
+   * per-app endpoint back (D7) — and puts the switch on `appAuthConfig`, not
+   * back on `app`.
    *
-   * These are removal guards, and each one names what would make it red: a
-   * re-added field on `app` (first), or a re-added field on either request
-   * shape (second).
+   * **That placement is what this pair pins.** `app` is a shape every app list
+   * carries; the auth settings are a sub-resource fetched when somebody opens
+   * the Auth tab. A switch on `app` would also be settable through the app's
+   * own PATCH, which is a rename route, and re-open the question of whether a
+   * rename may arrive carrying an MCP change.
    */
-  it('is not a field on `app` — an app parses without it, and never grows one back', () => {
+  it('is still not a field on `app`, and an offered one is stripped rather than stored', () => {
     const parsed = app.parse(base)
     expect(parsed).not.toHaveProperty('mcp_enabled')
     // `app` is not `.strict()`, so an old client still sending it gets it
@@ -172,12 +172,20 @@ describe('the app-level MCP switch is gone (2026-08-29)', () => {
     expect(app.parse({ ...base, mcp_enabled: true })).not.toHaveProperty('mcp_enabled')
   })
 
-  it('is refused by the two `.strict()` request shapes, which is the honest answer to a removed field', () => {
-    const GROUP = '00000000-0000-4000-8000-00000000000a'
-    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP }).success).toBe(true)
-    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', group_id: GROUP, mcp_enabled: true }).success).toBe(false)
+  it('is refused by the two `.strict()` app request shapes, which is the honest answer', () => {
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops' }).success).toBe(true)
+    expect(createAppRequest.safeParse({ name: 'Ops', identifier: 'ops', mcp_enabled: true }).success).toBe(false)
     expect(updateAppRequest.safeParse({ name: 'Ops' }).success).toBe(true)
     expect(updateAppRequest.safeParse({ mcp_enabled: false }).success).toBe(false)
+  })
+
+  /**
+   * The other half, so this is not a sweep asserting an empty world: the switch
+   * exists, on the shape that owns the app's auth settings.
+   */
+  it('lives on the app auth config, where the rest of the auth settings are', () => {
+    expect('mcp_enabled' in contracts.appAuthConfig.shape).toBe(true)
+    expect('mcp_enabled' in contracts.putAppAuthConfigRequest.shape).toBe(true)
   })
 })
 
@@ -187,18 +195,33 @@ describe('the central endpoint', () => {
   })
 
   /**
-   * **The endpoint path takes no argument, and that is the assertion.** The
-   * per-app `mcpEndpointPath(appIdentifier)` it replaced returned
-   * `/mcp/<identifier>`, a route the cloud deleted in the identity redesign
-   * (D5/D6) and which probes live to `404`. A constant cannot be handed an
-   * app, so the deleted shape cannot be rebuilt by accident.
+   * **Two audiences, two paths, and neither is built from the other.** The
+   * central endpoint serves Fleetless users and takes no argument; an app's
+   * users reach `/mcp/<identifier>`. The old `mcpEndpointPath(appIdentifier)`
+   * was deleted when the per-app endpoint was, and stayed deleted while the
+   * console still offered a copy button for a URL that answered `404` — which
+   * is why the new helper is named differently and arrives **with** its route
+   * in the manifest.
    */
-  it('names the one central MCP path, unparameterised', () => {
+  it('names the central path unparameterised, and the app path by identifier', () => {
     expect(MCP_ENDPOINT_PATH).toBe('/mcp')
     expect(Object.keys(contracts)).toContain('MCP_ENDPOINT_PATH')
-    // The retired helper is gone from the public surface, not merely unused:
-    // an export nobody imports today is an export somebody imports tomorrow.
+    expect(mcpAppEndpointPath('warehouse_ops')).toBe('/mcp/warehouse_ops')
+    // The retired helper stays gone under its old name: an export nobody
+    // imports today is an export somebody imports tomorrow, and that name
+    // meant a route that answered `404` for a release.
     expect(Object.keys(contracts)).not.toContain('mcpEndpointPath')
+  })
+
+  /**
+   * A path, not a URL. The cloud mints every OAuth issuer and audience from
+   * `PUBLIC_API_BASE_URL` and compares a token's `aud` against that string, so
+   * a helper returning an absolute URL built from the friendly alias would hand
+   * out a value the token check rejects.
+   */
+  it('returns a path rather than an absolute URL', () => {
+    expect(mcpAppEndpointPath('ops').startsWith('/')).toBe(true)
+    expect(mcpAppEndpointPath('ops')).not.toContain('://')
   })
 })
 
@@ -333,14 +356,24 @@ describe('error codes', () => {
   })
 })
 
-describe('central MCP gating (D5)', () => {
-  it('carries mcp_access_denied — the refusal a gated user meets at the central server', () => {
-    // The group flag `mcp_enabled` × the per-user `mcp_access` override
-    // decide MCP access (D5); when the answer is "no", the central MCP
-    // server refuses with this code, at token issue AND on every request.
-    // Produced by the cloud since 0.5.0 (`cloud/src/mcp-access.ts`), at both
-    // enforcement points; this pins the code the two of them agree on.
-    expect(ERROR_CODES).toContain('mcp_access_denied')
+describe('MCP gating after the two-space cut', () => {
+  /**
+   * **`mcp_access_denied` is gone because both of its inputs are.** It was the
+   * refusal from the group flag `orgGroup.mcp_enabled` crossed with the
+   * per-user override `orgUser.mcp_access`; groups and the override are deleted
+   * with no successor, and every Fleetless user reaches the central endpoint
+   * (D1). A code standing for a state nothing can enter is the "documented
+   * absence" this repository keeps paying for, so it went with them.
+   *
+   * What gates MCP now is per app: `appAuthConfig.mcp_enabled`, refused with
+   * `mcp_disabled` — a code that stood unproduced for a year while its switch
+   * did not exist, and has one again.
+   */
+  it('has dropped mcp_access_denied and kept mcp_disabled, which now has a switch behind it', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes).not.toContain('mcp_access_denied')
+    expect(codes).toContain('mcp_disabled')
+    expect('mcp_enabled' in contracts.appAuthConfig.shape).toBe(true)
     expect(new Set(ERROR_CODES).size).toBe(ERROR_CODES.length)
   })
 })

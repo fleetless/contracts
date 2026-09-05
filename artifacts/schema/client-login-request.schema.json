@@ -13,12 +13,12 @@
       "type": "string",
       "format": "email",
       "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
-      "description": "The end user's email address. Addresses are global across Fleetless rather than per app, so one person is one identity however many apps they reach."
+      "description": "The app user's address. Addresses are unique **per app**, not across Fleetless: the same address may be an unrelated account in another app of the same organisation, so this pair is what identifies a person here."
     },
     "password": {
       "type": "string",
       "minLength": 1,
-      "description": "The end user's password. A wrong pair is refused without saying which half was wrong, so a failed login is not an account-enumeration oracle."
+      "description": "The app user's password. A wrong pair is refused without saying which half was wrong — and a `blocked` or not-yet-verified account is refused identically, so a failed login is not an account-enumeration oracle in any of its three forms."
     }
   },
   "required": [

@@ -18,7 +18,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 120,
-      "description": "The display name, shown in the console and on the hosted login and consent pages. Free text, changed through `PATCH /api/apps/:id`."
+      "description": "The display name, shown in the console and available to the developer's own pages through the `app.name` mail-template variable. Free text, changed through `PATCH /api/apps/:id`."
     },
     "identifier": {
       "type": "string",
@@ -26,12 +26,6 @@
       "maxLength": 63,
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
       "description": "The stable handle a client sends at login, lowercase and underscore-separated. **Globally unique, not per organisation** — `clientLoginRequest` carries no org context to disambiguate with, so a collision is refused with `identifier_taken`."
-    },
-    "group_id": {
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-      "description": "The one group that owns this app. The app uses that group's auth provider, and only users of that group may hold an assignment for it. Changed through `PUT /api/apps/:id/group`, never through `updateAppRequest`, because re-linking cascade-deletes the assignments that stop being valid."
     },
     "robot_ids": {
       "type": "array",
@@ -41,10 +35,6 @@
         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
       },
       "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants."
-    },
-    "accepts_dynamic_clients": {
-      "type": "boolean",
-      "description": "Whether this app accepts **self-registering** OAuth clients through `POST /oauth/register`. Off by default and per app: a normal app's client is registered by the developer with known redirect URIs, and an app driven by an AI tool is the case that needs it."
     },
     "default_role_id": {
       "anyOf": [
@@ -57,7 +47,7 @@
           "type": "null"
         }
       ],
-      "description": "The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+      "description": "The role an app user gets when they are created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` is a `validation_error` rather than a user with no role. An invitation resolves the role when it is issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
     },
     "created_at": {
       "type": "string",
@@ -71,9 +61,7 @@
     "org_id",
     "name",
     "identifier",
-    "group_id",
     "robot_ids",
-    "accepts_dynamic_clients",
     "default_role_id",
     "created_at"
   ],

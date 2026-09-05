@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  orgUser,
+  fleetlessUser,
   patchOrgRequest,
   tierChangeRequest,
   patchAuthMeRequest,
@@ -57,8 +57,8 @@ describe('W3a — org, member and robot patches; slug rename', () => {
   })
 
   /**
-   * **The design's main defence, pinned explicitly.** `orgUser.display_name`
-   * (`orgMember`'s successor since the 2026-08-29 identity merge) is required
+   * **The design's main defence, pinned explicitly.** `fleetlessUser.display_name`
+   * (`orgMember`, then `orgUser`, now the team's own shape) is required
    * (nullable, not optional) precisely so that any mapper the cloud writes
    * from a database row to this shape is *forced* to carry the column across —
    * an `.optional()` or `.nullish()` field would let a mapper that forgot the
@@ -66,21 +66,18 @@ describe('W3a — org, member and robot patches; slug rename', () => {
    * go red the moment that requiredness is loosened; see the fix report for
    * the break-test run that confirmed it does.
    */
-  it('orgUser: display_name is required (nullable, not optional) — parsing without the key fails', () => {
+  it('fleetlessUser: display_name is required (nullable, not optional) — parsing without the key fails', () => {
     const withKey = {
       id: UUID,
       org_id: UUID2,
       email: 'a@b.de',
       display_name: null,
-      group_id: UUID2,
-      has_password: true,
-      mcp_access: 'default',
       tier: 'owner',
       created_at: NOW,
     }
-    expect(orgUser.safeParse(withKey).success).toBe(true)
+    expect(fleetlessUser.safeParse(withKey).success).toBe(true)
 
     const { display_name: _drop, ...withoutKey } = withKey
-    expect(orgUser.safeParse(withoutKey).success).toBe(false)
+    expect(fleetlessUser.safeParse(withoutKey).success).toBe(false)
   })
 })

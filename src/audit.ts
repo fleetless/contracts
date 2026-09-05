@@ -12,22 +12,29 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  */
 
 /**
- * The four kinds of actor the platform knows (§3.4). `label` is what a human
- * reads in the log — an email, a key name, a robot name — so the console
- * never has to resolve four different id kinds to render a row.
+ * The kinds of actor the platform knows. `label` is what a human reads in the
+ * log — an email, a key name, a robot name — so the console never has to
+ * resolve four different id kinds to render a row.
  *
- * **Seam — an unassigned residual (2026-08-29, D1), and the one of the three
- * most likely to be hit first.** `developer` / `end_user` are the merged
- * spaces' names. The federation plan wires impersonation attribution ("Admin A
- * as User B") into `recordAudit`'s actor resolution, which is exactly this
- * plumbing — but that plan does not say it changes this enum, so calling it
- * resolved there would be a promise nobody made. Whoever adds the `act`-claim
- * half should decide it then; renaming here first would leave every stored
- * audit row's `kind` disagreeing with its schema, and audit rows are the ones
- * this platform must never rewrite.
+ * **`end_user` stays, and it stays for the rows already written.** The
+ * two-space cut (2026-09-05, D1) replaced the org's one user pool with
+ * Fleetless users and per-app app users; every new row an app user writes
+ * carries `app_user`. But an audit log is the one thing this platform must
+ * never rewrite, and there are stored rows whose `kind` is `end_user`. Dropping
+ * the member would leave those rows failing their own schema — a log that
+ * cannot be read back is worse than one carrying a retired word.
+ *
+ * So this enum is deliberately **wider than what any producer emits**: nothing
+ * writes `end_user` any more, and nothing may start again. That is the kind of
+ * claim this repository has been wrong about before by leaving it unsaid, so it
+ * is said here rather than inferred from a `grep` somebody runs in a year.
+ *
+ * `developer` is a Fleetless user. It kept its name through both redesigns
+ * because it was always right about what it named: the person who configures
+ * robots.
  */
 export const auditActor = z.object({
-  kind: z.enum(['developer', 'end_user', 'server_key', 'bridge']),
+  kind: z.enum(['developer', 'end_user', 'app_user', 'server_key', 'bridge']),
   id: z.uuid(),
   label: z.string().min(1).max(200),
 })

@@ -6,10 +6,10 @@
       "type": "string",
       "enum": [
         "developer",
-        "end_user",
+        "app_user",
         "server_key"
       ],
-      "description": "Which of the three kinds of caller this is: a `developer` working through the console, an `end_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set."
+      "description": "Which of the three kinds of caller this is: a `developer` working through the console, an `app_user` holding a token from a client login, or a `server_key` used by server-side code. Stated outright rather than left to be inferred from which id happens to be set."
     },
     "developer_id": {
       "anyOf": [
@@ -22,9 +22,9 @@
           "type": "null"
         }
       ],
-      "description": "The developer behind this session, or `null` when `kind` is not `developer`."
+      "description": "The Fleetless user behind this session, or `null` when `kind` is not `developer`."
     },
-    "end_user_id": {
+    "app_user_id": {
       "anyOf": [
         {
           "type": "string",
@@ -35,7 +35,7 @@
           "type": "null"
         }
       ],
-      "description": "The end user behind this session, or `null` when `kind` is not `end_user`."
+      "description": "The app user behind this session, or `null` when `kind` is not `app_user`. An app user belongs to exactly one app and is unrelated to any Fleetless user with the same address."
     },
     "server_key_id": {
       "anyOf": [
@@ -87,29 +87,13 @@
           "type": "null"
         }
       ],
-      "description": "The email of the developer or end user behind this session, and `null` for a server key, which is not a person."
-    },
-    "act": {
-      "description": "Present only under impersonation, naming the organisation admin who is actually driving. The rest of this shape describes the identity they are acting **as**; absence means an ordinary session with nobody delegating, which is not the same fact as an unknown actor.",
-      "type": "object",
-      "properties": {
-        "admin_user_id": {
-          "type": "string",
-          "format": "uuid",
-          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-          "description": "The real admin's user id. Only the id travels; whoever renders the \"you are acting as …\" banner resolves the name itself rather than trusting a second unverified one on the wire."
-        }
-      },
-      "required": [
-        "admin_user_id"
-      ],
-      "additionalProperties": false
+      "description": "The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person."
     }
   },
   "required": [
     "kind",
     "developer_id",
-    "end_user_id",
+    "app_user_id",
     "server_key_id",
     "app_id",
     "role_id",

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "part": {
+      "type": "string",
+      "enum": [
+        "subject",
+        "text",
+        "html"
+      ],
+      "description": "Which of the three rendered parts failed."
+    },
+    "message": {
+      "type": "string",
+      "description": "The renderer's own message — the unknown variable, or the syntax error and where it is."
+    }
+  },
+  "required": [
+    "part",
+    "message"
+  ],
+  "additionalProperties": false
+}

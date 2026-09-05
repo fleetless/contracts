@@ -90,10 +90,67 @@ describe('the route manifest', () => {
     expect(Object.keys(IN_HANDLER_SECURITY).sort()).toEqual([...IN_HANDLER_ROUTES].sort())
   })
 
-  it('OAUTH_PATHS names no route the cloud deleted', async () => {
-    const { OAUTH_PATHS } = await import('../src/index.js')
-    expect(Object.keys(OAUTH_PATHS)).not.toContain('idpStart')
-    for (const p of Object.values(OAUTH_PATHS)) expect(ROUTES.some((r) => r.path === p), `${p} is not in the manifest`).toBe(true)
+  /**
+   * **`OAUTH_PATHS` is gone, and this test is what is left of the rule it
+   * carried.** The constant existed so two repositories could not spell a
+   * discovered path differently — and then reproduced the very defect it was
+   * created after, standing for months with an `idpStart` entry naming a route
+   * the cloud had deleted. Every one of its nine values named a route the
+   * app-user-auth cut removes, so the constant went with them.
+   *
+   * The rule survives as the manifest's own: a path a client discovers is
+   * declared here, and the cloud's `route-manifest.test.ts` asserts set
+   * equality in both directions. This asserts the constant stays gone, so a
+   * later reader does not re-introduce a second list beside the first.
+   */
+  it('declares the discoverable paths here and nowhere else', async () => {
+    const barrel = await import('../src/index.js')
+    expect('OAUTH_PATHS' in barrel).toBe(false)
+    for (const p of [
+      '/.well-known/oauth-authorization-server/mcp',
+      '/.well-known/oauth-protected-resource/mcp',
+      '/mcp/oauth/register',
+      '/mcp/oauth/token',
+    ]) {
+      expect(ROUTES.some((r) => r.path === p), `${p} is not in the manifest`).toBe(true)
+    }
+  })
+
+  /**
+   * The routes the app-level OAuth flow served. Set equality against the cloud
+   * is enforced there, not here — but a manifest that still listed one of these
+   * would make that test fail in the *other* repository, which is a worse place
+   * to find out.
+   */
+  it('lists none of the deleted app OAuth flow', () => {
+    const paths = new Set(ROUTES.map((r) => r.path))
+    for (const gone of [
+      '/oauth/authorize',
+      '/oauth/token',
+      '/oauth/register',
+      '/oauth/consent',
+      '/oauth/impersonate',
+      '/oauth/idp-callback',
+      '/login',
+      '/mcp-stub/resource',
+      '/.well-known/oauth-authorization-server',
+      '/.well-known/oauth-authorization-server/:appIdentifier',
+      '/.well-known/oauth-protected-resource',
+      '/api/apps/:id/oauth-clients',
+      '/api/apps/:id/branding',
+      '/api/apps/:id/group',
+      '/api/apps/:id/group-usage',
+      '/api/org/groups',
+      '/api/org/federation',
+      '/api/org/users/:id/assignments',
+      '/api/org/users/:id/move-group',
+      '/api/client/grants',
+    ]) {
+      expect(paths.has(gone), gone).toBe(false)
+    }
+    // Non-vacuity: the manifest is not simply empty.
+    expect(paths.has('/api/org/users')).toBe(true)
+    expect(paths.has('/mcp/oauth/token')).toBe(true)
   })
 })
 
@@ -108,7 +165,7 @@ describe('the route artifacts', () => {
     expect(existsSync(join(dir, 'routes.json'))).toBe(true)
     const onDisk = JSON.parse(readFileSync(join(dir, 'routes.json'), 'utf8'))
     expect(onDisk.routes.length).toBe(ROUTES.length)
-    expect(onDisk.routes.length).toBeGreaterThan(150)
+    expect(onDisk.routes.length).toBeGreaterThan(110)
     expect(onDisk.sections).toEqual(ROUTE_SECTIONS)
   })
 
@@ -274,14 +331,16 @@ describe('the parked-items round', () => {
     ])
   })
 
-  it('declares a query schema on the nine routes that read one by hand', () => {
+  /**
+   * Four of the nine routes this listed went with the app OAuth flow and the
+   * group model. The rule is unchanged: a route whose prose names a
+   * `?parameter=` declares a schema for it. `GET /api/org/users` left the list
+   * rather than the manifest — its group filter described a model with no
+   * successor, so it now takes no query at all.
+   */
+  it('declares a query schema on the routes that read one by hand', () => {
     for (const [m, p] of [
-      ['GET', '/oauth/authorize'],
-      ['POST', '/oauth/register'],
       ['GET', '/api/org/alerts'],
-      ['GET', '/api/org/users'],
-      ['GET', '/api/org/users/:id/usage'],
-      ['GET', '/api/apps/:id/group-usage'],
       ['DELETE', '/api/robots/:id'],
       ['GET', '/api/org/health'],
       ['GET', '/api/robots/:id/assets/missing'],

@@ -10,7 +10,7 @@
     "client_id": {
       "type": "string",
       "minLength": 1,
-      "description": "The OAuth client, registered in the console or dynamically — **not** the app identifier. Unknown, expired-dynamic and the one `central` client all collapse into the same `400 invalid_client`, answered without a redirect."
+      "description": "The OAuth client, self-registered or the one well-known central client — **not** the app identifier. Unknown, expired-dynamic and mismatched clients all collapse into the same `400 invalid_client`, answered without a redirect."
     },
     "redirect_uri": {
       "type": "string",
@@ -47,5 +47,5 @@
     "code_challenge",
     "code_challenge_method"
   ],
-  "description": "The authorization request of `GET /oauth/authorize`. The two parameters above `response_type` are validated first and refuse flat; every parameter after them reports to the callback."
+  "description": "The authorization request an MCP client sends. The two parameters above `response_type` are validated first and refuse flat; every parameter after them reports to the callback."
 }

@@ -6,7 +6,7 @@
       "type": "string",
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-      "description": "The role, and what `putAssignmentRequest` and an app's `default_role_id` refer to."
+      "description": "The role, and what an app user's `role_id` and an app's `default_role_id` refer to."
     },
     "app_id": {
       "type": "string",

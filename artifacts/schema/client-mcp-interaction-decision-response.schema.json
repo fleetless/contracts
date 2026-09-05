@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "redirect_to": {
+      "type": "string",
+      "format": "uri",
+      "description": "Send the browser here. It is the MCP client's own callback, carrying either the authorization code or `error=access_denied` — a denial redirects as well, so the client learns the outcome from the place it is waiting."
+    }
+  },
+  "required": [
+    "redirect_to"
+  ],
+  "additionalProperties": false
+}
