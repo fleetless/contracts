@@ -207,7 +207,7 @@ export const oauthClient = z.object({
     description: 'When an unused `dynamic` client is swept away, or `null` once it has completed its first token exchange. A `developer` client is always `null` — it is a configured thing that should not vanish under whoever configured it.',
   }),
   last_used_at: z.iso.datetime().nullable().meta({
-    description: 'When this client was last used, or `null` if it never has been.',
+    description: 'When this client last exchanged an **authorization code** for a token, or `null` if it never has. Only that grant stamps it: refreshing a token does not, so a client that logged a user in once and has lived on refresh tokens since keeps an old value here. Read it as *last sign-in through this client*, not as *last seen*.',
   }),
 })
 export type OauthClient = z.infer<typeof oauthClient>

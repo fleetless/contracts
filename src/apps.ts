@@ -83,27 +83,35 @@ export const app = z.object({
     description: 'Whether this app accepts **self-registering** OAuth clients through `POST /oauth/register`. Off by default and per app: a normal app\'s client is registered by the developer with known redirect URIs, and an app driven by an AI tool is the case that needs it.',
   }),
   /**
-   * **The app's default role** (2026-08-29 identity redesign, D1: *"role +
-   * rights matrix and default role in app settings"*).
+   * **The app's default role, and it has exactly one reader left.**
    *
-   * Two consumers, one field. The console prefills it when an admin assigns a
-   * user (`putAssignmentRequest` still carries the role explicitly — a
-   * prefill is not a default the server applies), and the cloud authorizes an
-   * **org admin** with it: admins hold no assignments (see `appAssignment`),
-   * so an app login by one has to get its role from somewhere, and until D4's
-   * impersonation interstitial lands this is that somewhere.
+   * The console prefills the role picker with it when an admin assigns a user
+   * to this app; `putAssignmentRequest` still carries the role explicitly, so
+   * a prefill is a suggestion in a form and not a default the server applies.
+   * Nothing in the cloud authorizes anybody with this field.
+   *
+   * **It used to have a second reader and no longer does.** Through the
+   * identity redesign it was also the role an org admin authorized with, since
+   * an admin holds no assignment to read one from. That shim was removed with
+   * the OIDC federation work: `appAccessFor` is now purely the assignment
+   * check, and an admin reaches an app through the impersonation interstitial,
+   * which mints a token carrying both the effective identity and the real
+   * admin. There is no by-name fallback to a builtin role anywhere in that
+   * path — an earlier version of this comment said there was, and there was
+   * not.
    *
    * `null` — and nullable rather than absent — means *this app has not chosen
    * one*. That is a normal state, not an unset field: every app is created
-   * before its roles are configured, and the cloud falls back to the
-   * least-privileged builtin (`observe`) by name rather than picking a role by
-   * position. An app whose default role is deleted lands back here.
+   * before its roles are configured, and the console then falls back to the
+   * first role it lists. The column is `ON DELETE SET NULL` so that a deleted
+   * role can never be left dangling here, but no route deletes a role, so
+   * nothing exercises that today.
    *
    * The role must belong to **this** app; the schema sees a uuid and cannot
    * check that, so `PATCH /api/apps/:id` does.
    */
   default_role_id: z.uuid().nullable().meta({
-    description: 'The role the console prefills when an admin assigns a user, and the role an **org admin** logs in with — admins hold no assignments of their own. `null` means this app has not chosen one, which is the normal state of a freshly created app and where an app whose default role was deleted lands; the cloud then falls back to the built-in `observe` role by name. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
+    description: 'The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
   }),
   created_at: z.iso.datetime().meta({
     description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
@@ -255,7 +263,7 @@ export const role = z.object({
     description: 'The role\'s name, shown wherever a user\'s access is chosen. The two roles every app starts with are named `observe` and `operate`.',
   }),
   builtin: z.boolean().meta({
-    description: '`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them.',
+    description: '`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role\'s, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable, because no route renames or deletes any role.',
   }),
 })
 export type Role = z.infer<typeof role>

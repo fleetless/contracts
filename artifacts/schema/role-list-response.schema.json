@@ -27,7 +27,7 @@
           },
           "builtin": {
             "type": "boolean",
-            "description": "`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them."
+            "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable, because no route renames or deletes any role."
           }
         },
         "required": [

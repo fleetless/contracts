@@ -62,7 +62,7 @@
                 "type": "null"
               }
             ],
-            "description": "The role the console prefills when an admin assigns a user, and the role an **org admin** logs in with — admins hold no assignments of their own. `null` means this app has not chosen one, which is the normal state of a freshly created app and where an app whose default role was deleted lands; the cloud then falls back to the built-in `observe` role by name. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+            "description": "The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
           },
           "created_at": {
             "type": "string",

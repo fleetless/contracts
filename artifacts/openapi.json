@@ -7344,7 +7344,7 @@
                 "type": "null"
               }
             ],
-            "description": "The role the console prefills when an admin assigns a user, and the role an **org admin** logs in with — admins hold no assignments of their own. `null` means this app has not chosen one, which is the normal state of a freshly created app and where an app whose default role was deleted lands; the cloud then falls back to the built-in `observe` role by name. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+            "description": "The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
           },
           "created_at": {
             "type": "string",
@@ -7493,7 +7493,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "The role the console prefills when an admin assigns a user, and the role an **org admin** logs in with — admins hold no assignments of their own. `null` means this app has not chosen one, which is the normal state of a freshly created app and where an app whose default role was deleted lands; the cloud then falls back to the built-in `observe` role by name. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+                  "description": "The role the console prefills in the picker when an admin assigns a user to this app. It is a prefill and nothing more — `putAssignmentRequest` always carries the role explicitly, and **no part of the cloud authorizes anybody with this field**. `null` means this app has not chosen one, the normal state of an app created before its roles were configured, and the console then offers the first role it lists instead. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
                 },
                 "created_at": {
                   "type": "string",
@@ -12826,7 +12826,7 @@
                 "type": "null"
               }
             ],
-            "description": "When this client was last used, or `null` if it never has been."
+            "description": "When this client last exchanged an **authorization code** for a token, or `null` if it never has. Only that grant stamps it: refreshing a token does not, so a client that logged a user in once and has lived on refresh tokens since keeps an old value here. Read it as *last sign-in through this client*, not as *last seen*."
           }
         },
         "required": [
@@ -12923,7 +12923,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "When this client was last used, or `null` if it never has been."
+                  "description": "When this client last exchanged an **authorization code** for a token, or `null` if it never has. Only that grant stamps it: refreshing a token does not, so a client that logged a user in once and has lived on refresh tokens since keeps an old value here. Read it as *last sign-in through this client*, not as *last seen*."
                 }
               },
               "required": [
@@ -14974,7 +14974,7 @@
           },
           "builtin": {
             "type": "boolean",
-            "description": "`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them."
+            "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable, because no route renames or deletes any role."
           }
         },
         "required": [
@@ -15013,7 +15013,7 @@
                 },
                 "builtin": {
                   "type": "boolean",
-                  "description": "`true` for the two roles every app starts with. They may be renamed and re-scoped like any other role; the flag exists so the console can explain where they came from, not to protect them."
+                  "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable, because no route renames or deletes any role."
                 }
               },
               "required": [
