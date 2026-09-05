@@ -26,8 +26,8 @@ describe('name grammar', () => {
     }
   })
 
-  it('reserves three built-in slugs, spelled with underscores', () => {
-    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'robot_details', 'bridge_pressure'])
+  it('reserves the three built-in slugs, spelled with underscores, and `history`', () => {
+    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'robot_details', 'bridge_pressure', 'history'])
   })
 })
 

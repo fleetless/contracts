@@ -101,6 +101,10 @@ export const org = z.object({
 })
 export type Org = z.infer<typeof org>
 
+/** What `PATCH /api/org` answers: the org as it now stands. */
+export const patchOrgResponse = z.object({ org })
+export type PatchOrgResponse = z.infer<typeof patchOrgResponse>
+
 /**
  * **A group: the unit that owns apps, carries the auth provider, and gates the
  * MCP** (D1, D2). Exactly one group per org has `is_org_admins`; it is

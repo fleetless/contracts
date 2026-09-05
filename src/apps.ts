@@ -93,6 +93,10 @@ export const app = z.object({
 })
 export type App = z.infer<typeof app>
 
+/** What `GET /api/apps` answers: every app in the caller's org, in one envelope. */
+export const appListResponse = z.object({ apps: z.array(app) })
+export type AppListResponse = z.infer<typeof appListResponse>
+
 /**
  * **`robot_ids` is accepted here, and `.strict()` catches everything else
  * (W7a).** Through W7 this shape carried `name` and `identifier` only, robots
@@ -188,6 +192,10 @@ export const serverKey = z.object({
 })
 export type ServerKey = z.infer<typeof serverKey>
 
+/** What `GET /api/apps/:id/server-keys` answers — metadata only; the raw secret exists once, in `createServerKeyResponse`, and never here. */
+export const serverKeyListResponse = z.object({ server_keys: z.array(serverKey) })
+export type ServerKeyListResponse = z.infer<typeof serverKeyListResponse>
+
 export const createServerKeyResponse = z.object({
   server_key: serverKey,
   key: serverKeyToken,
@@ -207,6 +215,10 @@ export const role = z.object({
   builtin: z.boolean(),
 })
 export type Role = z.infer<typeof role>
+
+/** What `GET /api/apps/:id/roles` answers: the app's roles, builtin and custom alike. */
+export const roleListResponse = z.object({ roles: z.array(role) })
+export type RoleListResponse = z.infer<typeof roleListResponse>
 
 /**
  * The rights matrix of one role: which slugs of which robot it may use, plus

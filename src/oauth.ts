@@ -194,6 +194,10 @@ export const oauthClient = z.object({
 })
 export type OauthClient = z.infer<typeof oauthClient>
 
+/** What `GET /api/apps/:id/oauth-clients` answers: developer-registered and self-registered clients in one list, each carrying its `registration`. */
+export const oauthClientListResponse = z.object({ oauth_clients: z.array(oauthClient) })
+export type OauthClientListResponse = z.infer<typeof oauthClientListResponse>
+
 /**
  * RFC 7591, the subset this server accepts. `.strict()` because a registration
  * request that silently strips is a registration request that lies quietly —
@@ -786,3 +790,61 @@ export const OAUTH_PATHS = {
    */
   impersonate: '/oauth/impersonate',
 } as const
+
+/**
+ * The query of `GET /oauth/authorize` (RFC 6749 §4.1.1 with PKCE, RFC 7636).
+ *
+ * **The cloud reads every parameter by hand, and that is not an omission** —
+ * each failure has its own answer. `client_id` and `redirect_uri` are refused
+ * flat, with no redirect, because until both are confirmed there is no trusted
+ * target to bounce a browser to; everything after them is reported to the
+ * client's own callback as query parameters. A single `safeParse` would
+ * collapse those two answers into one. So this schema pins the successful
+ * shape and the documentation, not the error path.
+ */
+export const oauthAuthorizeQuery = z
+  .object({
+    response_type: z.literal('code').meta({
+      description: 'Always `code`. RFC 6749 §4.1.2.1 names `unsupported_response_type` for any other value, but `oauthErrorCode` has no such member — this server issues no other grant from this endpoint — so an unsupported value comes back on the callback as `invalid_request`.',
+    }),
+    client_id: z.string().min(1).meta({
+      description: 'The OAuth client, registered in the console or dynamically — **not** the app identifier. Unknown, expired-dynamic and the one `central` client all collapse into the same `400 invalid_client`, answered without a redirect.',
+    }),
+    redirect_uri: z.string().min(1).meta({
+      description: 'One of the client\'s registered redirect URIs, compared **exactly** — string equality against the registered list, never a prefix or a host match. Both the shape (`redirectUri`) and the registration are checked, and a failure of either is a `400 invalid_request` with no redirect.',
+    }),
+    code_challenge: z.string().min(1).meta({
+      description: 'The PKCE challenge; the verifier is presented at the token endpoint. Only non-emptiness is checked here — length and alphabet are not — since the verifier is what actually has to match.',
+    }),
+    code_challenge_method: z.literal('S256').meta({
+      description: 'Only `S256`. `plain` is refused: a challenge equal to its verifier defends against nothing.',
+    }),
+    state: z.string().optional().meta({
+      description: 'Returned unchanged on the callback, and on the error redirect too, so a client can bind either answer to its own request.',
+    }),
+    resource: z.string().optional().meta({
+      description: 'RFC 8707 resource indicator: the API origin or the MCP endpoint the token is for. Checked against the resources this server issues tokens for **on behalf of this client\'s app**; a mismatch is `invalid_target` on the callback.',
+    }),
+    scope: z.string().optional().meta({
+      description: 'Space-separated scopes. Carried onto the interaction and read again at consent — **nothing is enforced at this step**, so an unknown scope is not a refusal here.',
+    }),
+  })
+  .meta({
+    description: 'The authorization request of `GET /oauth/authorize`. The two parameters above `response_type` are validated first and refuse flat; every parameter after them reports to the callback.',
+  })
+export type OauthAuthorizeQuery = z.infer<typeof oauthAuthorizeQuery>
+
+/**
+ * The query of `POST /oauth/register`: which app the dynamic client belongs to.
+ *
+ * It rides in the query because RFC 7591's request body has no field for it
+ * and one registration endpoint serves every app.
+ */
+export const oauthRegisterQuery = z
+  .object({
+    app_identifier: z.string().min(1).meta({
+      description: 'The app the dynamic client registers under, as `appIdentifier` spells it. Required: missing and unknown answer the same `400 invalid_request` in the `oauthError` dialect. Whether that app *accepts* dynamic clients is a separate, later refusal (`access_denied`).',
+    }),
+  })
+  .meta({ description: 'The query of `POST /oauth/register` — the one parameter RFC 7591 has no body field for.' })
+export type OauthRegisterQuery = z.infer<typeof oauthRegisterQuery>

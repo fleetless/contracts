@@ -197,6 +197,7 @@ export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf }
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {
   robot,
+  patchRobotResponse,
   robotToken,
   createRobotRequest,
   createRobotResponse,
@@ -217,6 +218,7 @@ export {
   datapointDescriptor,
   datapointListResponse,
   robotDetailsDoc,
+  putRobotDetailsResponse,
   putRobotDetailsRequest,
   invokeRequest,
   invokeResponse,
@@ -290,6 +292,7 @@ export type { LatencyBucket, RobotLatencySeries, OrgLatencyResponse } from './re
 export type { UsageMetric, OrgUsageQuery, UsageRow, OrgUsageResponse } from './rest.js'
 export type {
   Robot,
+  PatchRobotResponse,
   CreateRobotRequest,
   CreateRobotResponse,
   ExposureCounts,
@@ -309,6 +312,7 @@ export type {
   DatapointDescriptor,
   DatapointListResponse,
   RobotDetailsDoc,
+  PutRobotDetailsResponse,
   PutRobotDetailsRequest,
   InvokeRequest,
   InvokeResponse,
@@ -385,6 +389,7 @@ export type {
 export {
   password,
   org,
+  patchOrgResponse,
   sessionTokens,
   refreshRequest,
   signUpRequest,
@@ -444,6 +449,7 @@ export {
 } from './identity.js'
 export type {
   Org,
+  PatchOrgResponse,
   SessionTokens,
   RefreshRequest,
   SignUpRequest,
@@ -495,22 +501,28 @@ export type {
 export {
   appIdentifier,
   app,
+  appListResponse,
   createAppRequest,
   updateAppRequest,
   serverKeyToken,
   serverKey,
+  serverKeyListResponse,
   createServerKeyResponse,
   role,
+  roleListResponse,
   rolePermissions,
   brandingConfig,
 } from './apps.js'
 export type {
   App,
+  AppListResponse,
   CreateAppRequest,
   UpdateAppRequest,
   ServerKey,
+  ServerKeyListResponse,
   CreateServerKeyResponse,
   Role,
+  RoleListResponse,
   RolePermissions,
   BrandingConfig,
 } from './apps.js'
@@ -567,6 +579,7 @@ export {
   datapointAlertRow,
   alertListResponse,
   orgFiringAlertsResponse,
+  orgAlertsQuery,
   datapointDisplay,
   putDatapointDisplayRequest,
 } from './alerts.js'
@@ -577,6 +590,7 @@ export type {
   DatapointAlertRow,
   AlertListResponse,
   OrgFiringAlertsResponse,
+  OrgAlertsQuery,
   DatapointDisplay,
   PutDatapointDisplayRequest,
 } from './alerts.js'
@@ -597,6 +611,9 @@ export {
   redirectUri,
   codeChallengeMethod,
   oauthClient,
+  oauthClientListResponse,
+  oauthAuthorizeQuery,
+  oauthRegisterQuery,
   dynamicClientRegistrationRequest,
   dynamicClientRegistrationResponse,
   authorizationServerMetadata,
@@ -622,6 +639,9 @@ export type {
   OauthTokenResponse,
   RedirectUri,
   OauthClient,
+  OauthClientListResponse,
+  OauthAuthorizeQuery,
+  OauthRegisterQuery,
   DynamicClientRegistrationRequest,
   DynamicClientRegistrationResponse,
   AuthorizationServerMetadata,

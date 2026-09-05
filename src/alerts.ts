@@ -163,6 +163,23 @@ export const orgFiringAlertsResponse = z.object({
 export type OrgFiringAlertsResponse = z.infer<typeof orgFiringAlertsResponse>
 
 /**
+ * The query of `GET /api/org/alerts`: only the firing set is served.
+ *
+ * A schema for a one-value parameter looks like ceremony, and it is not: the
+ * route **refuses** anything else rather than ignoring it, so the single
+ * accepted value is a contract a caller can read off the parameter table
+ * instead of discovering as a `400`.
+ */
+export const orgAlertsQuery = z
+  .object({
+    state: z.literal('firing').meta({
+      description: 'Required, and the only accepted value — this endpoint lists the alerts that are firing now. Anything else, the parameter\'s absence included, is `400 validation_error`: a door with one answer must not advertise a dial.',
+    }),
+  })
+  .meta({ description: 'The query of `GET /api/org/alerts`. One required parameter with one accepted value.' })
+export type OrgAlertsQuery = z.infer<typeof orgAlertsQuery>
+
+/**
  * `GET /api/robots/:id/datapoints/:slug/display` — chart display config from
  * the modal's Chart tab (D1, D4). `robot_id`/`slug` live in the path, not
  * the body; there is exactly one row per `(robot_id, slug)`, so there is

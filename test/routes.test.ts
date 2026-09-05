@@ -212,3 +212,93 @@ describe('the route artifacts', () => {
     }
   })
 })
+
+/**
+ * The parked items carried over from the 0.15.0 route-manifest round: the
+ * routes whose shape the manifest knew only in prose.
+ */
+describe('the parked-items round', () => {
+  it('names the invitation routes under /api/org/invitations and nothing under /api/org/users/invitations', () => {
+    const keys = ROUTES.map(key)
+    for (const k of [
+      'POST /api/org/invitations',
+      'GET /api/org/invitations',
+      'DELETE /api/org/invitations/:id',
+      'POST /api/org/invitations/:id/reissue',
+      'POST /api/org/invitations/accept',
+    ]) expect(keys).toContain(k)
+    expect(keys.filter((k) => k.includes('/api/org/users/invitations'))).toEqual([])
+  })
+
+  it('leaves no prose in the manifest naming the retired invitation prefix', () => {
+    // The paths above are the easy half. A `notes` or a param description still
+    // spelling `/api/org/users/invitations` documents a route that answers 404,
+    // which is the "documented answer no caller can receive" failure this file
+    // exists to catch — and it is invisible to the path assertion above.
+    const stale = ROUTES.filter((r) =>
+      [r.summary, r.notes ?? '', ...r.params.map((p) => p.description)].some((t) => t.includes('/api/org/users/invitations')),
+    )
+    expect(stale.map(key)).toEqual([])
+  })
+
+  it('gives every documented JSON route a response schema or a content type', () => {
+    const silent = ROUTES.filter(
+      (r) =>
+        r.audience !== 'internal' &&
+        r.transport === 'http' &&
+        r.response === null &&
+        r.contentType === undefined &&
+        ![204, 302, 202, 404].includes(r.status) &&
+        r.path !== '/mcp',
+    )
+    expect(silent.map(key)).toEqual([])
+  })
+
+  it('contentType implies no schema and http', () => {
+    for (const r of ROUTES.filter((r) => r.contentType !== undefined)) {
+      expect(r.response, key(r)).toBeNull()
+      expect(r.transport).toBe('http')
+      expect(r.contentType).toMatch(/^[a-z]+\/[a-z0-9.+*-]+$/)
+    }
+    expect(ROUTES.filter((r) => r.contentType !== undefined).map(key).sort()).toEqual([
+      'GET /api/asset-links/:token',
+      'GET /api/audit/export',
+      'GET /api/robots/:id/assets/:assetId',
+      'GET /api/robots/:id/cameras/:slug/snapshot',
+      'GET /api/robots/:id/urdf',
+    ])
+  })
+
+  it('declares a query schema on the three routes that read one by hand', () => {
+    const q = (m: string, p: string) => ROUTES.find((r) => r.method === m && r.path === p)?.query
+    expect(q('GET', '/oauth/authorize')).not.toBeNull()
+    expect(q('POST', '/oauth/register')).not.toBeNull()
+    expect(q('GET', '/api/org/alerts')).not.toBeNull()
+  })
+
+  it('reserves every literal segment that shadows a slug in the same collection', async () => {
+    // **Why `history` is in `RESERVED_SLUGS` at all**, asserted rather than
+    // left in a comment: `GET /api/robots/:id/jobs/history` is a literal
+    // sibling of `GET /api/robots/:id/jobs/:slug`, so an action named
+    // `history` would have a job route no caller can reach. The manifest is
+    // what decides this, which is why the guard lives here rather than beside
+    // the constant — remove either half and it goes red.
+    //
+    // Derived from `:slug` positions rather than written as a list, so a
+    // literal added beside a future slug collection is swept the day it
+    // exists. The **prefix** is what makes a sibling: the first draft matched
+    // any path ending `/jobs/<word>` and flagged `GET /api/org/jobs/summary`,
+    // which is a different collection with no `:slug` in it at all — a guard
+    // shaped like the assumption instead of like the collision.
+    const { RESERVED_SLUGS } = await import('../src/index.js')
+    const prefixes = new Set(ROUTES.filter((r) => r.path.endsWith('/:slug')).map((r) => r.path.slice(0, -'/:slug'.length)))
+    expect(prefixes.size, 'no :slug route to be shadowed').toBeGreaterThan(0)
+    const siblings = ROUTES.filter(
+      (r) => [...prefixes].some((p) => r.path.startsWith(`${p}/`) && !r.path.slice(p.length + 1).includes('/')) && !r.path.endsWith('/:slug'),
+    ).map((r) => r.path.slice(r.path.lastIndexOf('/') + 1))
+    // Named, so that a sibling silently disappearing turns this into the
+    // vacuous `.every()` over an empty array rather than a green run.
+    expect([...new Set(siblings)].sort()).toEqual(['history'])
+    for (const l of siblings) expect([...RESERVED_SLUGS], `a literal \`${l}\` segment shadows a slug of that name`).toContain(l)
+  })
+})

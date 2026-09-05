@@ -17,6 +17,10 @@ export const robot = z.object({
 })
 export type Robot = z.infer<typeof robot>
 
+/** What `PATCH /api/robots/:id` answers: the robot as it now stands. */
+export const patchRobotResponse = z.object({ robot })
+export type PatchRobotResponse = z.infer<typeof patchRobotResponse>
+
 export const createRobotRequest = z.object({
   name: z.string().min(1).max(63),
 })
@@ -297,6 +301,10 @@ export const robotDetailsDoc = z.record(
   z.union([z.string().max(4096), z.number(), z.boolean(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
 )
 export type RobotDetailsDoc = z.infer<typeof robotDetailsDoc>
+
+/** What `PUT /api/robots/:id/details` answers: the stored document, which is the one that was sent. */
+export const putRobotDetailsResponse = z.object({ details: robotDetailsDoc })
+export type PutRobotDetailsResponse = z.infer<typeof putRobotDetailsResponse>
 
 export const putRobotDetailsRequest = z.object({ details: robotDetailsDoc })
 export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
@@ -585,10 +593,10 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `DELETE /api/org/users/:id/assignments/:appId` | —                       | 204 |
  * | `GET    /api/apps/:id/group-usage?group_id=` | —                         | `groupUsageResponse` — the re-link preview |
  * | `PUT    /api/apps/:id/group`                | `putAppGroupRequest`       | `app` — cascade, behind the acknowledgement |
- * | `POST   /api/org/users/invitations`         | `createUserInviteRequest`  | `userInvite` |
- * | `GET    /api/org/users/invitations`         | —                          | `userInviteListResponse` — pending only, **no tokens** |
- * | `DELETE /api/org/users/invitations/:id`     | —                          | 204 |
- * | `POST   /api/org/users/invitations/accept`  | `acceptUserInviteRequest`  | 204 — unauthenticated, **and the login is created; sign in next** |
+ * | `POST   /api/org/invitations`               | `createUserInviteRequest`  | `userInvite` |
+ * | `GET    /api/org/invitations`               | —                          | `userInviteListResponse` — pending only, **no tokens** |
+ * | `DELETE /api/org/invitations/:id`           | —                          | 204 |
+ * | `POST   /api/org/invitations/accept`        | `acceptUserInviteRequest`  | 204 — unauthenticated, **and the login is created; sign in next** |
  * | `POST   /api/auth/password/change`          | `passwordChangeRequest`    | `sessionTokens` — authenticated, **console** |
  * | `POST   /api/auth/password/reset`           | `passwordResetRequest`     | 202 — unauthenticated, **always the same answer** |
  * | `POST   /api/auth/password/reset/confirm`   | `passwordResetConfirm`     | 204 — unauthenticated |

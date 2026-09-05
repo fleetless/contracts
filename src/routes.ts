@@ -26,8 +26,19 @@
  * (`preHandler` names, `preParsing` names, an anonymous rate limiter).
  */
 import type { ZodType } from 'zod'
-import { brandingConfig, createAppRequest, createServerKeyResponse, app as appSchema, rolePermissions, updateAppRequest } from './apps.js'
-import { alertListResponse, orgFiringAlertsResponse } from './alerts.js'
+import {
+  appListResponse,
+  brandingConfig,
+  createAppRequest,
+  createServerKeyResponse,
+  app as appSchema,
+  role,
+  roleListResponse,
+  rolePermissions,
+  serverKeyListResponse,
+  updateAppRequest,
+} from './apps.js'
+import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
 import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
 import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientLogoutResponse, clientRefreshRequest } from './client-auth.js'
@@ -54,6 +65,7 @@ import {
   patchAuthMeRequest,
   patchGroupRequest,
   patchOrgRequest,
+  patchOrgResponse,
   patchUserRequest,
   putAppGroupRequest,
   putAssignmentRequest,
@@ -76,9 +88,12 @@ import {
   consentRevokeResponse,
   dynamicClientRegistrationRequest,
   dynamicClientRegistrationResponse,
+  oauthAuthorizeQuery,
   oauthClient,
+  oauthClientListResponse,
   oauthLoginRequest,
   oauthRedirectResponse,
+  oauthRegisterQuery,
   oauthTokenRequest,
   oauthTokenResponse,
   protectedResourceMetadata,
@@ -109,10 +124,12 @@ import {
   orgUsageQuery,
   orgUsageResponse,
   patchRobotRequest,
+  patchRobotResponse,
   publishConfigResponse,
   publishRequest,
   putConfigDraftRequest,
   putRobotDetailsRequest,
+  putRobotDetailsResponse,
   releaseLiveQuery,
   renameSlugRequest,
   renameSlugResponse,
@@ -173,6 +190,17 @@ export interface RouteEntry {
    */
   readonly requestOptional?: true
   readonly response: ZodType | null
+  /**
+   * For routes that answer bytes rather than JSON: the media type, or a family
+   * such as `image/*` where the producer decides it. Implies `response: null`.
+   *
+   * It exists because `response: null` alone says two different things — *this
+   * route sends no body* and *this route sends a body contracts cannot
+   * describe* — and the generated reference rendered both as **returns
+   * nothing**. Five routes that hand back a CSV, an XML document, a camera
+   * frame or an asset were documented as answering nothing at all.
+   */
+  readonly contentType?: string
   readonly errors: readonly ErrorCode[]
   readonly transport: RouteTransport
   /** Markdown rendered under the route; the place for what the schema cannot say. */
@@ -393,10 +421,10 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/audit/export', section: 'org',
     summary: 'Downloads every audit event matching the same filters as a CSV attachment.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: auditQuery, request: null, response: null,
+    params: [], query: auditQuery, request: null, response: null, contentType: 'text/csv',
     errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
     notes:
-      'Answers `text/csv` with a `Content-Disposition` attachment, not JSON — so it has no response schema. `AUDIT_CSV_COLUMNS` names the ' +
+      'Answers `text/csv; charset=utf-8` with a `Content-Disposition` attachment, not JSON — so it has no response schema. `AUDIT_CSV_COLUMNS` names the ' +
       'columns and their order. Takes the same filters as `GET /api/audit` but refuses `before_seq` and `limit` with `400 validation_error`: ' +
       'an export is not a page, it is everything the filter matches up to a fixed row ceiling.',
   },
@@ -417,9 +445,9 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/apps', section: 'apps',
     summary: "Lists every app in the caller's org.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null,
+    params: [], query: null, request: null, response: appListResponse,
     errors: [...DEVELOPER_GUARD], transport: 'http',
-    notes: 'Answers `{ "apps": [app, …] }`. The envelope has no schema of its own in contracts; each element is an `app`.',
+    notes: 'Answers `{ "apps": [app, …] }` — the whole org, unpaged; an org\'s app count is bounded by quota.',
   },
   {
     method: 'GET', path: '/api/apps/:id', section: 'apps',
@@ -446,20 +474,21 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Creates a custom role on the app.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: role,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
       'The body is `{ "name": string }` — non-empty, trimmed, at most 120 characters — and is deliberately not a contract shape: contracts ' +
-      'define the `role` this answers with, not this one trivial request. The answer is a `role`.',
+      'define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the ' +
+      'listing beside it.',
   },
   {
     method: 'GET', path: '/api/apps/:id/roles', section: 'apps',
     summary: "Lists the app's roles, builtin and custom.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: roleListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Answers `{ "roles": [role, …] }`. The envelope has no schema of its own in contracts; each element is a `role`.',
+    notes: 'Answers `{ "roles": [role, …] }`, builtin roles included — a role a developer never created is still one a user can hold.',
   },
   {
     method: 'PUT', path: '/api/apps/:id/roles/:roleId/permissions', section: 'apps',
@@ -520,12 +549,11 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Lists the app's server keys as metadata, never the secrets.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: serverKeyListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Answers `{ "server_keys": [serverKey, …] }`. The envelope has no schema of its own in contracts; each element is a `serverKey`, which ' +
-      'names the five fields it carries rather than spreading the stored row — that is what keeps this listing from becoming a second place a ' +
-      'credential leaves the cloud.',
+      'Answers `{ "server_keys": [serverKey, …] }`. `serverKey` names the five fields it carries rather than spreading the stored row — that ' +
+      'is what keeps this listing from becoming a second place a credential leaves the cloud.',
   },
   {
     method: 'POST', path: '/api/apps/:id/server-keys/:keyId/rotate', section: 'apps',
@@ -637,7 +665,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
   },
   {
-    method: 'POST', path: '/api/org/users/invitations', section: 'users',
+    method: 'POST', path: '/api/org/invitations', section: 'users',
     summary: 'Invites an address into a group and returns the accept link.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [], query: null, request: createUserInviteRequest, response: userInvite,
@@ -646,10 +674,12 @@ export const ROUTES: readonly RouteEntry[] = [
       'One invitation flow for every group; what the invitee becomes is `group_id`. **Inviting an Owner is Owner-only** — an invitation ' +
       'carrying `tier: "owner"` is a promotion with an extra step, since the response hands back the `accept_url`. `ownerTier` is `false` ' +
       'here because the gate is on that value, not on the route: any org admin may invite a developer. A tier is required for the Org Admins ' +
-      'group and refused for every other.',
+      'group and refused for every other. **This collection sits beside `/api/org/users`, not under it**: an invitation is not a user yet, and ' +
+      'the old spelling put a literal `invitations` where `GET /api/org/users/:id` expects a uuid — reachable only because a router ranks a ' +
+      'static segment above a parametric one. A path that reads correctly only under one routing library\'s tie-break is a path worth moving.',
   },
   {
-    method: 'GET', path: '/api/org/users/invitations', section: 'users',
+    method: 'GET', path: '/api/org/invitations', section: 'users',
     summary: 'Lists the pending invitations of the org, without their tokens.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: userInviteListResponse,
@@ -659,19 +689,19 @@ export const ROUTES: readonly RouteEntry[] = [
       'address they merely control, not so anyone can re-read a link.',
   },
   {
-    method: 'DELETE', path: '/api/org/users/invitations/:id', section: 'users',
+    method: 'DELETE', path: '/api/org/invitations/:id', section: 'users',
     summary: 'Revokes a pending invitation so its link stops resolving.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The invitation\'s uuid, as listed by `GET /api/org/users/invitations`.' }],
+    params: [{ name: 'id', description: 'The invitation\'s uuid, as listed by `GET /api/org/invitations`.' }],
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes: 'An invitation that was already accepted is not pending and answers `404`, the same answer one that never existed gets.',
   },
   {
-    method: 'POST', path: '/api/org/users/invitations/:id/reissue', section: 'users',
+    method: 'POST', path: '/api/org/invitations/:id/reissue', section: 'users',
     summary: 'Mints a fresh token onto the same invitation and returns the new accept link.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The invitation\'s uuid, as listed by `GET /api/org/users/invitations`.' }],
+    params: [{ name: 'id', description: 'The invitation\'s uuid, as listed by `GET /api/org/invitations`.' }],
     query: null, request: null, response: userInvite,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'rate_limited'], transport: 'http',
     notes:
@@ -681,7 +711,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'owner-tier invitation needs Owner tier, exactly as creating one does.',
   },
   {
-    method: 'POST', path: '/api/org/users/invitations/accept', section: 'users',
+    method: 'POST', path: '/api/org/invitations/accept', section: 'users',
     summary: 'Spends an invitation token and creates the login it was addressed to.',
     audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 204,
     params: [], query: null, request: acceptUserInviteRequest, response: null,
@@ -698,7 +728,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'token', description: 'The opaque invitation token from the mailed link; it is never sent as a query parameter.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
-      'HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/users/invitations/accept`. An unknown, ' +
+      'HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/invitations/accept`. An unknown, ' +
       'spent or expired token renders the "link no longer valid" page at `410`, which offers the password-reset page — the only self-service ' +
       'door the portal has, since an invitation cannot be re-issued by the person holding it.',
   },
@@ -881,10 +911,10 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'PATCH', path: '/api/org', section: 'org',
     summary: 'Renames the org.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
-    params: [], query: null, request: patchOrgRequest, response: null,
+    params: [], query: null, request: patchOrgRequest, response: patchOrgResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error'], transport: 'http',
     notes:
-      'Answers `{ "org": org }`. The envelope has no schema of its own in contracts; the value is an `org`. Owner tier, and the gate runs ' +
+      'Answers `{ "org": org }`. Owner tier, and the gate runs ' +
       'before the body is looked at, so a malformed rename and a forbidden one answer the same way. Renaming to the name already held writes ' +
       'nothing and records no audit event.',
   },
@@ -908,12 +938,11 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Lists the app's OAuth clients, developer-registered and self-registered alike.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: oauthClientListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Answers `{ "oauth_clients": [oauthClient, …] }`. The envelope has no schema of its own in contracts; each element is an `oauthClient`, ' +
-      'and each carries its `registration` — a developer could otherwise not see the self-registered clients holding their own dynamic-client ' +
-      'ceiling shut.',
+      'Answers `{ "oauth_clients": [oauthClient, …] }`, and each element carries its `registration` — a developer could otherwise not see ' +
+      'the self-registered clients holding their own dynamic-client ceiling shut.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/oauth-clients/:clientId', section: 'oauth',
@@ -983,11 +1012,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/oauth/authorize', section: 'oauth',
     summary: 'Starts an end-user sign-in for an app and redirects the browser to the login card.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 302,
-    params: [], query: null, request: null, response: null,
+    params: [], query: oauthAuthorizeQuery, request: null, response: null,
     errors: ['rate_limited'], transport: 'http',
     notes:
-      'The query is RFC 6749 §4.1.1\'s — `client_id`, `redirect_uri`, `response_type`, `code_challenge`, `code_challenge_method`, `state`, ' +
-      '`resource` — read parameter by parameter, and contracts declares no schema for it, so nothing here pins its shape. ' +
+      '`oauthAuthorizeQuery` is RFC 6749 §4.1.1\'s query, `scope` included — the cloud reads it parameter by parameter rather than parsing it ' +
+      'whole, because the parameters do not share one refusal. ' +
       '**`client_id` and `redirect_uri` are validated first, and a failure there never redirects** — until the URI is known-good, sending a ' +
       'browser to it is the attack. Those two refusals are RFC 6749\'s flat `oauthError` shape at `400`; everything validated afterwards ' +
       '(`response_type`, PKCE, `resource`) goes back to the callback as query parameters, per §4.1.2.1. `S256` is required. A group with a ' +
@@ -1080,11 +1109,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/oauth/register', section: 'oauth',
     summary: 'Registers a client dynamically against one app, when that app accepts dynamic clients.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
-    params: [], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
+    params: [], query: oauthRegisterQuery, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
     errors: ['rate_limited'], transport: 'http',
     notes:
-      'RFC 7591. `?app_identifier=` names the app and is required; it is read directly and contracts declares no schema for this query, so it ' +
-      'appears in no parameter table. An app that does not accept dynamic clients answers `oauthError` ' +
+      'RFC 7591. `?app_identifier=` names the app and is required — RFC 7591\'s body has no field for it and one endpoint serves every app. ' +
+      'An app that does not accept dynamic clients answers `oauthError` ' +
       '`access_denied`, as does one that has reached its per-app ceiling. Every refusal here is `oauthError`, not `apiError` — again, only the ' +
       'rate limiter differs. A registration expires: an unused dynamic client stops working rather than merely stopping to count.',
   },
@@ -1527,10 +1556,10 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Renames the robot.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
-    query: null, request: patchRobotRequest, response: null,
+    query: null, request: patchRobotRequest, response: patchRobotResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'Answers `{ "robot": robot }`. The envelope has no schema of its own in contracts; the value is a `robot`. The lookup runs before the ' +
+      'Answers `{ "robot": robot }`. The lookup runs before the ' +
       'body is parsed, so a robot outside the caller\'s org answers `404` whether or not the body was also malformed. Saving the name already ' +
       'held writes nothing and records no audit event.',
   },
@@ -1565,10 +1594,10 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Replaces the developer-maintained details document shown alongside the robot.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
-    query: null, request: putRobotDetailsRequest, response: null,
+    query: null, request: putRobotDetailsRequest, response: putRobotDetailsResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'Answers `{ "details": robotDetailsDoc }`. The envelope has no schema of its own in contracts. The update is fanned out to every ' +
+      'Answers `{ "details": robotDetailsDoc }` — the stored document, which is the one that was sent. The update is fanned out to every ' +
       '`/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling.',
   },
   {
@@ -1730,11 +1759,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/org/alerts', section: 'alerts',
     summary: 'Lists every firing alert across the org, with the robot each belongs to.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: orgFiringAlertsResponse,
+    params: [], query: orgAlertsQuery, request: null, response: orgFiringAlertsResponse,
     errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
     notes:
       '`?state=firing` is required and is the only value accepted — refused rather than silently ignored, because a door with one answer must ' +
-      'not advertise a dial. There is no query schema; the parameter is read directly. A firing row whose definition has left the document, or ' +
+      'not advertise a dial. A firing row whose definition has left the document, or ' +
       'has been disabled, is skipped: it can never be evaluated again, so it can never resolve, and it would otherwise sit in the overview\'s ' +
       'open-issues tile forever.',
   },
@@ -1897,10 +1926,12 @@ export const ROUTES: readonly RouteEntry[] = [
       { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
       { name: 'slug', description: 'The camera slug from the published configuration, as listed by `GET /api/robots/:id/cameras`.' },
     ],
-    query: null, request: null, response: null,
+    query: null, request: null, response: null, contentType: 'image/*',
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'no_snapshot_yet'], transport: 'http',
     notes:
-      'Image bytes, not JSON, so it has no response schema; the age, capture time and dimensions ride in the `x-fleetless-*` headers ' +
+      'Image bytes, not JSON, so it has no response schema. `contentType` is the family rather than a type: the frame is served in **the ' +
+      'mime the producer sent it as**, so which image format arrives is the camera configuration\'s answer, not this route\'s. The age, ' +
+      'capture time and dimensions ride in the `x-fleetless-*` headers ' +
       '`SNAPSHOT_HEADERS` names — which a browser can only read because CORS exposes them. **Never checks whether the bridge is online**: a ' +
       'snapshot read is a pure cache read, which is what makes "the last frame, with its real age" true for free across a disconnect. There is ' +
       'nothing here to refuse, and `age_ms` carries the whole honesty story. `cache-control: no-store`, because a picture of someone\'s ' +
@@ -1995,10 +2026,13 @@ export const ROUTES: readonly RouteEntry[] = [
       { name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' },
       { name: 'assetId', description: 'The asset\'s uuid, as listed by `GET /api/robots/:id/assets`.' },
     ],
-    query: null, request: null, response: null,
+    query: null, request: null, response: null, contentType: 'application/octet-stream',
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'internal_error'], transport: 'http',
     notes:
-      'Bytes in the asset\'s own media type, so it has no response schema. A row whose blob has vanished from object storage is a logged ' +
+      'Bytes, so it has no response schema. **`contentType` here is the floor, not the answer**: the header carries the asset\'s own stored ' +
+      'media type when that type is on the cloud\'s allow-list, and `application/octet-stream` only when it is not — an allow-list rather than ' +
+      'a pass-through, because a stored type is developer-supplied and a browser will act on it. `X-Content-Type-Options: nosniff` rides along ' +
+      'for the same reason. A row whose blob has vanished from object storage is a logged ' +
       '`500 internal_error`, not a `404`: the asset exists and this cloud could not read it, which is a different fact from "there is no such asset".',
   },
   {
@@ -2006,7 +2040,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Returns the robot\'s URDF with every mesh reference rewritten to a Fleetless URL.',
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: null, contentType: 'application/xml',
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'internal_error'], transport: 'http',
     notes:
       'XML, so no response schema. **Every `filename` is rewritten, not only a resolvable `package://` one** — an absolute URL that arrived in ' +
@@ -2043,7 +2077,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Serves one asset, or a rendered URDF, to whoever holds a signed link.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'token', description: 'The signed, time-limited link an MCP tool minted; it is the whole credential.' }],
-    query: null, request: null, response: null,
+    query: null, request: null, response: null, contentType: 'application/octet-stream',
     errors: ['not_found', 'internal_error'], transport: 'http',
     notes:
       '**The token is the authorization** — there is no route guard on purpose, and verifying it is the whole gate. An MCP session token is ' +
@@ -2052,7 +2086,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'rather than closed by a second gate, which would be a different policy for one decision. Every refusal collapses into one `404` with ' +
       'one message, including a malformed id inside a validly signed token, because a link holder has no business learning which of them it ' +
       'was. A URDF served this way has **its own references minted as links**, back-dated so they expire with the parent — otherwise spending ' +
-      'a link in its last second would hand out another fifteen minutes, and each of those another. `cache-control: no-store`, since the URL ' +
+      'a link in its last second would hand out another fifteen minutes, and each of those another. **`contentType` is the floor, not the ' +
+      'answer**: an asset is served in its own stored media type where that type is allow-listed and `application/octet-stream` otherwise, and ' +
+      'a linked URDF is `application/xml`. `cache-control: no-store`, since the URL ' +
       'itself is the credential.',
   },
   {
