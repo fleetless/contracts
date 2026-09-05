@@ -184,28 +184,29 @@ export const JOB_RUN_RETENTION_DAYS = 90
  * case, and a bridge invokes nothing. An enum that names an impossible case
  * invites every reader to handle it.
  *
- * **Seam — an unassigned residual (2026-08-29, D1).** `developer` and
- * `end_user` were two identity spaces; they are now two ways of reaching the
- * same pool — an Org Admins member and an assigned user. The distinction the
- * enum draws is still *observable* (it is what the caller was acting as), so
- * this is not yet wrong, but the words are the old model's. No current plan
- * touches it; a rename would rewrite the meaning of every historical job row,
- * which is a migration, not a contract edit.
+ * **`app_user` is what a client-app caller writes now, and `end_user` stays**
+ * (app-user auth, D1). The seam this comment used to describe — two names for
+ * two ways into one merged pool — is settled: the two identity spaces are
+ * separate tables again, and `app_user` is a row in `app_users`, belonging to
+ * exactly one app. `end_user` is kept for the same reason `auditActor.kind`
+ * keeps it: a job run is history, and every row written before the cut carries
+ * it. Removing the member would make the whole trail unparseable to a client
+ * that validates, which is the one thing a history shape must never do.
  */
 export const jobActor = z.object({
-  kind: z.enum(['developer', 'end_user', 'server_key']).meta({
-    description: 'What the caller was acting as: a `developer` in the console, an `end_user` of an app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here.',
+  kind: z.enum(['developer', 'end_user', 'app_user', 'server_key']).meta({
+    description: 'What the caller was acting as: a `developer` in the console, an `app_user` of one app, or a `server_key` used by server-side code. A bridge invokes nothing, so it is deliberately not a case here. `end_user` appears only on runs recorded before app users replaced the organisation-wide user pool — it is kept so a history page can still render them, and nothing writes it any more.',
   }),
   id: z.uuid().meta({
-    description: 'The id of the developer, end user or server key that invoked the run.',
+    description: 'The id of the Fleetless user, app user or server key that invoked the run.',
   }),
   /**
-   * The email for a developer or end user, the key's `name` for a server key.
-   * A display snapshot taken at invoke time: renaming a key afterwards does not
-   * rewrite history, which is the point of storing it rather than joining.
+   * The email for a person, the key's `name` for a server key. A display
+   * snapshot taken at invoke time: renaming a key afterwards does not rewrite
+   * history, which is the point of storing it rather than joining.
    */
   label: z.string().min(1).max(200).meta({
-    description: 'A display name taken at invoke time — the email for a developer or end user, the key\'s own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history.',
+    description: 'A display name taken at invoke time — the email for a Fleetless user or an app user, the key\'s own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history.',
   }),
 })
 export type JobActor = z.infer<typeof jobActor>

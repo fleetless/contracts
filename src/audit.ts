@@ -69,7 +69,7 @@ export const auditEvent = z.object({
    */
   seq: z.number().int().positive(),
   actor: auditActor,
-  /** Stable dotted name, e.g. `end_user.invited`, `config.published`. */
+  /** Stable dotted name, e.g. `app_user.login`, `config.published`. */
   action: z.string().min(1).max(80),
   /**
    * What the action was about, if anything — a robot, an app, a user. Free
