@@ -729,8 +729,19 @@ export const ERROR_CODES = [
    * `422`: the provider's own configuration cannot complete a sign-in, and
    * only the **developer** can fix it. Discovery answered something that is
    * not an OIDC discovery document, the issuer in it disagrees with the
-   * configured one, the JWKS has no usable key, or the stored client secret is
-   * rejected at the token endpoint.
+   * configured one, or one of the three endpoints it publishes
+   * (`authorization_endpoint`, `token_endpoint`, `jwks_uri`) is not an http(s)
+   * URL. Every one of those is decided by the discovery step, which is what
+   * lets `POST`/`PATCH` refuse the provider at the form.
+   *
+   * **Two failures that sound like this one and are not**, listed because an
+   * earlier draft of this text claimed them: a JWKS carrying no key that can
+   * verify the token reaches the app as `claims_incomplete`, and a client
+   * secret the token endpoint rejects reaches it as `exchange_failed`. Both are
+   * decided in the middle of a sign-in, against a document that was fine when
+   * the provider was stored, so neither can be a create-time refusal — and
+   * naming them here sent a developer looking up a code their logs would never
+   * show. The `reason` behind `claims_incomplete` is in the cloud's log.
    *
    * Distinct from `idp_unavailable`, which is the same fault line drawn one
    * step earlier: there the provider could not be **reached**, and retrying may

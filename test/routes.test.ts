@@ -1,8 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH, clientOidcCallbackQuery, clientOidcErrorCode } from '../src/index.js'
-import { IN_HANDLER_SECURITY, componentSchemaRaw, exportedSchemas, openApiDocument, routesArtifact } from '../scripts/export-schemas.js'
+import {
+  BRIDGE_SENT_SCHEMAS,
+  IN_HANDLER_SECURITY,
+  componentSchemaRaw,
+  exportedConstants,
+  exportedSchemas,
+  openApiDocument,
+  routesArtifact,
+  schemaIo,
+} from '../scripts/export-schemas.js'
 
 const key = (r: { method: string; path: string }) => `${r.method} ${r.path}`
 
@@ -201,6 +211,71 @@ describe('the route artifacts', () => {
     expect(JSON.parse(readFileSync(join(dir, 'openapi.json'), 'utf8'))).toEqual(openApiDocument())
   })
 
+  /**
+   * **The per-file JSON Schemas, which are the artifacts everything downstream
+   * actually reads** — the docs site publishes them, the bridge vendors copies
+   * of them, and a generator consumes them. Until this test they were guarded
+   * by nothing: `routes.json` and `openapi.json` each had a staleness guard
+   * (above), and `artifacts/schema/*.schema.json` had none at all, so a
+   * partial `pnpm artifacts` run, an interrupted write or a hand edit left a
+   * file describing the previous shape indefinitely while `pnpm test` stayed
+   * green (G3).
+   *
+   * Compared **in both directions**, because the two failures are different:
+   * content drift is a file whose bytes no longer match a fresh render, and an
+   * orphan is a file for a schema that was renamed or deleted — which no
+   * content comparison can see, since nothing renders it any more.
+   *
+   * The bytes are compared as **parsed JSON plus the exact serialisation**:
+   * the export writes `JSON.stringify(..., null, 2) + '\n'`, and a consumer
+   * that reads the file gets those bytes. Comparing parsed objects alone would
+   * pass for a file that was reformatted or lost its trailing newline, which is
+   * a real diff in every review package that carries it.
+   */
+  describe('the per-schema JSON Schema artifacts', () => {
+    const schemaDir = join(dir, 'schema')
+    const render = (name: string) =>
+      JSON.stringify(z.toJSONSchema(exportedSchemas[name as keyof typeof exportedSchemas], { io: schemaIo(name) }), null, 2) + '\n'
+
+    it('every exported schema has an artifact whose bytes match a fresh render', () => {
+      const names = Object.keys(exportedSchemas)
+      // Non-vacuity: an empty registry would make the loop below assert
+      // nothing, which is this project's first failure mode.
+      expect(names.length).toBeGreaterThan(200)
+      for (const name of names) {
+        const file = join(schemaDir, `${name}.schema.json`)
+        expect(existsSync(file), `${name} has no artifact — run pnpm artifacts`).toBe(true)
+        expect(readFileSync(file, 'utf8'), `artifacts/schema/${name}.schema.json is stale — run pnpm artifacts`).toBe(render(name))
+      }
+    })
+
+    it('carries no artifact for a schema nothing exports any more', () => {
+      const onDisk = readdirSync(schemaDir).filter((f) => f.endsWith('.schema.json')).map((f) => f.replace(/\.schema\.json$/, ''))
+      expect([...onDisk].sort(), 'orphaned or missing artifacts under artifacts/schema').toEqual(Object.keys(exportedSchemas).sort())
+    })
+
+    /**
+     * The bridge's copies are rendered in **output** mode regardless of the
+     * direction `schemaIo` assigns — they describe what the bridge sends — so
+     * they need their own comparison rather than being covered by the one
+     * above.
+     */
+    it('renders the outgoing (bridge-sent) copies in output mode, with no orphan there either', () => {
+      const outgoingDir = join(dir, 'schema-outgoing')
+      expect(BRIDGE_SENT_SCHEMAS.length).toBeGreaterThan(5)
+      for (const name of BRIDGE_SENT_SCHEMAS) {
+        const expected = JSON.stringify(z.toJSONSchema(exportedSchemas[name as keyof typeof exportedSchemas], { io: 'output' }), null, 2) + '\n'
+        expect(readFileSync(join(outgoingDir, `${name}.schema.json`), 'utf8'), `artifacts/schema-outgoing/${name}.schema.json is stale`).toBe(expected)
+      }
+      const onDisk = readdirSync(outgoingDir).filter((f) => f.endsWith('.schema.json')).map((f) => f.replace(/\.schema\.json$/, ''))
+      expect([...onDisk].sort()).toEqual([...BRIDGE_SENT_SCHEMAS].sort())
+    })
+
+    it('constants.json on disk matches a fresh export', () => {
+      expect(readFileSync(join(dir, 'constants.json'), 'utf8')).toBe(JSON.stringify(exportedConstants, null, 2) + '\n')
+    })
+  })
+
   it('openapi.json describes only developer and client HTTP routes, with {param} paths and a component per referenced schema', () => {
     const doc = openApiDocument()
     expect(doc.openapi).toBe('3.1.0')
@@ -337,30 +412,58 @@ describe('the app-user auth surface', () => {
     'POST /api/client/password/reset/confirm',
     'POST /api/client/invitations/accept',
     'POST /api/client/oidc/exchange',
+    // The three public `GET`s train 3 adds. They are members of the family
+    // because the family is "unauthenticated, client-facing, in the client-auth
+    // section" — which is what decides whether a route needs a limiter, not
+    // whether it happens to carry a body.
+    'GET /api/client/providers',
+    'GET /api/client/oidc/:slug/start',
+    'GET /api/client/oidc/callback',
   ]
 
   /**
-   * **Filtered to `POST`, and the narrowing is train 3's, not a loosening.**
-   * The property this asserts is about routes that parse a **body** handed over
-   * by a stranger, which is what the `request` assertion below reads and what
-   * the rate limiter in front of them is sized for. Train 3 adds two public
-   * `GET`s to the same section — the provider listing and the OIDC start — and
-   * neither takes a body, neither is rate limited on the same footing, and one
-   * is not rate limited at all. Sweeping them in here would have forced this
-   * block to grow exceptions until it asserted nothing; they get their own set
-   * pin below, which states each limiter decision and its reason instead.
+   * **Filtered on the section, the audience and the absence of a credential —
+   * on no method.**
+   *
+   * Train 3 narrowed this to `POST` because its three new `GET`s do not all
+   * carry a limiter, and the block asserted `rateLimited === true` over every
+   * member. That made the membership line stop sweeping: a public `GET` added
+   * anywhere else in the section would have been matched by neither this block
+   * nor the per-route pin below, and held to nothing at all (C23).
+   *
+   * So the *set* is pinned over the whole section again, and the properties are
+   * split by what each row actually is. Every member is held to the limiter
+   * biconditional — a route is rate limited exactly when it says so — and the
+   * body-parsing half is held only to the rows that take a body. The
+   * limiter *decisions* themselves (which of the four OIDC routes is limited,
+   * and why) stay in the per-route pin further down, where the reasons are.
    */
-  it('opens the whole public client POST family without a credential, behind the rate limiter', () => {
-    const rows = ROUTES.filter((r) => r.section === 'client-auth' && r.auth === 'none' && r.audience === 'client' && r.method === 'POST')
+  it('opens the whole public client family without a credential, each saying whether a limiter stands in front of it', () => {
+    const rows = ROUTES.filter((r) => r.section === 'client-auth' && r.auth === 'none' && r.audience === 'client')
     expect(rows.map(key).sort(), 'the public client family is exactly these routes').toEqual([...PUBLIC_CLIENT].sort())
     expect(rows.length).toBe(PUBLIC_CLIENT.length)
     for (const r of rows) {
-      expect(r.rateLimited, `${key(r)} is unauthenticated and not rate limited`).toBe(true)
-      expect(r.errors, `${key(r)} is rate limited and does not say so`).toContain('rate_limited')
-      // Each one parses a body it was handed by a stranger; a route in this
-      // family with no request schema would be taking input nothing describes.
-      expect(r.request, `${key(r)} takes no described body`).not.toBeNull()
+      // Both ways, so a limiter that is dropped and a `rate_limited` that is
+      // dropped are each visible: an undocumented `429` is as bad as a
+      // documented one nobody enforces.
+      expect(
+        (r.errors as readonly string[]).includes('rate_limited'),
+        `${key(r)} is${r.rateLimited ? '' : ' not'} rate limited and its errors disagree`,
+      ).toBe(r.rateLimited)
+      // Every POST here parses a body it was handed by a stranger; one with no
+      // request schema would be taking input nothing describes. A `GET` takes
+      // its input in the query, which the row declares there instead.
+      if (r.method === 'POST') expect(r.request, `${key(r)} takes no described body`).not.toBeNull()
+      else expect(r.query, `${key(r)} is a GET that declares neither a query nor a body`).not.toBeNull()
     }
+    // Non-vacuity on the split: the family really does hold both kinds, so
+    // neither arm above is a branch no row enters.
+    expect(rows.some((r) => r.method === 'POST')).toBe(true)
+    expect(rows.some((r) => r.method === 'GET')).toBe(true)
+    // And it really is mixed on the limiter, which is what makes the
+    // biconditional worth writing instead of `toBe(true)`.
+    expect(rows.some((r) => r.rateLimited)).toBe(true)
+    expect(rows.some((r) => !r.rateLimited)).toBe(true)
   })
 
   /**
@@ -702,17 +805,23 @@ describe('the per-app OIDC surface', () => {
    * The train-2 family could assert "unauthenticated ⇒ limited" over the whole
    * set. Here it is genuinely mixed, and a mixed set is exactly where a
    * presence-only check stops meaning anything: `start` is the door that makes
-   * Fleetless fetch a stranger's server and `exchange` mints a session, while
-   * the provider listing is a render-time read of public configuration and the
-   * callback is entered by an IdP redirecting a browser — limiting that one
-   * would drop real users' sign-ins on somebody else's traffic.
+   * Fleetless fetch a stranger's server, `exchange` mints a session, and the
+   * callback drives an outbound token request per call — while the provider
+   * listing is a render-time read of public configuration and is limited by
+   * nothing.
    *
-   * So each row is asserted **both ways**, and the two limited ones must also
-   * list `rate_limited`: a limiter a caller cannot see documented is a `429`
-   * nobody can look up.
+   * **The callback moved into the limited set** in the train-3 fix wave. It was
+   * unlimited on the argument reproduced in its own row: the caller is an IdP
+   * redirecting somebody's browser. What that missed is that a `state` is
+   * replayable by whoever holds it, so the "caller" is not necessarily an IdP
+   * at all.
+   *
+   * So each row is asserted **both ways**, and the limited ones must also list
+   * `rate_limited`: a limiter a caller cannot see documented is a `429` nobody
+   * can look up.
    */
-  it('limits the start and the exchange, and deliberately not the listing or the callback', () => {
-    const LIMITED = ['GET /api/client/oidc/:slug/start', 'POST /api/client/oidc/exchange']
+  it('limits the start, the callback and the exchange, and deliberately not the listing', () => {
+    const LIMITED = ['GET /api/client/oidc/:slug/start', 'GET /api/client/oidc/callback', 'POST /api/client/oidc/exchange']
     const rows = ROUTES.filter((r) => CLIENT_OIDC_ROUTES.includes(key(r)))
     expect(rows.length).toBe(CLIENT_OIDC_ROUTES.length)
     for (const r of rows) {
@@ -720,16 +829,20 @@ describe('the per-app OIDC surface', () => {
       expect(r.rateLimited, `${key(r)} rate limiting disagrees with the ruling`).toBe(limited)
       expect((r.errors as readonly string[]).includes('rate_limited'), `${key(r)} limiter and its error code disagree`).toBe(limited)
     }
-    // The two unlimited ones say why in prose, because a reader who finds no
+    // The unlimited one says why in prose, because a reader who finds no
     // limiter on a public route should not have to guess whether it was a
     // decision or an omission.
-    expect(ROUTES.find((r) => key(r) === 'GET /api/client/providers')!.notes ?? '').toContain('Not rate limited')
-    expect(ROUTES.find((r) => key(r) === 'GET /api/client/oidc/callback')!.notes ?? '').toContain('Not rate limited')
-    // The two are unlimited for **different** reasons, and a row that copied
-    // the other's sentence would pass a bare "says Not rate limited" check
-    // while documenting the wrong argument. So each is held to its own.
-    expect(ROUTES.find((r) => key(r) === 'GET /api/client/providers')!.notes ?? '').toContain('nothing behind it to enumerate')
-    expect(ROUTES.find((r) => key(r) === 'GET /api/client/oidc/callback')!.notes ?? '').toContain('drop real sign-ins')
+    const listing = ROUTES.find((r) => key(r) === 'GET /api/client/providers')!.notes ?? ''
+    expect(listing).toContain('Not rate limited')
+    expect(listing).toContain('nothing behind it to enumerate')
+    // And the callback says why its limiter is not the drop-real-sign-ins
+    // mistake the earlier draft feared — the sentence, not just the flag,
+    // because a flag flipped without the argument is the state that gets
+    // flipped back.
+    const callback = ROUTES.find((r) => key(r) === 'GET /api/client/oidc/callback')!.notes ?? ''
+    expect(callback, 'the callback does not say its limiter is per ip').toContain('Rate limited per ip')
+    expect(callback, 'the callback does not say why a browser never meets it').toContain('sized for a browser')
+    expect(callback, 'the callback does not say what the limiter is a ceiling on').toContain('replay')
   })
 
   /**
@@ -754,21 +867,25 @@ describe('the per-app OIDC surface', () => {
   })
 
   /**
-   * **The callback lists no error code, and that is a claim rather than a
-   * gap.** Every outcome it has is a `302` carrying `?code=` or
-   * `?error=<clientOidcErrorCode>` to the app's own redirect URI; the single
-   * exception renders HTML, which is not the `apiError` envelope the `errors`
+   * **The callback lists `rate_limited` and nothing else, and that is a claim
+   * rather than a gap.** Every *sign-in* outcome it has is a `302` carrying
+   * `?code=` or `?error=<clientOidcErrorCode>` to the app's own redirect URI;
+   * one state renders HTML, which is not the `apiError` envelope the `errors`
    * column describes. Listing `bad_request` would have documented a body no
    * caller receives.
    *
-   * The empty list is therefore asserted **together with** the prose that makes
-   * it honest — on its own, `errors: []` is indistinguishable from a row
-   * somebody forgot to fill in, which is the reading this test exists to
-   * prevent.
+   * `rate_limited` is the exception because it is not a sign-in outcome at all
+   * — the limiter refuses before the handler runs, so there is no interaction
+   * resolved and no redirect target to carry an answer to.
+   *
+   * The one-code list is therefore asserted **together with** the prose that
+   * makes it honest — on its own, a short `errors` list is indistinguishable
+   * from a row somebody forgot to fill in, which is the reading this test
+   * exists to prevent.
    */
-  it('leaves the callback with no error codes, and says where its failures actually go', () => {
+  it('leaves the callback with rate_limited alone, and says where its failures actually go', () => {
     const r = ROUTES.find((x) => key(x) === 'GET /api/client/oidc/callback')!
-    expect(r.errors, 'the callback answers the apiError envelope now; the row must say which codes').toEqual([])
+    expect(r.errors, 'the callback answers more of the apiError envelope now; the row must say which codes').toEqual(['rate_limited'])
     expect(r.status, 'the callback answers the app with a redirect').toBe(302)
     expect(r.response, 'a 302 carries no body').toBeNull()
     // The provider's own wire, declared rather than read by hand — the rule
@@ -791,9 +908,10 @@ describe('the per-app OIDC surface', () => {
     expect(notes, 'the row does not name the one Fleetless-rendered page').toContain('HTML problem page at `400`')
     expect(notes, 'the row does not say which state renders it').toContain('`state` that resolves to no interaction')
 
-    // Non-vacuity for the empty list: some route in this manifest does list
-    // codes, so `toEqual([])` is a fact about this row and not about the field.
-    expect(ROUTES.find((x) => key(x) === 'POST /api/client/oidc/exchange')!.errors.length).toBeGreaterThan(0)
+    // Non-vacuity for the one-code list: some route in this manifest lists
+    // several, so the assertion above is a fact about this row and not about
+    // the field.
+    expect(ROUTES.find((x) => key(x) === 'POST /api/client/oidc/exchange')!.errors.length).toBeGreaterThan(1)
   })
 
   /**
