@@ -1494,6 +1494,29 @@ export const robotDeletionSummary = z.object({
 export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 
 /**
+ * The query of `DELETE /api/robots/:id`.
+ *
+ * **The handler compares against the bare string `'true'`** and refuses
+ * nothing: `?force=1`, `?force=TRUE` and no parameter at all are one case, and
+ * that case is *not forced*. Declared as the literal because it is the only
+ * value that does anything — a `z.boolean()` here would describe a wire shape
+ * a query string cannot carry, and a `z.string()` would document nothing.
+ *
+ * **What this schema does not say is that the other values are refused.** They
+ * are silently false today, so a caller that parses this strictly refuses a
+ * request the cloud currently accepts. That is a decision for whoever wires
+ * the parse, not a fact about the route as it stands.
+ */
+export const robotDeleteQuery = z
+  .object({
+    force: z.literal('true').optional().meta({
+      description: 'Pass `true` to delete a robot with a live session open; without it that is `409 robot_in_use`. Matched as the exact string, so the caller has to actually say it — and the deletion is a full cascade, so saying it is the whole decision.',
+    }),
+  })
+  .meta({ description: 'The one optional parameter of `DELETE /api/robots/:id`, and it is the difference between a refusal and a cascade.' })
+export type RobotDeleteQuery = z.infer<typeof robotDeleteQuery>
+
+/**
  * The seven health states, declared **once** (W6a review).
  *
  * `resourceHealthState` and `resourceHealthEvent` are the snapshot and the
@@ -1627,6 +1650,22 @@ export const resourceHealthListResponse = z.object({
   resources: z.array(resourceHealthState),
 })
 export type ResourceHealthListResponse = z.infer<typeof resourceHealthListResponse>
+
+/**
+ * The query of `GET /api/org/health`: optionally one robot instead of the org.
+ *
+ * The narrowing lives in a query rather than at a per-robot path because the
+ * console shows health on the robot list too, and a per-robot path would make
+ * that N requests to render one screen.
+ */
+export const orgHealthQuery = z
+  .object({
+    robot_id: z.uuid().optional().meta({
+      description: 'Narrows the report to one robot. Omit it for every robot in the org. Malformed is `400 invalid_uuid` and a robot of another org is `404 not_found` — the same two answers an MCP caller gets, because the check lives in the shared service rather than on the route.',
+    }),
+  })
+  .meta({ description: 'The optional robot filter of `GET /api/org/health`.' })
+export type OrgHealthQuery = z.infer<typeof orgHealthQuery>
 
 /**
  * Org protection quotas (§12.4) — generous, server-side adjustable, visible

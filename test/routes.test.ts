@@ -269,7 +269,7 @@ describe('the parked-items round', () => {
     ])
   })
 
-  it('declares a query schema on the six routes that read one by hand', () => {
+  it('declares a query schema on the nine routes that read one by hand', () => {
     for (const [m, p] of [
       ['GET', '/oauth/authorize'],
       ['POST', '/oauth/register'],
@@ -277,6 +277,9 @@ describe('the parked-items round', () => {
       ['GET', '/api/org/users'],
       ['GET', '/api/org/users/:id/usage'],
       ['GET', '/api/apps/:id/group-usage'],
+      ['DELETE', '/api/robots/:id'],
+      ['GET', '/api/org/health'],
+      ['GET', '/api/robots/:id/assets/missing'],
     ] as const) {
       const entry = ROUTES.find((r) => r.method === m && r.path === p)
       // **The entry is asserted before its `query` is.** `find(...)?.query` is
@@ -287,6 +290,67 @@ describe('the parked-items round', () => {
       expect(entry, `${m} ${p} is not in the manifest`).toBeDefined()
       expect(entry!.query, `${m} ${p} declares no query schema`).not.toBeNull()
     }
+  })
+
+  /**
+   * **The rule, checked on the condition rather than on the wording.** A
+   * documented route whose prose names a `?parameter=` must declare a query
+   * schema. This is the guard that matters: an author who adds an undeclared
+   * query and writes no confession at all still trips it, which the phrase
+   * test below cannot do.
+   *
+   * Scoped to `audience !== 'internal'` because that is the scope of the rule
+   * — a browser page the cloud serves to itself is not a documented API
+   * surface — and to `transport === 'http'`, since the two websocket entries
+   * carry no schemas by construction.
+   */
+  it('declares a query schema wherever a documented route names a query parameter', () => {
+    // The one route that names a query it does not read: its
+    // `registration_endpoint` VALUE is `…?app_identifier=`, which is another
+    // route's parameter quoted inside this one's response. Listed with its
+    // reason rather than pattern-matched away, because the next exemption
+    // should have to be argued for too.
+    const quotesAnothersQuery = ['GET /.well-known/oauth-authorization-server/:appIdentifier']
+    const undeclared = ROUTES.filter(
+      (r) =>
+        r.audience !== 'internal' &&
+        r.transport === 'http' &&
+        r.query === null &&
+        /\?[a-z_]+=/.test(`${r.summary} ${r.notes ?? ''}`) &&
+        !quotesAnothersQuery.includes(key(r)),
+    )
+    expect(undeclared.map(key)).toEqual([])
+  })
+
+  /**
+   * **And the wording, so the confession cannot be written either.** Every
+   * phrase below appeared in this manifest while a route read a query
+   * contracts could not describe, and each was removed by declaring the
+   * schema rather than by rewording.
+   *
+   * **Query-specific on purpose.** A blanket ban on "no schema" would be red
+   * at base on seven entries that are not about queries at all, and would
+   * demand changes this project has argued against in writing: the
+   * `{ "name": string }` role body that contracts deliberately does not
+   * define, the impersonation wrapper, `POST /mcp/oauth/register`'s body —
+   * whose notes say a strict schema there *"would answer 400 to a conforming
+   * client and take the whole paste-the-URL flow down with it"* — and three
+   * internal pages answering a cloud-local `{ next }`. A ratchet that fires on
+   * deliberate, documented decisions is one somebody turns off.
+   */
+  it('lets no entry document a query as schema-free', () => {
+    const confessions = [
+      'no query schema',
+      'declares no schema for it',
+      'declares no schema for this query',
+      'the parameter is read directly',
+      'read parameter by parameter',
+    ]
+    const guilty = ROUTES.flatMap((r) => {
+      const prose = `${r.summary} ${r.notes ?? ''}`.toLowerCase()
+      return confessions.filter((c) => prose.includes(c)).map((c) => `${key(r)}: "${c}"`)
+    })
+    expect(guilty).toEqual([])
   })
 
   it('reserves every literal segment that shadows a slug in the same collection', async () => {

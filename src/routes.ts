@@ -39,7 +39,7 @@ import {
   updateAppRequest,
 } from './apps.js'
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
-import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus } from './assets.js'
+import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
 import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientLogoutResponse, clientRefreshRequest } from './client-auth.js'
 import type { ErrorCode } from './errors.js'
@@ -120,6 +120,7 @@ import {
   invokeRequest,
   jobResponse,
   liveSessionResponse,
+  orgHealthQuery,
   orgLatencyQuery,
   orgLatencyResponse,
   orgQuotaUsage,
@@ -135,6 +136,7 @@ import {
   releaseLiveQuery,
   renameSlugRequest,
   renameSlugResponse,
+  robotDeleteQuery,
   resourceHealthListResponse,
   robotDeletionSummary,
   robotDetailResponse,
@@ -1584,7 +1586,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Deletes a robot and everything it produced.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
-    query: null, request: null, response: null,
+    query: robotDeleteQuery, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'robot_in_use', 'robot_deletion_partial'], transport: 'http',
     notes:
       'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
@@ -2057,12 +2059,12 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'The placeholder a rewritten URDF points at for a mesh Fleetless does not hold.',
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 404,
     params: [{ name: 'id', description: 'The robot\'s uuid; an end user reaches it through an app that attaches it.' }],
-    query: null, request: null, response: null,
+    query: missingAssetQuery, request: null, response: null,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'asset_missing'], transport: 'http',
     notes:
       '**This route has no success answer** — `404 asset_missing` naming the unresolved reference is what it exists to give, and `status` says ' +
-      'so rather than declaring a `200` no caller can ever receive. `?name=` is echoed into the message and is read directly, with no query ' +
-      'schema; it discloses nothing, since it is what the caller sent. It carries the same `assets` capability gate as the real bytes would: a ' +
+      'so rather than declaring a `200` no caller can ever receive. `?name=` is echoed into the message and changes the sentence, never the ' +
+      'outcome; it discloses nothing, since it is what the caller sent. It carries the same `assets` capability gate as the real bytes would: a ' +
       'missing-asset placeholder is not an exemption from the authorization the thing it stands in for needs.',
   },
   {
@@ -2140,10 +2142,10 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/org/health', section: 'org',
     summary: 'Reports the health of every camera and streaming resource across the org.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: resourceHealthListResponse,
+    params: [], query: orgHealthQuery, request: null, response: resourceHealthListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      '`?robot_id=` narrows it to one robot; there is no query schema, the parameter is read directly. Org-wide rather than per-robot because ' +
+      '`?robot_id=` narrows it to one robot; omitted, the answer is the whole org. Org-wide rather than per-robot because ' +
       'the console shows health on the robot list too, and a per-robot path would make that N requests to render one screen. This is the ' +
       'snapshot half of the channel; the live half is the `/realtime` socket.',
   },

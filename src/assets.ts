@@ -542,6 +542,25 @@ export const assetListResponse = z.object({
 export type AssetListResponse = z.infer<typeof assetListResponse>
 
 /**
+ * The query of `GET /api/robots/:id/assets/missing`, the placeholder a
+ * rewritten URDF points at for a mesh Fleetless does not hold.
+ *
+ * **The route answers `404` either way** — this parameter changes the sentence,
+ * never the outcome. It is echoed back into the refusal message so a developer
+ * reading a failed mesh load learns *which* reference did not resolve; absent,
+ * the message says `unknown`. Echoing it discloses nothing, since it is what
+ * the caller itself sent.
+ */
+export const missingAssetQuery = z
+  .object({
+    name: z.string().optional().meta({
+      description: 'The unresolved reference, as the URDF spelled it, echoed into the `404 asset_missing` message. Omitted, the message names `unknown` instead. It never changes the status.',
+    }),
+  })
+  .meta({ description: 'The one optional parameter of the missing-asset placeholder; it names the reference in the refusal.' })
+export type MissingAssetQuery = z.infer<typeof missingAssetQuery>
+
+/**
  * What an `asset_too_large` refusal tells the caller — the same discipline as
  * `publisher_busy` and `job_queue_full`: a refusal that names a state and no
  * number leaves the caller unable to decide anything.
