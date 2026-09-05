@@ -25,6 +25,7 @@ import {
   passwordResetRequest,
   passwordResetConfirm,
 } from '../src/identity.js'
+import { appInvitation } from '../src/app-users.js'
 import { rateLimitDetails } from '../src/rest.js'
 import { ERROR_CODES } from '../src/errors.js'
 
@@ -69,16 +70,30 @@ describe('the limit', () => {
   })
 })
 
-describe('mail, in three words instead of one', () => {
+describe('mail, in four words instead of one', () => {
   it('separates "we have no mail server" from "the mail server refused"', () => {
     // `mail_sent: boolean` forced the console to pick a sentence for a cause
     // it could not know, and it picked the reassuring one — so a bounced
     // invitation read like a link-only invitation, which is a normal outcome.
-    for (const v of ['sent', 'not_configured', 'failed']) {
+    // Set equality, not membership: a variant added to the enum and not to
+    // this list, or removed from it and left here, both fail.
+    expect(new Set(mailStatus.options)).toEqual(new Set(['sent', 'not_requested', 'not_configured', 'failed']))
+    for (const v of mailStatus.options) {
       expect(mailStatus.safeParse(v).success).toBe(true)
     }
     expect(mailStatus.safeParse(true).success).toBe(false)
     expect(mailStatus.safeParse('unknown').success).toBe(false)
+  })
+
+  it('answers "nobody asked for a mail" without borrowing "there is no mail server"', () => {
+    // `send_mail: false` is a caller's decision; `not_configured` is the
+    // deployment's state. One word for both sent a developer whose mailer
+    // works to go and configure it — the same conflation the boolean made.
+    expect(mailStatus.safeParse('not_requested').success).toBe(true)
+    expect(appInvitation.parse({
+      id: UUID, app_id: UUID, email: 'someone@example.com', role_id: UUID,
+      expires_at: '2026-09-12T10:00:00.000Z', accept_url: null, mail: 'not_requested',
+    }).mail).toBe('not_requested')
   })
 
   it('has removed the boolean rather than leaving both', () => {

@@ -143,7 +143,7 @@ export const createAppUserRequest = z
       description: 'Optional human name. Absent leaves it unset; an explicit `null` is the same end state.',
     }),
     role_id: z.uuid().optional().meta({
-      description: 'The role the new user holds. Absent means the app\'s `default_role_id`; a role belonging to another app is a `validation_error`.',
+      description: 'The role the new user holds. Absent means the app\'s `default_role_id`, and `409 target_state_conflict` when the app has none or its default no longer resolves; a role belonging to another app is `404 not_found`, the same refusal a role that never existed gets.',
     }),
   })
   .strict()
@@ -171,7 +171,7 @@ export const patchAppUserRequest = z
       description: 'The user\'s display name. Absent leaves it alone; an explicit `null` clears it.',
     }),
     role_id: z.uuid().optional().meta({
-      description: 'The role the user holds from now on. A role belonging to another app is a `validation_error`; re-roling closes the user\'s live subscriptions.',
+      description: 'The role the user holds from now on. A role belonging to another app is `404 not_found`, the same refusal a role that never existed gets; re-roling closes the user\'s live subscriptions.',
     }),
     status: z.enum(['active', 'blocked']).meta({
       description: 'Block the account or let it back in. **`pending_verification` cannot be set here**: it is reached only by self-registration and left only by spending the mailed verification token, so a developer setting it would strand the account in a state nothing re-mails them out of.',
@@ -223,7 +223,7 @@ export const appInvitation = z.object({
     description: 'The link to give the invitee, built from the app\'s `invite_url` with the token substituted for `{token}`. **`null` when the app has configured no `invite_url`** — there is nowhere for the link to point, and Fleetless serves no page of its own for an app user. Bounded like every other URL that gets mailed, logged and rendered.',
   }),
   mail: mailStatus.meta({
-    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what `send_mail: false` answers; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
   }),
 })
 export type AppInvitation = z.infer<typeof appInvitation>
@@ -667,7 +667,7 @@ export type MailTemplateProblemDetails = z.infer<typeof mailTemplateProblemDetai
  */
 export const mailOutcome = z.object({
   mail: mailStatus.meta({
-    description: 'What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+    description: 'What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` is what a caller who asked for no mail gets; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
   }),
 })
 export type MailOutcome = z.infer<typeof mailOutcome>

@@ -38,6 +38,7 @@
       "type": "string",
       "enum": [
         "sent",
+        "not_requested",
         "not_configured",
         "failed"
       ],

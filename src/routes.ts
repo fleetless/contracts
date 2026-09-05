@@ -622,7 +622,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: createAppUserRequest, response: appUser,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict'], transport: 'http',
     notes:
       'The developer-authenticated door into the app\'s user table, and the one place `409 email_taken` is an honest answer about an app user: ' +
       'the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the ' +
@@ -631,7 +631,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'would carry rights nothing in this app can resolve. **The password policy answers `400 validation_error`**, not a code of its own: the ' +
       'twelve-character minimum is the `password` field\'s schema rule, and every route in this repository that takes a password refuses a ' +
       'short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering ' +
-      'somebody by hand has made the decision the verification mail automates.',
+      'somebody by hand has made the decision the verification mail automates, and its address counts as proven. `409 target_state_conflict` ' +
+      'names `default_role_id` when `role_id` is absent and the app has no default role, or its default names a role that no longer resolves ' +
+      '— a user with no role holds rights nothing in this app can read, so nothing is created.',
   },
   {
     method: 'GET', path: '/api/apps/:id/users/:userId', section: 'apps',
@@ -648,12 +650,17 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
     query: null, request: patchAppUserRequest, response: appUser,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'target_state_conflict'], transport: 'http',
     notes:
       'The address is immutable: it is half of what identifies the account within the app, and a rewrite would silently move every token and ' +
       'invitation addressed to the old one. Setting `status` to `blocked` ends every session the user holds and closes their live ' +
       '`/realtime` subscriptions — blocking somebody who keeps a working socket is not blocking them. Moving them back to `active` mints ' +
-      'nothing; they log in again. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.',
+      'nothing; they log in again. \n\n**`active` is a way out of `blocked` and out of nothing else.** An account still ' +
+      '`pending_verification` answers `409 target_state_conflict` naming `status` with rule `unverified`: activating it would let somebody ' +
+      'who typed an address they do not own log in without ever spending the mailed token. Unblocking restores the status the account had — ' +
+      '`active` for one whose address was proven, `pending_verification` for one blocked before it ever verified. A write that names the ' +
+      'status the account already holds changes nothing and mints no event, so it does not end the sessions a re-sent form would otherwise ' +
+      'have killed. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/users/:userId', section: 'apps',
@@ -681,8 +688,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read ' +
       'the user list — so this one answers what actually happened: `{ "mail": mailStatus }`, where `not_configured` is a deployment without a ' +
       'mailer and `failed` is the state worth somebody\'s attention. `409 target_state_conflict` names `reset_url` when the app has configured ' +
-      'none: the token would be minted and the link would point nowhere, so nothing is minted. Setting the password directly is deliberately ' +
-      'not offered; a developer who could would hold their customers\' credentials.',
+      'none: the token would be minted and the link would point nowhere, so nothing is minted. The same `409` names `password` with rule ' +
+      '`not_set` for an account that has none — an OIDC-only app user, whom a reset link would hand a second, quieter door — and `status` ' +
+      'with rule `blocked` for a blocked one, since `POST /api/client/password/reset` mails a blocked account nothing and the two doors may ' +
+      'not disagree. Setting the password directly is deliberately not offered; a developer who could would hold their customers\' ' +
+      'credentials.',
   },
   {
     method: 'GET', path: '/api/apps/:id/invitations', section: 'apps',
@@ -704,15 +714,21 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: createAppInvitationRequest, response: appInvitation,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict', 'rate_limited'],
+    transport: 'http',
     notes:
       '**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the ' +
       'developer\'s own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. ' +
       'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`, which is `null` when the app has configured no ' +
       '`invite_url` — there is nowhere for the link to point, and Fleetless serves an app user no page of its own. That is a `201` with a ' +
       'null link, not a refusal: the invitation exists and a developer may hand the token over by another route. Asking to **mail** it in that ' +
-      'state is `409 target_state_conflict` naming `invite_url`, because a mail carrying a dead link is worse than no mail. `409 email_taken` ' +
-      'is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles.',
+      'state is `409 target_state_conflict` naming `invite_url`, because a mail carrying a dead link is worse than no mail. The same `409` ' +
+      'names `default_role_id` when `role_id` is absent and the app has no default role, or its default no longer resolves: an invitation ' +
+      'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. `409 ' +
+      'email_taken` is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles. ' +
+      '\n\nCreating shares the reissue route\'s ceiling of **five invitation mails a minute per app**, answering `429 rate_limited` with ' +
+      '`retry_after_ms`: re-creating an invitation for one address replaces it and mails again, so a limit that bound only reissue would be ' +
+      'a limit on the wrong door.',
   },
   {
     method: 'POST', path: '/api/apps/:id/invitations/:invId/reissue', section: 'apps',
@@ -723,9 +739,12 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'rate_limited'], transport: 'http',
     notes:
       'The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to ' +
-      'one invitation would reopen the door the listing\'s missing `accept_url` closes. Limited server-side to once a minute per invitation, ' +
-      'answering `429 rate_limited` with `retry_after_ms` — a disabled button is a hint, this is the limit. The seven days start again. An ' +
-      'invitation that has already been accepted is not pending and answers `404`.',
+      'one invitation would reopen the door the listing\'s missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row ' +
+      'is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read ' +
+      'the listing after this call rather than keeping the id you sent. The seven days start again. \n\nLimited server-side to **five ' +
+      'reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 ' +
+      'rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is ' +
+      'not pending and answers `404`.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/invitations/:invId', section: 'apps',
@@ -802,7 +821,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
     query: null, request: putAppMailTemplateRequest, response: appMailTemplate,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited'], transport: 'http',
     notes:
       'The body carries `subject`, `text` and an optional `html`, each a Liquid template; `kind` is in the path and `updated_at` is the ' +
       'server\'s, so neither may arrive. `text` is required even when `html` is given — a mail with no text part is unreadable to a client ' +
@@ -811,7 +830,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'is a `mailTemplateProblemDetails` naming which of the three parts failed and the renderer\'s own message, because an error that did not ' +
       'say which leaves the developer re-reading all three. The permitted variables are `MAIL_TEMPLATE_VARIABLES` and the set is closed. ' +
       'Rendering here promises nothing about send time: a template that fails for one recipient falls back to the Fleetless default and writes ' +
-      'an audit event, and no answer on this route can say otherwise.',
+      'an audit event, and no answer on this route can say otherwise. \n\nA rendered part is capped while it is being written, so a template ' +
+      'that would produce megabytes answers `422 template_invalid` rather than building the string first. Limited server-side to **ten calls ' +
+      'a minute per app**, shared with the preview, answering `429 rate_limited` with `retry_after_ms`.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
@@ -831,13 +852,17 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
     query: null, request: mailTemplatePreviewRequest, response: mailTemplatePreviewResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited'], transport: 'http',
     notes:
       'Takes the same document the PUT does and writes nothing, so a developer can see the rendered subject, text and HTML before anybody ' +
       'receives them. The sample data fills every variable in `MAIL_TEMPLATE_VARIABLES`, including `link`, which is a plausible URL and not a ' +
       'live token. `422 template_invalid` carries the same `mailTemplateProblemDetails` the PUT does, which is the point of previewing: the ' +
-      'error arrives on the screen where the template is being written. `404 not_found` is the app — the `kind` in the path selects the sample ' +
-      'data, so a kind with no stored template previews perfectly well.',
+      'error arrives on the screen where the template is being written. `404 not_found` is the app — a kind with no stored template previews ' +
+      'perfectly well, since the body being rendered is the one in the request. \n\n**The sample data does not vary with the `kind`.** ' +
+      'Every kind renders against one fixed set: an invite-shaped `link` and `expires_in_hours: 24`, where a real reset mail says 1 and a ' +
+      'real invitation says 168. A preview shows how the template renders, not what the recipient of that kind will read. \n\nLimited ' +
+      'server-side to **ten calls a minute per app**, shared with the PUT, answering `429 rate_limited` with `retry_after_ms`: rendering is ' +
+      'synchronous CPU work on the shared cloud and an unbounded loop of it is a denial of service against every other org.',
   },
   {
     method: 'POST', path: '/api/apps/:id/mail-templates/:kind/test', section: 'apps',
@@ -1270,9 +1295,14 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: ['rate_limited', 'validation_error', 'not_found', 'registration_closed', 'domain_not_allowed', 'target_state_conflict'],
     transport: 'http',
     notes:
-      '**`202` and an empty body for every request policy allows** — a new address and one this app already knows answer identically, and a ' +
-      'mail goes out only in the first case. An answer that depended on existence would be the account-enumeration oracle the whole client ' +
-      'family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. ' +
+      '**`202` and an empty body for every request policy allows** — a new address, one this app already knows and one it does not answer ' +
+      'identically, in status, body and timing. An answer that depended on existence would be the account-enumeration oracle the whole ' +
+      'client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what ' +
+      'does that. \n\n**An address on an account still `pending_verification` is re-registered, not ignored.** The password and display name ' +
+      'from this call replace what is stored, every outstanding verification link for the address stops working, and a fresh one is mailed. ' +
+      'Otherwise whoever typed an address first would own the password of the account its real owner later verifies. An address on an ' +
+      '`active` account changes nothing and sends nothing — that account has already been proven, and its way back in is ' +
+      '`POST /api/client/password/reset`. Neither case is visible in the answer. ' +
       '\n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the ' +
       'app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer\'s own ' +
       'configuration, and a stranger learns the app\'s policy rather than who is in it. **A password under twelve characters is part of that ' +
@@ -1291,8 +1321,11 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
     notes:
       '**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their ' +
-      'password again on the next screen, and the app has an access token to carry them into it. The account moves from ' +
-      '`pending_verification` to `active` and the token is spent in the same write, so a link opened twice cannot mint two sessions. ' +
+      'password again on the next screen, and the app has an access token to carry them into it. The token is spent first and the account is ' +
+      'activated second, as **two writes**: the spend is the atomic one, so a link opened twice cannot mint two sessions, but a process that ' +
+      'died between them would leave a spent token on an account still `pending_verification`, whose recovery is ' +
+      '`POST /api/client/resend-verification`. Spending the token also proves the address, so a later `PATCH` may return the account to ' +
+      '`active` after a block. ' +
       '\n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its twenty-four hours, or already used. ' +
       'There is one code because distinguishing them would tell a stranger whether a token ever existed, and because the recovery is the same ' +
       'in all three cases: ask for a fresh link with `POST /api/client/resend-verification`. An app rendering this refusal should offer that ' +
@@ -1345,7 +1378,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Spends an invitation token, creates or activates the app user and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: clientAcceptInvitationRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken'], transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken', 'target_state_conflict'], transport: 'http',
     notes:
       '**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a ' +
       'session, because the person is landing in the developer\'s app and there is no second door for them to sign in through. The role is the ' +
@@ -1355,8 +1388,13 @@ export const ROUTES: readonly RouteEntry[] = [
       'the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because ' +
       'the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password ' +
       'under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app ' +
-      'has acquired since the invitation was written — ' +
-      'the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login.',
+      'has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather ' +
+      'than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still ' +
+      '`pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the ' +
+      'invitation\'s role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 ' +
+      'target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the ' +
+      'app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse ' +
+      'than saying so.',
   },
   {
     method: 'POST', path: '/api/client/refresh', section: 'client-auth',

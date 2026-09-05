@@ -7,7 +7,7 @@
       "minLength": 2,
       "maxLength": 63,
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
-      "description": "The app to register with. An app that does not exist answers exactly as one with self-registration off does."
+      "description": "The app to register with. An identifier no app carries is `404 not_found` — an identifier is public, so naming it is no disclosure, and collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. The **address** is never the subject of a refusal."
     },
     "email": {
       "type": "string",

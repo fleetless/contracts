@@ -223,7 +223,7 @@ export const developerLoginRequest = z.object({
 export type DeveloperLoginRequest = z.infer<typeof developerLoginRequest>
 
 /**
- * What happened to the mail, in three words instead of one (W6c).
+ * What happened to the mail, in four words instead of one (W6c).
  *
  * `mail_sent: boolean` could not tell **"we have no SMTP configured"** from
  * **"we tried and the server refused"**, so the console had to pick a sentence
@@ -235,16 +235,23 @@ export type DeveloperLoginRequest = z.infer<typeof developerLoginRequest>
  * - `sent`           — the SMTP server accepted the message. Not "delivered":
  *                      no sender can promise that, and this value must never
  *                      be rendered as if it could.
+ * - `not_requested`  — the caller asked for no mail (`send_mail: false`), so
+ *                      none was attempted. **A fourth word rather than a
+ *                      reuse of `not_configured`**: the deployment's mailer is
+ *                      irrelevant here, and a console reading "mail server not
+ *                      configured" beside an invitation whose mail checkbox
+ *                      was off would send a developer to fix something that is
+ *                      not broken.
  * - `not_configured` — no SMTP is set up. **An expected state, not a failure**
  *                      (invitations work without mail; the link is the primary
  *                      path). The console must not show it as an error.
  * - `failed`         — SMTP was configured, was tried, and refused or was
  *                      unreachable. This one is worth someone's attention.
  *
- * Shared with `appInvitation`, which answers the same three facts about the
+ * Shared with `appInvitation`, which answers the same four facts about the
  * same mailer.
  */
-export const mailStatus = z.enum(['sent', 'not_configured', 'failed'])
+export const mailStatus = z.enum(['sent', 'not_requested', 'not_configured', 'failed'])
 export type MailStatus = z.infer<typeof mailStatus>
 
 /* ----------------------------------------------------- the team invite --

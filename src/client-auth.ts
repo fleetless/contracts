@@ -91,17 +91,20 @@ export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
  * immediately.
  *
  * **The answer is `202` for every policy-allowed request**, whether the address
- * was new or already known — a mail goes out only in the first case. A `202`
- * that depended on existence would be the enumeration oracle the whole family
- * is built to avoid. The two refusals it *does* make are honest, because
- * neither is about a person: `403 registration_closed` when the app has
- * self-registration off, and `403 domain_not_allowed` when the address is
- * outside `allowed_domains`.
+ * was new or already known — a mail goes out only in the first case, and a
+ * `register` that finds the address on an account still waiting to verify
+ * replaces that account's password and mails a fresh link, so the mailbox's own
+ * owner always wins over whoever typed their address first. A `202` that
+ * depended on existence would be the enumeration oracle the whole family is
+ * built to avoid. The refusals it *does* make are honest, because none is about
+ * a person: `403 registration_closed` when the app has self-registration off,
+ * `403 domain_not_allowed` when the address is outside `allowed_domains`, and
+ * `404 not_found` for an app identifier no app carries.
  */
 export const clientRegisterRequest = z
   .object({
     app_identifier: appIdentifier.meta({
-      description: 'The app to register with. An app that does not exist answers exactly as one with self-registration off does.',
+      description: 'The app to register with. An identifier no app carries is `404 not_found` — an identifier is public, so naming it is no disclosure, and collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. The **address** is never the subject of a refusal.',
     }),
     email: z.email().meta({
       description: 'The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists.',
@@ -145,9 +148,10 @@ export type ClientResendVerificationRequest = z.infer<typeof clientResendVerific
  * and resolves alone; an app user's is unique only within their app, so the
  * pair is what names them.
  *
- * The response is identical for a known and an unknown pair, and for an app
- * that does not exist — otherwise this becomes the enumeration oracle the rest
- * of the family is carefully built not to be.
+ * The response is identical for a known and an unknown pair — otherwise this
+ * becomes the enumeration oracle the rest of the family is carefully built not
+ * to be. An **app identifier** no app carries is the one refusal, `404
+ * not_found`, because an identifier is public and an address is not.
  *
  * Moved here from `identity.ts`, where it sat because the client surface had no
  * file of its own for it. It is an app-user shape and belongs with them.
@@ -156,7 +160,7 @@ export const clientPasswordResetRequest = z
   .object({
     app_identifier: appIdentifier.meta({ description: 'The app the address belongs to.' }),
     email: z.email().meta({
-      description: 'The address to mail a reset link to. The answer is `202` for a known address, an unknown one and an app that does not exist alike, in status, body and timing.',
+      description: 'The address to mail a reset link to. The answer is `202` for a known address and an unknown one alike, in status, body and timing. An app identifier no app carries is `404 not_found`; the address is never the subject of a refusal.',
     }),
   })
   .strict()
