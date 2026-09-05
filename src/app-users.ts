@@ -643,3 +643,31 @@ export const mailTemplateProblemDetails = z.object({
   message: z.string().meta({ description: 'The renderer\'s own message — the unknown variable, or the syntax error and where it is.' }),
 })
 export type MailTemplateProblemDetails = z.infer<typeof mailTemplateProblemDetails>
+
+/**
+ * **What a `202` says when the only thing that happened was a mail.**
+ *
+ * Three routes do one act and answer nothing about it — re-sending a user's
+ * reset link, mailing an invitation, sending a test template. A bare `202`
+ * with an empty body would be honest about the *acceptance* and silent about
+ * the one fact the developer needs next, which is whether a mail actually left:
+ * an app with no SMTP configured looks exactly like one that mailed, and the
+ * developer waits for a message nobody sent.
+ *
+ * So the body is `{ "mail": mailStatus }` and nothing else. `sent` means the
+ * SMTP server accepted it, not that it was delivered; `not_configured` is an
+ * expected state on a deployment without a mailer and is not a failure;
+ * `failed` is the one worth somebody's attention.
+ *
+ * It is its own object rather than a reuse of `appInvitation`'s field because
+ * the export registry resolves an artifact by object identity — one schema
+ * under two contract names would make the artifact a route points at a coin
+ * toss, the same reason `mailTemplatePreviewRequest` is a second `.strict()`
+ * rather than an alias.
+ */
+export const mailOutcome = z.object({
+  mail: mailStatus.meta({
+    description: 'What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+  }),
+})
+export type MailOutcome = z.infer<typeof mailOutcome>

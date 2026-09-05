@@ -40,7 +40,35 @@ import {
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
 import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
-import { clientIdentity, clientLoginRequest, clientLogoutRequest, clientRefreshRequest } from './client-auth.js'
+import {
+  clientAcceptInvitationRequest,
+  clientIdentity,
+  clientLoginRequest,
+  clientLogoutRequest,
+  clientPasswordResetConfirmRequest,
+  clientPasswordResetRequest,
+  clientRefreshRequest,
+  clientRegisterRequest,
+  clientResendVerificationRequest,
+  clientVerifyEmailRequest,
+} from './client-auth.js'
+import {
+  appAuthConfig,
+  appInvitation,
+  appInvitationListResponse,
+  appMailTemplate,
+  appMailTemplateListResponse,
+  appUser,
+  appUserListResponse,
+  createAppInvitationRequest,
+  createAppUserRequest,
+  mailOutcome,
+  mailTemplatePreviewRequest,
+  mailTemplatePreviewResponse,
+  patchAppUserRequest,
+  putAppAuthConfigRequest,
+  putAppMailTemplateRequest,
+} from './app-users.js'
 import type { ErrorCode } from './errors.js'
 import {
   acceptTeamInviteRequest,
@@ -573,6 +601,260 @@ export const ROUTES: readonly RouteEntry[] = [
     notes: 'Owner tier, like minting and rotating: all three decide who may speak for the whole app.',
   },
 
+
+  /* -------------------------------------- the app's users and invitations */
+  {
+    method: 'GET', path: '/api/apps/:id/users', section: 'apps',
+    summary: "Lists the app's users — the developer's own customers, not the Fleetless team.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appUserListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Answers `{ "users": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user ' +
+      'belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts ' +
+      'in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries ' +
+      'rather than spreading the stored row.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/users', section: 'apps',
+    summary: 'Creates an app user directly, without an invitation or a self-registration.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: createAppUserRequest, response: appUser,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'weak_password'], transport: 'http',
+    notes:
+      'The developer-authenticated door into the app\'s user table, and the one place `409 email_taken` is an honest answer about an app user: ' +
+      'the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the ' +
+      'listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` ' +
+      'is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one ' +
+      'would carry rights nothing in this app can resolve. `400 weak_password` is a password under twelve characters. An account created here ' +
+      'is `active` immediately: a developer entering somebody by hand has made the decision the verification mail automates.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/users/:userId', section: 'apps',
+    summary: 'Reads one user of the app.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: null, response: appUser,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'A user of another app, or of another org, reads exactly like one that does not exist — `404`, never a `403`.',
+  },
+  {
+    method: 'PATCH', path: '/api/apps/:id/users/:userId', section: 'apps',
+    summary: "Changes an app user's display name, role or status.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: patchAppUserRequest, response: appUser,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'The address is immutable: it is half of what identifies the account within the app, and a rewrite would silently move every token and ' +
+      'invitation addressed to the old one. Setting `status` to `blocked` ends every session the user holds and closes their live ' +
+      '`/realtime` subscriptions — blocking somebody who keeps a working socket is not blocking them. Moving them back to `active` mints ' +
+      'nothing; they log in again. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/users/:userId', section: 'apps',
+    summary: 'Deletes an app user and ends every session they hold.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Sessions are revoked before the row goes, for the reason `DELETE /api/org/users/:id` states: a live user with a dead session is ' +
+      'recoverable by retrying, a deleted user whose token still works is not. Outstanding invitations and unspent tokens for that address are ' +
+      'expired with it — a link mailed before the deletion is a standing re-admission ticket. **Nothing outside this app is touched**: a ' +
+      'Fleetless user sharing the address keeps their console account, and an account with the same address in a sibling app is a different ' +
+      'person as far as this platform is concerned.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/users/:userId/reset-password', section: 'apps',
+    summary: "Mails an app user a password-reset link on the developer's behalf.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 202,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: null, response: mailOutcome,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      'The support door beside `POST /api/client/password/reset`: the same one-hour token and the same link, triggered by a developer for a ' +
+      'user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read ' +
+      'the user list — so this one answers what actually happened: `{ "mail": mailStatus }`, where `not_configured` is a deployment without a ' +
+      'mailer and `failed` is the state worth somebody\'s attention. `409 target_state_conflict` names `reset_url` when the app has configured ' +
+      'none: the token would be minted and the link would point nowhere, so nothing is minted. Setting the password directly is deliberately ' +
+      'not offered; a developer who could would hold their customers\' credentials.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/invitations', section: 'apps',
+    summary: "Lists the app's outstanding invitations, without their tokens.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appInvitationListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Answers `{ "invitations": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to ' +
+      'revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and ' +
+      'withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that ' +
+      'page into a live credential for somebody else\'s account. `mail` is omitted too — it described what happened at creation time, and ' +
+      're-serving it invites a reader to take it as current.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/invitations', section: 'apps',
+    summary: 'Invites an address into the app with a role, and optionally mails the link.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: createAppInvitationRequest, response: appInvitation,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict'], transport: 'http',
+    notes:
+      '**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the ' +
+      'developer\'s own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. ' +
+      'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`, which is `null` when the app has configured no ' +
+      '`invite_url` — there is nowhere for the link to point, and Fleetless serves an app user no page of its own. That is a `201` with a ' +
+      'null link, not a refusal: the invitation exists and a developer may hand the token over by another route. Asking to **mail** it in that ' +
+      'state is `409 target_state_conflict` naming `invite_url`, because a mail carrying a dead link is worse than no mail. `409 email_taken` ' +
+      'is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/invitations/:invId/reissue', section: 'apps',
+    summary: 'Mints a fresh token onto the same invitation and returns the new link.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'invId', description: 'The invitation\'s uuid, from `GET /api/apps/:id/invitations`; an invitation of another app answers `404`.' }],
+    query: null, request: null, response: appInvitation,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'rate_limited'], transport: 'http',
+    notes:
+      'The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to ' +
+      'one invitation would reopen the door the listing\'s missing `accept_url` closes. Limited server-side to once a minute per invitation, ' +
+      'answering `429 rate_limited` with `retry_after_ms` — a disabled button is a hint, this is the limit. The seven days start again. An ' +
+      'invitation that has already been accepted is not pending and answers `404`.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/invitations/:invId', section: 'apps',
+    summary: 'Revokes a pending invitation so its link stops resolving.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'invId', description: 'The invitation\'s uuid, from `GET /api/apps/:id/invitations`; an invitation of another app answers `404`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'An invitation that was already accepted is not pending and answers `404`, the same answer one that never existed gets — the account it ' +
+      'created is a user now, and deleting that is `DELETE /api/apps/:id/users/:userId`. A revoked token answers `401 invalid_token` at ' +
+      '`POST /api/client/invitations/accept` rather than `410 invite_expired`: the developer withdrew it, which is not the same fact as time ' +
+      'running out, and only the first is worth re-issuing against.',
+  },
+
+  /* ------------------------------- the app's auth configuration and mails */
+  {
+    method: 'GET', path: '/api/apps/:id/auth-config', section: 'apps',
+    summary: "Reads the app's auth settings: self-registration, domains, origins, URLs and the MCP switch.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a ' +
+      '`404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same ' +
+      'for every app and every provider, and is the value a developer registers at their identity provider.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config', section: 'apps',
+    summary: "Replaces the app's auth settings in one write.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: putAppAuthConfigRequest, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**A replace, not a merge, and `.strict()`**: every field arrives or the write is refused, so a client built against an older shape ' +
+      'cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are refused in the body — a writable ' +
+      'callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own. ' +
+      '\n\n`400 validation_error` is where the three field rules land: a URL template must be https (or `http` on `localhost`) and carry its ' +
+      'placeholder exactly once, an origin must be a bare scheme-host-port with no path, and a domain must be lowercase. Each refuses at ' +
+      'configuration time because each would otherwise fail silently later — a second placeholder leaves one occurrence literal in a mailed ' +
+      'link, an origin with a path can never equal a browser\'s `Origin` header, and a capitalised domain can never match a lowercased address.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/mail-templates', section: 'apps',
+    summary: 'Lists the custom mail templates the app has, which may be none.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appMailTemplateListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Answers `{ "templates": [appMailTemplate, …] }` with **only the kinds that have a custom template** — at most three. A kind that does ' +
+      'not appear is one using the Fleetless default text, which is an ordinary state and not a missing row. Mails to *Fleetless* users, a ' +
+      'team invitation or a console password reset, are not in this list and are deliberately not customisable: they are about this platform, ' +
+      'not about the developer\'s product.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
+    summary: 'Reads one custom mail template of the app.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    query: null, request: null, response: appMailTemplate,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'The `kind` segment is a `mailTemplateKind`, so a fourth word is `400 validation_error` — the path names a set that is closed, and ' +
+      'answering `404` about it would read as "this app has no such template" when the truth is that no app can. `404 not_found` is the app, ' +
+      'or a kind this app has left on the Fleetless default: there is no stored row to read back, and inventing one would present the default ' +
+      'text as something the developer wrote.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
+    summary: 'Stores or replaces the app\'s template for one kind of mail, refusing one that does not render.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    query: null, request: putAppMailTemplateRequest, response: appMailTemplate,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid'], transport: 'http',
+    notes:
+      'The body carries `subject`, `text` and an optional `html`, each a Liquid template; `kind` is in the path and `updated_at` is the ' +
+      'server\'s, so neither may arrive. `text` is required even when `html` is given — a mail with no text part is unreadable to a client ' +
+      'that refuses HTML. \n\n**Liquid runs in strict mode and every part is rendered here before anything is stored**, so `422 ' +
+      'template_invalid` is an unknown variable or a syntax error rather than an empty line in a mail somebody already received. Its `details` ' +
+      'is a `mailTemplateProblemDetails` naming which of the three parts failed and the renderer\'s own message, because an error that did not ' +
+      'say which leaves the developer re-reading all three. The permitted variables are `MAIL_TEMPLATE_VARIABLES` and the set is closed. ' +
+      'Rendering here promises nothing about send time: a template that fails for one recipient falls back to the Fleetless default and writes ' +
+      'an audit event, and no answer on this route can say otherwise.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
+    summary: 'Drops the app\'s custom template for one kind, returning that mail to the Fleetless default.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'The mail keeps being sent — this removes the developer\'s wording, not the message. A kind that already has no custom template answers ' +
+      '`404 not_found` rather than `204`: there is nothing here to reach the end state of, and the two facts are worth telling apart to ' +
+      'somebody who thinks they still have a template stored.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/mail-templates/:kind/preview', section: 'apps',
+    summary: 'Renders a template with sample data and answers the three parts, storing nothing.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    query: null, request: mailTemplatePreviewRequest, response: mailTemplatePreviewResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid'], transport: 'http',
+    notes:
+      'Takes the same document the PUT does and writes nothing, so a developer can see the rendered subject, text and HTML before anybody ' +
+      'receives them. The sample data fills every variable in `MAIL_TEMPLATE_VARIABLES`, including `link`, which is a plausible URL and not a ' +
+      'live token. `422 template_invalid` carries the same `mailTemplateProblemDetails` the PUT does, which is the point of previewing: the ' +
+      'error arrives on the screen where the template is being written. `404 not_found` is the app — the `kind` in the path selects the sample ' +
+      'data, so a kind with no stored template previews perfectly well.',
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/mail-templates/:kind/test', section: 'apps',
+    summary: 'Sends the rendered template as a real mail to the calling developer.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 202,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    query: null, request: mailTemplatePreviewRequest, response: mailOutcome,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited', 'target_state_conflict'],
+    transport: 'http',
+    notes:
+      '**The recipient is the calling developer\'s own address and cannot be chosen.** A test send that named an arbitrary address would be a ' +
+      'mail relay with an authentication step in front of it. The body and the sample data are the preview\'s, so what arrives is what the ' +
+      'preview showed, in a real client with real HTML. \n\nThe answer is `{ "mail": mailStatus }` rather than an empty `202`, because the one ' +
+      'thing a developer needs next is whether a mail actually left: `not_configured` on a deployment with no mailer looks exactly like a ' +
+      'successful send otherwise, and they wait for a message nobody posted. `409 target_state_conflict` is that state made explicit where the ' +
+      'deployment can already tell — there is no mailer configured at all, so nothing will be attempted. `422 template_invalid` refuses before ' +
+      'sending, and `429 rate_limited` bounds how often this can be used to mail anybody, the developer included.',
+  },
+
   /* ------------------------------------------- the team and its invites */
   {
     method: 'GET', path: '/api/org/users', section: 'users',
@@ -977,6 +1259,102 @@ export const ROUTES: readonly RouteEntry[] = [
       'One refusal for every miss — unknown app, unknown address, wrong password, a `blocked` account and one still `pending_verification` — ' +
       'because the caller supplies the `app_identifier` unauthenticated, so "this app knows this user" is not a fact the answer may carry. ' +
       'The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either.',
+  },
+  {
+    method: 'POST', path: '/api/client/register', section: 'client-auth',
+    summary: 'Creates an app user in the `pending_verification` state and mails them a verification link.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
+    params: [], query: null, request: clientRegisterRequest, response: null,
+    errors: ['rate_limited', 'validation_error', 'not_found', 'registration_closed', 'domain_not_allowed', 'weak_password', 'target_state_conflict'],
+    transport: 'http',
+    notes:
+      '**`202` and an empty body for every request policy allows** — a new address and one this app already knows answer identically, and a ' +
+      'mail goes out only in the first case. An answer that depended on existence would be the account-enumeration oracle the whole client ' +
+      'family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. ' +
+      '\n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the ' +
+      'app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer\'s own ' +
+      'configuration, and a stranger learns the app\'s policy rather than who is in it. `400 weak_password` when the password is under twelve ' +
+      'characters — the person typed it and has to read why it was refused, which a generic `validation_error` buries. `404 not_found` names an ' +
+      '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
+      'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
+      'configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — ' +
+      'there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing.',
+  },
+  {
+    method: 'POST', path: '/api/client/verify-email', section: 'client-auth',
+    summary: 'Spends a verification token, activates the account and answers a session.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientVerifyEmailRequest, response: sessionTokens,
+    errors: ['rate_limited', 'validation_error', 'token_expired', 'token_spent', 'invalid_token'], transport: 'http',
+    notes:
+      '**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their ' +
+      'password again on the next screen, and the app has an access token to carry them into it. The account moves from ' +
+      '`pending_verification` to `active` and the token is spent in the same write, so a link opened twice cannot mint two sessions. ' +
+      '\n\nThree refusals, and they are three because this token is a link a person clicks rather than a credential a client stores: `410 ' +
+      'token_expired` for one past its twenty-four hours, which is the one an app answers by offering `POST /api/client/resend-verification`; ' +
+      '`410 token_spent` for one already used, which needs no new mail because the account is already active; `401 invalid_token` for a string ' +
+      'that is not a token of this kind at all. A single collapsed code would leave the app unable to tell the person which of the three ' +
+      'happened, and each has a different next step.',
+  },
+  {
+    method: 'POST', path: '/api/client/resend-verification', section: 'client-auth',
+    summary: 'Mails the verification link again, and answers the same whether or not the address exists.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
+    params: [], query: null, request: clientResendVerificationRequest, response: null,
+    errors: ['rate_limited', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**`202` in status, body and timing** for an address that names a `pending_verification` account, one that names an already-active ' +
+      'account, and one that names nothing at all. A mail is sent only in the first case. This is the same discipline `POST ' +
+      '/api/client/register` keeps, by the other door: an answer that varied here would undo it. `404 not_found` is the **app identifier** and ' +
+      'nothing else, exactly as on `register` — the address is never the subject of a refusal. Limited per app, address and IP, so this cannot ' +
+      'be used to mail somebody repeatedly.',
+  },
+  {
+    method: 'POST', path: '/api/client/password/reset', section: 'client-auth',
+    summary: 'Mails an app user a reset link, and answers the same either way.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
+    params: [], query: null, request: clientPasswordResetRequest, response: null,
+    errors: ['rate_limited', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**The app-user twin of `POST /api/auth/password/reset`, and a different shape** because the two surfaces name a person differently: a ' +
+      'Fleetless address is globally unique and resolves alone, an app user\'s is unique only within their app, so the pair is the identifier. ' +
+      'Status, body and timing are identical for a known and an unknown address. An account with no Fleetless password — one created through an ' +
+      'identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link ' +
+      'points at the app\'s `reset_url`; an app that has configured none can send no mail, which the `202` does not distinguish, because saying ' +
+      'so would answer for the address as well.',
+  },
+  {
+    method: 'POST', path: '/api/client/password/reset/confirm', section: 'client-auth',
+    summary: 'Spends a reset token, sets the new password and answers a fresh session.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientPasswordResetConfirmRequest, response: sessionTokens,
+    errors: ['rate_limited', 'validation_error', 'token_expired', 'token_spent', 'invalid_token', 'weak_password'], transport: 'http',
+    notes:
+      '**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two ' +
+      'states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The ' +
+      'account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. ' +
+      '\n\nThe token\'s three refusals are the ones `POST /api/client/verify-email` makes, for the same reason — `410 token_expired` past its ' +
+      'hour, `410 token_spent` for one already used, `401 invalid_token` for a string that is no token. `400 weak_password` is the new ' +
+      'password being under twelve characters, named on its own rather than as a `validation_error`, because the person typed it.',
+  },
+  {
+    method: 'POST', path: '/api/client/invitations/accept', section: 'client-auth',
+    summary: 'Spends an invitation token, creates or activates the app user and answers a session.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientAcceptInvitationRequest, response: sessionTokens,
+    errors: ['rate_limited', 'validation_error', 'invite_expired', 'invite_used', 'invalid_token', 'weak_password', 'email_taken'],
+    transport: 'http',
+    notes:
+      '**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a ' +
+      'session, because the person is landing in the developer\'s app and there is no second door for them to sign in through. The role is the ' +
+      'one the invitation fixed at creation, so a later change to the app\'s default role does not re-aim a link already in somebody\'s inbox, ' +
+      'and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist ' +
+      'automates. \n\nThe two token refusals are split because the recoveries differ and the app has to say which: `410 invite_expired` past the ' +
+      'seven days, which the developer fixes by re-issuing, and `409 invite_used` for one already accepted, whose holder should simply log in. ' +
+      '`401 invalid_token` is a string that is no invitation token, including a revoked one — a revoked invitation must not read as one that ' +
+      'merely expired, since the developer withdrew it deliberately. `400 weak_password` is the chosen password under twelve characters, and ' +
+      '`409 email_taken` is an address this app has acquired since the invitation was written; the invitation stays outstanding rather than ' +
+      'being spent, so the developer can revoke it.',
   },
   {
     method: 'POST', path: '/api/client/refresh', section: 'client-auth',

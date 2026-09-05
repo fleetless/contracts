@@ -550,6 +550,7 @@ export {
   mailTemplatePreviewRequest,
   mailTemplatePreviewResponse,
   mailTemplateProblemDetails,
+  mailOutcome,
 } from './app-users.js'
 export type {
   AppUserStatus,
@@ -574,6 +575,7 @@ export type {
   MailTemplatePreviewRequest,
   MailTemplatePreviewResponse,
   MailTemplateProblemDetails,
+  MailOutcome,
 } from './app-users.js'
 export {
   assetKind,

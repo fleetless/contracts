@@ -138,6 +138,7 @@ import {
   mailTemplatePreviewRequest,
   mailTemplatePreviewResponse,
   mailTemplateProblemDetails,
+  mailOutcome,
 } from '../src/app-users.js'
 import { auditActor, auditEvent, auditListResponse, auditQuery } from '../src/audit.js'
 import {
@@ -359,6 +360,7 @@ export const exportedSchemas = {
   'mail-template-preview-request': mailTemplatePreviewRequest,
   'mail-template-preview-response': mailTemplatePreviewResponse,
   'mail-template-problem-details': mailTemplateProblemDetails,
+  'mail-outcome': mailOutcome,
   app: app,
   'create-app-request': createAppRequest,
   'server-key': serverKey,
@@ -687,6 +689,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'app-oidc-provider-list-response', 'app-auth-config',
   'app-mail-template', 'app-mail-template-list-response',
   'mail-template-preview-response', 'mail-template-problem-details',
+  'mail-outcome',
   'client-provider-list-response', 'client-mcp-interaction',
   'client-mcp-interaction-decision-response',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',

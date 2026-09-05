@@ -1399,6 +1399,1004 @@
         "description": "Owner tier, like minting and rotating: all three decide who may speak for the whole app."
       }
     },
+    "/api/apps/{id}/users": {
+      "get": {
+        "operationId": "get_api_apps_id_users",
+        "summary": "Lists the app's users — the developer's own customers, not the Fleetless team.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-user-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Answers `{ \"users\": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries rather than spreading the stored row."
+      },
+      "post": {
+        "operationId": "post_api_apps_id_users",
+        "summary": "Creates an app user directly, without an invitation or a self-registration.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-user"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `email_taken`, `weak_password`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The developer-authenticated door into the app's user table, and the one place `409 email_taken` is an honest answer about an app user: the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one would carry rights nothing in this app can resolve. `400 weak_password` is a password under twelve characters. An account created here is `active` immediately: a developer entering somebody by hand has made the decision the verification mail automates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-app-user-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/users/{userId}": {
+      "get": {
+        "operationId": "get_api_apps_id_users_userId",
+        "summary": "Reads one user of the app.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The app user's uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-user"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A user of another app, or of another org, reads exactly like one that does not exist — `404`, never a `403`."
+      },
+      "patch": {
+        "operationId": "patch_api_apps_id_users_userId",
+        "summary": "Changes an app user's display name, role or status.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The app user's uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-user"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The address is immutable: it is half of what identifies the account within the app, and a rewrite would silently move every token and invitation addressed to the old one. Setting `status` to `blocked` ends every session the user holds and closes their live `/realtime` subscriptions — blocking somebody who keeps a working socket is not blocking them. Moving them back to `active` mints nothing; they log in again. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patch-app-user-request"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_apps_id_users_userId",
+        "summary": "Deletes an app user and ends every session they hold.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The app user's uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Sessions are revoked before the row goes, for the reason `DELETE /api/org/users/:id` states: a live user with a dead session is recoverable by retrying, a deleted user whose token still works is not. Outstanding invitations and unspent tokens for that address are expired with it — a link mailed before the deletion is a standing re-admission ticket. **Nothing outside this app is touched**: a Fleetless user sharing the address keeps their console account, and an account with the same address in a sibling app is a different person as far as this platform is concerned."
+      }
+    },
+    "/api/apps/{id}/users/{userId}/reset-password": {
+      "post": {
+        "operationId": "post_api_apps_id_users_userId_reset_password",
+        "summary": "Mails an app user a password-reset link on the developer's behalf.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "description": "The app user's uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mail-outcome"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The support door beside `POST /api/client/password/reset`: the same one-hour token and the same link, triggered by a developer for a user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read the user list — so this one answers what actually happened: `{ \"mail\": mailStatus }`, where `not_configured` is a deployment without a mailer and `failed` is the state worth somebody's attention. `409 target_state_conflict` names `reset_url` when the app has configured none: the token would be minted and the link would point nowhere, so nothing is minted. Setting the password directly is deliberately not offered; a developer who could would hold their customers' credentials."
+      }
+    },
+    "/api/apps/{id}/invitations": {
+      "get": {
+        "operationId": "get_api_apps_id_invitations",
+        "summary": "Lists the app's outstanding invitations, without their tokens.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-invitation-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Answers `{ \"invitations\": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that page into a live credential for somebody else's account. `mail` is omitted too — it described what happened at creation time, and re-serving it invites a reader to take it as current."
+      },
+      "post": {
+        "operationId": "post_api_apps_id_invitations",
+        "summary": "Invites an address into the app with a role, and optionally mails the link.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-invitation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `email_taken`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the developer's own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`, which is `null` when the app has configured no `invite_url` — there is nowhere for the link to point, and Fleetless serves an app user no page of its own. That is a `201` with a null link, not a refusal: the invitation exists and a developer may hand the token over by another route. Asking to **mail** it in that state is `409 target_state_conflict` naming `invite_url`, because a mail carrying a dead link is worse than no mail. `409 email_taken` is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-app-invitation-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/invitations/{invId}/reissue": {
+      "post": {
+        "operationId": "post_api_apps_id_invitations_invId_reissue",
+        "summary": "Mints a fresh token onto the same invitation and returns the new link.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invId",
+            "in": "path",
+            "required": true,
+            "description": "The invitation's uuid, from `GET /api/apps/:id/invitations`; an invitation of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-invitation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `rate_limited`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to one invitation would reopen the door the listing's missing `accept_url` closes. Limited server-side to once a minute per invitation, answering `429 rate_limited` with `retry_after_ms` — a disabled button is a hint, this is the limit. The seven days start again. An invitation that has already been accepted is not pending and answers `404`."
+      }
+    },
+    "/api/apps/{id}/invitations/{invId}": {
+      "delete": {
+        "operationId": "delete_api_apps_id_invitations_invId",
+        "summary": "Revokes a pending invitation so its link stops resolving.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invId",
+            "in": "path",
+            "required": true,
+            "description": "The invitation's uuid, from `GET /api/apps/:id/invitations`; an invitation of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "An invitation that was already accepted is not pending and answers `404`, the same answer one that never existed gets — the account it created is a user now, and deleting that is `DELETE /api/apps/:id/users/:userId`. A revoked token answers `401 invalid_token` at `POST /api/client/invitations/accept` rather than `410 invite_expired`: the developer withdrew it, which is not the same fact as time running out, and only the first is worth re-issuing against."
+      }
+    },
+    "/api/apps/{id}/auth-config": {
+      "get": {
+        "operationId": "get_api_apps_id_auth_config",
+        "summary": "Reads the app's auth settings: self-registration, domains, origins, URLs and the MCP switch.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-auth-config"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a `404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same for every app and every provider, and is the value a developer registers at their identity provider."
+      },
+      "put": {
+        "operationId": "put_api_apps_id_auth_config",
+        "summary": "Replaces the app's auth settings in one write.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-auth-config"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**A replace, not a merge, and `.strict()`**: every field arrives or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are refused in the body — a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own. \n\n`400 validation_error` is where the three field rules land: a URL template must be https (or `http` on `localhost`) and carry its placeholder exactly once, an origin must be a bare scheme-host-port with no path, and a domain must be lowercase. Each refuses at configuration time because each would otherwise fail silently later — a second placeholder leaves one occurrence literal in a mailed link, an origin with a path can never equal a browser's `Origin` header, and a capitalised domain can never match a lowercased address.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/put-app-auth-config-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/mail-templates": {
+      "get": {
+        "operationId": "get_api_apps_id_mail_templates",
+        "summary": "Lists the custom mail templates the app has, which may be none.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-mail-template-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Answers `{ \"templates\": [appMailTemplate, …] }` with **only the kinds that have a custom template** — at most three. A kind that does not appear is one using the Fleetless default text, which is an ordinary state and not a missing row. Mails to *Fleetless* users, a team invitation or a console password reset, are not in this list and are deliberately not customisable: they are about this platform, not about the developer's product."
+      }
+    },
+    "/api/apps/{id}/mail-templates/{kind}": {
+      "get": {
+        "operationId": "get_api_apps_id_mail_templates_kind",
+        "summary": "Reads one custom mail template of the app.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-mail-template"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The `kind` segment is a `mailTemplateKind`, so a fourth word is `400 validation_error` — the path names a set that is closed, and answering `404` about it would read as \"this app has no such template\" when the truth is that no app can. `404 not_found` is the app, or a kind this app has left on the Fleetless default: there is no stored row to read back, and inventing one would present the default text as something the developer wrote."
+      },
+      "put": {
+        "operationId": "put_api_apps_id_mail_templates_kind",
+        "summary": "Stores or replaces the app's template for one kind of mail, refusing one that does not render.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-mail-template"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `template_invalid`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The body carries `subject`, `text` and an optional `html`, each a Liquid template; `kind` is in the path and `updated_at` is the server's, so neither may arrive. `text` is required even when `html` is given — a mail with no text part is unreadable to a client that refuses HTML. \n\n**Liquid runs in strict mode and every part is rendered here before anything is stored**, so `422 template_invalid` is an unknown variable or a syntax error rather than an empty line in a mail somebody already received. Its `details` is a `mailTemplateProblemDetails` naming which of the three parts failed and the renderer's own message, because an error that did not say which leaves the developer re-reading all three. The permitted variables are `MAIL_TEMPLATE_VARIABLES` and the set is closed. Rendering here promises nothing about send time: a template that fails for one recipient falls back to the Fleetless default and writes an audit event, and no answer on this route can say otherwise.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/put-app-mail-template-request"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_apps_id_mail_templates_kind",
+        "summary": "Drops the app's custom template for one kind, returning that mail to the Fleetless default.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The mail keeps being sent — this removes the developer's wording, not the message. A kind that already has no custom template answers `404 not_found` rather than `204`: there is nothing here to reach the end state of, and the two facts are worth telling apart to somebody who thinks they still have a template stored."
+      }
+    },
+    "/api/apps/{id}/mail-templates/{kind}/preview": {
+      "post": {
+        "operationId": "post_api_apps_id_mail_templates_kind_preview",
+        "summary": "Renders a template with sample data and answers the three parts, storing nothing.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mail-template-preview-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `template_invalid`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Takes the same document the PUT does and writes nothing, so a developer can see the rendered subject, text and HTML before anybody receives them. The sample data fills every variable in `MAIL_TEMPLATE_VARIABLES`, including `link`, which is a plausible URL and not a live token. `422 template_invalid` carries the same `mailTemplateProblemDetails` the PUT does, which is the point of previewing: the error arrives on the screen where the template is being written. `404 not_found` is the app — the `kind` in the path selects the sample data, so a kind with no stored template previews perfectly well.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/mail-template-preview-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/mail-templates/{kind}/test": {
+      "post": {
+        "operationId": "post_api_apps_id_mail_templates_kind_test",
+        "summary": "Sends the rendered template as a real mail to the calling developer.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mail-outcome"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `template_invalid`, `rate_limited`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The recipient is the calling developer's own address and cannot be chosen.** A test send that named an arbitrary address would be a mail relay with an authentication step in front of it. The body and the sample data are the preview's, so what arrives is what the preview showed, in a real client with real HTML. \n\nThe answer is `{ \"mail\": mailStatus }` rather than an empty `202`, because the one thing a developer needs next is whether a mail actually left: `not_configured` on a deployment with no mailer looks exactly like a successful send otherwise, and they wait for a message nobody posted. `409 target_state_conflict` is that state made explicit where the deployment can already tell — there is no mailer configured at all, so nothing will be attempted. `422 template_invalid` refuses before sending, and `429 rate_limited` bounds how often this can be used to mail anybody, the developer included.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/mail-template-preview-request"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/org/users": {
       "get": {
         "operationId": "get_api_org_users",
@@ -2127,6 +3125,249 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/client-login-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/register": {
+      "post": {
+        "operationId": "post_api_client_register",
+        "summary": "Creates an app user in the `pending_verification` state and mails them a verification link.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`, `registration_closed`, `domain_not_allowed`, `weak_password`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**`202` and an empty body for every request policy allows** — a new address and one this app already knows answer identically, and a mail goes out only in the first case. An answer that depended on existence would be the account-enumeration oracle the whole client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. \n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer's own configuration, and a stranger learns the app's policy rather than who is in it. `400 weak_password` when the password is under twelve characters — the person typed it and has to read why it was refused, which a generic `validation_error` buries. `404 not_found` names an **app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the developer's own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-register-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/verify-email": {
+      "post": {
+        "operationId": "post_api_client_verify_email",
+        "summary": "Spends a verification token, activates the account and answers a session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session-tokens"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_expired`, `token_spent`, `invalid_token`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their password again on the next screen, and the app has an access token to carry them into it. The account moves from `pending_verification` to `active` and the token is spent in the same write, so a link opened twice cannot mint two sessions. \n\nThree refusals, and they are three because this token is a link a person clicks rather than a credential a client stores: `410 token_expired` for one past its twenty-four hours, which is the one an app answers by offering `POST /api/client/resend-verification`; `410 token_spent` for one already used, which needs no new mail because the account is already active; `401 invalid_token` for a string that is not a token of this kind at all. A single collapsed code would leave the app unable to tell the person which of the three happened, and each has a different next step.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-verify-email-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/resend-verification": {
+      "post": {
+        "operationId": "post_api_client_resend_verification",
+        "summary": "Mails the verification link again, and answers the same whether or not the address exists.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**`202` in status, body and timing** for an address that names a `pending_verification` account, one that names an already-active account, and one that names nothing at all. A mail is sent only in the first case. This is the same discipline `POST /api/client/register` keeps, by the other door: an answer that varied here would undo it. `404 not_found` is the **app identifier** and nothing else, exactly as on `register` — the address is never the subject of a refusal. Limited per app, address and IP, so this cannot be used to mail somebody repeatedly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-resend-verification-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/password/reset": {
+      "post": {
+        "operationId": "post_api_client_password_reset",
+        "summary": "Mails an app user a reset link, and answers the same either way.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The app-user twin of `POST /api/auth/password/reset`, and a different shape** because the two surfaces name a person differently: a Fleetless address is globally unique and resolves alone, an app user's is unique only within their app, so the pair is the identifier. Status, body and timing are identical for a known and an unknown address. An account with no Fleetless password — one created through an identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link points at the app's `reset_url`; an app that has configured none can send no mail, which the `202` does not distinguish, because saying so would answer for the address as well.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-password-reset-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/password/reset/confirm": {
+      "post": {
+        "operationId": "post_api_client_password_reset_confirm",
+        "summary": "Spends a reset token, sets the new password and answers a fresh session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session-tokens"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_expired`, `token_spent`, `invalid_token`, `weak_password`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. \n\nThe token's three refusals are the ones `POST /api/client/verify-email` makes, for the same reason — `410 token_expired` past its hour, `410 token_spent` for one already used, `401 invalid_token` for a string that is no token. `400 weak_password` is the new password being under twelve characters, named on its own rather than as a `validation_error`, because the person typed it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-password-reset-confirm-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/invitations/accept": {
+      "post": {
+        "operationId": "post_api_client_invitations_accept",
+        "summary": "Spends an invitation token, creates or activates the app user and answers a session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session-tokens"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invite_expired`, `invite_used`, `invalid_token`, `weak_password`, `email_taken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. \n\nThe two token refusals are split because the recoveries differ and the app has to say which: `410 invite_expired` past the seven days, which the developer fixes by re-issuing, and `409 invite_used` for one already accepted, whose holder should simply log in. `401 invalid_token` is a string that is no invitation token, including a revoked one — a revoked invitation must not read as one that merely expired, since the developer withdrew it deliberately. `400 weak_password` is the chosen password under twelve characters, and `409 email_taken` is an address this app has acquired since the invitation was written; the invitation stays outstanding rather than being spent, so the developer can revoke it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-accept-invitation-request"
               }
             }
           }
@@ -5686,6 +6927,234 @@
         ],
         "additionalProperties": false
       },
+      "app-auth-config": {
+        "type": "object",
+        "properties": {
+          "self_registration": {
+            "type": "boolean",
+            "description": "Whether a stranger may create an account in this app. Off refuses `POST /api/client/register` with `403 registration_closed`, and refuses an unknown identity at an OIDC callback with the same reasoning — one switch for one decision, whichever door the person arrives at."
+          },
+          "allowed_domains": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+            },
+            "description": "The email domains self-registration accepts, lowercase. An empty list means no domain restriction, not \"nobody\" — the switch above is what closes the door. **An invitation always bypasses this**, by password and through a provider alike."
+          },
+          "allowed_origins": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "The origins the client auth API answers CORS for, and the only origins an OIDC `redirect_uri` may name. Bare origins: scheme, host and port, with no path — a browser sends nothing longer, so an entry carrying one could never match."
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
+          },
+          "invite_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point."
+          },
+          "verify_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate."
+          },
+          "reset_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page that takes a new password, with `{token}` where the token goes."
+          },
+          "mcp_login_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+          },
+          "oidc_callback_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The one callback URL to register at every identity provider, the same for every app and every provider. **Read-only** — it is minted by the cloud from its own public base URL, and a writable version of this field would let a caller point the return leg, which carries an authorization code, at a host they own."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the configuration was last written, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "self_registration",
+          "allowed_domains",
+          "allowed_origins",
+          "mcp_enabled",
+          "invite_url",
+          "verify_url",
+          "reset_url",
+          "mcp_login_url",
+          "oidc_callback_url",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-invitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The invitation, as listed and revoked by the developer."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app the invitee will belong to."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address the invitation was addressed to."
+          },
+          "role_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The role the invitee holds once they accept. Resolved at creation, so a later change to the app's default role does not silently re-aim an outstanding invitation."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does."
+          },
+          "accept_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The link to give the invitee, built from the app's `invite_url` with the token substituted for `{token}`. **`null` when the app has configured no `invite_url`** — there is nowhere for the link to point, and Fleetless serves no page of its own for an app user. Bounded like every other URL that gets mailed, logged and rendered."
+          },
+          "mail": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "not_configured",
+              "failed"
+            ],
+            "description": "What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "email",
+          "role_id",
+          "expires_at",
+          "accept_url",
+          "mail"
+        ],
+        "additionalProperties": false
+      },
+      "app-invitation-list-response": {
+        "type": "object",
+        "properties": {
+          "invitations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The invitation, as listed and revoked by the developer."
+                },
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app the invitee will belong to."
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                  "description": "The address the invitation was addressed to."
+                },
+                "role_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The role the invitee holds once they accept. Resolved at creation, so a later change to the app's default role does not silently re-aim an outstanding invitation."
+                },
+                "expires_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does."
+                }
+              },
+              "required": [
+                "id",
+                "app_id",
+                "email",
+                "role_id",
+                "expires_at"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The app's outstanding invitations, without their tokens. An accepted one is history and does not appear."
+          }
+        },
+        "required": [
+          "invitations"
+        ],
+        "additionalProperties": false
+      },
       "app-list-response": {
         "type": "object",
         "properties": {
@@ -5764,6 +7233,333 @@
         },
         "required": [
           "apps"
+        ],
+        "additionalProperties": false
+      },
+      "app-mail-template": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invite",
+              "verify",
+              "reset"
+            ],
+            "description": "Which of the three mails this template replaces."
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The optional HTML body, a Liquid template. `null` means this template is text-only, which is a complete mail and not a half-configured one."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the template was last written, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "kind",
+          "subject",
+          "text",
+          "html",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-mail-template-list-response": {
+        "type": "object",
+        "properties": {
+          "templates": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "invite",
+                    "verify",
+                    "reset"
+                  ],
+                  "description": "Which of the three mails this template replaces."
+                },
+                "subject": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20000,
+                  "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+                },
+                "html": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The optional HTML body, a Liquid template. `null` means this template is text-only, which is a complete mail and not a half-configured one."
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the template was last written, as an ISO 8601 timestamp."
+                }
+              },
+              "required": [
+                "kind",
+                "subject",
+                "text",
+                "html",
+                "updated_at"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The app's custom templates. A kind that does not appear is one using the Fleetless default text — an ordinary state, not a missing row."
+          }
+        },
+        "required": [
+          "templates"
+        ],
+        "additionalProperties": false
+      },
+      "app-user": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app user in the API, assigned by the cloud and stable for the life of the account."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app this user belongs to, and the whole of their scope. An app user of one app is nobody at another, even inside the same organisation."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address the account is identified by. Unique **per app**, case-insensitively — the same address may exist as an unrelated account in another app of the same organisation."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
+          },
+          "role_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The role that decides what this user may reach. Roles are the only visibility filter: what a role does not grant does not exist for that user."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_verification",
+              "active",
+              "blocked"
+            ],
+            "description": "Where the account is in its lifecycle. Only `active` may log in; `pending_verification` and `blocked` are both refused with the same `invalid_credentials` a wrong password gets, so a failed login is not an account-enumeration oracle."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether this account has a Fleetless-held password at all. `false` is an identity-provider-only account, or an invitation not yet accepted — it does not mean blocked and it does not mean without access. No hash, no algorithm and no \"last changed\" travels here, and nothing on the wire can say whether a password is strong or already known to somebody else."
+          },
+          "providers": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            },
+            "description": "The slugs of the identity providers this account is linked to, empty for a password-only user. It is what lets a developer's user list say where an account came from without a second request."
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When this user last signed in, or `null` if they never have. Required and nullable rather than optional, so *never logged in* stays distinguishable from *this field was not loaded*."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the account was created, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "email",
+          "display_name",
+          "role_id",
+          "status",
+          "has_password",
+          "providers",
+          "last_login_at",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-user-list-response": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app user in the API, assigned by the cloud and stable for the life of the account."
+                },
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app this user belongs to, and the whole of their scope. An app user of one app is nobody at another, even inside the same organisation."
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                  "description": "The address the account is identified by. Unique **per app**, case-insensitively — the same address may exist as an unrelated account in another app of the same organisation."
+                },
+                "display_name": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
+                },
+                "role_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The role that decides what this user may reach. Roles are the only visibility filter: what a role does not grant does not exist for that user."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending_verification",
+                    "active",
+                    "blocked"
+                  ],
+                  "description": "Where the account is in its lifecycle. Only `active` may log in; `pending_verification` and `blocked` are both refused with the same `invalid_credentials` a wrong password gets, so a failed login is not an account-enumeration oracle."
+                },
+                "has_password": {
+                  "type": "boolean",
+                  "description": "Whether this account has a Fleetless-held password at all. `false` is an identity-provider-only account, or an invitation not yet accepted — it does not mean blocked and it does not mean without access. No hash, no algorithm and no \"last changed\" travels here, and nothing on the wire can say whether a password is strong or already known to somebody else."
+                },
+                "providers": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                  },
+                  "description": "The slugs of the identity providers this account is linked to, empty for a password-only user. It is what lets a developer's user list say where an account came from without a second request."
+                },
+                "last_login_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "When this user last signed in, or `null` if they never have. Required and nullable rather than optional, so *never logged in* stays distinguishable from *this field was not loaded*."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the account was created, as an ISO 8601 timestamp."
+                }
+              },
+              "required": [
+                "id",
+                "app_id",
+                "email",
+                "display_name",
+                "role_id",
+                "status",
+                "has_password",
+                "providers",
+                "last_login_at",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Every user of this app. An app with no users answers an empty array, not an absent key."
+          }
+        },
+        "required": [
+          "users"
         ],
         "additionalProperties": false
       },
@@ -6616,6 +8412,40 @@
         },
         "additionalProperties": false
       },
+      "client-accept-invitation-request": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 256,
+            "description": "The password the new account will use."
+          },
+          "display_name": {
+            "description": "An optional name, overriding whatever the invitation pre-filled.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "additionalProperties": false
+      },
       "client-identity": {
         "type": "object",
         "properties": {
@@ -6759,6 +8589,50 @@
           "refresh_token"
         ]
       },
+      "client-password-reset-confirm-request": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The opaque token from the reset link, valid one hour. Single-use; unknown, expired and spent all answer `410 token_spent`."
+          },
+          "new_password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 256,
+            "description": "The replacement password. Accepting it revokes every refresh family the account holds — the answer carries a fresh pair, so the person is signed in on the device that completed the reset and nowhere else."
+          }
+        },
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "additionalProperties": false
+      },
+      "client-password-reset-request": {
+        "type": "object",
+        "properties": {
+          "app_identifier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app the address belongs to."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address to mail a reset link to. The answer is `202` for a known address, an unknown one and an app that does not exist alike, in status, body and timing."
+          }
+        },
+        "required": [
+          "app_identifier",
+          "email"
+        ],
+        "additionalProperties": false
+      },
       "client-refresh-request": {
         "type": "object",
         "properties": {
@@ -6771,6 +8645,86 @@
         "required": [
           "refresh_token"
         ]
+      },
+      "client-register-request": {
+        "type": "object",
+        "properties": {
+          "app_identifier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app to register with. An app that does not exist answers exactly as one with self-registration off does."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 256,
+            "description": "The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around."
+          },
+          "display_name": {
+            "description": "An optional human name for the account. The developer's own UI decides whether to ask for it.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "app_identifier",
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "client-resend-verification-request": {
+        "type": "object",
+        "properties": {
+          "app_identifier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app the address belongs to."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address to re-send to. The answer is `202` whether or not it names an account, and whether or not that account is already verified."
+          }
+        },
+        "required": [
+          "app_identifier",
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "client-verify-email-request": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The opaque token from the verification link, valid 24 hours. Unknown, expired and already-spent all answer `410 token_spent` — telling them apart would say whether a token ever existed."
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "additionalProperties": false
       },
       "config-draft-response": {
         "type": "object",
@@ -8928,6 +10882,45 @@
         ],
         "additionalProperties": false
       },
+      "create-app-invitation-request": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address to invite. An invitation always bypasses the domain whitelist — a developer inviting somebody by hand has already made the decision the whitelist automates."
+          },
+          "role_id": {
+            "description": "The role the invitee gets on acceptance. Absent means the app's `default_role_id`.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "display_name": {
+            "description": "An optional name to pre-fill the account with; the invitee can change it afterwards.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "send_mail": {
+            "type": "boolean",
+            "description": "Whether Fleetless mails the invitation. **Refused with `409 target_state_conflict` naming `invite_url` when the app has configured none** — there would be nowhere for the link to point, and a mail carrying a Fleetless-hosted page is a surface this product does not have."
+          }
+        },
+        "required": [
+          "email",
+          "send_mail"
+        ],
+        "additionalProperties": false
+      },
       "create-app-request": {
         "type": "object",
         "properties": {
@@ -8954,6 +10947,47 @@
         "required": [
           "name",
           "identifier"
+        ],
+        "additionalProperties": false
+      },
+      "create-app-user-request": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address, unique per app case-insensitively. An address this app already knows is refused with `email_taken` — a developer-authenticated route may say so, unlike the public registration route."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 256,
+            "description": "The initial password. At least 12 characters: length only, because a rule a user cannot predict is a rule they work around."
+          },
+          "display_name": {
+            "description": "Optional human name. Absent leaves it unset; an explicit `null` is the same end state.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role_id": {
+            "description": "The role the new user holds. Absent means the app's `default_role_id`; a role belonging to another app is a `validation_error`.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "email",
+          "password"
         ],
         "additionalProperties": false
       },
@@ -10467,6 +12501,88 @@
         ],
         "additionalProperties": false
       },
+      "mail-outcome": {
+        "type": "object",
+        "properties": {
+          "mail": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "not_configured",
+              "failed"
+            ],
+            "description": "What happened to the mail this call triggered. `sent` means the SMTP server accepted it, not that it was delivered; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody's attention."
+          }
+        },
+        "required": [
+          "mail"
+        ],
+        "additionalProperties": false
+      },
+      "mail-template-preview-request": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "subject",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "mail-template-preview-response": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "The rendered subject line."
+          },
+          "text": {
+            "type": "string",
+            "description": "The rendered plain-text body."
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The rendered HTML body, or `null` when the template is text-only."
+          }
+        },
+        "required": [
+          "subject",
+          "text",
+          "html"
+        ],
+        "additionalProperties": false
+      },
       "mcp-role-preview-response": {
         "type": "object",
         "properties": {
@@ -11165,6 +13281,39 @@
           "email"
         ]
       },
+      "patch-app-user-request": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "description": "The user's display name. Absent leaves it alone; an explicit `null` clears it.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role_id": {
+            "description": "The role the user holds from now on. A role belonging to another app is a `validation_error`; re-roling closes the user's live subscriptions.",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "blocked"
+            ],
+            "description": "Block the account or let it back in. **`pending_verification` cannot be set here**: it is reached only by self-registration and left only by spending the mailed verification token, so a developer setting it would strand the account in a state nothing re-mails them out of."
+          }
+        },
+        "additionalProperties": false
+      },
       "patch-auth-me-request": {
         "type": "object",
         "properties": {
@@ -11437,6 +13586,132 @@
         "required": [
           "message"
         ]
+      },
+      "put-app-auth-config-request": {
+        "type": "object",
+        "properties": {
+          "self_registration": {
+            "type": "boolean",
+            "description": "Whether a stranger may create an account in this app. Off refuses `POST /api/client/register` with `403 registration_closed`, and refuses an unknown identity at an OIDC callback with the same reasoning — one switch for one decision, whichever door the person arrives at."
+          },
+          "allowed_domains": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+            },
+            "description": "The email domains self-registration accepts, lowercase. An empty list means no domain restriction, not \"nobody\" — the switch above is what closes the door. **An invitation always bypasses this**, by password and through a provider alike."
+          },
+          "allowed_origins": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "The origins the client auth API answers CORS for, and the only origins an OIDC `redirect_uri` may name. Bare origins: scheme, host and port, with no path — a browser sends nothing longer, so an entry carrying one could never match."
+          },
+          "mcp_enabled": {
+            "type": "boolean",
+            "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
+          },
+          "invite_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point."
+          },
+          "verify_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate."
+          },
+          "reset_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page that takes a new password, with `{token}` where the token goes."
+          },
+          "mcp_login_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+          }
+        },
+        "required": [
+          "self_registration",
+          "allowed_domains",
+          "allowed_origins",
+          "mcp_enabled",
+          "invite_url",
+          "verify_url",
+          "reset_url",
+          "mcp_login_url"
+        ],
+        "additionalProperties": false
+      },
+      "put-app-mail-template-request": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "subject",
+          "text"
+        ],
+        "additionalProperties": false
       },
       "put-config-draft-request": {
         "type": "object",

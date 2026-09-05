@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES } from '../src/index.js'
+import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome } from '../src/index.js'
 import { IN_HANDLER_SECURITY, componentSchemaRaw, exportedSchemas, openApiDocument, routesArtifact } from '../scripts/export-schemas.js'
 
 const key = (r: { method: string; path: string }) => `${r.method} ${r.path}`
@@ -290,6 +290,152 @@ describe('the route artifacts', () => {
         const key = `${m.toUpperCase()} ${p.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, ':$1')}`
         expect(op.requestBody.required, key).toBe(!optional.includes(key))
       }
+    }
+  })
+})
+
+/**
+ * **The app-user auth surface, pinned as two sets rather than as examples.**
+ *
+ * The cloud registers these routes in a later task of the same train and its
+ * `route-manifest.test.ts` asserts set equality with `ROUTES` in both
+ * directions — so what is written here is what the cloud must serve, and an
+ * implementer reading one row is reading their contract.
+ *
+ * Both assertions are over the **set**, which is the whole reason they exist.
+ * A guard written against one hand-picked route proves that route and says
+ * nothing about the seventeen beside it, and this project has paid for that
+ * shape seven times in one wave: an enum guard that checked arity, an identity
+ * test that compared labels while the bodies diverged, a message rule verified
+ * on the one document that happened to be converted. So each block names every
+ * member, asserts the count, and then asserts the property over all of them —
+ * a route added to the family without the guard, or dropped from it, fails on
+ * the membership line before the property line is reached.
+ */
+describe('the app-user auth surface', () => {
+  /**
+   * The public half. Every one is reachable without a credential, because the
+   * person calling it does not have one yet — they are registering, spending a
+   * mailed token or accepting an invitation. `auth: 'none'` is therefore the
+   * *design*, not an omission, and the rate limiter is the only thing standing
+   * in front of them: `rateLimited` is asserted here beside it so that reading
+   * "no auth" can never be read as "no protection".
+   *
+   * Login, refresh and logout are train 1's and carry exactly this shape —
+   * each takes its credential in the body rather than in a header, so none of
+   * them has a guard either. They are in the list because the property is about
+   * the family, not about what landed when.
+   */
+  const PUBLIC_CLIENT = [
+    'POST /api/client/login',
+    'POST /api/client/refresh',
+    'POST /api/client/logout',
+    'POST /api/client/register',
+    'POST /api/client/verify-email',
+    'POST /api/client/resend-verification',
+    'POST /api/client/password/reset',
+    'POST /api/client/password/reset/confirm',
+    'POST /api/client/invitations/accept',
+  ]
+
+  it('opens the whole public client family without a credential, behind the rate limiter', () => {
+    const rows = ROUTES.filter((r) => r.section === 'client-auth' && r.auth === 'none' && r.audience === 'client')
+    expect(rows.map(key).sort(), 'the public client family is exactly these routes').toEqual([...PUBLIC_CLIENT].sort())
+    expect(rows.length).toBe(PUBLIC_CLIENT.length)
+    for (const r of rows) {
+      expect(r.rateLimited, `${key(r)} is unauthenticated and not rate limited`).toBe(true)
+      expect(r.errors, `${key(r)} is rate limited and does not say so`).toContain('rate_limited')
+      // Each one parses a body it was handed by a stranger; a route in this
+      // family with no request schema would be taking input nothing describes.
+      expect(r.request, `${key(r)} takes no described body`).not.toBeNull()
+    }
+  })
+
+  /**
+   * The developer half: everything hanging off an app that concerns its users,
+   * its invitations, its auth configuration or its mail templates.
+   *
+   * Derived from the path by prefix rather than listed only as literals, so a
+   * nineteenth route added under one of the four collections is swept the day
+   * it exists — and then pinned against the literal list, so one silently
+   * disappearing turns the sweep into the vacuous filter over an empty array
+   * this codebase keeps catching.
+   */
+  const APP_AUTH_FAMILY = /^\/api\/apps\/:id\/(users|invitations|auth-config|mail-templates)(\/|$)/
+
+  const APP_AUTH_ROUTES = [
+    'GET /api/apps/:id/users',
+    'POST /api/apps/:id/users',
+    'GET /api/apps/:id/users/:userId',
+    'PATCH /api/apps/:id/users/:userId',
+    'DELETE /api/apps/:id/users/:userId',
+    'POST /api/apps/:id/users/:userId/reset-password',
+    'GET /api/apps/:id/invitations',
+    'POST /api/apps/:id/invitations',
+    'POST /api/apps/:id/invitations/:invId/reissue',
+    'DELETE /api/apps/:id/invitations/:invId',
+    'GET /api/apps/:id/auth-config',
+    'PUT /api/apps/:id/auth-config',
+    'GET /api/apps/:id/mail-templates',
+    'GET /api/apps/:id/mail-templates/:kind',
+    'PUT /api/apps/:id/mail-templates/:kind',
+    'DELETE /api/apps/:id/mail-templates/:kind',
+    'POST /api/apps/:id/mail-templates/:kind/preview',
+    'POST /api/apps/:id/mail-templates/:kind/test',
+  ]
+
+  /**
+   * **The three codes the developer guard sends, read off a route that has
+   * nothing else.**
+   *
+   * Written as a derivation rather than as three string literals because
+   * `DEVELOPER_GUARD` is private to `routes.ts`: a literal copy here would be a
+   * second list beside the first, and the second is always the one that drifts.
+   * `GET /api/auth/me` lists the guard and no code of its own, so its `errors`
+   * *is* the constant — and the length assertion below is what makes that claim
+   * checkable rather than assumed.
+   */
+  const guard = ROUTES.find((r) => key(r) === 'GET /api/auth/me')!.errors
+
+  it('guards every app-user, invitation, auth-config and mail-template route with the developer guard', () => {
+    expect(guard.length, 'GET /api/auth/me no longer lists the bare developer guard').toBe(3)
+    expect([...guard].sort()).toEqual(['token_expired', 'token_revoked', 'unauthorized'])
+
+    const rows = ROUTES.filter((r) => APP_AUTH_FAMILY.test(r.path))
+    expect(rows.map(key).sort(), 'the app auth family is exactly these routes').toEqual([...APP_AUTH_ROUTES].sort())
+    expect(rows.length).toBe(APP_AUTH_ROUTES.length)
+
+    for (const r of rows) {
+      expect(r.auth, `${key(r)} is not developer-guarded`).toBe('developer')
+      expect(r.audience, `${key(r)} is not addressed to a developer`).toBe('developer')
+      expect(r.section, `${key(r)} is filed outside the apps section`).toBe('apps')
+      for (const c of guard) expect(r.errors, `${key(r)} does not list the guard's ${c}`).toContain(c)
+      // Every one takes an app uuid in the path, so every one can be handed a
+      // string that is not one. A row that does not say so documents a refusal
+      // its caller will receive anyway.
+      expect(r.errors, `${key(r)} takes :id and does not list invalid_uuid`).toContain('invalid_uuid')
+      expect(r.errors, `${key(r)} cannot say the app does not exist`).toContain('not_found')
+      expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
+    }
+  })
+
+  /**
+   * The two `202`s that answer a body. Everything else in this train that
+   * answers `202` answers nothing at all, and the difference is deliberate: on
+   * the public routes the body would be an enumeration oracle, while on these
+   * two the caller is already authenticated into the app and the one thing they
+   * need next is whether a mail actually left.
+   */
+  it('gives the two developer-triggered mail routes a mail outcome and the public 202s no body', () => {
+    const withOutcome = ROUTES.filter((r) => r.status === 202 && r.response === mailOutcome).map(key).sort()
+    expect(withOutcome).toEqual([
+      'POST /api/apps/:id/mail-templates/:kind/test',
+      'POST /api/apps/:id/users/:userId/reset-password',
+    ])
+    for (const k of ['POST /api/client/register', 'POST /api/client/resend-verification', 'POST /api/client/password/reset']) {
+      const r = ROUTES.find((x) => key(x) === k)!
+      expect(r.status, k).toBe(202)
+      expect(r.response, `${k} answers a body a stranger could read an account's existence out of`).toBeNull()
     }
   })
 })
