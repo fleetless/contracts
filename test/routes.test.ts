@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome } from '../src/index.js'
+import { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH, clientOidcCallbackQuery, clientOidcErrorCode } from '../src/index.js'
 import { IN_HANDLER_SECURITY, componentSchemaRaw, exportedSchemas, openApiDocument, routesArtifact } from '../scripts/export-schemas.js'
 
 const key = (r: { method: string; path: string }) => `${r.method} ${r.path}`
@@ -336,10 +336,22 @@ describe('the app-user auth surface', () => {
     'POST /api/client/password/reset',
     'POST /api/client/password/reset/confirm',
     'POST /api/client/invitations/accept',
+    'POST /api/client/oidc/exchange',
   ]
 
-  it('opens the whole public client family without a credential, behind the rate limiter', () => {
-    const rows = ROUTES.filter((r) => r.section === 'client-auth' && r.auth === 'none' && r.audience === 'client')
+  /**
+   * **Filtered to `POST`, and the narrowing is train 3's, not a loosening.**
+   * The property this asserts is about routes that parse a **body** handed over
+   * by a stranger, which is what the `request` assertion below reads and what
+   * the rate limiter in front of them is sized for. Train 3 adds two public
+   * `GET`s to the same section — the provider listing and the OIDC start — and
+   * neither takes a body, neither is rate limited on the same footing, and one
+   * is not rate limited at all. Sweeping them in here would have forced this
+   * block to grow exceptions until it asserted nothing; they get their own set
+   * pin below, which states each limiter decision and its reason instead.
+   */
+  it('opens the whole public client POST family without a credential, behind the rate limiter', () => {
+    const rows = ROUTES.filter((r) => r.section === 'client-auth' && r.auth === 'none' && r.audience === 'client' && r.method === 'POST')
     expect(rows.map(key).sort(), 'the public client family is exactly these routes').toEqual([...PUBLIC_CLIENT].sort())
     expect(rows.length).toBe(PUBLIC_CLIENT.length)
     for (const r of rows) {
@@ -445,16 +457,22 @@ describe('the app-user auth surface', () => {
     'POST /api/client/verify-email',
     'POST /api/client/password/reset/confirm',
     'POST /api/client/invitations/accept',
+    // Train 3's. Not a mailed link, and the argument still lands: the one-time
+    // code from an OIDC callback IS a credential, so unknown, expired, spent
+    // and PKCE-mismatched collapse for the same reason. The interaction *id*
+    // beside it does not — its own client learns it from its own redirect —
+    // which is why `interaction_expired` exists and is denied below.
+    'POST /api/client/oidc/exchange',
   ]
 
-  it('collapses every dead token onto token_spent, and says so, on all three routes that spend one', () => {
+  it('collapses every dead token onto token_spent, and says so, on all four routes that spend one', () => {
     const rows = ROUTES.filter((r) => TOKEN_SPENDING.includes(key(r)))
-    expect(rows.map(key).sort(), 'the token-spending routes are exactly these three').toEqual([...TOKEN_SPENDING].sort())
+    expect(rows.map(key).sort(), 'the token-spending routes are exactly these four').toEqual([...TOKEN_SPENDING].sort())
 
     for (const r of rows) {
       const errors: readonly string[] = r.errors
       expect(errors, `${key(r)} spends a token and cannot say the token is dead`).toContain('token_spent')
-      for (const split of ['token_expired', 'token_revoked', 'invalid_token', 'invite_expired', 'invite_used']) {
+      for (const split of ['token_expired', 'token_revoked', 'invalid_token', 'invite_expired', 'invite_used', 'interaction_expired']) {
         expect(errors, `${key(r)} splits a dead token into ${split}, which is the enumeration oracle`).not.toContain(split)
       }
       expect(r.notes ?? '', `${key(r)} does not explain its one refusal`).toContain('token_spent')
@@ -537,6 +555,281 @@ describe('the app-user auth surface', () => {
       expect(r.status, k).toBe(202)
       expect(r.response, `${k} answers a body a stranger could read an account's existence out of`).toBeNull()
     }
+  })
+})
+
+/**
+ * **The per-app OIDC surface (train 3), pinned as two sets and one path.**
+ *
+ * Nine rows: five under `/api/apps/:id/oidc-providers` for the developer who
+ * configures a provider, and four public ones the app user's browser walks
+ * through. The cloud registers exactly these in tasks 3.2 and 3.3, and its
+ * `route-manifest.test.ts` asserts set equality with `ROUTES` in both
+ * directions — so what is asserted here is what the cloud must serve.
+ *
+ * Written the way train 2's block is, and for the reason stated there: each
+ * assertion names every member, asserts the count, then asserts the property
+ * over all of them. A guard written against one hand-picked row proves that row
+ * and nothing about the eight beside it.
+ */
+describe('the per-app OIDC surface', () => {
+  const PROVIDER_ROUTES = [
+    'GET /api/apps/:id/oidc-providers',
+    'POST /api/apps/:id/oidc-providers',
+    'GET /api/apps/:id/oidc-providers/:providerId',
+    'PATCH /api/apps/:id/oidc-providers/:providerId',
+    'DELETE /api/apps/:id/oidc-providers/:providerId',
+  ]
+
+  const CLIENT_OIDC_ROUTES = [
+    'GET /api/client/providers',
+    'GET /api/client/oidc/:slug/start',
+    'GET /api/client/oidc/callback',
+    'POST /api/client/oidc/exchange',
+  ]
+
+  it('adds exactly nine rows for the train, and no tenth path under either prefix', () => {
+    const added = ROUTES.filter((r) => /^\/api\/apps\/:id\/oidc-providers(\/|$)/.test(r.path) || /^\/api\/client\/(providers|oidc)(\/|$)/.test(r.path))
+    expect(added.map(key).sort(), 'the OIDC surface is exactly these nine routes').toEqual([...PROVIDER_ROUTES, ...CLIENT_OIDC_ROUTES].sort())
+    expect(added.length).toBe(9)
+  })
+
+  /**
+   * The developer half, held to the same four properties train 2's app-auth
+   * family is: the developer guard, the app uuid's `invalid_uuid`, a `404` for
+   * an app or provider that is not the caller's, and prose.
+   *
+   * The guard is read off `GET /api/auth/me` rather than retyped, for the
+   * reason the other block states — `DEVELOPER_GUARD` is private to
+   * `routes.ts`, and a literal copy here would be the second list that drifts.
+   */
+  const guard = ROUTES.find((r) => key(r) === 'GET /api/auth/me')!.errors
+
+  it('puts every provider route behind the developer guard, in the apps section', () => {
+    expect(guard.length, 'GET /api/auth/me no longer lists the bare developer guard').toBe(3)
+    const rows = ROUTES.filter((r) => PROVIDER_ROUTES.includes(key(r)))
+    expect(rows.map(key).sort(), 'the provider family is exactly these five routes').toEqual([...PROVIDER_ROUTES].sort())
+    expect(rows.length).toBe(PROVIDER_ROUTES.length)
+
+    for (const r of rows) {
+      expect(r.auth, `${key(r)} is not developer-guarded`).toBe('developer')
+      expect(r.audience, `${key(r)} is not addressed to a developer`).toBe('developer')
+      expect(r.section, `${key(r)} is filed outside the apps section`).toBe('apps')
+      expect(r.rateLimited, `${key(r)} is authenticated and claims a limiter`).toBe(false)
+      for (const c of guard) expect(r.errors, `${key(r)} does not list the guard's ${c}`).toContain(c)
+      expect(r.errors, `${key(r)} takes :id and does not list invalid_uuid`).toContain('invalid_uuid')
+      expect(r.errors, `${key(r)} cannot say the app or the provider does not exist`).toContain('not_found')
+      expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
+    }
+  })
+
+  /**
+   * **The two routes that run discovery say so, and the three that do not, do
+   * not.** `provider_misconfigured` and `idp_unavailable` describe a remote
+   * system Fleetless fetched; listing either on a route that fetches nothing
+   * would document a refusal no caller can receive, and omitting it from one
+   * that does leaves a developer reading `502` with no entry to look it up in.
+   *
+   * Asserted as a partition over all five rather than as a presence check on
+   * the two, because the interesting half is the denial: a `GET` that grew
+   * these codes is the shape this catches.
+   */
+  it('lists the discovery refusals on create and patch, and on no other provider route', () => {
+    const WRITES = ['POST /api/apps/:id/oidc-providers', 'PATCH /api/apps/:id/oidc-providers/:providerId']
+    for (const r of ROUTES.filter((x) => PROVIDER_ROUTES.includes(key(x)))) {
+      const errors: readonly string[] = r.errors
+      const runsDiscovery = WRITES.includes(key(r))
+      for (const c of ['provider_misconfigured', 'idp_unavailable']) {
+        expect(errors.includes(c), `${key(r)} ${runsDiscovery ? 'runs discovery and cannot report' : 'fetches nothing and claims'} ${c}`).toBe(runsDiscovery)
+      }
+      // Both codes are in the catalogue, and both say why they are not each
+      // other: one means retry, the other means fix the configuration.
+      expect(r.notes ?? '', key(r)).toBeTruthy()
+    }
+    for (const k of WRITES) {
+      const notes = ROUTES.find((r) => key(r) === k)!.notes ?? ''
+      expect(notes, `${k} lists two discovery codes and explains neither`).toContain('provider_misconfigured')
+      expect(notes, `${k} lists two discovery codes and explains neither`).toContain('idp_unavailable')
+    }
+  })
+
+  /**
+   * **`duplicate_slug` belongs to create alone**, because the slug is the only
+   * field that can collide and `patchAppOidcProviderRequest` does not carry it
+   * — it is in the path and `app_user_identities` rows are keyed by it. A
+   * `PATCH` row listing it would document a refusal the request shape makes
+   * unreachable, which is this project's third failure mode.
+   */
+  it('answers duplicate_slug on create and on nothing else in the family', () => {
+    const withDuplicate = ROUTES.filter((r) => PROVIDER_ROUTES.includes(key(r)) && (r.errors as readonly string[]).includes('duplicate_slug'))
+    expect(withDuplicate.map(key)).toEqual(['POST /api/apps/:id/oidc-providers'])
+    // Non-vacuity in the other direction: the patch is in the family and is the
+    // row this would most plausibly drift onto.
+    const patch = ROUTES.find((r) => key(r) === 'PATCH /api/apps/:id/oidc-providers/:providerId')!
+    expect(patch.errors, 'the patch takes no slug and cannot refuse a duplicate one').not.toContain('duplicate_slug')
+    expect(patch.request, 'the patch declares no body to be strict about').not.toBeNull()
+  })
+
+  /**
+   * The public half. Every one is reached without a credential, because the
+   * person walking through it does not have one yet — that is the whole point
+   * of the flow. Two of them are also reached by somebody who is not the app
+   * at all: the identity provider redirects a browser into the callback.
+   */
+  it('opens every client OIDC route without a credential, in the client-auth section', () => {
+    const rows = ROUTES.filter((r) => CLIENT_OIDC_ROUTES.includes(key(r)))
+    expect(rows.map(key).sort(), 'the client OIDC family is exactly these four routes').toEqual([...CLIENT_OIDC_ROUTES].sort())
+    expect(rows.length).toBe(CLIENT_OIDC_ROUTES.length)
+
+    for (const r of rows) {
+      expect(r.auth, `${key(r)} asks an app user for a credential they do not have yet`).toBe('none')
+      expect(r.audience, `${key(r)} is not addressed to an app's own users`).toBe('client')
+      expect(r.section, `${key(r)} is filed outside the client-auth section`).toBe('client-auth')
+      expect(r.ownerTier, key(r)).toBe(false)
+      expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
+      // No credential, so no guard code can reach any of them. A row carrying
+      // one would describe a `401` an unauthenticated route cannot send.
+      for (const c of ['unauthorized', 'token_expired', 'token_revoked', 'forbidden']) {
+        expect(r.errors, `${key(r)} has no guard and lists the guard's ${c}`).not.toContain(c)
+      }
+    }
+  })
+
+  /**
+   * **Which of the four are rate limited, stated as a partition and paired
+   * with the sentence that says why.**
+   *
+   * The train-2 family could assert "unauthenticated ⇒ limited" over the whole
+   * set. Here it is genuinely mixed, and a mixed set is exactly where a
+   * presence-only check stops meaning anything: `start` is the door that makes
+   * Fleetless fetch a stranger's server and `exchange` mints a session, while
+   * the provider listing is a render-time read of public configuration and the
+   * callback is entered by an IdP redirecting a browser — limiting that one
+   * would drop real users' sign-ins on somebody else's traffic.
+   *
+   * So each row is asserted **both ways**, and the two limited ones must also
+   * list `rate_limited`: a limiter a caller cannot see documented is a `429`
+   * nobody can look up.
+   */
+  it('limits the start and the exchange, and deliberately not the listing or the callback', () => {
+    const LIMITED = ['GET /api/client/oidc/:slug/start', 'POST /api/client/oidc/exchange']
+    const rows = ROUTES.filter((r) => CLIENT_OIDC_ROUTES.includes(key(r)))
+    expect(rows.length).toBe(CLIENT_OIDC_ROUTES.length)
+    for (const r of rows) {
+      const limited = LIMITED.includes(key(r))
+      expect(r.rateLimited, `${key(r)} rate limiting disagrees with the ruling`).toBe(limited)
+      expect((r.errors as readonly string[]).includes('rate_limited'), `${key(r)} limiter and its error code disagree`).toBe(limited)
+    }
+    // The two unlimited ones say why in prose, because a reader who finds no
+    // limiter on a public route should not have to guess whether it was a
+    // decision or an omission.
+    expect(ROUTES.find((r) => key(r) === 'GET /api/client/providers')!.notes ?? '').toContain('Not rate limited')
+    expect(ROUTES.find((r) => key(r) === 'GET /api/client/oidc/callback')!.notes ?? '').toContain('Not rate limited')
+    // The two are unlimited for **different** reasons, and a row that copied
+    // the other's sentence would pass a bare "says Not rate limited" check
+    // while documenting the wrong argument. So each is held to its own.
+    expect(ROUTES.find((r) => key(r) === 'GET /api/client/providers')!.notes ?? '').toContain('nothing behind it to enumerate')
+    expect(ROUTES.find((r) => key(r) === 'GET /api/client/oidc/callback')!.notes ?? '').toContain('drop real sign-ins')
+  })
+
+  /**
+   * **The start refuses in JSON, before any redirect** — the open-redirect
+   * discipline `GET /mcp/oauth/authorize` and `GET /console/oauth/authorize`
+   * already keep. The row is the only place a developer can read that, so the
+   * codes and the sentence are both asserted; the codes alone would stay green
+   * if the prose that explains the ordering went missing, which is the state
+   * that would let somebody "simplify" the refusal into a redirect.
+   */
+  it('gives the start every refusal it answers as JSON, redirect-URI check first', () => {
+    const r = ROUTES.find((x) => key(x) === 'GET /api/client/oidc/:slug/start')!
+    expect(r.status, 'the start answers a redirect on the happy path').toBe(302)
+    expect(r.response, 'a 302 carries no body').toBeNull()
+    expect([...r.errors].sort()).toEqual([
+      'idp_unavailable', 'invalid_redirect_uri', 'not_found', 'provider_disabled',
+      'provider_misconfigured', 'rate_limited', 'validation_error',
+    ])
+    expect(r.query, 'the start reads its parameters from the query and declares none').not.toBeNull()
+    expect(r.notes ?? '', 'the row does not say the refusals precede the redirect').toContain('before any redirect')
+    expect(r.notes ?? '', 'the row does not say the redirect URI is checked first').toContain('checked **first**')
+  })
+
+  /**
+   * **The callback lists no error code, and that is a claim rather than a
+   * gap.** Every outcome it has is a `302` carrying `?code=` or
+   * `?error=<clientOidcErrorCode>` to the app's own redirect URI; the single
+   * exception renders HTML, which is not the `apiError` envelope the `errors`
+   * column describes. Listing `bad_request` would have documented a body no
+   * caller receives.
+   *
+   * The empty list is therefore asserted **together with** the prose that makes
+   * it honest — on its own, `errors: []` is indistinguishable from a row
+   * somebody forgot to fill in, which is the reading this test exists to
+   * prevent.
+   */
+  it('leaves the callback with no error codes, and says where its failures actually go', () => {
+    const r = ROUTES.find((x) => key(x) === 'GET /api/client/oidc/callback')!
+    expect(r.errors, 'the callback answers the apiError envelope now; the row must say which codes').toEqual([])
+    expect(r.status, 'the callback answers the app with a redirect').toBe(302)
+    expect(r.response, 'a 302 carries no body').toBeNull()
+    // The provider's own wire, declared rather than read by hand — the rule
+    // the parked-items round enforces — and **not strict**, so a provider that
+    // adds RFC 9207's `iss` or a `session_state` is not refused at the one
+    // point in the flow where refusing means a sign-in that already succeeded
+    // is thrown away. `state` is the only required field, because it is the
+    // only one Fleetless minted.
+    expect(r.query, "the IdP's query is undeclared").toBe(clientOidcCallbackQuery)
+    const cb = clientOidcCallbackQuery.shape
+    expect(Object.keys(cb).sort()).toEqual(['code', 'error', 'error_description', 'state'])
+    expect(clientOidcCallbackQuery.safeParse({ state: 's' }).success, 'code is not optional').toBe(true)
+    expect(clientOidcCallbackQuery.safeParse({ code: 'c' }).success, 'state is not required').toBe(false)
+    expect(
+      clientOidcCallbackQuery.safeParse({ state: 's', code: 'c', iss: 'https://idp.example', session_state: 'x' }).success,
+      'a conforming provider sending RFC 9207 iss is refused',
+    ).toBe(true)
+    const notes = r.notes ?? ''
+    expect(notes, 'the row does not say failures ride back on the redirect').toContain('?error=<clientOidcErrorCode>&state=')
+    expect(notes, 'the row does not name the one Fleetless-rendered page').toContain('HTML problem page at `400`')
+    expect(notes, 'the row does not say which state renders it').toContain('`state` that resolves to no interaction')
+
+    // Non-vacuity for the empty list: some route in this manifest does list
+    // codes, so `toEqual([])` is a fact about this row and not about the field.
+    expect(ROUTES.find((x) => key(x) === 'POST /api/client/oidc/exchange')!.errors.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * **One spelling of the callback path, in the manifest and in the constant.**
+   *
+   * `OAUTH_PATHS` existed to stop two repositories spelling a discovered path
+   * differently and then did exactly that, standing for months with an entry
+   * naming a route the cloud had deleted. This path is worse to get wrong: it
+   * is copied out of the console into somebody else's IdP configuration, where
+   * a divergence breaks every sign-in and nothing here can see it.
+   *
+   * So the row is built **from** the constant — `path: CLIENT_OIDC_CALLBACK_PATH`
+   * in `routes.ts` — and this asserts the value as a literal. Comparing the row
+   * to the constant alone would be two references to one string agreeing with
+   * themselves; the literal is what pins the actual characters a developer
+   * types at their provider.
+   */
+  it('spells the callback path once, and it is the value the constant carries', () => {
+    expect(CLIENT_OIDC_CALLBACK_PATH).toBe('/api/client/oidc/callback')
+    expect(ROUTES.some((r) => r.path === CLIENT_OIDC_CALLBACK_PATH && r.method === 'GET'), 'the manifest has no row at the constant').toBe(true)
+    // And nothing else in the manifest claims a second callback under the same
+    // prefix — a route added there would be a second door onto one flow.
+    expect(ROUTES.filter((r) => r.path.startsWith('/api/client/oidc/') && r.path.includes('callback')).map(key)).toEqual([
+      'GET /api/client/oidc/callback',
+    ])
+  })
+
+  /** The code train 3 introduces, registered rather than assumed. */
+  it('registers provider_misconfigured, distinct from idp_unavailable', () => {
+    const codes: readonly string[] = ERROR_CODES
+    expect(codes).toContain('provider_misconfigured')
+    expect(codes).toContain('idp_unavailable')
+    expect(codes.indexOf('provider_misconfigured')).not.toBe(codes.indexOf('idp_unavailable'))
+    // It is also one of the redirect codes the callback hands the app, which is
+    // a different enum with the same member on purpose.
+    expect(clientOidcErrorCode.options).toContain('provider_misconfigured')
   })
 })
 
@@ -707,14 +1000,54 @@ describe('the parked-items round', () => {
     const prefixes = new Set(ROUTES.filter((r) => r.path.includes('/:slug')).map((r) => r.path.slice(0, r.path.indexOf('/:slug'))))
     expect(prefixes.size, 'no :slug route to be shadowed').toBeGreaterThan(0)
     expect([...prefixes].sort()).toEqual([
+      '/api/client/oidc',
       '/api/robots/:id/cameras',
       '/api/robots/:id/config/slug-usage',
       '/api/robots/:id/datapoints',
       '/api/robots/:id/jobs',
       '/api/robots/:id/publishers',
     ])
+
+    /**
+     * **`/api/client/oidc` is a `:slug` collection `RESERVED_SLUGS` cannot
+     * defend, and does not have to.** Its `:slug` is a `providerSlug` —
+     * lowercase and *hyphen*-separated, chosen by a developer for their own
+     * sign-in button — and `RESERVED_SLUGS` is the reserved-name list of the
+     * robot **config document**, a different grammar naming a different thing.
+     * Adding `callback` and `exchange` to it to satisfy this sweep would have
+     * refused those two names to every datapoint, action and camera on every
+     * robot, to defend a collision that does not exist.
+     *
+     * It does not exist because the literals sit at a **different depth** from
+     * the slug: every route under this prefix continues past `:slug`
+     * (`/:slug/start`), so a provider named `callback` is reached at
+     * `/api/client/oidc/callback/start` and never shadows
+     * `/api/client/oidc/callback`. That is the property asserted below, rather
+     * than assumed — and it is what a second route added at `/:slug` exactly
+     * would break, which is why the exemption is written as a check.
+     */
+    const OIDC = '/api/client/oidc'
+    const segments = (p: string) => p.split('/').length
+    const oidcSlugRoutes = ROUTES.filter((r) => r.path.startsWith(`${OIDC}/:slug`))
+    expect(oidcSlugRoutes.map(key), 'the OIDC slug collection is not the one route this exemption was argued for').toEqual([
+      'GET /api/client/oidc/:slug/start',
+    ])
+    const oidcLiterals = ROUTES.filter((r) => r.path.startsWith(`${OIDC}/`) && !r.path.startsWith(`${OIDC}/:`))
+    expect(oidcLiterals.map(key).sort(), 'the literal siblings of the provider slug').toEqual([
+      'GET /api/client/oidc/callback',
+      'POST /api/client/oidc/exchange',
+    ])
+    for (const lit of oidcLiterals) {
+      for (const sl of oidcSlugRoutes) {
+        expect(segments(sl.path), `${key(lit)} sits at the depth of ${key(sl)} and shadows a provider slug`).not.toBe(segments(lit.path))
+      }
+    }
+
+    // The robot half, which is what RESERVED_SLUGS is for.
+    const robotPrefixes = [...prefixes].filter((p) => p.startsWith('/api/robots/'))
+    expect(robotPrefixes.length, 'the robot slug collections vanished from the sweep').toBe(5)
     const siblings = ROUTES.filter(
-      (r) => [...prefixes].some((p) => r.path.startsWith(`${p}/`) && !r.path.slice(p.length + 1).includes('/') && r.path !== `${p}/:slug`),
+      (r) => robotPrefixes.some((p) => r.path.startsWith(`${p}/`) && !r.path.slice(p.length + 1).includes('/') && r.path !== `${p}/:slug`),
     ).map((r) => r.path.slice(r.path.lastIndexOf('/') + 1))
     // Named, so that a sibling silently disappearing turns this into the
     // vacuous `.every()` over an empty array rather than a green run.

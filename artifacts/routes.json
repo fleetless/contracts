@@ -1082,6 +1082,170 @@
     },
     {
       "method": "GET",
+      "path": "/api/apps/:id/oidc-providers",
+      "section": "apps",
+      "summary": "Lists every OIDC provider configured on the app, enabled or not.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": "app-oidc-provider-list-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "Answers `{ \"providers\": [appOidcProvider, …] }` — **the management view, so a disabled provider is here** and is absent from the public `GET /api/client/providers`. An app may have any number: the at-most-one rule this replaces was a property of the deleted group, not of identity, and a developer serving two customers needs two. **No client secret appears in the answer**, by construction of `appOidcProvider` — a secret a response can carry is a secret in every log that captured a response, which is the rule server keys and the deleted group provider already kept."
+    },
+    {
+      "method": "POST",
+      "path": "/api/apps/:id/oidc-providers",
+      "section": "apps",
+      "summary": "Configures an OIDC provider on the app after checking that its issuer answers.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 201,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": "create-app-oidc-provider-request",
+      "response": "app-oidc-provider",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "validation_error",
+        "not_found",
+        "duplicate_slug",
+        "provider_misconfigured",
+        "idp_unavailable"
+      ],
+      "transport": "http",
+      "notes": "**Discovery runs before the row is written**, so a provider that cannot work is refused while the developer is looking at the form rather than a week later in an app user's failed sign-in. `502 idp_unavailable` is an issuer that could not be reached and may work on a retry; `422 provider_misconfigured` is one that answered with something unusable — not a discovery document, an `issuer` disagreeing with the configured one, or a JWKS with no key — and will answer the same until somebody changes the configuration. That is the whole reason the two codes are separate: one says wait, the other says fix it. \n\nThe issuer is **shape-checked** by `idpIssuer` (http(s), no credentials, query or fragment) and that is not the SSRF defence: it cannot tell a loopback dev provider from a loopback database, and the real check refuses loopback, link-local and private ranges at the fetch itself. `409 duplicate_slug` is a slug this app already uses — slugs are unique per app and immutable, since linked identities are keyed by them. `404 not_found` is the app. **The client secret goes in here and comes back out of nothing**: not this answer, not the read, not an audit detail."
+    },
+    {
+      "method": "GET",
+      "path": "/api/apps/:id/oidc-providers/:providerId",
+      "section": "apps",
+      "summary": "Reads one OIDC provider of the app, without its client secret.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        },
+        {
+          "name": "providerId",
+          "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": "app-oidc-provider",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "A provider of another app, or of another org, reads exactly like one that does not exist — `404`, never a `403`. The stored client secret is not in `appOidcProvider` and there is no route that reads one back; a developer who has lost theirs sends a replacement through the `PATCH`."
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/apps/:id/oidc-providers/:providerId",
+      "section": "apps",
+      "summary": "Changes a provider's name, issuer, client, scopes, linking policy or enabled flag.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        },
+        {
+          "name": "providerId",
+          "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`."
+        }
+      ],
+      "query": null,
+      "request": "patch-app-oidc-provider-request",
+      "response": "app-oidc-provider",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "validation_error",
+        "not_found",
+        "provider_misconfigured",
+        "idp_unavailable"
+      ],
+      "transport": "http",
+      "notes": "**`slug` is not in the body and offering it is a `400 validation_error`** naming the field, because the request is strict: the slug is in the path and is what `app_user_identities` rows are keyed by, so a rename would orphan every linked account. An answer that ignored it silently is the failure `updateAppRequest` was made strict to avoid. \n\n**`client_secret` absent means keep the stored one**, so a routine scope edit need not put the secret back on the wire. Changing the issuer re-runs discovery, which is why this route carries the same `422 provider_misconfigured` and `502 idp_unavailable` the create does — and identities linked under the old issuer keep their `(provider, subject)` key rather than being re-resolved. `409 duplicate_slug` is absent because the one field that could collide cannot be written here. Turning `enabled` off keeps the row and its linked identities: the provider disappears from `GET /api/client/providers` and a start answers `provider_disabled`."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/apps/:id/oidc-providers/:providerId",
+      "section": "apps",
+      "summary": "Deletes an OIDC provider and every identity linked through it.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 204,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        },
+        {
+          "name": "providerId",
+          "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "**The linked identities go with it, and the app users do not.** An account that only ever signed in through this provider survives with no way back in until the developer mails them a reset link or re-configures the provider — deleting the accounts instead would make a mistyped click destroy the developer's customers. Setting `enabled` to `false` on the `PATCH` is the reversible door and is what a developer switching a provider off should use; this one is not reversible, because a re-created provider with the same slug resolves no old `(provider, subject)` link. Answers `204` and `404` only: a provider in use is still deleted, since the alternative is a row nothing can remove."
+    },
+    {
+      "method": "GET",
       "path": "/api/apps/:id/auth-config",
       "section": "apps",
       "summary": "Reads the app's auth settings: self-registration, domains, origins, URLs and the MCP switch.",
@@ -2335,6 +2499,98 @@
       ],
       "transport": "http",
       "notes": "The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one."
+    },
+    {
+      "method": "GET",
+      "path": "/api/client/providers",
+      "section": "client-auth",
+      "summary": "Lists the app's enabled sign-in providers, so the app can draw its buttons.",
+      "audience": "client",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [],
+      "query": "client-provider-list-query",
+      "request": null,
+      "response": "client-provider-list-response",
+      "errors": [
+        "validation_error",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "Answers `{ \"providers\": [{ slug, name }, …] }` and **nothing else**: the issuer, the client id, the scopes and the linking policy are management-side facts, and this route is public. An app with no provider answers an empty array, which is the state of an app that offers password login alone; a **disabled** provider is not a button that refuses, it is a button that is not there. \n\n`404 not_found` is the app identifier and can be nothing else — the answer does not vary by person, so there is no address here to be silent about. **Not rate limited**, unlike the rest of the public client family: it reads back two strings of the developer's own public configuration, an app's login page calls it on every render, and there is nothing behind it to enumerate. The limiter on `start` is where the cost of this flow actually is."
+    },
+    {
+      "method": "GET",
+      "path": "/api/client/oidc/:slug/start",
+      "section": "client-auth",
+      "summary": "Begins a federated sign-in and redirects the browser to the app's identity provider.",
+      "audience": "client",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 302,
+      "params": [
+        {
+          "name": "slug",
+          "description": "The provider to sign in with, as listed by `GET /api/client/providers`; an unknown slug answers `404`."
+        }
+      ],
+      "query": "client-oidc-start-query",
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited",
+        "validation_error",
+        "not_found",
+        "provider_disabled",
+        "invalid_redirect_uri",
+        "provider_misconfigured",
+        "idp_unavailable"
+      ],
+      "transport": "http",
+      "notes": "**Every refusal here is JSON, answered before any redirect** — the `apiError` envelope, not the `?error=` redirect the callback uses. The difference is the open-redirect discipline: the callback knows a `redirect_uri` this route has already confirmed, and this route does not, so sending a browser anywhere on the strength of an unvalidated parameter is the attack rather than the error report. `400 invalid_redirect_uri` is a malformed target or an origin outside the app's `allowed_origins`, and it is checked **first**. \n\n`404 not_found` is an unknown `app_identifier` or a slug this app does not carry; `403 provider_disabled` is a slug it carries with `enabled` off, which is a distinction a developer's own page can render as \"temporarily off\" rather than \"gone\". `422 provider_misconfigured` and `502 idp_unavailable` are the provider's discovery failing the two ways the create route already describes. \n\n**The app runs its own PKCE against Fleetless here**, which is a second exchange independent of the one Fleetless runs against the identity provider: `code_challenge` binds the one-time code the callback returns to a verifier only the app's page holds. `state` comes back unchanged on the success redirect and on the error redirect alike. Rate limited per ip, because this is the unauthenticated door that makes Fleetless fetch a remote system."
+    },
+    {
+      "method": "GET",
+      "path": "/api/client/oidc/callback",
+      "section": "client-auth",
+      "summary": "Takes the identity provider's redirect and sends the browser back to the app.",
+      "audience": "client",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 302,
+      "params": [],
+      "query": "client-oidc-callback-query",
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "**One callback URL for every app and every provider**, and the value of `appAuthConfig.oidc_callback_url` — the string a developer registers at their IdP. `CLIENT_OIDC_CALLBACK_PATH` in `client-auth.ts` is the single spelling of this path; the URL is that path on the cloud's canonical public base, never a friendly alias, because the provider compares the redirect target against the one string it was given. \n\n**Not rate limited**, and unlike the provider listing beside it the reason is not that the work is cheap: the caller here is the identity provider redirecting somebody's browser, so a limiter would drop real sign-ins on the strength of traffic none of those people sent. The cost of this flow is metered at `start`, which is the door an app user actually opens. \n\nThe query is the **provider's** rather than a Fleetless shape, and `clientOidcCallbackQuery` describes it **without being strict**: `state` always, `code` on success, `error` and `error_description` on the provider's own refusal, and whatever else that provider adds — RFC 9207's `iss`, a `session_state`, a vendor field. Refusing those would refuse conforming providers, the trap `POST /mcp/oauth/register` documents avoiding. `state` is the required field because it is the only one Fleetless minted. \n\n**It lists no error codes because it emits none.** Every outcome, success and failure alike, is a `302` to the app's own `redirect_uri`: `?code=…&state=…` when a session was resolved, `?error=<clientOidcErrorCode>&state=…` when it was not, so the app renders its own message and can bind either answer to the request it started. Fleetless shows an app user no page (D2). \n\n**The one exception is a `state` that resolves to no interaction** — unknown, hand-edited, or past its ten minutes. Then there is no confirmed redirect target to carry the answer to, and bouncing a browser to an unvalidated one is the hole the whole flow is arranged to avoid, so the cloud renders an HTML problem page at `400`. That is the only Fleetless-rendered surface an app user can reach. It is HTML rather than an `apiError`, which is why no code is listed: a code here would document an envelope no caller receives, and this manifest's other HTML pages (`GET /mcp/oauth/interaction/:id`, `GET /console/oauth/interaction/:id`) say their status in prose for the same reason."
+    },
+    {
+      "method": "POST",
+      "path": "/api/client/oidc/exchange",
+      "section": "client-auth",
+      "summary": "Trades the one-time code from the callback for an app-user session.",
+      "audience": "client",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [],
+      "query": null,
+      "request": "client-oidc-exchange-request",
+      "response": "session-tokens",
+      "errors": [
+        "rate_limited",
+        "validation_error",
+        "token_spent"
+      ],
+      "transport": "http",
+      "notes": "The second half of the app's own PKCE: the `code` from the callback redirect plus the `code_verifier` for the challenge `start` carried. Sixty seconds, single-use, and worth nothing to whoever intercepted the redirect without the verifier. \n\n**One refusal for every code that does not work: `410 token_spent`** — unknown, past its sixty seconds, already exchanged, or presented with a verifier that does not match. There is one code because this code **is a credential**: telling the four apart would say whether a given value ever existed, and the recovery is the same in all four — start the sign-in again. That is why it is `token_spent` and not `interaction_expired`, which the MCP interaction routes answer: an interaction id is not a credential, its own client learns it from its own redirect, so there is nothing there to be vague about."
     },
     {
       "method": "POST",

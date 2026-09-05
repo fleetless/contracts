@@ -112,7 +112,10 @@ import {
   clientPasswordResetRequest,
   clientPasswordResetConfirmRequest,
   clientAcceptInvitationRequest,
+  clientProviderListQuery,
   clientProviderListResponse,
+  clientOidcStartQuery,
+  clientOidcCallbackQuery,
   clientOidcExchangeRequest,
   clientMcpInteraction,
   clientMcpInteractionDecisionResponse,
@@ -376,7 +379,10 @@ export const exportedSchemas = {
   'client-password-reset-request': clientPasswordResetRequest,
   'client-password-reset-confirm-request': clientPasswordResetConfirmRequest,
   'client-accept-invitation-request': clientAcceptInvitationRequest,
+  'client-provider-list-query': clientProviderListQuery, // GET /api/client/providers
   'client-provider-list-response': clientProviderListResponse,
+  'client-oidc-start-query': clientOidcStartQuery, // GET /api/client/oidc/:slug/start
+  'client-oidc-callback-query': clientOidcCallbackQuery, // GET /api/client/oidc/callback — the IdP's wire
   'client-oidc-exchange-request': clientOidcExchangeRequest,
   'client-mcp-interaction': clientMcpInteraction,
   'client-mcp-interaction-decision-response': clientMcpInteractionDecisionResponse,
@@ -630,6 +636,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-register-request', 'client-verify-email-request',
   'client-resend-verification-request', 'client-password-reset-request',
   'client-password-reset-confirm-request', 'client-accept-invitation-request',
+  'client-provider-list-query', 'client-oidc-start-query', 'client-oidc-callback-query',
   'client-oidc-exchange-request',
   // The app-user management surface.
   'create-app-user-request', 'patch-app-user-request',

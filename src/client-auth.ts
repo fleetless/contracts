@@ -201,6 +201,33 @@ export type ClientAcceptInvitationRequest = z.infer<typeof clientAcceptInvitatio
 
 /* ------------------------------------------------------ OIDC, per app -- */
 
+/**
+ * **The one OIDC callback path, for every app and every provider**, declared
+ * once so the cloud, the console and the documentation cannot spell it
+ * differently.
+ *
+ * `appAuthConfig.oidc_callback_url` is this path appended to the cloud's own
+ * `PUBLIC_API_BASE_URL`, and that URL is what a developer registers at their
+ * identity provider. So the string is not an implementation detail of one
+ * route: it is copied out of the console into somebody else's IdP
+ * configuration, where a later rename would break every sign-in with no error
+ * anybody here can see.
+ *
+ * **This is the path, not the URL.** The cloud mints the URL from its
+ * canonical public base — the same rule `MCP_ENDPOINT_PATH` states — and a
+ * friendly alias in front of the API is not a substitute, because the
+ * redirect target must match the one string registered at the provider
+ * exactly.
+ *
+ * `OAUTH_PATHS` is the precedent, and the warning: nine paths declared once so
+ * two repositories could not disagree, one of which then named a route the
+ * cloud had deleted. What keeps this one honest is `routes.ts` — the manifest
+ * carries the same path, the cloud's `route-manifest.test.ts` asserts set
+ * equality with it, and the test beside this file asserts the two spellings
+ * are the one string rather than two that currently agree.
+ */
+export const CLIENT_OIDC_CALLBACK_PATH = '/api/client/oidc/callback' as const
+
 /** The query of `GET /api/client/providers` — which app's sign-in buttons to draw. */
 export const clientProviderListQuery = z
   .object({
@@ -258,6 +285,46 @@ export const clientOidcStartQuery = z.object({
   }),
 })
 export type ClientOidcStartQuery = z.infer<typeof clientOidcStartQuery>
+
+/**
+ * **The query of `GET /api/client/oidc/callback` — the identity provider's
+ * wire, not Fleetless's.**
+ *
+ * Every field but `state` is optional and **the object is not `.strict()`**,
+ * which is the whole point of writing it down. A conforming provider sends
+ * `code` and `state` on success and `error` (with an optional
+ * `error_description`) on refusal, and many send more besides — `iss` per RFC
+ * 9207, `session_state`, a vendor field. A strict schema over somebody else's
+ * specification refuses conforming callers, which is the mistake
+ * `POST /mcp/oauth/register` documents having avoided by not parsing its body
+ * at all. Declaring the shape loosely says what arrives without promising it is
+ * the only thing that will.
+ *
+ * `state` is the one required field because it is the one Fleetless minted: it
+ * resolves the `oidc_interactions` row that holds the app's `redirect_uri`,
+ * and without it there is nowhere to send any answer, success or failure. That
+ * is the single case where the cloud renders a page of its own (D2).
+ *
+ * It exists as a schema rather than as four parameters read by hand because
+ * the manifest forbids the second: a documented route whose prose names a
+ * `?parameter=` must declare what it reads, and every phrase that used to
+ * excuse one was removed by writing the schema rather than by rewording.
+ */
+export const clientOidcCallbackQuery = z.object({
+  state: z.string().min(1).meta({
+    description: 'The opaque state Fleetless sent to the provider, which resolves the pending interaction — and with it the app\'s `redirect_uri`. Not the app\'s own `state` from `start`: that one is stored on the interaction and put back on the redirect to the app. A callback whose state resolves to nothing has no confirmed target to answer, and is the one case Fleetless renders a page for.',
+  }),
+  code: z.string().min(1).optional().meta({
+    description: 'The provider\'s authorization code, present when the sign-in succeeded. Exchanged server-side by the cloud, so it never reaches the app — the app gets its own one-time code, bound to the PKCE challenge it sent at `start`.',
+  }),
+  error: z.string().min(1).optional().meta({
+    description: 'The provider\'s own refusal, present instead of `code` when the person declined or the provider would not issue one. It is carried back to the app as a `clientOidcErrorCode`, not passed through: the provider\'s vocabulary is its own, and an app branching on it would be branching on a string nobody here controls.',
+  }),
+  error_description: z.string().optional().meta({
+    description: 'The provider\'s human-readable note about `error`, when it sends one. Logged, never rendered to an app user and never put on the redirect — it is text from a system Fleetless does not run.',
+  }),
+})
+export type ClientOidcCallbackQuery = z.infer<typeof clientOidcCallbackQuery>
 
 /** Trading the one-time code for a session. The code lives 60 seconds and is bound to the challenge from `start`. */
 export const clientOidcExchangeRequest = z

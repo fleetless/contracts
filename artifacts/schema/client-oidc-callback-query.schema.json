@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "state": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The opaque state Fleetless sent to the provider, which resolves the pending interaction — and with it the app's `redirect_uri`. Not the app's own `state` from `start`: that one is stored on the interaction and put back on the redirect to the app. A callback whose state resolves to nothing has no confirmed target to answer, and is the one case Fleetless renders a page for."
+    },
+    "code": {
+      "description": "The provider's authorization code, present when the sign-in succeeded. Exchanged server-side by the cloud, so it never reaches the app — the app gets its own one-time code, bound to the PKCE challenge it sent at `start`.",
+      "type": "string",
+      "minLength": 1
+    },
+    "error": {
+      "description": "The provider's own refusal, present instead of `code` when the person declined or the provider would not issue one. It is carried back to the app as a `clientOidcErrorCode`, not passed through: the provider's vocabulary is its own, and an app branching on it would be branching on a string nobody here controls.",
+      "type": "string",
+      "minLength": 1
+    },
+    "error_description": {
+      "description": "The provider's human-readable note about `error`, when it sends one. Logged, never rendered to an app user and never put on the redirect — it is text from a system Fleetless does not run.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "state"
+  ]
+}

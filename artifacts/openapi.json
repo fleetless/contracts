@@ -1941,6 +1941,280 @@
         "description": "An invitation that was already accepted is not pending and answers `404`, the same answer one that never existed gets — the account it created is a user now, and deleting that is `DELETE /api/apps/:id/users/:userId`. A revoked token answers `410 token_spent` at `POST /api/client/invitations/accept`, the same answer one that expired or never existed gets — the developer withdrew it deliberately, and an answer saying so would tell whoever still holds the link that it was once real."
       }
     },
+    "/api/apps/{id}/oidc-providers": {
+      "get": {
+        "operationId": "get_api_apps_id_oidc_providers",
+        "summary": "Lists every OIDC provider configured on the app, enabled or not.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-oidc-provider-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Answers `{ \"providers\": [appOidcProvider, …] }` — **the management view, so a disabled provider is here** and is absent from the public `GET /api/client/providers`. An app may have any number: the at-most-one rule this replaces was a property of the deleted group, not of identity, and a developer serving two customers needs two. **No client secret appears in the answer**, by construction of `appOidcProvider` — a secret a response can carry is a secret in every log that captured a response, which is the rule server keys and the deleted group provider already kept."
+      },
+      "post": {
+        "operationId": "post_api_apps_id_oidc_providers",
+        "summary": "Configures an OIDC provider on the app after checking that its issuer answers.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-oidc-provider"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `duplicate_slug`, `provider_misconfigured`, `idp_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Discovery runs before the row is written**, so a provider that cannot work is refused while the developer is looking at the form rather than a week later in an app user's failed sign-in. `502 idp_unavailable` is an issuer that could not be reached and may work on a retry; `422 provider_misconfigured` is one that answered with something unusable — not a discovery document, an `issuer` disagreeing with the configured one, or a JWKS with no key — and will answer the same until somebody changes the configuration. That is the whole reason the two codes are separate: one says wait, the other says fix it. \n\nThe issuer is **shape-checked** by `idpIssuer` (http(s), no credentials, query or fragment) and that is not the SSRF defence: it cannot tell a loopback dev provider from a loopback database, and the real check refuses loopback, link-local and private ranges at the fetch itself. `409 duplicate_slug` is a slug this app already uses — slugs are unique per app and immutable, since linked identities are keyed by them. `404 not_found` is the app. **The client secret goes in here and comes back out of nothing**: not this answer, not the read, not an audit detail.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-app-oidc-provider-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/oidc-providers/{providerId}": {
+      "get": {
+        "operationId": "get_api_apps_id_oidc_providers_providerId",
+        "summary": "Reads one OIDC provider of the app, without its client secret.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-oidc-provider"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A provider of another app, or of another org, reads exactly like one that does not exist — `404`, never a `403`. The stored client secret is not in `appOidcProvider` and there is no route that reads one back; a developer who has lost theirs sends a replacement through the `PATCH`."
+      },
+      "patch": {
+        "operationId": "patch_api_apps_id_oidc_providers_providerId",
+        "summary": "Changes a provider's name, issuer, client, scopes, linking policy or enabled flag.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-oidc-provider"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `provider_misconfigured`, `idp_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**`slug` is not in the body and offering it is a `400 validation_error`** naming the field, because the request is strict: the slug is in the path and is what `app_user_identities` rows are keyed by, so a rename would orphan every linked account. An answer that ignored it silently is the failure `updateAppRequest` was made strict to avoid. \n\n**`client_secret` absent means keep the stored one**, so a routine scope edit need not put the secret back on the wire. Changing the issuer re-runs discovery, which is why this route carries the same `422 provider_misconfigured` and `502 idp_unavailable` the create does — and identities linked under the old issuer keep their `(provider, subject)` key rather than being re-resolved. `409 duplicate_slug` is absent because the one field that could collide cannot be written here. Turning `enabled` off keeps the row and its linked identities: the provider disappears from `GET /api/client/providers` and a start answers `provider_disabled`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patch-app-oidc-provider-request"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_apps_id_oidc_providers_providerId",
+        "summary": "Deletes an OIDC provider and every identity linked through it.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "providerId",
+            "in": "path",
+            "required": true,
+            "description": "The provider's uuid, from `GET /api/apps/:id/oidc-providers`; a provider of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The linked identities go with it, and the app users do not.** An account that only ever signed in through this provider survives with no way back in until the developer mails them a reset link or re-configures the provider — deleting the accounts instead would make a mistyped click destroy the developer's customers. Setting `enabled` to `false` on the `PATCH` is the reversible door and is what a developer switching a provider off should use; this one is not reversible, because a re-created provider with the same slug resolves no old `(provider, subject)` link. Answers `204` and `404` only: a provider in use is still deleted, since the alternative is a row nothing can remove."
+      }
+    },
     "/api/apps/{id}/auth-config": {
       "get": {
         "operationId": "get_api_apps_id_auth_config",
@@ -3551,6 +3825,245 @@
           }
         },
         "description": "The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one."
+      }
+    },
+    "/api/client/providers": {
+      "get": {
+        "operationId": "get_api_client_providers",
+        "summary": "Lists the app's enabled sign-in providers, so the app can draw its buttons.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "app_identifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+              "description": "The app whose enabled providers to list."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/client-provider-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Answers `{ \"providers\": [{ slug, name }, …] }` and **nothing else**: the issuer, the client id, the scopes and the linking policy are management-side facts, and this route is public. An app with no provider answers an empty array, which is the state of an app that offers password login alone; a **disabled** provider is not a button that refuses, it is a button that is not there. \n\n`404 not_found` is the app identifier and can be nothing else — the answer does not vary by person, so there is no address here to be silent about. **Not rate limited**, unlike the rest of the public client family: it reads back two strings of the developer's own public configuration, an app's login page calls it on every render, and there is nothing behind it to enumerate. The limiter on `start` is where the cost of this flow actually is."
+      }
+    },
+    "/api/client/oidc/{slug}/start": {
+      "get": {
+        "operationId": "get_api_client_oidc_slug_start",
+        "summary": "Begins a federated sign-in and redirects the browser to the app's identity provider.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The provider to sign in with, as listed by `GET /api/client/providers`; an unknown slug answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "app_identifier",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+              "description": "The app being signed in to."
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 2000,
+              "format": "uri",
+              "description": "Where to send the browser when the flow finishes, with `code` and `state` or with `error` and `state`. **Its origin must be one of the app's `allowed_origins`**; a failure here is refused flat, with no redirect, because until the target is confirmed there is nowhere trusted to bounce a browser to."
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 512,
+              "description": "Returned unchanged on the callback, and on the error redirect too, so the app can bind either answer to the request it started. At least eight characters: this is what ties the callback to the browser that began the flow, and a guessable value defends nothing."
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43,128}$",
+              "description": "The app's own PKCE challenge (RFC 7636, S256 base64url). The verifier is presented at `oidc/exchange`, so the one-time code is worth nothing to whoever intercepts the redirect. `plain` is not accepted: a challenge equal to its verifier defends against nothing."
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`, `provider_disabled`, `invalid_redirect_uri`, `provider_misconfigured`, `idp_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Every refusal here is JSON, answered before any redirect** — the `apiError` envelope, not the `?error=` redirect the callback uses. The difference is the open-redirect discipline: the callback knows a `redirect_uri` this route has already confirmed, and this route does not, so sending a browser anywhere on the strength of an unvalidated parameter is the attack rather than the error report. `400 invalid_redirect_uri` is a malformed target or an origin outside the app's `allowed_origins`, and it is checked **first**. \n\n`404 not_found` is an unknown `app_identifier` or a slug this app does not carry; `403 provider_disabled` is a slug it carries with `enabled` off, which is a distinction a developer's own page can render as \"temporarily off\" rather than \"gone\". `422 provider_misconfigured` and `502 idp_unavailable` are the provider's discovery failing the two ways the create route already describes. \n\n**The app runs its own PKCE against Fleetless here**, which is a second exchange independent of the one Fleetless runs against the identity provider: `code_challenge` binds the one-time code the callback returns to a verifier only the app's page holds. `state` comes back unchanged on the success redirect and on the error redirect alike. Rate limited per ip, because this is the unauthenticated door that makes Fleetless fetch a remote system."
+      }
+    },
+    "/api/client/oidc/callback": {
+      "get": {
+        "operationId": "get_api_client_oidc_callback",
+        "summary": "Takes the identity provider's redirect and sends the browser back to the app.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The opaque state Fleetless sent to the provider, which resolves the pending interaction — and with it the app's `redirect_uri`. Not the app's own `state` from `start`: that one is stored on the interaction and put back on the redirect to the app. A callback whose state resolves to nothing has no confirmed target to answer, and is the one case Fleetless renders a page for."
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The provider's authorization code, present when the sign-in succeeded. Exchanged server-side by the cloud, so it never reaches the app — the app gets its own one-time code, bound to the PKCE challenge it sent at `start`.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The provider's own refusal, present instead of `code` when the person declined or the provider would not issue one. It is carried back to the app as a `clientOidcErrorCode`, not passed through: the provider's vocabulary is its own, and an app branching on it would be branching on a string nobody here controls.",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "error_description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The provider's human-readable note about `error`, when it sends one. Logged, never rendered to an app user and never put on the redirect — it is text from a system Fleetless does not run.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: none listed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**One callback URL for every app and every provider**, and the value of `appAuthConfig.oidc_callback_url` — the string a developer registers at their IdP. `CLIENT_OIDC_CALLBACK_PATH` in `client-auth.ts` is the single spelling of this path; the URL is that path on the cloud's canonical public base, never a friendly alias, because the provider compares the redirect target against the one string it was given. \n\n**Not rate limited**, and unlike the provider listing beside it the reason is not that the work is cheap: the caller here is the identity provider redirecting somebody's browser, so a limiter would drop real sign-ins on the strength of traffic none of those people sent. The cost of this flow is metered at `start`, which is the door an app user actually opens. \n\nThe query is the **provider's** rather than a Fleetless shape, and `clientOidcCallbackQuery` describes it **without being strict**: `state` always, `code` on success, `error` and `error_description` on the provider's own refusal, and whatever else that provider adds — RFC 9207's `iss`, a `session_state`, a vendor field. Refusing those would refuse conforming providers, the trap `POST /mcp/oauth/register` documents avoiding. `state` is the required field because it is the only one Fleetless minted. \n\n**It lists no error codes because it emits none.** Every outcome, success and failure alike, is a `302` to the app's own `redirect_uri`: `?code=…&state=…` when a session was resolved, `?error=<clientOidcErrorCode>&state=…` when it was not, so the app renders its own message and can bind either answer to the request it started. Fleetless shows an app user no page (D2). \n\n**The one exception is a `state` that resolves to no interaction** — unknown, hand-edited, or past its ten minutes. Then there is no confirmed redirect target to carry the answer to, and bouncing a browser to an unvalidated one is the hole the whole flow is arranged to avoid, so the cloud renders an HTML problem page at `400`. That is the only Fleetless-rendered surface an app user can reach. It is HTML rather than an `apiError`, which is why no code is listed: a code here would document an envelope no caller receives, and this manifest's other HTML pages (`GET /mcp/oauth/interaction/:id`, `GET /console/oauth/interaction/:id`) say their status in prose for the same reason."
+      }
+    },
+    "/api/client/oidc/exchange": {
+      "post": {
+        "operationId": "post_api_client_oidc_exchange",
+        "summary": "Trades the one-time code from the callback for an app-user session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session-tokens"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_spent`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The second half of the app's own PKCE: the `code` from the callback redirect plus the `code_verifier` for the challenge `start` carried. Sixty seconds, single-use, and worth nothing to whoever intercepted the redirect without the verifier. \n\n**One refusal for every code that does not work: `410 token_spent`** — unknown, past its sixty seconds, already exchanged, or presented with a verifier that does not match. There is one code because this code **is a credential**: telling the four apart would say whether a given value ever existed, and the recovery is the same in all four — start the sign-in again. That is why it is `token_spent` and not `interaction_expired`, which the MCP interaction routes answer: an interaction id is not a credential, its own client learns it from its own redirect, so there is nothing there to be vague about.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-oidc-exchange-request"
+              }
+            }
+          }
+        }
       }
     },
     "/api/robots": {
@@ -7357,6 +7870,177 @@
         ],
         "additionalProperties": false
       },
+      "app-oidc-provider": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The provider row, as listed, patched and deleted by the developer."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app this provider signs users in to."
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+            "description": "The stable handle in the sign-in URL (`/api/client/oidc/:slug/start`) and on the developer's own button. Unique per app, lowercase and hyphen-separated — **not** the underscore-separated grammar `identifier` uses. Immutable: linked identities are keyed by it."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "What the developer's sign-in page calls this provider, e.g. \"Sign in with Azure AD\". Free text; the only field of this shape the public `GET /api/client/providers` reveals besides the slug."
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri",
+            "description": "The provider's issuer URL, from which discovery and the JWKS are read. http(s) only, with no credentials, query or fragment — RFC 8414 §3 builds the discovery URL from the issuer's path, so a query there is meaningless and an `@` is a redirect trick. **This is not the SSRF defence**: it cannot tell a loopback dev provider from a loopback database, and the real check refuses loopback, link-local and private ranges at the fetch."
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The OAuth client the developer registered at their provider for Fleetless."
+          },
+          "scopes": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            },
+            "description": "The scopes requested at the provider. At least one — a request that asks for nothing learns nothing — and bounded, because an unbounded array on a stored, logged and rendered shape is a size nobody chose."
+          },
+          "link_verified_emails": {
+            "type": "boolean",
+            "description": "Whether a federated login may join an **existing** app user with the same address. It needs the provider to assert `email_verified` as well: either condition alone is account takeover, since a provider that lets anyone type any address into a profile would otherwise hand over every matching account, and a developer who connects a provider for a subset of their users would otherwise silently merge strangers."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this provider is offered at all. A disabled provider disappears from `GET /api/client/providers` and refuses a start with `provider_disabled`, without the row and its linked identities being deleted."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the provider was configured, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "slug",
+          "name",
+          "issuer",
+          "client_id",
+          "scopes",
+          "link_verified_emails",
+          "enabled",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-oidc-provider-list-response": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The provider row, as listed, patched and deleted by the developer."
+                },
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app this provider signs users in to."
+                },
+                "slug": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                  "description": "The stable handle in the sign-in URL (`/api/client/oidc/:slug/start`) and on the developer's own button. Unique per app, lowercase and hyphen-separated — **not** the underscore-separated grammar `identifier` uses. Immutable: linked identities are keyed by it."
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80,
+                  "description": "What the developer's sign-in page calls this provider, e.g. \"Sign in with Azure AD\". Free text; the only field of this shape the public `GET /api/client/providers` reveals besides the slug."
+                },
+                "issuer": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "format": "uri",
+                  "description": "The provider's issuer URL, from which discovery and the JWKS are read. http(s) only, with no credentials, query or fragment — RFC 8414 §3 builds the discovery URL from the issuer's path, so a query there is meaningless and an `@` is a redirect trick. **This is not the SSRF defence**: it cannot tell a loopback dev provider from a loopback database, and the real check refuses loopback, link-local and private ranges at the fetch."
+                },
+                "client_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "The OAuth client the developer registered at their provider for Fleetless."
+                },
+                "scopes": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "description": "The scopes requested at the provider. At least one — a request that asks for nothing learns nothing — and bounded, because an unbounded array on a stored, logged and rendered shape is a size nobody chose."
+                },
+                "link_verified_emails": {
+                  "type": "boolean",
+                  "description": "Whether a federated login may join an **existing** app user with the same address. It needs the provider to assert `email_verified` as well: either condition alone is account takeover, since a provider that lets anyone type any address into a profile would otherwise hand over every matching account, and a developer who connects a provider for a subset of their users would otherwise silently merge strangers."
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Whether this provider is offered at all. A disabled provider disappears from `GET /api/client/providers` and refuses a start with `provider_disabled`, without the row and its linked identities being deleted."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the provider was configured, as an ISO 8601 timestamp."
+                }
+              },
+              "required": [
+                "id",
+                "app_id",
+                "slug",
+                "name",
+                "issuer",
+                "client_id",
+                "scopes",
+                "link_verified_emails",
+                "enabled",
+                "created_at"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Every provider configured on this app, disabled ones included — this is the developer's management view, unlike the public `GET /api/client/providers`, which lists only what a user can actually press."
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "additionalProperties": false
+      },
       "app-user": {
         "type": "object",
         "properties": {
@@ -8590,6 +9274,26 @@
           "refresh_token"
         ]
       },
+      "client-oidc-exchange-request": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The one-time code from the callback redirect. Valid 60 seconds, single-use, and bound to the PKCE challenge the start step carried."
+          },
+          "code_verifier": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.~-]{43,128}$",
+            "description": "The verifier for the challenge sent at `start`. RFC 7636 §4.1's alphabet and length."
+          }
+        },
+        "required": [
+          "code",
+          "code_verifier"
+        ],
+        "additionalProperties": false
+      },
       "client-password-reset-confirm-request": {
         "type": "object",
         "properties": {
@@ -8631,6 +9335,39 @@
         "required": [
           "app_identifier",
           "email"
+        ],
+        "additionalProperties": false
+      },
+      "client-provider-list-response": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+                  "description": "The handle to put in the start URL: `GET /api/client/oidc/<slug>/start`."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "What to write on the button, as the developer configured it."
+                }
+              },
+              "required": [
+                "slug",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The app's **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password login alone."
+          }
+        },
+        "required": [
+          "providers"
         ],
         "additionalProperties": false
       },
@@ -10919,6 +11656,75 @@
         "required": [
           "email",
           "send_mail"
+        ],
+        "additionalProperties": false
+      },
+      "create-app-oidc-provider-request": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+            "description": "The handle for this provider, unique per app. Immutable once created — identities are keyed by it, so a rename would orphan every linked account."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "What the developer's sign-in page calls this provider."
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri",
+            "description": "The provider's issuer URL. Shape-checked here (http(s), no credentials, query or fragment); the authoritative SSRF defence is at the discovery fetch."
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The OAuth client registered at the provider for Fleetless."
+          },
+          "client_secret": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 500,
+            "description": "The client secret, **write-only**: it is stored encrypted and comes back through nothing — not the read, not this route's own answer, not an audit detail. Required on create, since a provider with no secret cannot exchange a code; the minimum length refuses a value that is a misconfiguration rather than a secret."
+          },
+          "scopes": {
+            "default": [
+              "openid",
+              "email",
+              "profile"
+            ],
+            "description": "The scopes to request. Defaults to `openid email profile`, which is what the linking rules in this design actually read: the subject, the address and its verified flag, and a name.",
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          },
+          "link_verified_emails": {
+            "default": false,
+            "description": "Whether a federated login may join an existing app user by verified address. **Defaults to off**, because relaxing later is additive and admitting duplicates now and tightening afterwards is not.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Whether the provider is offered immediately. Defaults to on: a developer who just typed a client secret is configuring a provider they mean to use.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "slug",
+          "name",
+          "issuer",
+          "client_id",
+          "client_secret"
         ],
         "additionalProperties": false
       },
@@ -13282,6 +14088,55 @@
         "required": [
           "email"
         ]
+      },
+      "patch-app-oidc-provider-request": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "A new display name for the provider.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "issuer": {
+            "description": "A new issuer URL. Changing it re-runs discovery; identities linked under the old one keep their `(provider, subject)` key.",
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri"
+          },
+          "client_id": {
+            "description": "A new client id.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "client_secret": {
+            "description": "A replacement client secret. **Absent means keep the stored one**, so a routine edit need not put the secret back on the wire; it is never echoed back by any route.",
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 500
+          },
+          "scopes": {
+            "description": "A replacement scope list. A replace, not a merge.",
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            }
+          },
+          "link_verified_emails": {
+            "description": "Whether a federated login may join an existing app user by verified address.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Turn the provider off or back on without deleting it or its linked identities.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "patch-app-user-request": {
         "type": "object",

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app_identifier": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app being signed in to."
+    },
+    "redirect_uri": {
+      "type": "string",
+      "maxLength": 2000,
+      "format": "uri",
+      "description": "Where to send the browser when the flow finishes, with `code` and `state` or with `error` and `state`. **Its origin must be one of the app's `allowed_origins`**; a failure here is refused flat, with no redirect, because until the target is confirmed there is nowhere trusted to bounce a browser to."
+    },
+    "state": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 512,
+      "description": "Returned unchanged on the callback, and on the error redirect too, so the app can bind either answer to the request it started. At least eight characters: this is what ties the callback to the browser that began the flow, and a guessable value defends nothing."
+    },
+    "code_challenge": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43,128}$",
+      "description": "The app's own PKCE challenge (RFC 7636, S256 base64url). The verifier is presented at `oidc/exchange`, so the one-time code is worth nothing to whoever intercepts the redirect. `plain` is not accepted: a challenge equal to its verifier defends against nothing."
+    }
+  },
+  "required": [
+    "app_identifier",
+    "redirect_uri",
+    "state",
+    "code_challenge"
+  ]
+}

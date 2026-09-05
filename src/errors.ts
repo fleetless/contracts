@@ -726,6 +726,30 @@ export const ERROR_CODES = [
    */
   'provider_disabled',
   /**
+   * `422`: the provider's own configuration cannot complete a sign-in, and
+   * only the **developer** can fix it. Discovery answered something that is
+   * not an OIDC discovery document, the issuer in it disagrees with the
+   * configured one, the JWKS has no usable key, or the stored client secret is
+   * rejected at the token endpoint.
+   *
+   * Distinct from `idp_unavailable`, which is the same fault line drawn one
+   * step earlier: there the provider could not be **reached**, and retrying may
+   * work; here it answered and the answer was unusable, so retrying will do
+   * the same thing until somebody changes the configuration. Collapsing the
+   * two would tell a developer to wait when the fix is theirs to make.
+   *
+   * Distinct from `validation_error` for the same reason `invalid_redirect_uri`
+   * is: the shape of what the developer typed was fine, and what failed is a
+   * fact about a remote system that no request-body check could have caught.
+   * `POST` and `PATCH` on `/api/apps/:id/oidc-providers` run discovery before
+   * storing a row, so the refusal arrives while the developer is looking at
+   * the form rather than at an app user's failed sign-in a week later.
+   *
+   * It reaches an app user as a `clientOidcErrorCode` of the same name,
+   * redirected to the app rather than rendered here.
+   */
+  'provider_misconfigured',
+  /**
    * A redirect URI that is not usable: malformed, or an origin the app has not
    * listed. Refused **flat, with no redirect** — sending a browser to an
    * unconfirmed target is the attack this check exists to prevent, so an
