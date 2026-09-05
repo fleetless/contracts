@@ -1059,9 +1059,14 @@ describe('the per-app MCP surface', () => {
   })
 
   /**
-   * **The transport's three verbs**, held to the same guard and the same four
+   * **The transport's three verbs**, held to the same guard and the same three
    * refusals, because they are one handler reached three ways: the app is
    * resolved, its switch read, and only then the bearer verified.
+   *
+   * `mcp_disabled` is **not** among them, and its absence is the assertion
+   * that matters here: an unknown app and a switched-off one answer one `404`,
+   * so an anonymous caller cannot read a three-way existence oracle off the
+   * status line of a path whose last segment they typed.
    *
    * `GET` and `DELETE` answer `405` — this server is stateless — and the rows
    * exist so that the `405` is not a `404`, which at a path ending in an app
@@ -1082,8 +1087,9 @@ describe('the per-app MCP surface', () => {
       expect(r.response, 'the transport speaks JSON-RPC and declares no contracts shape').toBeNull()
       expect(r.params.map((p) => p.name), `${key(r)} does not take the app identifier`).toEqual(['appIdentifier'])
       expect([...r.errors].sort(), `${key(r)} refuses on a different list from its siblings`).toEqual(
-        ['forbidden', 'mcp_disabled', 'not_found', 'unauthorized'],
+        ['forbidden', 'not_found', 'unauthorized'],
       )
+      expect(r.errors, `${key(r)} hands an anonymous caller the switch's state`).not.toContain('mcp_disabled')
       const stateless = key(r) !== `POST ${APP_PATHS.endpoint}`
       expect(r.status === 405, `${key(r)} status ${r.status} disagrees with the stateless ruling`).toBe(stateless)
     }
@@ -1123,29 +1129,43 @@ describe('the per-app MCP surface', () => {
       expect(r.notes ?? '', `${key(r)} does not say a disabled app answers 404`).toContain('404')
     }
     // Non-vacuity: `mcp_disabled` IS answered somewhere in this train, so the
-    // denial above is a fact about these two rows and not about the code.
-    expect(ROUTES.filter((r) => (r.errors as readonly string[]).includes('mcp_disabled')).length).toBeGreaterThan(1)
+    // denial above is a fact about these two rows and not about the code. It
+    // is answered on exactly the two decision routes and nowhere else —
+    // asserted as the whole set rather than as a count, because a count of
+    // "more than one" is satisfied by the wrong two rows just as well.
+    expect(
+      ROUTES.filter((r) => (r.errors as readonly string[]).includes('mcp_disabled')).map(key).sort(),
+      'mcp_disabled reaches a caller who has not proved they belong to the app',
+    ).toEqual([
+      'POST /api/client/mcp/interactions/:id/approve',
+      'POST /api/client/mcp/interactions/:id/deny',
+    ])
   })
 
   /**
-   * **Where a client learns the switch is off — exactly one place.**
+   * **No unauthenticated route on this surface reports the switch, and that is
+   * the whole rule.**
    *
-   * The two documents and `register` answer `404`, because a client that could
-   * not read the documents has no business registering. `authorize` answers
-   * `403 mcp_disabled`, because a client that got that far registered while
-   * the switch was on and its user is owed the difference between *turned off*
-   * and *mistyped*. `token` answers neither: its refusals are RFC 6749's flat
-   * `oauthError`, which is what an OAuth library mid-flow can parse.
+   * An earlier draft answered `403 mcp_disabled` at `authorize`, reasoning
+   * that a client which registered while the switch was on is owed the
+   * difference between *turned off* and *mistyped*. The argument does not
+   * survive the caller being anonymous: `authorize` takes no credential, so
+   * the extra code was readable by anybody who could type an identifier, and
+   * it handed back exactly the existence distinction the documents, `register`
+   * and the transport all collapse into one `404`. `token` reports neither
+   * state: its refusals are RFC 6749's flat `oauthError`, which is what an
+   * OAuth library mid-flow can parse.
    *
-   * Written as a partition over all eight app-server rows, because the value
-   * of the rule is entirely in which rows do **not** carry the code.
+   * Written as a partition over every public app-server row, because the value
+   * of the rule is entirely in which rows do **not** carry the code — and the
+   * companion half, that the code still has producers where the caller HAS
+   * proved they belong to the app, is asserted in the discovery test above.
    */
-  it('reports mcp_disabled on the authorize route and on no other public app-server route', () => {
+  it('reports mcp_disabled on no public app-server route at all', () => {
     const publicRows = ROUTES.filter((r) => [...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES].includes(key(r)))
     expect(publicRows.length).toBe(5)
     for (const r of publicRows) {
-      const isAuthorize = key(r) === `GET ${APP_PATHS.authorize}`
-      expect((r.errors as readonly string[]).includes('mcp_disabled'), `${key(r)} disagrees with the ruling on mcp_disabled`).toBe(isAuthorize)
+      expect((r.errors as readonly string[]).includes('mcp_disabled'), `${key(r)} tells an anonymous caller the switch is off`).toBe(false)
       expect(r.auth, `${key(r)} is reached before any credential exists`).toBe('none')
     }
     const register = ROUTES.find((r) => key(r) === `POST ${APP_PATHS.register}`)!
@@ -1155,19 +1175,19 @@ describe('the per-app MCP surface', () => {
   })
 
   /**
-   * **The authorize row redirects to the app and refuses three ways.**
+   * **The authorize row redirects to the app and refuses two ways.**
    *
-   * The codes and the prose are both asserted: on its own, a three-code list
+   * The codes and the prose are both asserted: on its own, a two-code list
    * says nothing about *why* an OAuth endpoint answers the `apiError` envelope
    * at all, and `target_state_conflict` in particular is unreadable without
    * the field it names — a developer who enabled MCP and left `mcp_login_url`
    * empty has to be able to find that from the reference.
    */
-  it('sends the authorize route to the app own login page, with the three app-level refusals', () => {
+  it('sends the authorize route to the app own login page, with the two app-level refusals', () => {
     const r = ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!
     expect(r.status, 'the authorize route answers a redirect on the happy path').toBe(302)
     expect(r.response, 'a 302 carries no body').toBeNull()
-    expect([...r.errors].sort()).toEqual(['mcp_disabled', 'not_found', 'target_state_conflict'])
+    expect([...r.errors].sort()).toEqual(['not_found', 'target_state_conflict'])
     const notes = r.notes ?? ''
     expect(notes, 'the row does not name the app URL it redirects to').toContain('mcp_login_url')
     expect(notes, 'the row does not say Fleetless renders no page here').toContain('renders no page')

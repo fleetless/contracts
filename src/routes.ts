@@ -1380,7 +1380,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
-    errors: ['unauthorized', 'forbidden', 'mcp_disabled'], transport: 'http',
+    errors: ['unauthorized', 'forbidden'], transport: 'http',
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and ' +
       'results are the schemas in each tool definition. **Fleetless users only** — an app\'s users reach their own app endpoint instead. ' +
@@ -1389,9 +1389,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'against the cloud\'s own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted ' +
       'here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console ' +
       'tool that is still narrower than the catalog refuses for itself (`console_robot_delete` answers `tier_required` to a non-Owner). ' +
-      '`403 mcp_disabled` is what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only. At this ' +
-      'train no client can hold such a token — only a test mints one — and the per-app MCP train gives it one, along with the per-app ' +
-      '`appAuthConfig.mcp_enabled` gate that is the code\'s other producer. `mcp_access_denied` is gone with the per-user override and the ' +
+      '`403 forbidden` is also what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only, and such ' +
+      'a token belongs to its own app\'s endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the ' +
+      'caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. ' +
+      '`mcp_access_denied` is gone with the per-user override and the ' +
       'group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh transport per request, no session id, nothing ' +
       'survives the call.',
   },
@@ -1403,7 +1404,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "One app's MCP endpoint: the same stateless Streamable HTTP transport, carrying that app's robots.",
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [APP_IDENTIFIER], query: null, request: null, response: null,
-    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    errors: ['not_found', 'unauthorized', 'forbidden'], transport: 'http',
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes — exactly as `POST /mcp` ' +
       'is, and stateless for the same reason: a fresh transport per request, no session id, nothing surviving the call. **App users only.** ' +
@@ -1413,10 +1414,13 @@ export const ROUTES: readonly RouteEntry[] = [
       'endpoint gives — the identity comes from the token and the path names none of it, and the refusal has to carry a `WWW-Authenticate` ' +
       'challenge a guard shared with the REST surface does not send. The challenge names **this app\'s** protected-resource document (RFC ' +
       '9728\'s `resource_metadata`), which is how an MCP client discovers the right authorization server from a bare `401`; pointing it at ' +
-      'the central document would send every app\'s client to the wrong sign-in. \n\n`404 not_found` is an identifier no app carries. `403 ' +
-      'mcp_disabled` is `appAuthConfig.mcp_enabled` switched off, re-read on every request rather than cached off the token, so a developer ' +
-      'turning it off ends the sessions already running. **Both are decided before the bearer is looked at**, which is the reverse of the ' +
-      'usual order and is deliberate: they are facts about the path, an app identifier is public, and a disabled app that answered `401` ' +
+      'the central document would send every app\'s client to the wrong sign-in. \n\n**`404 not_found` covers an identifier no app carries AND ' +
+      'an app whose `appAuthConfig.mcp_enabled` is off — one answer for both, the same one the two metadata documents and `register` give.** ' +
+      'A separate `403 mcp_disabled` here would hand an anonymous caller a three-way oracle (`404` = no such app, `403` = the app exists ' +
+      'with MCP off, `401` = the app exists and is live), which is exactly the distinction discovery collapses; there is no point ' +
+      'collapsing it in one place and publishing it in another. The switch is re-read on every request rather than cached off the token, so ' +
+      'a developer turning it off ends the sessions already running, and it is decided **before the bearer is looked at** — the reverse of ' +
+      'the usual order, and deliberate: it is a fact about the path, an app identifier is public, and an absent server that answered `401` ' +
       'would send a client hunting a credential no credential can satisfy. `401 unauthorized` is a missing, unverifiable or expired bearer, ' +
       'or an `aud` that is not this endpoint. `403 forbidden` is a token that verifies and is not this app\'s user: another app\'s session, a ' +
       'Fleetless user\'s central `mcp_session`, an account that is `blocked` or still `pending_verification`, or a foreign `Origin`.',
@@ -1426,16 +1430,18 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Answers the standalone SSE stream's GET, which a stateless transport does not serve.",
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 405,
     params: [APP_IDENTIFIER], query: null, request: null, response: null,
-    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    errors: ['not_found', 'unauthorized', 'forbidden'], transport: 'http',
     notes:
       'MCP\'s Streamable HTTP gives this path three verbs: `POST` carries JSON-RPC, `GET` opens the server-initiated SSE stream, and `DELETE` ' +
       'ends a session. This server has no sessions — the argument is in `MCP_PROTOCOL_VERSION`\'s own note, and W8\'s second cloud instance is ' +
-      'where a per-process session map would break — so `GET` and `DELETE` answer `405`, which is what the SDK\'s stateless transport answers ' +
-      'and what a client is built to fall back from. \n\n**The row exists so that the `405` is not a `404`.** An unregistered verb answers ' +
+      'where a per-process session map would break — so `GET` and `DELETE` answer `405`, which is what a client is built to fall back from. ' +
+      '\n\n**The `405` is this cloud\'s own answer, not the SDK\'s**, and the difference was measured: MCP SDK 1.30.0 opens an SSE stream on ' +
+      '`GET` (`handleGetRequest`) and answers `200` on `DELETE` (`handleDeleteRequest`), neither of which a stateless server has any ' +
+      'business doing, so the cloud writes the `405` itself in the transport\'s own JSON-RPC error shape with `Allow: POST`. \n\n**The row exists so that the `405` is not a `404`.** An unregistered verb answers ' +
       '`404`, and at a path whose last segment is an app identifier a `404` already means *no such app* — one answer for two states, which is ' +
       'the failure this project keeps paying for. Registering the verb lets the endpoint say "this app\'s server is here; this verb is not ' +
       'part of it". The central `/mcp` registers neither verb and does not need to: its path takes no parameter, so nothing can misread its ' +
-      '`404`. \n\n**The `405` body is the transport\'s JSON-RPC error object, not the `apiError` envelope.** The four codes above are the ' +
+      '`404`. \n\n**The `405` body is the transport\'s JSON-RPC error object, not the `apiError` envelope.** The three codes above are the ' +
       'refusals that come *first* — the app, its switch, then the bearer, in the order `POST` describes — and they are `apiError` because ' +
       'they are answered before the transport is reached at all. If this server ever becomes stateful, this row and the `DELETE` beside it ' +
       'are where that lands, and the cloud\'s route-manifest test is what would make both repositories notice.',
@@ -1445,11 +1451,11 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Answers the session-termination DELETE, which a stateless transport has no session to end.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 405,
     params: [APP_IDENTIFIER], query: null, request: null, response: null,
-    errors: ['not_found', 'mcp_disabled', 'unauthorized', 'forbidden'], transport: 'http',
+    errors: ['not_found', 'unauthorized', 'forbidden'], transport: 'http',
     notes:
       'The other half of what the `GET` row above explains, and registered for the same reason: without a row here, a client tidying up after ' +
       'itself would read `404` and could not tell a stateless server from an app that does not exist. `405`, from the same transport, with ' +
-      'the same four refusals ahead of it. A caller that wants a session to end simply stops sending requests — there is no server-side state ' +
+      'the same three refusals ahead of it. A caller that wants a session to end simply stops sending requests — there is no server-side state ' +
       'for this verb to remove, which is the point rather than a limitation.',
   },
   {
@@ -1468,8 +1474,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'switched off answers `404`, the same as an identifier no app carries, and that is a decision rather than a gap.** A metadata document ' +
       'is present or it is absent; `403` is not a state a client\'s discovery code models, and one that met it would either error out or ' +
       'retry forever. Nothing is being hidden — the identifier is public and is in this very path — the two answers are simply the same ' +
-      'answer: there is no MCP server here to authorize for. A client that registered while the switch was on learns the difference at `GET ' +
-      '/mcp/:appIdentifier/oauth/authorize`, which answers `403 mcp_disabled`.',
+      'answer: there is no MCP server here to authorize for. **Every other unauthenticated route on this surface says the same** — the ' +
+      'authorization-server document, `register`, `authorize` and the transport itself all answer `404` for both states, so nothing an ' +
+      'anonymous caller can reach distinguishes them. A person whose app has the switch off learns that from the console, not from a ' +
+      'status code a stranger can also read.',
   },
   {
     method: 'GET', path: MCP_APP.authorizationServerMetadata, section: 'mcp',
@@ -1509,7 +1517,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Starts an MCP sign-in and redirects the browser to the app's own login page.",
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
     params: [APP_IDENTIFIER], query: null, request: null, response: null,
-    errors: ['not_found', 'mcp_disabled', 'target_state_conflict'], transport: 'http',
+    errors: ['not_found', 'target_state_conflict'], transport: 'http',
     notes:
       '**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live ' +
       '— and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own ' +
@@ -1518,10 +1526,14 @@ export const ROUTES: readonly RouteEntry[] = [
       '/mcp/oauth/authorize` and `GET /api/client/oidc/:slug/start` both keep — and those refusals are RFC 6749\'s flat `oauthError`, which ' +
       'is why none of them appear above. `redirect_uri` is matched **exactly** against the registration, with no loopback-port wildcard: ' +
       'every client here registered itself minutes ago and can name the port it bound, so a wildcard would only widen where a stolen ' +
-      '`client_id` may send a browser. \n\nThe three codes above are the `apiError` envelope because they are refusals about the **app**, ' +
-      'decided before an OAuth parameter is looked at. `404 not_found` is an identifier no app carries. `403 mcp_disabled` is the switch off ' +
-      '— **the one place a client learns that**, where the metadata documents and `register` both answer `404`, because a client that got ' +
-      'this far registered while the switch was on and its user is owed the difference between "turned off" and "mistyped". `409 ' +
+      '`client_id` may send a browser. \n\nThe two codes above are the `apiError` envelope because they are refusals about the **app**, ' +
+      'decided before an OAuth parameter is looked at. **`404 not_found` covers an identifier no app carries AND an app with MCP switched ' +
+      'off** — the same single answer the two metadata documents, `register` and the transport give. An earlier draft answered `403 ' +
+      'mcp_disabled` here, on the argument that a client which registered while the switch was on is owed the difference between "turned ' +
+      'off" and "mistyped"; that argument does not survive the caller being anonymous. This route takes no credential, so the extra code ' +
+      'was readable by anyone who could type an identifier, and it handed back precisely the existence distinction every neighbouring ' +
+      'route collapses. `mcp_disabled` survives only where the caller has already proved they belong to the app — the two decision routes ' +
+      'under `/api/client/mcp/interactions/:id`. `409 ' +
       'target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It ' +
       'is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — ' +
       'Fleetless has nowhere to redirect, and rendering a page of its own instead would contradict D2.',
@@ -1815,8 +1827,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'token there is no user for it to be about and it is `false`. An app-user token for a **different** app is treated as absent rather ' +
       'than refused, for the same reason: nothing in this document is that user\'s, so there is nothing to refuse them, and a `401` would ' +
       'break the page for somebody whose browser happens to hold another app\'s session. \n\n**One code for every interaction that is not live: ' +
-      '`410 interaction_expired`.** Unknown, past its ten minutes, already decided, or an interaction of the central flow — one status and ' +
-      'one body, so an id nobody holds cannot be told from one that ran out. A `404` beside it would let a caller who did not start the flow ' +
+      '`410 interaction_expired`.** Unknown, past its ten minutes, already decided, an interaction of the central flow, or one whose ' +
+      'authorize step never handed a browser to the app — one status and ' +
+      'one body, so an id nobody holds cannot be told from one that ran out. **The last of those is what makes the redirect stamp a ' +
+      'real gate rather than a note**: an id invented or replayed outside the flow names no interaction this route will describe, and ' +
+      'a page reloading its own consent screen is a second read rather than a second redirect, so it keeps working. A `404` beside it would let a caller who did not start the flow ' +
       'ask whether somebody else\'s sign-in is in progress, which is the only question this document could be used to answer. The word is ' +
       'still `interaction_expired` rather than `token_spent`, because an interaction id names a pending request rather than a credential and ' +
       'the app\'s page owes the person the better advice: "that took too long, start again". \n\n**Not rate limited**, unlike most of the ' +
@@ -1836,10 +1851,13 @@ export const ROUTES: readonly RouteEntry[] = [
       'The person is already signed in **at the app**, by whatever means that app uses, and this is the app telling Fleetless what they ' +
       'decided. Fleetless never sees that sign-in, which is D7 in one sentence. \n\nThe guard admits all three caller kinds and the handler ' +
       'takes one: a developer bearer or a server key reaching this is `401 unauthorized`, because a consent is a person\'s and a server key ' +
-      'is not a person — the same shape `POST /api/client/password/change` has. `403 forbidden` is an app-user token whose `app_id` is not ' +
-      'the interaction\'s: an interaction of one app cannot be approved with a session from another, which is what stops a developer running ' +
-      'two apps from letting one speak for the other. `403 mcp_disabled` is the app\'s switch, re-read here as it is on every request. `410 ' +
-      'interaction_expired` is the read route\'s one code for everything that is not live — unknown, expired, or already decided; approve ' +
+      'is not a person — the same shape `POST /api/client/password/change` has. `403 mcp_disabled` is the app\'s switch, re-read here as it is ' +
+      'on every request — and it is the one refusal on this surface that names the switch, because reaching it needs an app-user session ' +
+      'of that very app. \n\n**An interaction of ANOTHER app answers `410 interaction_expired`, not `403`.** An interaction of one app ' +
+      'cannot be decided with a session from another — that is what stops a developer running two apps from letting one speak for the ' +
+      'other — but saying so with a distinct code would tell any bearer holder that the id names a real, live interaction somewhere else, ' +
+      'which is the existence answer the shared `410` exists to withhold. Unknown, expired, already decided, an interaction of the central ' +
+      'flow, and one belonging to a different app are one status and one body. Approve ' +
       'and deny spend an interaction alike, so the second call gets it whichever route made the first. \n\n**Rate limited per app user, ' +
       'unlike the read.** The read is a public document about a request the server already holds; this one spends something, and a decision ' +
       'is the one thing a leaked interaction id would be worth hammering for. The limit is on the signed-in account rather than on the ip, ' +

@@ -406,7 +406,7 @@ export const clientMcpInteraction = z.object({
     description: 'Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
   }),
   scopes: z.array(z.string()).meta({ description: 'The scopes the client asked for, to show the person before they approve.' }),
-  already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client for these scopes. The app may skip its consent step when true; it is a convenience, and the server re-checks the grant either way.' }),
+  already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client. It is a record of what they answered last time and nothing more: **the server performs no second check of it**, so an app that skips its own consent screen when this is `true` is the only thing deciding, and approve succeeds identically for a user who holds no grant at all. Withdrawing a grant is a developer action in the console; there is no end-user withdrawal on this surface yet, which is the other reason to keep showing the screen.' }),
   expires_at: z.iso.datetime().meta({ description: 'When the interaction stops being approvable. Ten minutes from the authorize step; afterwards both approve and deny answer `interaction_expired`.' }),
 })
 export type ClientMcpInteraction = z.infer<typeof clientMcpInteraction>
