@@ -729,7 +729,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [], transport: 'http',
     notes:
       'RFC 9728, for the one central MCP endpoint. `resource` and `authorization_servers` are the same URL: the MCP server is its own ' +
-      'authorization server here. There is no per-group document, because the path names no group — the token does.',
+      'authorization server here. One document for the whole deployment, because there is one endpoint and it is scoped to nothing ' +
+      'narrower: every Fleetless user of every org authorizes for the same resource, and the token names the person.',
   },
   {
     method: 'GET', path: '/.well-known/oauth-authorization-server/mcp', section: 'mcp',
@@ -766,7 +767,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 ' +
       '§7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that ' +
       'registered itself seconds ago can name the port it bound, and widening the wildcard there would only widen where a stolen `client_id` ' +
-      'may send a browser. No group is chosen here: the email address on the next card decides it.',
+      'may send a browser. Nothing about the person is decided here — the next card asks for an email address and the password step after ' +
+      'it resolves the account; this route knows only the client.',
   },
   {
     method: 'GET', path: '/mcp/oauth/interaction/:id', section: 'mcp',
