@@ -2,11 +2,11 @@
  * **What is left of the federation shapes after the two-space cut** (spec
  * `2026-09-05-app-user-auth`).
  *
- * The group provider, its just-in-time grants, the org-level linking policy and
- * the impersonation interstitial are all deleted. What survives is the issuer
- * rule — because it is a rule about URLs the *server* dereferences and the next
- * such field should find it already written down — and the callback error page
- * the central MCP flow still renders.
+ * The group provider, its just-in-time grants, the org-level linking policy,
+ * the impersonation interstitial and the federated callback error page are all
+ * deleted. What survives is the issuer rule — because it is a rule about URLs
+ * the *server* dereferences, and the next such field should find it already
+ * written down.
  *
  * The per-app provider that replaced the group one is pinned in
  * `app-users.test.ts`, next to the rest of the app-user surface.
@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest'
 import * as barrel from '../src/index.js'
 import * as identity from '../src/identity.js'
-import { idpIssuer, oidcCallbackError, oidcCallbackErrorCode } from '../src/index.js'
+import { idpIssuer } from '../src/index.js'
 
 describe('idpIssuer — the string that decides where the server connects', () => {
   it('accepts an ordinary issuer', () => {
@@ -63,47 +63,6 @@ describe('idpIssuer — the string that decides where the server connects', () =
   })
 })
 
-describe('the callback error page contract', () => {
-  it('enumerates exactly the six documented codes', () => {
-    expect(oidcCallbackErrorCode.options).toEqual([
-      'idp_unreachable',
-      'exchange_failed',
-      'claims_incomplete',
-      'jit_disabled',
-      'email_collision',
-      'provider_misconfigured',
-    ])
-  })
-
-  it('accepts a code with safe user text and refuses an unknown code', () => {
-    expect(oidcCallbackError.safeParse({ code: 'exchange_failed', message: 'Please try again.' }).success).toBe(true)
-    expect(oidcCallbackError.safeParse({ code: 'kaboom', message: 'x' }).success).toBe(false)
-  })
-
-  /**
-   * An error page with no words is not an error page, and an unbounded message
-   * is a size nobody chose on a value that gets rendered.
-   */
-  it('requires a message and bounds it', () => {
-    expect(oidcCallbackError.safeParse({ code: 'exchange_failed' }).success).toBe(false)
-    expect(oidcCallbackError.safeParse({ code: 'exchange_failed', message: '' }).success).toBe(false)
-    expect(oidcCallbackError.safeParse({ code: 'exchange_failed', message: 'x'.repeat(301) }).success).toBe(false)
-  })
-
-  /**
-   * **This vocabulary is not the app-user one, and conflating them would put a
-   * group-era code in front of an app's users.** `clientOidcErrorCode` is the
-   * per-app list, redirected to the developer's own page; this one is rendered
-   * by Fleetless for the central MCP flow. Pinned as a pair so a later edit
-   * cannot quietly merge them.
-   */
-  it('is a different list from the per-app clientOidcErrorCode', () => {
-    expect(barrel.clientOidcErrorCode.options).not.toEqual(oidcCallbackErrorCode.options)
-    expect(barrel.clientOidcErrorCode.options).toContain('no_access')
-    expect(oidcCallbackErrorCode.options).not.toContain('no_access')
-  })
-})
-
 describe('the group-scoped federation shapes are gone', () => {
   /**
    * Removed-symbol guards. Each named a mechanism the two-space cut deleted
@@ -121,6 +80,12 @@ describe('the group-scoped federation shapes are gone', () => {
     'idpConfigRequest',
     'idpClaimMapping',
     'impersonationChoice',
+    // The federated MCP callback's error vocabulary. Its only renderer was
+    // `GET /mcp/oauth/idp-callback`, a route D1 leaves unreachable and this
+    // round deletes; `clientOidcErrorCode` is the per-app list that replaces
+    // it, and two coexisting callback enums is how the wrong one gets picked.
+    'oidcCallbackErrorCode',
+    'oidcCallbackError',
   ] as const
 
   it('exports none of them from the barrel or from the identity module', () => {
@@ -133,5 +98,8 @@ describe('the group-scoped federation shapes are gone', () => {
   it('and the replacement is exported, so this file is not asserting an empty world', () => {
     expect('appOidcProvider' in barrel).toBe(true)
     expect('createAppOidcProviderRequest' in barrel).toBe(true)
+    // The per-app callback vocabulary, which is what a reader looking for the
+    // deleted one should find instead.
+    expect('clientOidcErrorCode' in barrel).toBe(true)
   })
 })

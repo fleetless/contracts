@@ -72,7 +72,7 @@
     "/api/auth/signup": {
       "post": {
         "operationId": "post_api_auth_signup",
-        "summary": "Creates an org, its Org Admins group and the founding Owner, and answers a developer session.",
+        "summary": "Creates an org and its founding Owner, and answers a developer session.",
         "tags": [
           "developer-auth"
         ],
@@ -144,7 +144,7 @@
             }
           }
         },
-        "description": "The whole family is re-checked here, not just the token: an account that has left the Org Admins group cannot mint a fresh console token, and answers `token_revoked`. Refusing that only on the other routes would leave a session that is dead everywhere but here.",
+        "description": "The whole family is re-checked here, not just the token: an account that has been removed from the org, or whose `token_version` was bumped by a password change, cannot mint a fresh console token and answers `token_revoked`. Refusing that only on the other routes would leave a session that is dead everywhere but here.",
         "requestBody": {
           "required": true,
           "content": {
@@ -219,7 +219,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -254,7 +254,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -302,7 +302,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `invalid_credentials`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `invalid_credentials`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -574,7 +574,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -725,7 +725,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -741,7 +741,7 @@
     "/api/apps": {
       "post": {
         "operationId": "post_api_apps",
-        "summary": "Creates an app in a group, optionally attaching robots to it at the same time.",
+        "summary": "Creates an app, optionally attaching robots to it at the same time.",
         "tags": [
           "apps"
         ],
@@ -763,7 +763,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `target_state_conflict`, `identifier_taken`, `quota_exceeded`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `identifier_taken`, `quota_exceeded`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -773,7 +773,7 @@
             }
           }
         },
-        "description": "Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The Org Admins group is refused with `409 target_state_conflict`: admins hold no assignments, so an app there would be one nobody can be assigned to. The identifier `mcp` is reserved by the central MCP server and refused as a `validation_error`.",
+        "description": "Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model.",
         "requestBody": {
           "required": true,
           "content": {
@@ -809,7 +809,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -825,7 +825,7 @@
     "/api/apps/{id}": {
       "get": {
         "operationId": "get_api_apps_id",
-        "summary": "Reads one app of the org, with its group, robots and default role.",
+        "summary": "Reads one app of the org, with its robots and default role.",
         "tags": [
           "apps"
         ],
@@ -857,7 +857,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -871,7 +871,7 @@
       },
       "patch": {
         "operationId": "patch_api_apps_id",
-        "summary": "Changes an app's name, its attached robots, its default role or whether it accepts dynamic clients.",
+        "summary": "Changes an app's name, its attached robots or its default role.",
         "tags": [
           "apps"
         ],
@@ -903,7 +903,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -961,7 +961,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1007,7 +1007,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1064,7 +1064,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1129,7 +1129,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1185,7 +1185,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1233,7 +1233,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1279,7 +1279,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1336,7 +1336,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1386,7 +1386,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1424,7 +1424,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1472,7 +1472,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1517,7 +1517,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1566,7 +1566,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`, `last_owner`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `last_owner`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1604,7 +1604,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `validation_error`, `email_taken`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `email_taken`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1650,7 +1650,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1691,7 +1691,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1739,7 +1739,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`, `rate_limited`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1824,7 +1824,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`, `target_state_conflict`, `last_owner`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`, `last_owner`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1834,7 +1834,7 @@
             }
           }
         },
-        "description": "Owner tier, unconditionally — this is the route the whole owner-exclusive list is about. A uuid that is not a Fleetless user of this org answers `409 target_state_conflict`. Demoting the last Owner is `409 last_owner`, decided by a row lock inside the writing transaction rather than by a read beforehand. Setting the tier already held changes nothing and writes no audit event. No session is revoked: a tier is re-read from the row on every request, so no issued token carries a stale copy of it.",
+        "description": "Owner tier, unconditionally — this is the route the whole owner-exclusive list is about. A uuid that is not a Fleetless user of this org answers `404 not_found`, the same as one that does not exist anywhere: the `409 target_state_conflict` documented here until the two-space cut had exactly one producer, the Org Admins membership check, and went with it. Demoting the last Owner is `409 last_owner`, decided by a row lock inside the writing transaction rather than by a read beforehand. Setting the tier already held changes nothing and writes no audit event. No session is revoked: a tier is re-read from the row on every request, so no issued token carries a stale copy of it.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1872,7 +1872,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2076,7 +2076,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `forbidden`, `mcp_disabled`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2086,7 +2086,7 @@
             }
           }
         },
-        "description": "JSON-RPC over MCP's Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and results are the schemas in each tool definition. **Fleetless users only** — an app's users reach their own app endpoint instead. **The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked against the cloud's own. The catalog is re-derived per request, so a member demoted mid-conversation loses the console tools on the next call — and a console tool name learned elsewhere is refused there too, as a `forbidden` result rather than an unknown-tool error, since the name is real and saying otherwise sends the model hunting for a spelling mistake it did not make. `mcp_access_denied` is gone with the per-user override and the group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh transport per request, no session id, nothing survives the call."
+        "description": "JSON-RPC over MCP's Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and results are the schemas in each tool definition. **Fleetless users only** — an app's users reach their own app endpoint instead. **The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked against the cloud's own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console tool that is still narrower than the catalog refuses for itself (`console_robot_delete` answers `tier_required` to a non-Owner). `403 mcp_disabled` is what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only. At this train no client can hold such a token — only a test mints one — and the per-app MCP train gives it one, along with the per-app `appAuthConfig.mcp_enabled` gate that is the code's other producer. `mcp_access_denied` is gone with the per-user override and the group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh transport per request, no session id, nothing survives the call."
       }
     },
     "/api/client/login": {
@@ -2245,7 +2245,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `invalid_credentials`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `invalid_credentials`, `target_state_conflict`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2255,7 +2255,7 @@
             }
           }
         },
-        "description": "The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made the change stays signed in. An app user belongs to one app, so \"every session\" is this app's.",
+        "description": "The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made the change stays signed in. An app user belongs to one app, so \"every session\" is this app's. An account that has **no password** — an OIDC-only app user, which the schema admits — answers `409 target_state_conflict` naming the `password` field with rule `not_set`, not `401`: the session is live and the token is fine, it is the account that has nothing to change, and telling such a caller to sign in again sends them round a loop that ends here.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2337,7 +2337,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `quota_exceeded`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `quota_exceeded`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2383,7 +2383,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2430,7 +2430,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2476,7 +2476,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2535,7 +2535,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`, `robot_in_use`, `robot_deletion_partial`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `robot_in_use`, `robot_deletion_partial`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2583,7 +2583,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2631,7 +2631,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2743,7 +2743,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2854,7 +2854,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2900,7 +2900,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `invalid_yaml`, `unstorable_yaml`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `invalid_yaml`, `unstorable_yaml`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2958,7 +2958,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3006,7 +3006,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3062,7 +3062,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3119,7 +3119,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3167,7 +3167,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`, `unknown_slug`, `reserved_slug`, `duplicate_slug`, `internal_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`, `unknown_slug`, `reserved_slug`, `duplicate_slug`, `internal_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3234,7 +3234,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `draft_not_a_document`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `draft_not_a_document`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3282,7 +3282,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3331,7 +3331,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3379,7 +3379,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3427,7 +3427,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `robot_offline`, `bridge_timeout`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `robot_offline`, `bridge_timeout`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3475,7 +3475,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3523,7 +3523,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `robot_offline`, `bridge_timeout`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `robot_offline`, `bridge_timeout`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4958,7 +4958,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5008,7 +5008,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5175,7 +5175,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5232,7 +5232,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5317,7 +5317,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5374,7 +5374,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {

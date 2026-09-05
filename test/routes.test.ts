@@ -152,6 +152,25 @@ describe('the route manifest', () => {
     expect(paths.has('/api/org/users')).toBe(true)
     expect(paths.has('/mcp/oauth/token')).toBe(true)
   })
+
+  /**
+   * **The federated MCP callback, which D1 leaves with no flow to resume.**
+   * `GET /mcp/oauth/idp-callback` existed so a group's identity provider could
+   * redirect a browser back into the central sign-in; Fleetless users are
+   * password-only, so nothing can start that round trip. It survived the cut as
+   * a handler that ignored its input and answered `400`, documented in this
+   * manifest as a `302` that "resumes the MCP sign-in as the federated user" —
+   * a route reference telling a customer's still-configured IdP that the
+   * sign-in continues. Deleted in both repositories, and guarded here because
+   * the manifest is what a re-add would have to pass through.
+   */
+  it('lists no federated MCP callback — Fleetless users sign in with a password and nothing else', () => {
+    const paths = new Set(ROUTES.map((r) => r.path))
+    expect(paths.has('/mcp/oauth/idp-callback')).toBe(false)
+    // Non-vacuity: the rest of that flow is still here.
+    expect(paths.has('/mcp/oauth/identify')).toBe(true)
+    expect(paths.has('/mcp/oauth/login')).toBe(true)
+  })
 })
 
 describe('the route artifacts', () => {

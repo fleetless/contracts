@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary, JOB_RUN_PAGE_MAX } from '../src/index.js'
+import { jobActor, jobRun, jobRunQuery, jobRunListResponse, jobRunSummaryQuery, jobRunSummary, JOB_RUN_PAGE_MAX } from '../src/index.js'
 
 const RUNNING = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -32,6 +32,28 @@ describe('jobRun', () => {
   it('refuses `bridge` as an actor kind — a bridge invokes nothing', () => {
     const forged = { ...RUNNING, actor: { ...RUNNING.actor, kind: 'bridge' } }
     expect(jobRun.safeParse(forged).success).toBe(false)
+  })
+
+  /**
+   * **The enum by arity AND content, not by one refused example.**
+   * `jobActor.kind` was widened to admit `app_user` so a validating consumer
+   * stops rejecting the runs the cloud writes now; the only guard on it was the
+   * `bridge` case above, which stays green while any of the four live members
+   * is dropped. `end_user` is the member most at risk — its own doc comment
+   * says "nothing writes it any more", which reads as an invitation — and
+   * removing it would make every run recorded before the cut unparseable to a
+   * client that validates. Same shape as the `auditActor.kind` pin in
+   * `identity-apps-and-roles.test.ts`, for the same reason.
+   *
+   * **What would make this fail:** any member added, removed or reordered.
+   */
+  it('enumerates exactly the four actor kinds, in order', () => {
+    expect(jobActor.shape.kind.options).toEqual(['developer', 'end_user', 'app_user', 'server_key'])
+  })
+
+  it('parses a run an app user invoked, and one recorded for a pre-cut end user', () => {
+    expect(jobRun.parse({ ...RUNNING, actor: { ...RUNNING.actor, kind: 'app_user' } }).actor.kind).toBe('app_user')
+    expect(jobRun.parse({ ...RUNNING, actor: { ...RUNNING.actor, kind: 'end_user' } }).actor.kind).toBe('end_user')
   })
 
   it('refuses a progress above 1 — progress is a fraction, not a percentage', () => {

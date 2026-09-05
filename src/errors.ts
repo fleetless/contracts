@@ -439,6 +439,12 @@ export const ERROR_CODES = [
    * no producer is not harmless, because a reader arriving at it takes it for
    * a live refusal. Say which it is, and say when it changes.
    *
+   * **It has one producer already, one train early**: `POST /mcp` answers it to
+   * an `mcp_session` token whose subject is an app user, because the central
+   * endpoint serves the team only. No client can hold such a token yet — only
+   * a test mints one — and the per-app train adds the
+   * `appAuthConfig.mcp_enabled` gate this comment describes.
+   *
    * `tool_not_available` below still has no producer — `grep` finds it nowhere
    * in `cloud/src`. Named as unproduced, for the same reason.
    */
@@ -508,10 +514,18 @@ export const ERROR_CODES = [
    * invalid" for a request that was nothing of the kind, and a bare `rule`
    * string on the validation envelope is not a code a consumer can switch on.
    *
-   * Its producers in the two-space model are the ones about an app's
-   * configuration rather than about a caller: `send_mail: true` on an app that
-   * has configured no `invite_url` (the `details` name the field), and a tier
-   * change aimed at somebody who is not a Fleetless user of this org.
+   * Its producers in the two-space model are the ones about an app or an
+   * account rather than about a caller: `send_mail: true` on an app that has
+   * configured no `invite_url` (the `details` name the field), and a password
+   * change on an app user who has no password at all — an OIDC-only account,
+   * where the session is live and it is the target's state that refuses.
+   *
+   * **A tier change aimed at somebody who is not a Fleetless user of this org
+   * was listed here and stopped being a producer at the cut.** That refusal
+   * had one implementation, the Org Admins membership check; without it `PUT
+   * /api/org/users/:id/tier` scopes through `scopedUser` and answers `404
+   * not_found`. Left in place, the sentence documented a 409 no caller could
+   * receive.
    *
    * Deliberately not `forbidden` (which is silent about existence and about
    * the target) and not `tier_required` (which is about the caller's own

@@ -209,21 +209,31 @@ export const IN_HANDLER_ROUTES: readonly string[] = [
 ]
 
 /**
- * **The four refusals every `auth: 'developer'` route inherits from its guard**,
+ * **The three refusals every `auth: 'developer'` route inherits from its guard**,
  * spelled once rather than retyped eighty times.
  *
  * They are the arms of `cloud/src/auth.ts`'s `requireDeveloper`: no bearer or an
  * unverifiable one is `401 unauthorized`, an expired one `401 token_expired`, a
- * vanished account or a bumped `token_version` `401 token_revoked`, and an
- * account that is no longer in the org's Org Admins group `403 forbidden`.
+ * vanished account or a bumped `token_version` `401 token_revoked`.
+ *
+ * **Three, not four: `403 forbidden` went with the Org Admins group.** It stood
+ * for "an account that is no longer in the org's Org Admins group", and the
+ * two-space cut leaves a Fleetless user who IS the team — `TokenRefusalReason`
+ * in `cloud/src/auth.ts` is `'expired' | 'revoked' | 'invalid'`, and
+ * `createRequireDeveloper` answers 401 codes only. A removed team member now
+ * gets `401 token_revoked`; a reader of the API reference who branched on
+ * `forbidden` to render "you lost console access" was branching on an answer no
+ * developer-guarded route can send. The `forbidden` producers that remain
+ * (`history.ts`, `commands.ts`, `cameras.ts`, `robots.ts`, `mcp.ts`) all sit on
+ * `developer_or_client` or MCP surfaces, which is why `CLIENT_GUARD` keeps it.
  *
  * **Not `invalid_token`.** That code exists in `ERROR_CODES` and this guard has
- * never sent it; the four above are what `sendTokenRefusal` actually maps to.
+ * never sent it; the three above are what `sendTokenRefusal` actually maps to.
  * Said plainly because the planning note for this file assumed otherwise, and a
  * documented refusal a caller cannot receive is the third failure mode in
  * CLAUDE.md's list.
  */
-const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidden'] as const satisfies readonly ErrorCode[]
+const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked'] as const satisfies readonly ErrorCode[]
 
 /**
  * The same, for `auth: 'developer_or_client'` — `createRequireDeveloperOrClient`,
@@ -243,9 +253,12 @@ const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forb
  * mistake as the `invalid_token` above, found by review rather than by any test
  * here, because a code in `ERROR_CODES` satisfies every check this file has.
  *
- * So this is now identical to `DEVELOPER_GUARD`, and stays a separate constant
- * anyway: they are two different guards in the cloud that happen to refuse alike
- * today. Collapsing them would make the next divergence a silent one.
+ * It keeps `forbidden`, which `DEVELOPER_GUARD` no longer carries: this guard's
+ * routes have live 403 producers — a slug the role does not grant
+ * (`routes/history.ts`), a capability the role does not carry
+ * (`routes/commands.ts`), a camera or datapoint outside the grant
+ * (`routes/cameras.ts`, `routes/robots.ts`). That divergence is the reason the
+ * two lists were kept as separate constants while they still read alike.
  */
 const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidden'] as const satisfies readonly ErrorCode[]
 
@@ -265,7 +278,7 @@ export const ROUTES: readonly RouteEntry[] = [
   /* ----------------------------------------------------- developer auth */
   {
     method: 'POST', path: '/api/auth/signup', section: 'developer-auth',
-    summary: 'Creates an org, its Org Admins group and the founding Owner, and answers a developer session.',
+    summary: 'Creates an org and its founding Owner, and answers a developer session.',
     audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
     params: [], query: null, request: signUpRequest, response: signUpResponse,
     errors: ['rate_limited', 'signup_closed', 'validation_error', 'email_taken'], transport: 'http',
@@ -281,8 +294,9 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: refreshRequest, response: sessionTokens,
     errors: ['rate_limited', 'validation_error', 'token_expired', 'token_revoked'], transport: 'http',
     notes:
-      'The whole family is re-checked here, not just the token: an account that has left the Org Admins group cannot mint a fresh console ' +
-      'token, and answers `token_revoked`. Refusing that only on the other routes would leave a session that is dead everywhere but here.',
+      'The whole family is re-checked here, not just the token: an account that has been removed from the org, or whose `token_version` was ' +
+      'bumped by a password change, cannot mint a fresh console token and answers `token_revoked`. Refusing that only on the other routes ' +
+      'would leave a session that is dead everywhere but here.',
   },
   {
     method: 'POST', path: '/api/auth/logout', section: 'developer-auth',
@@ -408,14 +422,14 @@ export const ROUTES: readonly RouteEntry[] = [
   /* --------------------------------------------------------------- apps */
   {
     method: 'POST', path: '/api/apps', section: 'apps',
-    summary: 'Creates an app in a group, optionally attaching robots to it at the same time.',
+    summary: 'Creates an app, optionally attaching robots to it at the same time.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [], query: null, request: createAppRequest, response: appSchema,
-    errors: [...DEVELOPER_GUARD, 'validation_error', 'target_state_conflict', 'identifier_taken', 'quota_exceeded'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'identifier_taken', 'quota_exceeded'], transport: 'http',
     notes:
-      'Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The Org Admins group is ' +
-      'refused with `409 target_state_conflict`: admins hold no assignments, so an app there would be one nobody can be assigned to. The ' +
-      'identifier `mcp` is reserved by the central MCP server and refused as a `validation_error`.',
+      'Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is ' +
+      'reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group ' +
+      'an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model.',
   },
   {
     method: 'GET', path: '/api/apps', section: 'apps',
@@ -427,7 +441,7 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'GET', path: '/api/apps/:id', section: 'apps',
-    summary: 'Reads one app of the org, with its group, robots and default role.',
+    summary: 'Reads one app of the org, with its robots and default role.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: appSchema,
@@ -436,7 +450,7 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'PATCH', path: '/api/apps/:id', section: 'apps',
-    summary: "Changes an app's name, its attached robots, its default role or whether it accepts dynamic clients.",
+    summary: "Changes an app's name, its attached robots or its default role.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: updateAppRequest, response: appSchema,
@@ -679,11 +693,13 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
     query: null, request: tierChangeRequest, response: fleetlessUser,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error', 'target_state_conflict', 'last_owner'],
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error', 'last_owner'],
     transport: 'http',
     notes:
       'Owner tier, unconditionally — this is the route the whole owner-exclusive list is about. A uuid that is not a Fleetless user of this ' +
-      'org answers `409 target_state_conflict`. Demoting the last Owner is `409 last_owner`, decided by a row lock inside the writing ' +
+      'org answers `404 not_found`, the same as one that does not exist anywhere: the `409 target_state_conflict` documented here until the ' +
+      'two-space cut had exactly one producer, the Org Admins membership check, and went with it. Demoting the last Owner is `409 ' +
+      'last_owner`, decided by a row lock inside the writing ' +
       'transaction rather than by a read beforehand. Setting the tier already held changes nothing and writes no audit event. No session is ' +
       'revoked: a tier is re-read from the row on every request, so no issued token carries a stale copy of it.',
   },
@@ -765,15 +781,16 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/mcp/oauth/identify', section: 'mcp',
-    summary: 'Takes the email address and decides whether this person signs in with a password or through their identity provider.',
+    summary: 'Takes the email address and hands back the password step.',
     audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
     errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
     notes:
-      'The identifier-first step: the **resolved user** decides the group and the provider, never a path segment and never the client. ' +
-      'A browser form post gets the password card, or a `303` to the identity provider; a JSON caller gets `{ "next" }`, which has no schema. ' +
-      'Rate limited per (route, ip, email) despite spending no credential, because a federated address sends this endpoint on an outbound ' +
-      'discovery request. A provider that is misconfigured or unreachable renders the problem page, not an `apiError`.',
+      'The identifier-first step, with nothing left to identify: Fleetless users are password-only (design D1/D7), so **this step does not ' +
+      'read the address at all** — it renders the password card for a known address, an unknown one and an empty one alike, and the login ' +
+      'step below answers the same `401` for all three. That is a property of the shape rather than of two branches agreeing: there is no ' +
+      'lookup here whose result could differ. A browser form post gets the password card; a JSON caller gets `{ "next" }`, which has no ' +
+      'schema. Still rate limited per (route, ip, email), because it is an unauthenticated endpoint that renders a page.',
   },
   {
     method: 'POST', path: '/mcp/oauth/login', section: 'mcp',
@@ -785,16 +802,6 @@ export const ROUTES: readonly RouteEntry[] = [
       'The body is `{ "interaction_id", "email", "password" }`, read field by field rather than through a contract shape. A browser gets a ' +
       '`303` — to the consent screen for a self-registered client, or straight to the callback for the central one — where a JSON caller gets ' +
       'this `200` and `redirect_to`.',
-  },
-  {
-    method: 'GET', path: '/mcp/oauth/idp-callback', section: 'mcp',
-    summary: 'Takes the identity provider\'s redirect back and resumes the MCP sign-in as the federated user.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'One central callback for every group — the group is recovered from the interaction the signed `state` names, which is why this URL is ' +
-      'a constant a customer can register with their own identity provider once. Every failure renders the honest problem page with an ' +
-      '`oidcCallbackError` code, never the Fleetless login form and never an `apiError` envelope, for the reason the app flow\'s callback gives.',
   },
   {
     method: 'GET', path: '/mcp/oauth/consent/:id', section: 'mcp',
@@ -901,7 +908,7 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/console/oauth/signup/organization', section: 'developer-auth',
-    summary: 'Takes the organization name and creates the org, its admin group and its founding Owner.',
+    summary: 'Takes the organization name and creates the org and its founding Owner.',
     audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: oauthRedirectResponse,
     errors: ['rate_limited', 'token_spent', 'signup_closed', 'wrong_browser', 'validation_error', 'email_taken'], transport: 'http',
@@ -940,17 +947,20 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
-    errors: ['unauthorized', 'forbidden'], transport: 'http',
+    errors: ['unauthorized', 'forbidden', 'mcp_disabled'], transport: 'http',
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and ' +
       'results are the schemas in each tool definition. **Fleetless users only** — an app\'s users reach their own app endpoint instead. ' +
       '**The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and ' +
       'the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked ' +
-      'against the cloud\'s own. The catalog is re-derived per request, so a member demoted mid-conversation loses the console tools on the ' +
-      'next call — and a console tool name learned elsewhere is refused there too, as a `forbidden` result rather than an unknown-tool error, ' +
-      'since the name is real and saying otherwise sends the model hunting for a spelling mistake it did not make. `mcp_access_denied` is ' +
-      'gone with the per-user override and the group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh ' +
-      'transport per request, no session id, nothing survives the call.',
+      'against the cloud\'s own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted ' +
+      'here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console ' +
+      'tool that is still narrower than the catalog refuses for itself (`console_robot_delete` answers `tier_required` to a non-Owner). ' +
+      '`403 mcp_disabled` is what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only. At this ' +
+      'train no client can hold such a token — only a test mints one — and the per-app MCP train gives it one, along with the per-app ' +
+      '`appAuthConfig.mcp_enabled` gate that is the code\'s other producer. `mcp_access_denied` is gone with the per-user override and the ' +
+      'group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh transport per request, no session id, nothing ' +
+      'survives the call.',
   },
 
 
@@ -994,11 +1004,14 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Changes an app user's own password and answers a fresh session.",
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: passwordChangeRequest, response: sessionTokens,
-    errors: [...CLIENT_GUARD, 'validation_error', 'invalid_credentials'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'validation_error', 'invalid_credentials', 'target_state_conflict'], transport: 'http',
     notes:
       'The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key ' +
       'reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made ' +
-      'the change stays signed in. An app user belongs to one app, so "every session" is this app\'s.',
+      'the change stays signed in. An app user belongs to one app, so "every session" is this app\'s. An account that has **no password** — ' +
+      'an OIDC-only app user, which the schema admits — answers `409 target_state_conflict` naming the `password` field with rule `not_set`, ' +
+      'not `401`: the session is live and the token is fine, it is the account that has nothing to change, and telling such a caller to sign ' +
+      'in again sends them round a loop that ends here.',
   },
   {
     method: 'GET', path: '/api/client/me', section: 'client-auth',

@@ -514,47 +514,20 @@ export const idpIssuer = z
 export type IdpIssuer = z.infer<typeof idpIssuer>
 
 /**
- * **Why a federated callback on the central MCP flow failed, in words safe to
- * show the person who hit it.** The cloud renders an honest error page and
- * **never falls back to the Fleetless login form** — a form that asked for a
- * Fleetless password after an IdP round-trip is a phishing door this design
- * closes by name.
+ * **The federated callback error vocabulary is deleted, with no successor
+ * here.** `oidcCallbackErrorCode` and `oidcCallbackError` described the page
+ * `GET /mcp/oauth/idp-callback` rendered when a group's identity provider sent
+ * a browser back — `jit_disabled` and `email_collision` name provisioning steps
+ * only a group provider had. D1 makes Fleetless users password-only and deletes
+ * group providers, so the flow that produced these codes cannot start; the
+ * route is gone from this manifest and from the cloud.
  *
- * The `code` is for the page to branch on and for an operator to grep; the
- * `message` is the sentence the user reads, so it must carry no issuer, no
- * `invalid_grant` internals, no stack — only what a person can act on.
- *
- * **A seam this train did not resolve.** These codes were written for the
- * portal's group-provider flow, and D1 makes Fleetless users password-only, so
- * `jit_disabled` and `email_collision` describe a mechanism that no longer
- * exists. The manifest still carries `/mcp/oauth/idp-callback`, which the
- * central-MCP train owns; this shape is left standing rather than half-rewritten
- * here, and that train decides whether it has a producer. The per-app OIDC
- * vocabulary is `clientOidcErrorCode` in `client-auth.ts` and is a different
- * list for a different flow.
+ * The per-app OIDC vocabulary is `clientOidcErrorCode` in `client-auth.ts`: a
+ * different list, for a different flow, redirected to the developer's own page
+ * rather than rendered by Fleetless. Two callback error enums coexisting is how
+ * the wrong one gets picked up by the train that adds per-app OIDC, which is
+ * why this one is deleted rather than left standing for it.
  */
-export const oidcCallbackErrorCode = z.enum([
-  /** The IdP could not be reached, or its discovery document could not be read. */
-  'idp_unreachable',
-  /** The authorization code could not be exchanged for tokens (`invalid_grant` and friends). */
-  'exchange_failed',
-  /** The IdP answered, but the token is missing a `sub` or `email` the flow needs. */
-  'claims_incomplete',
-  /** An unknown identity where nothing provisions one — no route in, by design. */
-  'jit_disabled',
-  /** The asserted email already belongs to a Fleetless user. **Refusal, never auto-link**; resolution is manual. */
-  'email_collision',
-  /** The provider is set up wrong (bad client, secret rejected) — the developer's to fix. */
-  'provider_misconfigured',
-])
-export type OidcCallbackErrorCode = z.infer<typeof oidcCallbackErrorCode>
-
-export const oidcCallbackError = z.object({
-  code: oidcCallbackErrorCode,
-  /** Safe user-facing text — no issuer, no token internals; bounded because it is rendered. */
-  message: z.string().min(1).max(300),
-}).strict()
-export type OidcCallbackError = z.infer<typeof oidcCallbackError>
 
 /**
  * `GET /api/auth/me` — named so the console can validate it.

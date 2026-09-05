@@ -421,8 +421,6 @@ export {
   passwordResetRequest,
   passwordResetConfirm,
   idpIssuer,
-  oidcCallbackErrorCode,
-  oidcCallbackError,
   // W3a — auth/me, org and member patches.
   authMeResponse,
   patchOrgRequest,
@@ -453,8 +451,6 @@ export type {
   PasswordResetRequest,
   PasswordResetConfirm,
   IdpIssuer,
-  OidcCallbackErrorCode,
-  OidcCallbackError,
   AuthMeResponse,
   PatchOrgRequest,
   PatchAuthMeRequest,
