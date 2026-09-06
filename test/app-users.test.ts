@@ -20,6 +20,7 @@ import {
   APP_USER_DISPLAY_NAME_MAX,
   APP_URL_PLACEHOLDERS,
   MAIL_TEMPLATE_VARIABLES,
+  DEFAULT_MAIL_TEMPLATES,
   allowedOrigin,
   appAuthConfig,
   appInvitation,
@@ -239,6 +240,44 @@ describe('the enums, by arity AND content', () => {
       'link',
       'expires_in_hours',
     ])
+  })
+
+  /**
+   * **The Fleetless default text, pinned as a set.**
+   *
+   * Two products send these words — the cloud when an app has no template of
+   * its own, the console when a developer presses *Customise* — and they used
+   * to be written twice, in different words. So the set is asserted against
+   * `mailTemplateKind.options` rather than against a hand-written list of
+   * three: a fourth kind added to the enum with no default would otherwise be
+   * a mail the cloud cannot send and a spelling only the enum test notices.
+   *
+   * What is deliberately NOT asserted here is that they compile as Liquid.
+   * Contracts has no renderer, and adding one to check its own constant would
+   * be a second, weaker copy of the thing that actually sends mail. The cloud
+   * asserts that the mail it sends for each kind is this exact text.
+   */
+  it('DEFAULT_MAIL_TEMPLATES covers every kind, text-only, with nothing empty', () => {
+    expect(Object.keys(DEFAULT_MAIL_TEMPLATES).sort()).toEqual([...mailTemplateKind.options].sort())
+
+    for (const kind of mailTemplateKind.options) {
+      const template = DEFAULT_MAIL_TEMPLATES[kind]
+      // Non-empty, not merely present: a `''` subject satisfies "the key is
+      // there" and is a mail with no subject line.
+      expect(template.subject.length, `${kind} subject`).toBeGreaterThan(0)
+      expect(template.text.length, `${kind} text`).toBeGreaterThan(0)
+      // Text-only by construction. A default that shipped markup would make
+      // every app that never opens the Mails tab send Fleetless-styled HTML on
+      // behalf of a product that is not Fleetless.
+      expect(template.html, `${kind} html`).toBeNull()
+      // And each is a real template rather than three copies of one: the body
+      // has to satisfy the bounds the PUT enforces on a custom one.
+      expect(putAppMailTemplateRequest.safeParse(template).success, `${kind} within the request bounds`).toBe(true)
+    }
+
+    // Three distinct subjects — a set-level check that arity alone would pass
+    // with three copies of the same line.
+    expect(new Set(mailTemplateKind.options.map(kind => DEFAULT_MAIL_TEMPLATES[kind].subject)).size).toBe(3)
   })
 })
 

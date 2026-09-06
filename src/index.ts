@@ -533,6 +533,7 @@ export {
   APP_USER_DISPLAY_NAME_MAX,
   APP_URL_PLACEHOLDERS,
   MAIL_TEMPLATE_VARIABLES,
+  DEFAULT_MAIL_TEMPLATES,
   providerSlug,
   appUserStatus,
   appUser,

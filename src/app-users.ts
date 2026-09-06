@@ -569,6 +569,94 @@ export const MAIL_TEMPLATE_VARIABLES = [
 ] as const
 
 /**
+ * **The Fleetless default text for the three app mails** (spec D5, §6).
+ *
+ * It lives here rather than in the cloud because two products send the same
+ * words: the cloud renders these when an app has no template of its own, and
+ * the console seeds its editor with them when a developer presses *Customise*.
+ * They were written twice, in different words, and a developer comparing the
+ * editor against a mail they had received would have found two Fleetless
+ * defaults that disagreed. One text, one place, and neither consumer may hold
+ * a copy.
+ *
+ * These are Liquid templates like any custom one — the same variables, the
+ * same renderer, the same bounds — so the cloud's fallback path cannot become
+ * a second, weaker mechanism that merely looks like the real one.
+ *
+ * **Text-only (`html: null`).** A text part is a complete mail, and a default
+ * that shipped markup would make every app that never opens the Mails tab send
+ * Fleetless-styled HTML on behalf of a product that is not Fleetless.
+ *
+ * The voice is plain and short, names the app rather than this platform, and
+ * says what the link does, how long it lasts, and what to do if it was not
+ * you.
+ *
+ * **`verify` and `reset` greet by the address, not by the display name**, and
+ * that is a security decision rather than a style one. `display_name` on those
+ * two mails comes from `POST /api/client/register`, which is unauthenticated:
+ * whoever typed the address also chose 120 characters of text that Fleetless
+ * then renders into a mail sent from the *developer's* own sender to an
+ * address the same caller chose. "Hello Account suspended — verify at
+ * https://evil.example now," is a phishing line with a real product's return
+ * address on it. The recipient's own address is the one value in that mail
+ * they can check, and it is the greeting. `invite` keeps the display name:
+ * that one is written by an authenticated developer about somebody they
+ * invited.
+ *
+ * **`expires_in_hours` is the only lifetime variable the spec offers**, and
+ * the three values are 1, 24 and 168. "The next 168 hours" is not how a person
+ * says a week, so each default converts: 48 and up reads in days, exactly one
+ * reads "1 hour", everything else reads in hours. The conversion is in the
+ * template rather than in a new variable because a custom template has the
+ * same problem and this is the spelling it can copy.
+ *
+ * **What contracts does NOT assert about these.** That they compile as Liquid
+ * is the cloud's business — contracts has no renderer and adding one to check
+ * its own constant would be a second, weaker copy of the thing that actually
+ * sends mail. Here they are pinned as a complete, non-empty set; the cloud
+ * asserts that the mail it sends for each kind is this exact text.
+ */
+export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKind, { subject: string, text: string, html: null }> = {
+  invite: {
+    subject: "You're invited to {{ app.name }}",
+    text: `Hello {{ user.display_name | default: user.email }},
+
+{{ org.name }} has invited you to {{ app.name }} as {{ role.name }}.
+
+Accept the invitation and choose a password:
+{{ link }}
+
+The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you were not expecting this invitation, ignore this mail — no account is created until you accept.
+`,
+    html: null,
+  },
+  verify: {
+    subject: 'Confirm your email for {{ app.name }}',
+    text: `Hello {{ user.email }},
+
+Confirm this address so you can sign in to {{ app.name }}:
+{{ link }}
+
+The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you did not create this account, ignore this mail — the account stays unconfirmed and cannot be used.
+`,
+    html: null,
+  },
+  reset: {
+    subject: 'Reset your {{ app.name }} password',
+    text: `Hello {{ user.email }},
+
+Someone asked to reset the password for this address at {{ app.name }}.
+
+Choose a new password:
+{{ link }}
+
+The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If it was not you, ignore this mail — your current password keeps working and nothing changes.
+`,
+    html: null,
+  },
+}
+
+/**
  * One stored template. `html` is nullable because the mailer's HTML part is
  * optional — a text-only mail is a complete mail, and an app that wants one
  * should not have to write the same words twice.
