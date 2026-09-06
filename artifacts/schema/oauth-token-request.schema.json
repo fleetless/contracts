@@ -1,87 +1,47 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "oneOf": [
-    {
-      "type": "object",
-      "properties": {
-        "grant_type": {
-          "type": "string",
-          "const": "authorization_code",
-          "description": "This request exchanges the code from the authorize redirect for tokens."
-        },
-        "code": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 500,
-          "description": "The authorization code from the redirect. It may be exchanged once."
-        },
-        "redirect_uri": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 2000,
-          "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
-        },
-        "client_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "description": "The client making the exchange, as registered."
-        },
-        "code_verifier": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
-          "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
-        },
-        "resource": {
-          "description": "The resource the token is being requested for, per RFC 8707. It becomes the token's audience, and a resource refuses a token whose audience names something else.",
-          "type": "string",
-          "format": "uri"
-        }
-      },
-      "required": [
-        "grant_type",
-        "code",
-        "redirect_uri",
-        "client_id",
-        "code_verifier"
-      ]
+  "type": "object",
+  "properties": {
+    "grant_type": {
+      "type": "string",
+      "const": "authorization_code",
+      "description": "Always `authorization_code`: this request exchanges the code from the authorize redirect for tokens. Any other value — `refresh_token` included — is `unsupported_grant_type`, refused before the code is looked up."
     },
-    {
-      "type": "object",
-      "properties": {
-        "grant_type": {
-          "type": "string",
-          "const": "refresh_token",
-          "description": "This request trades a refresh token for a fresh access token."
-        },
-        "refresh_token": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 500,
-          "description": "The refresh token to spend. Refresh tokens rotate, and presenting one twice is treated as theft rather than as a retry."
-        },
-        "client_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "description": "The client refreshing, as registered."
-        },
-        "resource": {
-          "description": "The resource the successor token should be bound to, per RFC 8707. **Carry it forward**: a refresh that drops it mints a token with no audience, and the resource then refuses it one token lifetime after a login that worked, to somebody who did nothing wrong.",
-          "type": "string",
-          "format": "uri"
-        },
-        "scope": {
-          "description": "A narrower scope for the successor token. RFC 6749 §6 lets a refresh narrow scope, never widen it.",
-          "type": "string",
-          "maxLength": 500
-        }
-      },
-      "required": [
-        "grant_type",
-        "refresh_token",
-        "client_id"
-      ]
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets."
+    },
+    "redirect_uri": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The client making the exchange, as registered."
+    },
+    "code_verifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
+      "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
+    },
+    "resource": {
+      "description": "The resource the token is being requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code's own audience stands. It becomes the token's `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app's endpoint.",
+      "type": "string",
+      "format": "uri"
     }
-  ]
+  },
+  "required": [
+    "grant_type",
+    "code",
+    "redirect_uri",
+    "client_id",
+    "code_verifier"
+  ],
+  "description": "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too."
 }

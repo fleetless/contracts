@@ -154,38 +154,67 @@ export type RedirectUri = z.infer<typeof redirectUri>
 export const codeChallengeMethod = z.enum(['S256'])
 
 /**
- * RFC 7591, the subset this server accepts. `.strict()` because a registration
- * request that silently strips is a registration request that lies quietly —
- * the same reasoning as `appCreateRequest` and `assetSyncRequest`, both of
- * which were tightened after somebody assumed a field into existence and got
- * a `201` describing something that had not happened.
+ * **How many callbacks one dynamic registration may name.**
  *
- * **This is an unauthenticated write endpoint**, which is why it is gated by
- * the app's `mcp_enabled` switch, bounded per app, rate-limited by W6c's
- * two-tier limiter, and why the rows it creates expire.
+ * RFC 7591 lets a client register several; five is above every real MCP client
+ * observed and far below "a place to store data" on an endpoint that takes no
+ * credential. It lives here rather than in the cloud because this schema now
+ * *publishes* the bound: a number the reference states and a different number
+ * the server enforces is two policies for one decision, and the endpoint spent
+ * a release documenting `20` while refusing the sixth URI.
+ */
+export const MCP_DCR_MAX_REDIRECT_URIS = 5
+
+/**
+ * RFC 7591 dynamic client registration — **the metadata both MCP
+ * authorization servers understand**, central and per-app.
+ *
+ * **Not `.strict()`, and that is the schema agreeing with the server rather
+ * than a gap in it.** §3.1 obliges a registration endpoint to ignore metadata
+ * it does not understand, and real MCP clients send `client_uri`, `logo_uri`,
+ * `software_id` and `contacts`. A strict shape here would describe a `400`
+ * that no conforming client ever earns, and would take the whole
+ * paste-the-URL flow down if anything ever parsed against it. Unknown keys
+ * are therefore stripped by this schema and ignored by the server, which is
+ * the same answer said twice.
+ *
+ * **The server still reads the body field by field** (`registerMcpDynamicClient`
+ * in `cloud/src/mcp-oauth-core.ts`), and the reason is the error vocabulary,
+ * not the shape: §3.2.2 distinguishes `invalid_redirect_uri` from
+ * `invalid_client_metadata`, and one `safeParse` failure cannot say which of
+ * the two a caller earned. So this schema is what the endpoint *accepts*, and
+ * the handler is what turns a miss into the right RFC code.
+ *
+ * **`client_name` is optional because the server treats it as optional**: RFC
+ * 7591 makes every metadata field optional, and a registration that omits it
+ * is recorded under a default name rather than refused. `redirect_uris` is the
+ * one field a registration cannot do without — there is nowhere to return a
+ * code otherwise.
  */
 export const dynamicClientRegistrationRequest = z
   .object({
-    client_name: z.string().min(1).max(200).meta({
-      description: 'The name the client calls itself. It is **not** vouched for by Fleetless and must never be rendered as if it were — a self-registered client chooses this string, and one has called itself *"Fleetless Official Helper"*.',
+    redirect_uris: z.array(redirectUri).min(1).max(MCP_DCR_MAX_REDIRECT_URIS).meta({
+      description: `Where the authorization code may be returned, and the one field a registration cannot omit. Each must be an \`https\` URL, or \`http\` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between \`1\` and \`${MCP_DCR_MAX_REDIRECT_URIS}\` of them; duplicates are collapsed rather than counted twice. Matched **exactly** at the authorize step against what was registered here.`,
     }),
-    redirect_uris: z.array(redirectUri).min(1).max(20).meta({
-      description: 'Where the authorization code may be returned. Each must be an `https` URL, or `http` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between `1` and `20` of them.',
-    }),
-    grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional().meta({
-      description: 'Accepted and echoed back for conformance with RFC 7591. This server issues `authorization_code` and `refresh_token` and nothing else.',
-    }),
-    response_types: z.array(z.enum(['code'])).optional().meta({
-      description: 'Accepted and echoed back for conformance. `code` is the only response type OAuth 2.1 leaves, the implicit grant having been removed.',
+    client_name: z.string().min(1).max(200).optional().meta({
+      description: 'The name the client calls itself. Optional — a registration without one is recorded under a default name, per RFC 7591\'s making every metadata field optional. It is **not** vouched for by Fleetless and must never be rendered as if it were: a self-registered client chooses this string, and one has called itself *"Fleetless Official Helper"*.',
     }),
     token_endpoint_auth_method: z.enum(['none']).optional().meta({
-      description: '`none`, RFC 7591\'s value for a public client. There is no client secret to hold: mandatory PKCE is the defence.',
+      description: '`none`, RFC 7591\'s value for a public client, and the only value either server registers. Any other value is **refused rather than silently downgraded**: a client that believes it holds a secret and does not has a wrong mental model of its own security. There is no client secret to hold — mandatory PKCE (`S256`) is the defence.',
+    }),
+    grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional().meta({
+      description: 'Accepted for conformance with RFC 7591 and then **ignored**. What comes back is what was actually granted, which §3.2.1 permits a server to substitute: `authorization_code` and nothing else, so a client that asks for `refresh_token` is registered and told plainly that it did not get one.',
+    }),
+    response_types: z.array(z.enum(['code'])).optional().meta({
+      description: 'Accepted for conformance and then **ignored**; the response names `code`, which is the only response type OAuth 2.1 leaves, the implicit grant having been removed.',
     }),
     scope: z.string().max(500).optional().meta({
-      description: 'The scopes the client asks to be registered for, space-separated.',
+      description: 'Accepted for conformance and then **ignored**. This authorization server issues no scopes at all, which is why the registration answer carries no `scope` field to echo one back in.',
     }),
   })
-  .strict()
+  .meta({
+    description: 'What an MCP client sends to register itself, per RFC 7591. Unknown metadata is ignored rather than refused (§3.1), and the answer states what was actually granted rather than what was asked for (§3.2.1).',
+  })
 export type DynamicClientRegistrationRequest = z.infer<typeof dynamicClientRegistrationRequest>
 
 export const dynamicClientRegistrationResponse = z.object({
@@ -199,7 +228,7 @@ export const dynamicClientRegistrationResponse = z.object({
     description: 'The redirect URIs this registration was accepted for. A code is returned to one of these and nowhere else.',
   }),
   grant_types: z.array(z.string()).meta({
-    description: 'The grants this client may use: `authorization_code` and `refresh_token`.',
+    description: 'The grants this client may use. Always exactly `["authorization_code"]` — a client that asked for `refresh_token` is registered and told here that it did not get one, which is the substitution RFC 7591 §3.2.1 permits.',
   }),
   response_types: z.array(z.string()).meta({
     description: 'The response types this client may ask for: `code`.',
@@ -217,39 +246,48 @@ export const dynamicClientRegistrationResponse = z.object({
 export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegistrationResponse>
 
 /**
- * The MCP token endpoint, both grants, as a discriminated union.
+ * **The MCP token endpoint's request — one grant, because the servers serve
+ * one.**
  *
- * **`resource` is on the refresh grant too, and that is the point of writing
- * this down.** RFC 8707 binds an access token to an audience; a refresh that
- * cannot carry the resource forward mints a successor with no `aud`, and the
- * validating resource then refuses a token the caller obtained legitimately.
- * The failure lands one token lifetime after a login that worked, on somebody
- * who did nothing wrong — which is the hardest kind of report to act on. The
- * field being present in the type is not the fix; **preserving the audience
- * across rotation is the fix**, and the type is here so the omission has to be
- * deliberate rather than silent.
+ * Both authorization servers, central and per-app, exchange through
+ * `exchangeMcpAuthorizationCode` (`cloud/src/mcp-oauth-core.ts`), whose first
+ * act is to refuse anything but `authorization_code` before a single lookup
+ * happens. There is no refresh grant here: a session ends when its token
+ * expires and the client signs in again.
+ *
+ * **This was a `discriminatedUnion` with a `refresh_token` branch, and that
+ * branch had no producer left.** It described the app-level OAuth surface,
+ * which is deleted; an app user's refresh runs through `POST
+ * /api/client/refresh` and `refreshRequest`, a different wire on a different
+ * route. Keeping it would have published, to every MCP client author reading
+ * `/openapi.json`, a grant the endpoint answers `unsupported_grant_type` to.
+ * The argument the branch carried is worth keeping even though the branch is
+ * not: **RFC 8707's `resource` has to survive rotation**, because a refresh
+ * that drops the audience mints a successor with no `aud`, and the validating
+ * resource then refuses a token the caller obtained legitimately — one token
+ * lifetime after a login that worked, to somebody who did nothing wrong. If a
+ * refresh grant is ever added here, it carries `resource`.
  *
  * `code_verifier`'s bounds are RFC 7636 §4.1's, charset included. A verifier
  * is compared, not parsed, so a length nobody checks is a length an attacker
  * chooses.
  *
- * **These branches are deliberately not `.strict()`**, unlike
- * `dynamicClientRegistrationRequest` above, and the difference is the caller.
- * A registration request comes from a client we are about to trust and an
- * unknown key there is a caller assuming a feature into existence. A token
- * request comes from any RFC-compliant client, which may legitimately send
- * parameters this server does not read — refusing those would be a
- * conformance bug. The consequence is worth stating because it bit the test
- * for this very schema: unknown keys are **stripped**, so `safeParse().success`
- * cannot tell a present field from an absent one. Assert on the parsed value.
+ * **Deliberately not `.strict()`**, unlike a registration request: that comes
+ * from a client we are about to trust, where an unknown key is a caller
+ * assuming a feature into existence, while a token request comes from any
+ * RFC-compliant client, which may legitimately send parameters this server
+ * does not read. Refusing those would be a conformance bug. The consequence
+ * is worth stating because it bit the test for this very schema: unknown keys
+ * are **stripped**, so `safeParse().success` cannot tell a present field from
+ * an absent one. Assert on the parsed value.
  */
-export const oauthTokenRequest = z.discriminatedUnion('grant_type', [
-  z.object({
+export const oauthTokenRequest = z
+  .object({
     grant_type: z.literal('authorization_code').meta({
-      description: 'This request exchanges the code from the authorize redirect for tokens.',
+      description: 'Always `authorization_code`: this request exchanges the code from the authorize redirect for tokens. Any other value — `refresh_token` included — is `unsupported_grant_type`, refused before the code is looked up.',
     }),
     code: z.string().min(1).max(500).meta({
-      description: 'The authorization code from the redirect. It may be exchanged once.',
+      description: 'The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets.',
     }),
     redirect_uri: redirectUri.meta({
       description: 'The same redirect URI the authorize request used. It is compared, not merely recorded.',
@@ -261,27 +299,12 @@ export const oauthTokenRequest = z.discriminatedUnion('grant_type', [
       description: 'The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1.',
     }),
     resource: z.url().optional().meta({
-      description: 'The resource the token is being requested for, per RFC 8707. It becomes the token\'s audience, and a resource refuses a token whose audience names something else.',
+      description: 'The resource the token is being requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code\'s own audience stands. It becomes the token\'s `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app\'s endpoint.',
     }),
-  }),
-  z.object({
-    grant_type: z.literal('refresh_token').meta({
-      description: 'This request trades a refresh token for a fresh access token.',
-    }),
-    refresh_token: z.string().min(1).max(500).meta({
-      description: 'The refresh token to spend. Refresh tokens rotate, and presenting one twice is treated as theft rather than as a retry.',
-    }),
-    client_id: z.string().min(1).max(200).meta({
-      description: 'The client refreshing, as registered.',
-    }),
-    resource: z.url().optional().meta({
-      description: 'The resource the successor token should be bound to, per RFC 8707. **Carry it forward**: a refresh that drops it mints a token with no audience, and the resource then refuses it one token lifetime after a login that worked, to somebody who did nothing wrong.',
-    }),
-    scope: z.string().max(500).optional().meta({
-      description: 'A narrower scope for the successor token. RFC 6749 §6 lets a refresh narrow scope, never widen it.',
-    }),
-  }),
-])
+  })
+  .meta({
+    description: "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too.",
+  })
 export type OauthTokenRequest = z.infer<typeof oauthTokenRequest>
 
 /**
@@ -426,13 +449,14 @@ export type OauthRedirectResponse = z.infer<typeof oauthRedirectResponse>
  * collapse those two answers into one. So this schema pins the successful
  * shape and the documentation, not the error path.
  *
- * **No route entry points at it**, and that is worth saying rather than
- * leaving to be discovered. The app-level `/oauth/authorize` it was written
- * for is deleted; the MCP authorize route reads its query by hand and the
- * manifest records `query: null` for it, which is the honest description of
- * what that handler does. The schema is kept because it is the documentation
- * of a wire this server still speaks — and because the per-app MCP endpoint
- * (D7) speaks the same one.
+ * **Four route entries point at it**: `GET /mcp/oauth/authorize` and
+ * `GET /mcp/:appIdentifier/oauth/authorize` (D7), which read the same wire.
+ * They spent a release naming nothing — the app-level `/oauth/authorize` this
+ * was written for was deleted, and `query: null` was read as "there is no
+ * query here" rather than as "the handler reads it by hand" — and the eight
+ * documented parameters left `/openapi.json` with nothing able to notice,
+ * because the undocumented-field ratchet counts gaps and a fully documented
+ * schema leaving makes that number improve.
  */
 export const oauthAuthorizeQuery = z
   .object({
@@ -457,34 +481,33 @@ export const oauthAuthorizeQuery = z
     resource: z.string().optional().meta({
       description: 'RFC 8707 resource indicator: the API origin or the MCP endpoint the token is for. Checked against the resources this server issues tokens for **on behalf of this client\'s app**; a mismatch is `invalid_target` on the callback.',
     }),
-    scope: z.string().optional().meta({
-      description: 'Space-separated scopes. Carried onto the interaction and read again at consent — **nothing is enforced at this step**, so an unknown scope is not a refusal here.',
-    }),
+    // **No `scope`, because this authorization server issues none.** The field
+    // was here describing itself as "carried onto the interaction and read
+    // again at consent"; neither authorize handler reads it, the interaction
+    // row has no column for it, and the consent screen answers `scopes: []`
+    // from a comment that says so in as many words
+    // (`cloud/src/routes/client-mcp-interactions.ts`). A parameter documented
+    // as carried and in fact dropped is worse than one that is absent.
   })
   .meta({
-    description: 'The authorization request an MCP client sends. The two parameters above `response_type` are validated first and refuse flat; every parameter after them reports to the callback.',
+    description: 'The authorization request an MCP client sends, per RFC 6749 §4.1.1 with mandatory PKCE. The handler reads it parameter by parameter rather than through one parse, because the answers differ: `client_id` and `redirect_uri` are refused flat, with no redirect, since until both are confirmed there is no trusted target to bounce a browser to, and everything after them is reported to the client\'s own callback as query parameters.',
   })
 export type OauthAuthorizeQuery = z.infer<typeof oauthAuthorizeQuery>
 
 /**
- * Which app a dynamic client registration belongs to.
+ * **`oauthRegisterQuery` is deleted, and this note is what it leaves behind.**
  *
- * It rides in the query because RFC 7591's request body has no field for it
- * and one registration endpoint can serve every app.
+ * It carried one parameter, `app_identifier`, on the argument that RFC 7591's
+ * registration body has no field for it and one endpoint could serve every
+ * app. It was kept — explicitly, in its own doc comment — "for the per-app MCP
+ * registration the MCP train adds (D7), which needs exactly this parameter".
  *
- * **Unreferenced by the manifest today.** `POST /oauth/register` — the
- * app-level registration endpoint this described — is deleted with the app
- * OAuth flow, and `/mcp/oauth/register` is the central endpoint's and names no
- * app. It is kept for the per-app MCP registration the MCP train adds (D7),
- * which needs exactly this parameter; said plainly, because a schema that
- * looks like it describes a live route and does not is this repository's
- * commonest documentation defect.
+ * **That train shipped and needed no such parameter.** `POST
+ * /mcp/:appIdentifier/oauth/register` puts the app in the **path**, built by
+ * `MCP_APP_PATHS`, and `resolveAppMcpTarget` reads it from `request.params`;
+ * `registerMcpDynamicClient` never looks at a query at all. So the one reason
+ * the schema was kept became false the moment its successor arrived, and
+ * nothing was watching the reason — which is the failure this comment is here
+ * to make expensive to repeat. A schema reserved for a future route is a claim
+ * with an expiry date on it, and the expiry has to be checked by somebody.
  */
-export const oauthRegisterQuery = z
-  .object({
-    app_identifier: z.string().min(1).meta({
-      description: 'The app the dynamic client registers under, as `appIdentifier` spells it. Required: missing and unknown answer the same `400 invalid_request` in the `oauthError` dialect. Whether that app has MCP enabled at all is a separate, later refusal (`access_denied`).',
-    }),
-  })
-  .meta({ description: 'The app a dynamic client registers under — the one parameter RFC 7591 has no body field for.' })
-export type OauthRegisterQuery = z.infer<typeof oauthRegisterQuery>

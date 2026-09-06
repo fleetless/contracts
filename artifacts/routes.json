@@ -1948,13 +1948,13 @@
       "status": 201,
       "params": [],
       "query": null,
-      "request": null,
+      "request": "dynamic-client-registration-request",
       "response": "dynamic-client-registration-response",
       "errors": [
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`: that shape is strict, and a strict schema here would answer `400` to a conforming client and take the whole paste-the-URL flow down with it. `client_name` and `redirect_uris` are read by hand; everything else is ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — this authorization server issues `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`."
+      "notes": "RFC 7591. **The request schema is what this endpoint accepts, not what it parses**: the handler reads the body field by field, because §3.2.2 distinguishes `invalid_redirect_uri` from `invalid_client_metadata` and one `safeParse` failure cannot say which of the two a caller earned. The shape is deliberately **not** strict, which is the schema agreeing with §3.1 rather than a gap in it — a conforming client sends `client_uri`, `logo_uri` and `software_id`, and both the schema and the server ignore them. `client_name` and `redirect_uris` are the two fields read; `grant_types`, `response_types` and `scope` are accepted and ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — this authorization server issues `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`."
     },
     {
       "method": "GET",
@@ -1967,12 +1967,12 @@
       "ownerTier": false,
       "status": 302,
       "params": [],
-      "query": null,
+      "query": "oauth-authorize-query",
       "request": null,
       "response": null,
       "errors": [],
       "transport": "http",
-      "notes": "Client and `redirect_uri` are validated first and a failure there never redirects, the same open-redirect discipline the app flow applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 §7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that registered itself seconds ago can name the port it bound, and widening the wildcard there would only widen where a stolen `client_id` may send a browser. Nothing about the person is decided here — the next card asks for an email address and the password step after it resolves the account; this route knows only the client."
+      "notes": "**The query schema is what this endpoint accepts, not what it parses**: the handler reads it parameter by parameter because the answers differ, and one parse would collapse them. Client and `redirect_uri` are validated first and a failure there never redirects, the same open-redirect discipline the app flow applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 §7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that registered itself seconds ago can name the port it bound, and widening the wildcard there would only widen where a stolen `client_id` may send a browser. Nothing about the person is decided here — the next card asks for an email address and the password step after it resolves the account; this route knows only the client."
     },
     {
       "method": "GET",
@@ -2099,7 +2099,7 @@
       "status": 200,
       "params": [],
       "query": null,
-      "request": null,
+      "request": "oauth-token-request",
       "response": "oauth-token-response",
       "errors": [],
       "transport": "http",
@@ -2466,14 +2466,14 @@
         }
       ],
       "query": null,
-      "request": null,
+      "request": "dynamic-client-registration-request",
       "response": "dynamic-client-registration-response",
       "errors": [
         "rate_limited",
         "not_found"
       ],
       "transport": "http",
-      "notes": "RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`, for the reason `POST /mcp/oauth/register` gives: that shape is strict, and a strict schema here would answer `400` to a conforming client and take the whole paste-the-URL flow down with it. `client_name` and `redirect_uris` are read by hand; everything else is ignored, and what comes back is what was actually granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here authorizes at this app's endpoint and nowhere else, so a client registered against one app cannot walk into another's authorize with it, and a developer who switches MCP off is not left with strangers' registrations valid somewhere adjacent. \n\nRefusals are `oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the switch off, mirroring the two metadata documents this endpoint is discovered from — a client that could not read those has no business registering here, and giving it a third distinct answer would only tell it something the documents deliberately do not."
+      "notes": "RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — `registerMcpDynamicClient`, one implementation, because a second answer to \"is this redirect URI acceptable\" would agree with the first only by luck. The request schema is what the endpoint accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, and what comes back is what was actually granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here authorizes at this app's endpoint and nowhere else, so a client registered against one app cannot walk into another's authorize with it, and a developer who switches MCP off is not left with strangers' registrations valid somewhere adjacent. \n\nRefusals are `oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the switch off, mirroring the two metadata documents this endpoint is discovered from — a client that could not read those has no business registering here, and giving it a third distinct answer would only tell it something the documents deliberately do not."
     },
     {
       "method": "GET",
@@ -2491,7 +2491,7 @@
           "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
         }
       ],
-      "query": null,
+      "query": "oauth-authorize-query",
       "request": null,
       "response": null,
       "errors": [
@@ -2499,7 +2499,7 @@
         "target_state_conflict"
       ],
       "transport": "http",
-      "notes": "**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live — and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own UI, reads `GET /api/client/mcp/interactions/:id` to show the client's claimed name and the scopes it asked for, and calls approve or deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET /mcp/oauth/authorize` and `GET /api/client/oidc/:slug/start` both keep — and those refusals are RFC 6749's flat `oauthError`, which is why none of them appear above. `redirect_uri` is matched **exactly** against the registration, with no loopback-port wildcard: every client here registered itself minutes ago and can name the port it bound, so a wildcard would only widen where a stolen `client_id` may send a browser. \n\nThe two codes above are the `apiError` envelope because they are refusals about the **app**, decided before an OAuth parameter is looked at. **`404 not_found` covers an identifier no app carries AND an app with MCP switched off** — the same single answer the two metadata documents, `register` and the transport give. An earlier draft answered `403 mcp_disabled` here, on the argument that a client which registered while the switch was on is owed the difference between \"turned off\" and \"mistyped\"; that argument does not survive the caller being anonymous. This route takes no credential, so the extra code was readable by anyone who could type an identifier, and it handed back precisely the existence distinction every neighbouring route collapses. `mcp_disabled` survives only where the caller has already proved they belong to the app — the two decision routes under `/api/client/mcp/interactions/:id`. `409 target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — Fleetless has nowhere to redirect, and rendering a page of its own instead would contradict D2."
+      "notes": "The same query as `GET /mcp/oauth/authorize`, read the same way — parameter by parameter, because the answers differ and one parse would collapse them. \n\n**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live — and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own UI, reads `GET /api/client/mcp/interactions/:id` to show the client's claimed name and the scopes it asked for, and calls approve or deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET /mcp/oauth/authorize` and `GET /api/client/oidc/:slug/start` both keep — and those refusals are RFC 6749's flat `oauthError`, which is why none of them appear above. `redirect_uri` is matched **exactly** against the registration, with no loopback-port wildcard: every client here registered itself minutes ago and can name the port it bound, so a wildcard would only widen where a stolen `client_id` may send a browser. \n\nThe two codes above are the `apiError` envelope because they are refusals about the **app**, decided before an OAuth parameter is looked at. **`404 not_found` covers an identifier no app carries AND an app with MCP switched off** — the same single answer the two metadata documents, `register` and the transport give. An earlier draft answered `403 mcp_disabled` here, on the argument that a client which registered while the switch was on is owed the difference between \"turned off\" and \"mistyped\"; that argument does not survive the caller being anonymous. This route takes no credential, so the extra code was readable by anyone who could type an identifier, and it handed back precisely the existence distinction every neighbouring route collapses. `mcp_disabled` survives only where the caller has already proved they belong to the app — the two decision routes under `/api/client/mcp/interactions/:id`. `409 target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — Fleetless has nowhere to redirect, and rendering a page of its own instead would contradict D2."
     },
     {
       "method": "POST",
@@ -2518,7 +2518,7 @@
         }
       ],
       "query": null,
-      "request": null,
+      "request": "oauth-token-request",
       "response": "oauth-token-response",
       "errors": [],
       "transport": "http",

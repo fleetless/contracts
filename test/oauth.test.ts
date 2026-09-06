@@ -6,6 +6,8 @@ import {
   dynamicClientRegistrationRequest,
   ERROR_CODES,
   idpIssuer,
+  MCP_DCR_MAX_REDIRECT_URIS,
+  oauthAuthorizeQuery,
   oauthError,
   oauthRedirectResponse,
   oauthTokenRequest,
@@ -94,9 +96,39 @@ describe('dynamicClientRegistrationRequest', () => {
     expect(dynamicClientRegistrationRequest.safeParse(ok).success).toBe(true)
   })
 
-  it('is strict — an unknown key is a 400, not a silent strip', () => {
-    // A request shape that strips is a request shape that lies quietly.
-    expect(dynamicClientRegistrationRequest.safeParse({ ...ok, client_secret: 'hunter2' }).success).toBe(false)
+  it('makes client_name optional, because the server records a default rather than refusing', () => {
+    // `registerMcpDynamicClient` reads `client_name` as a string or falls back
+    // to `MCP_DCR_DEFAULT_CLIENT_NAME`. A required field here would document a
+    // `400` the endpoint does not answer.
+    expect(dynamicClientRegistrationRequest.safeParse({ redirect_uris: ok.redirect_uris }).success).toBe(true)
+  })
+
+  it('ignores unknown metadata rather than refusing it (RFC 7591 §3.1)', () => {
+    // **This assertion was the opposite one release ago**, and the schema was
+    // `.strict()` on the argument that a shape which strips is a shape that
+    // lies quietly. That argument is right for a body somebody validates and
+    // wrong for this one: §3.1 obliges a registration endpoint to ignore
+    // metadata it does not understand, real MCP clients send `client_uri`,
+    // `logo_uri` and `software_id`, and the server ignores them. A strict
+    // schema documented a `400` no conforming client can earn.
+    //
+    // **Asserted on the parsed value, not on `.success`.** A non-strict object
+    // strips, so `.success` alone would pass just as happily against a schema
+    // that still carried the key.
+    const parsed = dynamicClientRegistrationRequest.parse({ ...ok, client_uri: 'https://example.com', software_id: 'x' })
+    expect(parsed).toEqual(ok)
+  })
+
+  it('bounds redirect_uris at the number the server enforces, not a second one', () => {
+    // Two numbers for one bound is two policies for one decision. The schema
+    // published `20` while `MCP_DCR_MAX_REDIRECT_URIS` refused the sixth; the
+    // cloud now imports this constant rather than holding its own.
+    expect(MCP_DCR_MAX_REDIRECT_URIS).toBe(5)
+    const uri = (n: number) => `http://127.0.0.1:${33400 + n}/cb`
+    const upToTheCap = Array.from({ length: MCP_DCR_MAX_REDIRECT_URIS }, (_, i) => uri(i))
+    expect(dynamicClientRegistrationRequest.safeParse({ ...ok, redirect_uris: upToTheCap }).success).toBe(true)
+    expect(dynamicClientRegistrationRequest.safeParse({ ...ok, redirect_uris: [...upToTheCap, uri(99)] }).success).toBe(false)
+    expect(dynamicClientRegistrationRequest.safeParse({ ...ok, redirect_uris: [] }).success).toBe(false)
   })
 
   it('refuses a client that claims it can authenticate itself', () => {
@@ -111,6 +143,49 @@ describe('dynamicClientRegistrationRequest', () => {
     expect(dynamicClientRegistrationRequest.safeParse({ ...ok, redirect_uris: ['javascript:alert(1)'] }).success).toBe(
       false,
     )
+  })
+})
+
+describe('oauthAuthorizeQuery', () => {
+  const ok = {
+    response_type: 'code',
+    client_id: 'c_abc',
+    redirect_uri: 'http://127.0.0.1:33418/cb',
+    code_challenge: 'x'.repeat(43),
+    code_challenge_method: 'S256',
+  }
+
+  it('accepts what an MCP client actually sends', () => {
+    expect(oauthAuthorizeQuery.safeParse(ok).success).toBe(true)
+    expect(oauthAuthorizeQuery.parse({ ...ok, state: 's', resource: 'https://api.example.com/mcp/x' }).state).toBe('s')
+  })
+
+  it('has no scope parameter, because this authorization server issues none', () => {
+    // **The field was here and described itself as carried.** Its description
+    // read "Carried onto the interaction and read again at consent"; neither
+    // authorize handler reads `q.scope`, `mcp_oauth_interactions` has no
+    // column for it, and the interaction read route answers `scopes: []` from
+    // a comment saying "this authorization server issues no scopes" in as many
+    // words. A parameter documented as carried and in fact dropped is worse
+    // than one that is absent.
+    //
+    // Asserted over the shape's own keys rather than by parsing a document
+    // with a `scope` in it: the object is not strict, so such a parse succeeds
+    // either way and could not tell the two states apart.
+    expect(Object.keys(oauthAuthorizeQuery.shape).sort()).toEqual([
+      'client_id',
+      'code_challenge',
+      'code_challenge_method',
+      'redirect_uri',
+      'resource',
+      'response_type',
+      'state',
+    ])
+  })
+
+  it('refuses the PKCE downgrade and the implicit grant at the query level', () => {
+    expect(oauthAuthorizeQuery.safeParse({ ...ok, code_challenge_method: 'plain' }).success).toBe(false)
+    expect(oauthAuthorizeQuery.safeParse({ ...ok, response_type: 'token' }).success).toBe(false)
   })
 })
 
@@ -154,12 +229,19 @@ describe('the token endpoint', () => {
     code_verifier: 'a'.repeat(43),
   }
 
-  it('accepts both grants and refuses a third', () => {
+  it('accepts the one grant either server serves, and refuses every other', () => {
     expect(oauthTokenRequest.safeParse(code).success).toBe(true)
+    // **`refresh_token` was a branch of this schema and had no producer.**
+    // `exchangeMcpAuthorizationCode` refuses anything but `authorization_code`
+    // before a lookup happens, and both token endpoints go through it; an app
+    // user's refresh is `POST /api/client/refresh` with `refreshRequest`, a
+    // different wire on a different route. Documenting the branch told every
+    // reader of `/openapi.json` that a grant works which answers
+    // `unsupported_grant_type`.
     expect(
       oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r', client_id: 'c_abc' }).success,
-    ).toBe(true)
-    // OAuth 2.1 removes the password grant. A union that admits it is a union
+    ).toBe(false)
+    // OAuth 2.1 removes the password grant. A shape that admits it is a shape
     // that will be handed one.
     expect(
       oauthTokenRequest.safeParse({ grant_type: 'password', username: 'a', password: 'b', client_id: 'c_abc' }).success,
@@ -174,44 +256,19 @@ describe('the token endpoint', () => {
     expect(oauthTokenRequest.safeParse({ ...code, code_verifier: `${'a'.repeat(42)}+` }).success).toBe(false)
   })
 
-  it('lets both grants carry a resource, so an audience can survive rotation', () => {
-    // The refresh half is the one that matters: without it a refreshed token
-    // silently loses its `aud` and the validating resource refuses a token the
-    // caller obtained legitimately.
-    //
-    // **Asserted on the parsed value, not on `.success`.** These branches are
-    // not `.strict()` — deliberately, because RFC 6749 lets a conformant
-    // client send parameters we do not read. So an unknown key is *stripped*
-    // and the parse still succeeds: a `.success` assertion here would pass
-    // just as happily against a schema with no `resource` field at all. It
-    // did, when this test was first written, and dropping the field from the
-    // refresh branch changed nothing about the result.
+  it('carries the RFC 8707 resource, so a token minted for one app cannot be spent at another', () => {
+    // **Asserted on the parsed value, not on `.success`.** This shape is not
+    // `.strict()` — deliberately, because RFC 6749 lets a conformant client
+    // send parameters we do not read. So an unknown key is *stripped* and the
+    // parse still succeeds: a `.success` assertion here would pass just as
+    // happily against a schema with no `resource` field at all. It did, when
+    // this test was first written.
     const R = 'https://api.example.com/mcp/x'
     const fromCode = oauthTokenRequest.parse({ ...code, resource: R })
     expect(fromCode.resource).toBe(R)
-    const fromRefresh = oauthTokenRequest.parse({
-      grant_type: 'refresh_token',
-      refresh_token: 'r',
-      client_id: 'c_abc',
-      resource: R,
-    })
-    expect(fromRefresh.resource).toBe(R)
-  })
-
-  it('lets a refresh narrow its scope, which RFC 6749 §6 permits', () => {
-    const parsed = oauthTokenRequest.parse({
-      grant_type: 'refresh_token',
-      refresh_token: 'r',
-      client_id: 'c_abc',
-      scope: 'read',
-    })
-    // Erst den Diskriminator festhalten, dann das Feld: `oauthTokenRequest`
-    // ist eine Union, und `scope` gibt es NUR am refresh-Zweig. Vorher las der
-    // Test das Feld direkt — zur Laufzeit richtig, aber tsc sah es nie, weil
-    // `test/` in diesem Repo lange gar nicht typgeprueft wurde. So geprueft
-    // beweist der Test zusaetzlich, dass der richtige Zweig entstanden ist.
-    expect(parsed.grant_type).toBe('refresh_token')
-    expect(parsed.grant_type === 'refresh_token' && parsed.scope).toBe('read')
+    // A parameter the server does not read is stripped, not refused.
+    const withExtra = oauthTokenRequest.parse({ ...code, client_assertion: 'x' })
+    expect(withExtra).toEqual(code)
   })
 
   it('states expires_in in seconds and refuses a timestamp-shaped value', () => {

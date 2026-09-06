@@ -28,7 +28,7 @@
       "items": {
         "type": "string"
       },
-      "description": "The grants this client may use: `authorization_code` and `refresh_token`."
+      "description": "The grants this client may use. Always exactly `[\"authorization_code\"]` — a client that asked for `refresh_token` is registered and told here that it did not get one, which is the substitution RFC 7591 §3.2.1 permits."
     },
     "response_types": {
       "type": "array",

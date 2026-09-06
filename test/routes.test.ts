@@ -216,6 +216,81 @@ describe('the route artifacts', () => {
   })
 
   /**
+   * **The same guard as the one above, run backwards — and the direction that
+   * was missing** (train 6 review, C26).
+   *
+   * The test above asks *is every schema a route names exported?* and catches
+   * a manifest pointing at nothing. This one asks *is every exported request
+   * or query shape named by a route?* and catches the failure that actually
+   * happened: `oauthTokenRequest`, `oauthAuthorizeQuery`,
+   * `dynamicClientRegistrationRequest` and `oauthRegisterQuery` stayed
+   * exported, stayed on disk as artifacts, and were named by nothing after the
+   * routes that referenced them were deleted. `openapi.json` carries a
+   * component only for what a route names, so 25 fully documented fields left
+   * the published reference and 33 more were never in it.
+   *
+   * **Nothing could have noticed.** Every other instrument pointed the wrong
+   * way: `routes.json`'s staleness guard compares the manifest to itself, the
+   * per-schema artifact guard compares files to a fresh render, and the docs
+   * site's undocumented-field ratchet counts *gaps* — so a fully documented
+   * schema leaving the set makes that number improve. Three separate green
+   * checks and a ratchet that moved in the right direction.
+   *
+   * **Scoped by name suffix**, which is the convention this repository
+   * actually follows (`*Request`, `*Query`) and is what makes the rule
+   * mechanical rather than a judgement call about which schemas are wire
+   * shapes. It is not exhaustive — `passwordResetConfirm` is a request body
+   * whose name says otherwise — so this is a floor, not a proof.
+   *
+   * The exemptions are named with their reason and are asserted to still be
+   * unreferenced, so a list entry cannot outlive the fact that justified it.
+   * That is the half `oauthRegisterQuery` failed: it was kept, in writing, for
+   * a per-app registration parameter, and the per-app registration shipped
+   * with the app in the path.
+   */
+  describe('every exported request and query shape is named by a route', () => {
+    /** Names that end in `-request` or `-query` and are legitimately not HTTP route shapes. */
+    const NOT_A_ROUTE_SHAPE: Record<string, string> = {
+      'cloud-asset-request': 'a bridge protocol frame the cloud sends over the websocket, not an HTTP body',
+      'cloud-introspect-request': 'a bridge protocol frame, as above',
+      'cloud-type-request': 'a bridge protocol frame, as above',
+      'developer-login-request':
+        "the auth portal's own login form. POST /console/oauth/login is audience:'internal' — a page the cloud serves to itself, never rendered in the published reference — and its handler reads the three fields by hand",
+      'put-datapoint-display-request':
+        'PUT /api/robots/:id/datapoints/:slug/display is designed (alerts-and-datapoint-modal-design D1) and not implemented: no cloud route serves it, so there is no manifest entry to name the shape from',
+    }
+
+    const referenced = () => {
+      const names = new Set<string>()
+      for (const r of routesArtifact().routes)
+        for (const k of ['query', 'request', 'response'] as const) if (r[k] !== null) names.add(r[k] as string)
+      return names
+    }
+    const sendShapes = () => Object.keys(exportedSchemas).filter((n) => /-(request|query)$/.test(n))
+
+    it('leaves no send-shape orphaned by the manifest', () => {
+      const names = referenced()
+      const orphaned = sendShapes().filter((n) => !names.has(n) && !Object.hasOwn(NOT_A_ROUTE_SHAPE, n))
+      expect(orphaned).toEqual([])
+    })
+
+    it('keeps no exemption whose reason has expired', () => {
+      const names = referenced()
+      const exported = new Set(Object.keys(exportedSchemas))
+      // A name that has since been referenced, or that is no longer exported
+      // at all, is an entry describing a state that ended — the shape
+      // `oauthRegisterQuery` was in for a whole release.
+      const stale = Object.keys(NOT_A_ROUTE_SHAPE).filter((n) => !exported.has(n) || names.has(n))
+      expect(stale).toEqual([])
+      // And every reason is a sentence somebody wrote, not an empty string
+      // standing in for one.
+      for (const [name, reason] of Object.entries(NOT_A_ROUTE_SHAPE)) {
+        expect(reason.length, `${name} carries no reason`).toBeGreaterThan(20)
+      }
+    })
+  })
+
+  /**
    * **The per-file JSON Schemas, which are the artifacts everything downstream
    * actually reads** — the docs site publishes them, the bridge vendors copies
    * of them, and a generator consumes them. Until this test they were guarded
@@ -1559,11 +1634,17 @@ describe('the parked-items round', () => {
    * at base on seven entries that are not about queries at all, and would
    * demand changes this project has argued against in writing: the
    * `{ "name": string }` role body that contracts deliberately does not
-   * define, the impersonation wrapper, `POST /mcp/oauth/register`'s body —
-   * whose notes say a strict schema there *"would answer 400 to a conforming
-   * client and take the whole paste-the-URL flow down with it"* — and three
-   * internal pages answering a cloud-local `{ next }`. A ratchet that fires on
-   * deliberate, documented decisions is one somebody turns off.
+   * define, the impersonation wrapper, and three internal pages answering a
+   * cloud-local `{ next }`. A ratchet that fires on deliberate, documented
+   * decisions is one somebody turns off.
+   *
+   * **`POST /mcp/oauth/register`'s body used to be on that list and no longer
+   * is.** The reason given was that a strict schema there *"would answer 400
+   * to a conforming client and take the whole paste-the-URL flow down with
+   * it"* — which is an argument about `.strict()`, not about documenting the
+   * wire, and it was read as the second for a release while 6 fields sat out
+   * of `/openapi.json`. The schema is no longer strict, agreeing with RFC 7591
+   * §3.1, and the route names it.
    */
   it('lets no entry document a query as schema-free', () => {
     const confessions = [

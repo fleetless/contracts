@@ -109,8 +109,11 @@ import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } fr
 import { MCP_APP_PATHS, mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
+  dynamicClientRegistrationRequest,
   dynamicClientRegistrationResponse,
+  oauthAuthorizeQuery,
   oauthRedirectResponse,
+  oauthTokenRequest,
   oauthTokenResponse,
   protectedResourceMetadata,
 } from './oauth.js'
@@ -1229,21 +1232,26 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/mcp/oauth/register', section: 'mcp',
     summary: 'Registers an MCP client dynamically, with no app identifier and no human in the loop.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
-    params: [], query: null, request: null, response: dynamicClientRegistrationResponse,
+    params: [], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
     errors: ['rate_limited'], transport: 'http',
     notes:
-      'RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`: that shape is strict, and a strict schema here ' +
-      'would answer `400` to a conforming client and take the whole paste-the-URL flow down with it. `client_name` and `redirect_uris` are ' +
-      'read by hand; everything else is ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — ' +
-      'this authorization server issues `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly ' +
-      'that it did not get one. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`.',
+      'RFC 7591. **The request schema is what this endpoint accepts, not what it parses**: the handler reads the body field by field, because ' +
+      '§3.2.2 distinguishes `invalid_redirect_uri` from `invalid_client_metadata` and one `safeParse` failure cannot say which of the two a ' +
+      'caller earned. The shape is deliberately **not** strict, which is the schema agreeing with §3.1 rather than a gap in it — a conforming ' +
+      'client sends `client_uri`, `logo_uri` and `software_id`, and both the schema and the server ignore them. `client_name` and ' +
+      '`redirect_uris` are the two fields read; `grant_types`, `response_types` and `scope` are accepted and ignored. What comes back is what ' +
+      'was actually granted, which §3.2.1 allows a server to substitute — this authorization server issues `authorization_code` only, so a ' +
+      'client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. Refusals ' +
+      'are `oauthError`; the rate limiter answers `apiError`.',
   },
   {
     method: 'GET', path: '/mcp/oauth/authorize', section: 'mcp',
     summary: 'Starts an MCP sign-in and redirects the browser to the identify card.',
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    params: [], query: oauthAuthorizeQuery, request: null, response: null, errors: [], transport: 'http',
     notes:
+      '**The query schema is what this endpoint accepts, not what it parses**: the handler reads it parameter by parameter because the ' +
+      'answers differ, and one parse would collapse them. ' +
       'Client and `redirect_uri` are validated first and a failure there never redirects, the same open-redirect discipline the app flow ' +
       'applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 ' +
       '§7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that ' +
@@ -1311,7 +1319,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/mcp/oauth/token', section: 'mcp',
     summary: 'Exchanges an MCP authorization code for an access token.',
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: oauthTokenResponse,
+    params: [], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
     errors: [], transport: 'http',
     notes:
       'Only `authorization_code` is supported — there is no refresh grant here, so a session ends when its token expires and the client signs ' +
@@ -1548,12 +1556,14 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: MCP_APP.register, section: 'mcp',
     summary: 'Registers an MCP client dynamically for one app, with no human in the loop.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
-    params: [APP_IDENTIFIER], query: null, request: null, response: dynamicClientRegistrationResponse,
+    params: [APP_IDENTIFIER], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
     errors: ['rate_limited', 'not_found'], transport: 'http',
     notes:
-      'RFC 7591, and deliberately **not** parsed against `dynamicClientRegistrationRequest`, for the reason `POST /mcp/oauth/register` gives: ' +
-      'that shape is strict, and a strict schema here would answer `400` to a conforming client and take the whole paste-the-URL flow down ' +
-      'with it. `client_name` and `redirect_uris` are read by hand; everything else is ignored, and what comes back is what was actually ' +
+      'RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — `registerMcpDynamicClient`, one implementation, because a ' +
+      'second answer to "is this redirect URI acceptable" would agree with the first only by luck. The request schema is what the endpoint ' +
+      'accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` ' +
+      'failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, ' +
+      'and what comes back is what was actually ' +
       'granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly ' +
       'that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here ' +
       'authorizes at this app\'s endpoint and nowhere else, so a client registered against one app cannot walk into another\'s authorize with ' +
@@ -1566,10 +1576,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: MCP_APP.authorize, section: 'mcp',
     summary: "Starts an MCP sign-in and redirects the browser to the app's own login page.",
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
-    params: [APP_IDENTIFIER], query: null, request: null, response: null,
+    params: [APP_IDENTIFIER], query: oauthAuthorizeQuery, request: null, response: null,
     errors: ['not_found', 'target_state_conflict'], transport: 'http',
     notes:
-      '**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live ' +
+      'The same query as `GET /mcp/oauth/authorize`, read the same way — parameter by parameter, because the answers differ and one parse ' +
+      'would collapse them. \n\n**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live ' +
       '— and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own ' +
       'UI, reads `GET /api/client/mcp/interactions/:id` to show the client\'s claimed name and the scopes it asked for, and calls approve or ' +
       'deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET ' +
@@ -1592,7 +1603,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: MCP_APP.token, section: 'mcp',
     summary: "Exchanges one app's MCP authorization code for an access token.",
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [APP_IDENTIFIER], query: null, request: null, response: oauthTokenResponse,
+    params: [APP_IDENTIFIER], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
     errors: [], transport: 'http',
     notes:
       'Only `authorization_code`, PKCE-verified and single-use. There is no refresh grant here either, so a session ends when its token ' +

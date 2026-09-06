@@ -34,10 +34,6 @@
     "resource": {
       "description": "RFC 8707 resource indicator: the API origin or the MCP endpoint the token is for. Checked against the resources this server issues tokens for **on behalf of this client's app**; a mismatch is `invalid_target` on the callback.",
       "type": "string"
-    },
-    "scope": {
-      "description": "Space-separated scopes. Carried onto the interaction and read again at consent — **nothing is enforced at this step**, so an unknown scope is not a refusal here.",
-      "type": "string"
     }
   },
   "required": [
@@ -47,5 +43,5 @@
     "code_challenge",
     "code_challenge_method"
   ],
-  "description": "The authorization request an MCP client sends. The two parameters above `response_type` are validated first and refuse flat; every parameter after them reports to the callback."
+  "description": "The authorization request an MCP client sends, per RFC 6749 §4.1.1 with mandatory PKCE. The handler reads it parameter by parameter rather than through one parse, because the answers differ: `client_id` and `redirect_uri` are refused flat, with no redirect, since until both are confirmed there is no trusted target to bounce a browser to, and everything after them is reported to the client's own callback as query parameters."
 }

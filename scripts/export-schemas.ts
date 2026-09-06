@@ -205,7 +205,7 @@ import {
   oauthTokenResponse,
   protectedResourceMetadata,
 } from '../src/oauth.js'
-import { oauthAuthorizeQuery, oauthRegisterQuery } from '../src/oauth.js'
+import { oauthAuthorizeQuery } from '../src/oauth.js'
 import {
   cameraDescriptor,
   cancelRequest,
@@ -462,16 +462,21 @@ export const exportedSchemas = {
   'password-reset-confirm': passwordResetConfirm, // POST /api/auth/password/reset/confirm
   'update-app-request': updateAppRequest, // PATCH /api/apps/:id
   'oauth-redirect-response': oauthRedirectResponse, // POST /console/oauth/login, POST /console/oauth/signup/organization, POST /mcp/oauth/login, POST /mcp/oauth/consent
-  // **Registered without a route entry, and each says so on its own doc
-  // comment.** `oauthTokenRequest` and `dynamicClientRegistrationRequest`
-  // describe wires the MCP authorization server reads by hand rather than
-  // through a contract shape, which is what the manifest records for those
-  // routes; the two queries below are the same case. They are documentation of
-  // a live wire, not leftovers — the distinction this repository has been wrong
-  // about before, so it is written down rather than inferred from a `grep`.
-  'oauth-token-request': oauthTokenRequest, // the MCP token endpoint's wire, read by hand
+  // **The four OAuth shapes that spent a release registered here and named by
+  // no route** (train 6 review, C26). The block that stood here argued they
+  // were "documentation of a live wire, not leftovers" and left them
+  // unreferenced on that basis — which is true of the wire and false of the
+  // consequence: `openapi.json` carries a component only for what a route
+  // names, so 25 fully-documented fields left the published reference with
+  // nothing able to notice. The undocumented-field ratchet cannot see it by
+  // construction, since it counts *gaps* and a fully documented schema leaving
+  // makes its number improve. Three are now named by the routes that read
+  // them; `oauthRegisterQuery`, whose one reason to exist was a per-app
+  // registration parameter that shipped in the path instead, is deleted. The
+  // guard that keeps this from recurring is in `test/routes.test.ts`.
+  'oauth-token-request': oauthTokenRequest, // POST /mcp/oauth/token, POST /mcp/:appIdentifier/oauth/token
   'oauth-token-response': oauthTokenResponse, // POST /mcp/oauth/token
-  'dynamic-client-registration-request': dynamicClientRegistrationRequest, // RFC 7591's wire; /mcp/oauth/register reads it by hand
+  'dynamic-client-registration-request': dynamicClientRegistrationRequest, // POST /mcp/oauth/register, POST /mcp/:appIdentifier/oauth/register
   'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
   'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
   'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource/mcp
@@ -503,8 +508,7 @@ export const exportedSchemas = {
   // a route pointed at each of them and `schemaName` had no name to resolve
   // to, so the export refused rather than emitting a manifest with a gap in
   // it. Comment names the route, same as the block above.
-  'oauth-authorize-query': oauthAuthorizeQuery, // the MCP authorize wire, read parameter by parameter
-  'oauth-register-query': oauthRegisterQuery, // reserved for the per-app MCP registration endpoint
+  'oauth-authorize-query': oauthAuthorizeQuery, // GET /mcp/oauth/authorize, GET /mcp/:appIdentifier/oauth/authorize
   'org-alerts-query': orgAlertsQuery, // GET /api/org/alerts
   'robot-delete-query': robotDeleteQuery, // DELETE /api/robots/:id
   'org-health-query': orgHealthQuery, // GET /api/org/health
@@ -669,7 +673,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
   // other `*-query` above is.
-  'oauth-authorize-query', 'oauth-register-query', 'org-alerts-query',
+  'oauth-authorize-query', 'org-alerts-query',
   'robot-delete-query', 'org-health-query', 'missing-asset-query',
 
   // --- shapes embedded in the above ----------------------------------------

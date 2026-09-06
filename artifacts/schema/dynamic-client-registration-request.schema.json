@@ -2,25 +2,32 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "client_name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "The name the client calls itself. It is **not** vouched for by Fleetless and must never be rendered as if it were — a self-registered client chooses this string, and one has called itself *\"Fleetless Official Helper\"*."
-    },
     "redirect_uris": {
       "minItems": 1,
-      "maxItems": 20,
+      "maxItems": 5,
       "type": "array",
       "items": {
         "type": "string",
         "minLength": 1,
         "maxLength": 2000
       },
-      "description": "Where the authorization code may be returned. Each must be an `https` URL, or `http` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between `1` and `20` of them."
+      "description": "Where the authorization code may be returned, and the one field a registration cannot omit. Each must be an `https` URL, or `http` on an explicit loopback address for a native app that cannot hold a certificate, and none may carry a fragment. There must be between `1` and `5` of them; duplicates are collapsed rather than counted twice. Matched **exactly** at the authorize step against what was registered here."
+    },
+    "client_name": {
+      "description": "The name the client calls itself. Optional — a registration without one is recorded under a default name, per RFC 7591's making every metadata field optional. It is **not** vouched for by Fleetless and must never be rendered as if it were: a self-registered client chooses this string, and one has called itself *\"Fleetless Official Helper\"*.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "token_endpoint_auth_method": {
+      "description": "`none`, RFC 7591's value for a public client, and the only value either server registers. Any other value is **refused rather than silently downgraded**: a client that believes it holds a secret and does not has a wrong mental model of its own security. There is no client secret to hold — mandatory PKCE (`S256`) is the defence.",
+      "type": "string",
+      "enum": [
+        "none"
+      ]
     },
     "grant_types": {
-      "description": "Accepted and echoed back for conformance with RFC 7591. This server issues `authorization_code` and `refresh_token` and nothing else.",
+      "description": "Accepted for conformance with RFC 7591 and then **ignored**. What comes back is what was actually granted, which §3.2.1 permits a server to substitute: `authorization_code` and nothing else, so a client that asks for `refresh_token` is registered and told plainly that it did not get one.",
       "type": "array",
       "items": {
         "type": "string",
@@ -31,7 +38,7 @@
       }
     },
     "response_types": {
-      "description": "Accepted and echoed back for conformance. `code` is the only response type OAuth 2.1 leaves, the implicit grant having been removed.",
+      "description": "Accepted for conformance and then **ignored**; the response names `code`, which is the only response type OAuth 2.1 leaves, the implicit grant having been removed.",
       "type": "array",
       "items": {
         "type": "string",
@@ -40,22 +47,14 @@
         ]
       }
     },
-    "token_endpoint_auth_method": {
-      "description": "`none`, RFC 7591's value for a public client. There is no client secret to hold: mandatory PKCE is the defence.",
-      "type": "string",
-      "enum": [
-        "none"
-      ]
-    },
     "scope": {
-      "description": "The scopes the client asks to be registered for, space-separated.",
+      "description": "Accepted for conformance and then **ignored**. This authorization server issues no scopes at all, which is why the registration answer carries no `scope` field to echo one back in.",
       "type": "string",
       "maxLength": 500
     }
   },
   "required": [
-    "client_name",
     "redirect_uris"
   ],
-  "additionalProperties": false
+  "description": "What an MCP client sends to register itself, per RFC 7591. Unknown metadata is ignored rather than refused (§3.1), and the answer states what was actually granted rather than what was asked for (§3.2.1)."
 }
