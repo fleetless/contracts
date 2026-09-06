@@ -59,6 +59,7 @@ import {
   clientRegisterRequest,
   clientResendVerificationRequest,
   clientVerifyEmailRequest,
+  mcpConsentGrantListResponse,
 } from './client-auth.js'
 import {
   appAuthConfig,
@@ -736,6 +737,50 @@ export const ROUTES: readonly RouteEntry[] = [
       'not disagree. Setting the password directly is deliberately not offered; a developer who could would hold their customers\' ' +
       'credentials.',
   },
+  /* ---------------------------- the MCP clients one app user has connected */
+  {
+    method: 'GET', path: '/api/apps/:id/users/:userId/mcp-grants', section: 'apps',
+    summary: 'Lists the MCP clients one app user has consented to.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: null, response: mcpConsentGrantListResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'A consent is remembered so that a later authorization can skip the app\'s own screen, and a client\'s registration lapsing does not ' +
+      'end it — so a person who approved something once had no way back and neither did the developer supporting them. This is the reading ' +
+      'half of that door. \n\n**Every name here is a claim the client made about itself.** Dynamic registration takes no credential, so ' +
+      '`client_name` is attacker-chosen text, unverified on every row, and `client_name_verified` is the literal `false`; a console that renders it as an ' +
+      'identity is rendering a string somebody picked. **Withdrawn grants are absent** rather than listed as withdrawn: the question is what ' +
+      'is connected now. \n\nThe user is scoped to the app and the app to the org, so a user of a sibling app and one that does not exist ' +
+      'read identically — `404`, never a `403`. **A developer sees which clients their customer connected and nothing those clients did**: ' +
+      'this route reads the consent table alone, and no scope, token or session of the person appears in it, because the authorization ' +
+      'server issues no scopes at all.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/users/:userId/mcp-grants/:clientId', section: 'apps',
+    summary: 'Withdraws one app user\'s consent to an MCP client, on the developer\'s behalf.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
+      { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' },
+      { name: 'clientId', description: 'The MCP client, as `GET /api/apps/:id/users/:userId/mcp-grants` reports its `client_id`. Not a uuid — it is the identifier the dynamic registration issued.' },
+    ],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The support door beside `DELETE /api/client/mcp/grants/:clientId`, which is the same act by the person themselves. Audited as ' +
+      '`app_user.mcp_grant_revoked` with the client id and nothing else. \n\n**`204` whether or not there was anything to withdraw**, so a ' +
+      'double-clicked button and a client id no grant names both land on the end state the caller asked for. The alternative — `404` for a ' +
+      'client this user never approved — would make the route an oracle for which clients somebody has connected, answered before the ' +
+      'listing beside it was read; and it would turn the ordinary retry into a refusal. Only a withdrawal that actually ended a standing ' +
+      'agreement writes an audit event, so the log counts consents ended rather than buttons pressed. **`404` is still the app and the ' +
+      'user**, which are the two things the caller must own. \n\n**It does not end an MCP session already running.** The access token that ' +
+      'consent produced is a fifteen-minute bearer the transport checks against the account, not against this table, so a session in flight ' +
+      'survives until it expires; there is no refresh grant on this authorization server, so nothing can extend it, and the next ' +
+      'authorization shows the consent screen again. Blocking the account (`PATCH /api/apps/:id/users/:userId`) is what ends a live session ' +
+      'now, and it ends every one of their sessions rather than this client\'s.',
+  },
+
   {
     method: 'GET', path: '/api/apps/:id/invitations', section: 'apps',
     summary: "Lists the app's outstanding invitations, without their tokens.",
@@ -1882,6 +1927,48 @@ export const ROUTES: readonly RouteEntry[] = [
       'and the path *is* the decision — there is no value to misread. The refusals are the approve route\'s, for the reasons stated there, ' +
       'including the limiter: **rate limited per app user**, on the signed-in account rather than the ip, because a denial spends the ' +
       'interaction exactly as an approval does and a caller holding a leaked id must not be able to burn other people\'s sign-ins in a loop.',
+  },
+
+
+  /* ------------------------- the app user's own list of connected clients */
+  {
+    method: 'GET', path: '/api/client/mcp/grants', section: 'client-auth',
+    summary: 'Lists the MCP clients the signed-in app user has consented to.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: mcpConsentGrantListResponse,
+    errors: [...CLIENT_GUARD], transport: 'http',
+    notes:
+      '**So the developer\'s app can offer a "connected apps" screen of its own**, which is the only place an end user could ever be shown ' +
+      'this: Fleetless renders no page for an app\'s users (D2), and the console is the developer\'s tool rather than their customers\'. ' +
+      '\n\nThe answer is about the bearer\'s own account and takes no user id — there is no id to pass and therefore nothing to pass the ' +
+      'wrong one. The guard admits all three caller kinds because it is shared, and the handler takes one: a developer bearer or a server ' +
+      'key is `401 unauthorized`, the shape `POST /api/client/password/change` has, because a consent is a person\'s and a server key is not ' +
+      'a person. \n\n**Every `client_name` is unverified**, on every row: dynamic registration takes no credential, so the name is text the ' +
+      'client chose about itself and `client_name_verified` is the literal `false`. A screen that renders it as an identity is showing ' +
+      'somebody a string an attacker picked, and this list is read long after the moment of approval, when nobody remembers what they ' +
+      'clicked. **Withdrawn grants are absent**, not listed as withdrawn. \n\n**Not rate limited and not gated on the app\'s MCP switch.** ' +
+      'It reads one small table for one account, and a person must be able to see and end what they agreed to even after a developer ' +
+      'switches MCP off — a withdrawal door that closes with the feature is a door that is shut exactly when somebody wants it.',
+  },
+  {
+    method: 'DELETE', path: '/api/client/mcp/grants/:clientId', section: 'client-auth',
+    summary: 'Withdraws the signed-in app user\'s consent to one MCP client.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'clientId', description: 'The MCP client, as `GET /api/client/mcp/grants` reports its `client_id`. Not a uuid — it is the identifier the dynamic registration issued.' }],
+    query: null, request: null, response: null, errors: [...CLIENT_GUARD], transport: 'http',
+    notes:
+      'The person\'s own door, beside the developer\'s `DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId`. It acts on the bearer\'s ' +
+      'own account and on no other — the path carries a client and never a subject — so there is no user for a caller to name and none to ' +
+      'confuse. The shared guard admits all three caller kinds and the handler takes one: a developer bearer or a server key is `401 ' +
+      'unauthorized`, because withdrawing a consent is the same person\'s act as giving it. Audited as `app_user.mcp_grant_revoked`, ' +
+      'with the app user themselves as the actor. \n\n**`204` whether or not there was ' +
+      'anything to withdraw.** A client id this account never approved, and one it withdrew a minute ago, both answer the end state that was ' +
+      'asked for: a `404` would tell the caller which clients some account has connected, and would make the ordinary double-click a ' +
+      'failure. Only a withdrawal that ended a standing agreement is audited. \n\n**It does not end an MCP session already running.** That ' +
+      'consent minted a fifteen-minute access token, and the MCP transport checks it against the account rather than against this table, so ' +
+      'a session in flight survives until it expires. Nothing can extend it — this authorization server issues no refresh tokens — and the ' +
+      'next authorization asks again. An app that needs a client cut off **now** blocks the account, which ends every session that account ' +
+      'holds rather than this client\'s alone.',
   },
 
   /* ------------------------------------------------------------- robots */

@@ -120,6 +120,8 @@ import {
   clientOidcExchangeRequest,
   clientMcpInteraction,
   clientMcpInteractionDecisionResponse,
+  mcpConsentGrant,
+  mcpConsentGrantListResponse,
   clientIdentity,
 } from '../src/client-auth.js'
 import {
@@ -387,6 +389,12 @@ export const exportedSchemas = {
   'client-oidc-exchange-request': clientOidcExchangeRequest,
   'client-mcp-interaction': clientMcpInteraction,
   'client-mcp-interaction-decision-response': clientMcpInteractionDecisionResponse,
+  // The consent MEMORY, as both withdrawal doors list it — the developer's
+  // `GET /api/apps/:id/users/:userId/mcp-grants` and the app user's own
+  // `GET /api/client/mcp/grants` answer the same shape, which is one schema
+  // under one name rather than two that would drift.
+  'mcp-consent-grant': mcpConsentGrant,
+  'mcp-consent-grant-list-response': mcpConsentGrantListResponse,
   'client-identity': clientIdentity,
   'audit-actor': auditActor,
   'audit-event': auditEvent,
@@ -700,6 +708,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'mail-outcome',
   'client-provider-list-response', 'client-mcp-interaction',
   'client-mcp-interaction-decision-response',
+  'mcp-consent-grant', 'mcp-consent-grant-list-response',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',

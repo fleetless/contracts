@@ -5,7 +5,7 @@ import { z } from 'zod'
 import {
   ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH,
   clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
-  clientMcpInteraction, clientMcpInteractionDecisionResponse,
+  clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -489,6 +489,8 @@ describe('the app-user auth surface', () => {
     'PATCH /api/apps/:id/users/:userId',
     'DELETE /api/apps/:id/users/:userId',
     'POST /api/apps/:id/users/:userId/reset-password',
+    'GET /api/apps/:id/users/:userId/mcp-grants',
+    'DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId',
     'GET /api/apps/:id/invitations',
     'POST /api/apps/:id/invitations',
     'POST /api/apps/:id/invitations/:invId/reissue',
@@ -994,8 +996,22 @@ describe('the per-app MCP surface', () => {
     'POST /api/client/mcp/interactions/:id/approve',
     'POST /api/client/mcp/interactions/:id/deny',
   ]
+  /**
+   * **The withdrawal half of the same consent**, added when the grant table
+   * finally got a door. Both client rows sit under `/api/client/mcp`, so the
+   * sweep below catches them whether or not anybody remembers this list — and
+   * naming them here is what stops that sweep passing for the wrong reason.
+   */
+  const CLIENT_GRANT_ROUTES = [
+    'GET /api/client/mcp/grants',
+    'DELETE /api/client/mcp/grants/:clientId',
+  ]
+  const DEVELOPER_GRANT_ROUTES = [
+    'GET /api/apps/:id/users/:userId/mcp-grants',
+    'DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId',
+  ]
 
-  it('adds exactly eleven rows for the train, and nothing else under any of the prefixes', () => {
+  it('adds exactly thirteen rows for the train, and nothing else under any of the prefixes', () => {
     const added = ROUTES.filter(
       (r) =>
         r.path === APP_PATHS.endpoint ||
@@ -1004,9 +1020,9 @@ describe('the per-app MCP surface', () => {
         r.path.startsWith('/.well-known/oauth-authorization-server/mcp/') ||
         r.path.startsWith('/api/client/mcp'),
     )
-    const expected = [...TRANSPORT_ROUTES, ...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES, ...INTERACTION_ROUTES]
-    expect(added.map(key).sort(), 'the per-app MCP surface is exactly these eleven routes').toEqual([...expected].sort())
-    expect(added.length).toBe(11)
+    const expected = [...TRANSPORT_ROUTES, ...DISCOVERY_ROUTES, ...APP_OAUTH_ROUTES, ...INTERACTION_ROUTES, ...CLIENT_GRANT_ROUTES]
+    expect(added.map(key).sort(), 'the per-app MCP surface is exactly these thirteen routes').toEqual([...expected].sort())
+    expect(added.length).toBe(13)
     // Non-vacuity for the filter itself: the central endpoint and its own
     // OAuth server must stay OUT of it, because a filter that swept them in
     // would make the count above pass for the wrong reason.
@@ -1316,6 +1332,90 @@ describe('the per-app MCP surface', () => {
     for (const c of ['unauthorized', 'token_expired', 'token_revoked', 'forbidden']) {
       expect(read.errors, `the optional-bearer read lists the guard's ${c}`).not.toContain(c)
     }
+  })
+
+
+  /**
+   * **The withdrawal doors, as a set** — every route in this manifest that
+   * touches a consent grant, swept from the paths rather than listed only as
+   * literals, then pinned against the literals so a route that quietly
+   * disappears turns the sweep into the vacuous filter over an empty array
+   * this codebase keeps catching.
+   *
+   * Four rows and two doors: the developer's, under the app's user, and the
+   * app user's own, so the developer's product can offer a "connected apps"
+   * screen. They answer **one schema object**, not two that look alike — the
+   * export registry resolves an artifact by object identity, and a second
+   * shape would be the one that drifts.
+   *
+   * **The properties worth a set-level guard are the two rulings.** First, a
+   * withdrawal is idempotent: `204` whether or not there was a standing grant,
+   * so neither route may list `not_found` about the client id — a `404` there
+   * would answer which clients an account has connected, and would turn a
+   * double-clicked button into a refusal. The developer pair keeps
+   * `not_found`, which is about the app and the user, so the assertion is
+   * split rather than written once over all four. Second, a withdrawal does
+   * not end a session already running, and **every one of the four rows has to
+   * say so**: a residual that is stated in one row and silent in the other
+   * three is a residual the next reader will assume away.
+   */
+  it('gives both withdrawal doors one shape, an idempotent 204 and the residual in prose', () => {
+    const GRANT_ROUTES = [...DEVELOPER_GRANT_ROUTES, ...CLIENT_GRANT_ROUTES]
+    const rows = ROUTES.filter((r) => /mcp-grants|\/api\/client\/mcp\/grants/.test(r.path))
+    expect(rows.map(key).sort(), 'the consent-withdrawal surface is exactly these four routes').toEqual([...GRANT_ROUTES].sort())
+    expect(rows.length).toBe(4)
+
+    for (const r of rows) {
+      const listing = r.method === 'GET'
+      expect(r.status, key(r)).toBe(listing ? 200 : 204)
+      expect(r.response, `${key(r)} answers a shape other than the one grant listing`).toBe(listing ? mcpConsentGrantListResponse : null)
+      expect(r.request, `${key(r)} takes a body, and a withdrawal is a path`).toBeNull()
+      expect(r.rateLimited, `${key(r)} grew a limiter nobody documented`).toBe(false)
+      // The name travels only on the listings, so only they have to warn
+      // about it — a delete takes a client id and answers nothing.
+      if (listing) expect(r.notes ?? '', `${key(r)} does not say the client's name is the client's own claim`).toContain('unverified')
+    }
+
+    // The two deletes: the ruling that makes them safe to retry, and the
+    // residual — on BOTH of them rather than on the one somebody remembered,
+    // because a window stated once and silent beside it is a window the next
+    // reader assumes away.
+    for (const r of rows.filter((x) => x.method === 'DELETE')) {
+      expect(r.notes ?? '', `${key(r)} does not state the idempotency ruling`).toContain('whether or not there was')
+      expect(r.notes ?? '', `${key(r)} does not say what a withdrawal leaves running`).toContain('fifteen')
+      expect(r.errors, `${key(r)} treats a withdrawn grant as a spent credential`).not.toContain('token_spent')
+    }
+
+    // The developer half: org-scoped, and its `404` is the app and the user.
+    for (const k of DEVELOPER_GRANT_ROUTES) {
+      const r = ROUTES.find((x) => key(x) === k)!
+      expect(r.auth, `${k} is not developer-guarded`).toBe('developer')
+      expect(r.audience, k).toBe('developer')
+      expect(r.section, k).toBe('apps')
+      expect(r.errors, `${k} takes uuids in the path and cannot refuse a string that is not one`).toContain('invalid_uuid')
+      expect(r.errors, `${k} cannot say the app or the user does not exist`).toContain('not_found')
+    }
+
+    // The client half: the bearer's own account, so there is no id to get
+    // wrong — and therefore nothing for a `404` or an `invalid_uuid` to be
+    // about. A row listing either would document a refusal these cannot send.
+    const clientGuard = ROUTES.find((r) => key(r) === 'GET /api/client/me')!.errors
+    for (const k of CLIENT_GRANT_ROUTES) {
+      const r = ROUTES.find((x) => key(x) === k)!
+      expect(r.auth, `${k} does not go through the shared client guard`).toBe('developer_or_client')
+      expect(r.audience, k).toBe('client')
+      expect(r.section, k).toBe('client-auth')
+      for (const c of clientGuard) expect(r.errors, `${k} does not list the guard's ${c}`).toContain(c)
+      expect(r.errors, `${k} answers a 404 about an account the bearer already names`).not.toContain('not_found')
+      expect(r.errors, `${k} refuses a uuid it never takes`).not.toContain('invalid_uuid')
+      expect(r.notes ?? '', `${k} does not say a developer bearer or a server key is refused`).toContain('server key')
+    }
+
+    // And the field that must never become a boolean: a client claiming its
+    // name is verified is refused by the schema, not merely undocumented.
+    const row = { client_id: 'mcpdyn_abc', client_name: 'Some Client', granted_at: new Date().toISOString() }
+    expect(mcpConsentGrant.safeParse({ ...row, client_name_verified: false }).success).toBe(true)
+    expect(mcpConsentGrant.safeParse({ ...row, client_name_verified: true }).success, 'client_name_verified admits a verified case').toBe(false)
   })
 
   /** The code this family answers, registered rather than assumed, and distinct from the credential one. */

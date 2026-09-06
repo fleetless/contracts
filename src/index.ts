@@ -502,6 +502,8 @@ export {
   clientOidcErrorCode,
   clientMcpInteraction,
   clientMcpInteractionDecisionResponse,
+  mcpConsentGrant,
+  mcpConsentGrantListResponse,
   clientIdentity,
 } from './client-auth.js'
 export type {
@@ -522,6 +524,8 @@ export type {
   ClientOidcErrorCode,
   ClientMcpInteraction,
   ClientMcpInteractionDecisionResponse,
+  McpConsentGrant,
+  McpConsentGrantListResponse,
   ClientIdentity,
 } from './client-auth.js'
 // 2026-09-05 — the per-app identity space (app-user-auth, D1/D3/D4/D5).

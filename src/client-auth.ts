@@ -406,7 +406,7 @@ export const clientMcpInteraction = z.object({
     description: 'Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
   }),
   scopes: z.array(z.string()).meta({ description: 'The scopes the client asked for, to show the person before they approve.' }),
-  already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client. It is a record of what they answered last time and nothing more: **the server performs no second check of it**, so an app that skips its own consent screen when this is `true` is the only thing deciding, and approve succeeds identically for a user who holds no grant at all. Withdrawing a grant is a developer action in the console; there is no end-user withdrawal on this surface yet, which is the other reason to keep showing the screen.' }),
+  already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client. It is a record of what they answered last time and nothing more: **the server performs no second check of it**, so an app that skips its own consent screen when this is `true` is the only thing deciding, and approve succeeds identically for a user who holds no grant at all. Withdrawing it is `DELETE /api/client/mcp/grants/:clientId` for the person themselves and `DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId` for the developer. A withdrawal makes this `false` again at the next authorization and does not end an MCP session already running: the access token it minted stays valid for the rest of its fifteen minutes, and no refresh grant exists to extend it.' }),
   expires_at: z.iso.datetime().meta({ description: 'When the interaction stops being approvable. Ten minutes from the authorize step; afterwards both approve and deny answer `interaction_expired`.' }),
 })
 export type ClientMcpInteraction = z.infer<typeof clientMcpInteraction>
@@ -423,6 +423,52 @@ export const clientMcpInteractionDecisionResponse = z.object({
   }),
 })
 export type ClientMcpInteractionDecisionResponse = z.infer<typeof clientMcpInteractionDecisionResponse>
+
+/**
+ * **One standing MCP consent, as both withdrawal doors list it.**
+ *
+ * A grant is what lets a later authorization skip the app's consent screen:
+ * `clientMcpInteraction.already_granted` is a read of exactly this row. It is
+ * written when a person approves and it is removed by neither the client's
+ * registration lapsing nor its access token expiring — so without a door it
+ * was a decision a person could make once and never unmake.
+ *
+ * **Standing only.** A withdrawn grant is stamped rather than deleted, so the
+ * store still holds it; neither listing returns one. The question both doors
+ * ask is *what is connected right now*, and a row that answered "connected,
+ * but no" would be a state every caller has to filter for itself.
+ *
+ * `client_name_verified` is `z.literal(false)` for the reason
+ * `clientMcpInteraction` gives at length: the name comes from an
+ * unauthenticated dynamic registration, the client chose it about itself, and
+ * a list that rendered it as an identity would be teaching people to trust a
+ * string an attacker picked. Here it matters more than on the consent screen,
+ * not less — a "connected apps" list is read long after the moment of
+ * approval, when nobody remembers what they clicked.
+ */
+export const mcpConsentGrant = z.object({
+  client_id: z.string().meta({
+    description: 'The MCP client this consent is for, as its dynamic registration was issued. It is the value the withdrawal routes take in their path, and it is the only stable handle on a client — the name beside it is not one.',
+  }),
+  client_name: z.string().nullable().meta({
+    description: 'What the client calls itself, or `null` when its registration is gone and there is no longer anything to have named. **Unverified** — see `client_name_verified`.',
+  }),
+  client_name_verified: z.literal(false).meta({
+    description: 'Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
+  }),
+  granted_at: z.iso.datetime().meta({
+    description: 'When the consent was last given. A withdrawal followed by a fresh approval moves it, because the second approval is the agreement that stands — it is not a record of the first time anybody ever said yes.',
+  }),
+})
+export type McpConsentGrant = z.infer<typeof mcpConsentGrant>
+
+/** What both grant listings answer. Never null: a person who has connected nothing gets an empty array, and an absent key would make "nothing" and "not answered" the same reading. */
+export const mcpConsentGrantListResponse = z.object({
+  grants: z.array(mcpConsentGrant).meta({
+    description: 'Every standing consent this app user holds, newest first. Withdrawn ones are absent rather than listed as withdrawn; an app user who has connected no MCP client answers an empty array.',
+  }),
+})
+export type McpConsentGrantListResponse = z.infer<typeof mcpConsentGrantListResponse>
 
 /* -------------------------------------------------------- who am I -- */
 

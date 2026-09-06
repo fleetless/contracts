@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "The MCP client this consent is for, as its dynamic registration was issued. It is the value the withdrawal routes take in their path, and it is the only stable handle on a client — the name beside it is not one."
+          },
+          "client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the client calls itself, or `null` when its registration is gone and there is no longer anything to have named. **Unverified** — see `client_name_verified`."
+          },
+          "client_name_verified": {
+            "type": "boolean",
+            "const": false,
+            "description": "Always `false`. The client registered itself without authentication and chose this name about itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the consent was last given. A withdrawal followed by a fresh approval moves it, because the second approval is the agreement that stands — it is not a record of the first time anybody ever said yes."
+          }
+        },
+        "required": [
+          "client_id",
+          "client_name",
+          "client_name_verified",
+          "granted_at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every standing consent this app user holds, newest first. Withdrawn ones are absent rather than listed as withdrawn; an app user who has connected no MCP client answers an empty array."
+    }
+  },
+  "required": [
+    "grants"
+  ],
+  "additionalProperties": false
+}

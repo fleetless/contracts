@@ -37,7 +37,7 @@
     },
     "already_granted": {
       "type": "boolean",
-      "description": "Whether this user has already approved this client. It is a record of what they answered last time and nothing more: **the server performs no second check of it**, so an app that skips its own consent screen when this is `true` is the only thing deciding, and approve succeeds identically for a user who holds no grant at all. Withdrawing a grant is a developer action in the console; there is no end-user withdrawal on this surface yet, which is the other reason to keep showing the screen."
+      "description": "Whether this user has already approved this client. It is a record of what they answered last time and nothing more: **the server performs no second check of it**, so an app that skips its own consent screen when this is `true` is the only thing deciding, and approve succeeds identically for a user who holds no grant at all. Withdrawing it is `DELETE /api/client/mcp/grants/:clientId` for the person themselves and `DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId` for the developer. A withdrawal makes this `false` again at the next authorization and does not end an MCP session already running: the access token it minted stays valid for the rest of its fifteen minutes, and no refresh grant exists to extend it."
     },
     "expires_at": {
       "type": "string",
