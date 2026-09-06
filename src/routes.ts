@@ -665,7 +665,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: createAppUserRequest, response: appUser,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'email_taken', 'target_state_conflict', 'quota_exceeded'], transport: 'http',
     notes:
       'The developer-authenticated door into the app\'s user table, and the one place `409 email_taken` is an honest answer about an app user: ' +
       'the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the ' +
@@ -676,7 +676,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering ' +
       'somebody by hand has made the decision the verification mail automates, and its address counts as proven. `409 target_state_conflict` ' +
       'names `default_role_id` when `role_id` is absent and the app has no default role, or its default names a role that no longer resolves ' +
-      '— a user with no role holds rights nothing in this app can read, so nothing is created.',
+      '— a user with no role holds rights nothing in this app can read, so nothing is created. \n\n**`409 quota_exceeded` when the org holds as ' +
+      'many app users as `max_end_users` allows**, counted across every app of the org — the same number `GET /api/org/quotas` reports as ' +
+      '`usage.max_end_users`, since the same address in two apps is two accounts. `details` carries `{ quota, limit }`, as every count quota\'s ' +
+      'refusal does. The check is at **creation** only: an existing user signs in, is patched and is deleted at the quota exactly as under it, ' +
+      'because a protection limit that also froze the accounts already made would be an outage rather than a limit.',
   },
   {
     method: 'GET', path: '/api/apps/:id/users/:userId', section: 'apps',
@@ -769,7 +773,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'The support door beside `DELETE /api/client/mcp/grants/:clientId`, which is the same act by the person themselves. Audited as ' +
-      '`app_user.mcp_grant_revoked` with the client id and nothing else. \n\n**`204` whether or not there was anything to withdraw**, so a ' +
+      '`app_user.mcp_grant_revoked`, whose `details` carry the client id and the app\'s uuid — and nothing else, in particular no token and ' +
+      'no name the client chose for itself. \n\n**`204` whether or not there was anything to withdraw**, so a ' +
       'double-clicked button and a client id no grant names both land on the end state the caller asked for. The alternative — `404` for a ' +
       'client this user never approved — would make the route an oracle for which clients somebody has connected, answered before the ' +
       'listing beside it was read; and it would turn the ordinary retry into a refusal. Only a withdrawal that actually ended a standing ' +
@@ -1618,7 +1623,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Creates an app user in the `pending_verification` state and mails them a verification link.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
     params: [], query: null, request: clientRegisterRequest, response: null,
-    errors: ['rate_limited', 'validation_error', 'not_found', 'registration_closed', 'domain_not_allowed', 'target_state_conflict'],
+    errors: ['rate_limited', 'validation_error', 'not_found', 'registration_closed', 'domain_not_allowed', 'target_state_conflict', 'quota_exceeded'],
     transport: 'http',
     notes:
       '**`202` and an empty body for every request policy allows** — a new address, one this app already knows and one it does not answer ' +
@@ -1637,7 +1642,12 @@ export const ROUTES: readonly RouteEntry[] = [
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
       'configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — ' +
-      'there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing.',
+      'there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing. ' +
+      '\n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal ' +
+      'here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a ' +
+      'quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which ' +
+      'is precisely the enumeration oracle every other line of this route exists to close. At the quota, every registration is refused ' +
+      'identically, including one that would only have re-mailed a pending account\'s link.',
   },
   {
     method: 'POST', path: '/api/client/verify-email', section: 'client-auth',
@@ -1704,7 +1714,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Spends an invitation token, creates or activates the app user and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: clientAcceptInvitationRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken', 'target_state_conflict'], transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken', 'target_state_conflict', 'quota_exceeded'], transport: 'http',
     notes:
       '**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a ' +
       'session, because the person is landing in the developer\'s app and there is no second door for them to sign in through. The role is the ' +
@@ -1720,7 +1730,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'invitation\'s role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 ' +
       'target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the ' +
       'app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse ' +
-      'than saying so.',
+      'than saying so. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted ' +
+      'across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an ' +
+      'unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account ' +
+      'larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link ' +
+      'still works.',
   },
   {
     method: 'POST', path: '/api/client/refresh', section: 'client-auth',
@@ -2579,7 +2593,11 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'Every dial is read at the moment of the call and nothing is cached, so an exhausted quota is self-evident from this one answer rather ' +
       'than something a developer needs audit access to discover. `max_end_users` counts app users only — an org admin is not an app user, and ' +
-      'counting the whole pool would report the Owner an org has by construction as consumption.',
+      'counting the whole pool would report the Owner an org has by construction as consumption. It is summed **across the org\'s apps**, ' +
+      'because the same address in two apps is two accounts, and that sum is the number the four routes that create an app user refuse ' +
+      '`409 quota_exceeded` against: `POST /api/apps/:id/users`, `POST /api/client/register`, `POST /api/client/invitations/accept`, and a ' +
+      'federated sign-in that would create an account, which carries `quota_exceeded` back to the app as its error redirect. A gauge nothing ' +
+      'enforces is a number that reads as a limit and is not one.',
   },
   {
     method: 'GET', path: '/api/org/health', section: 'org',

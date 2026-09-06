@@ -214,7 +214,7 @@ describe('the enums, by arity AND content', () => {
     expect(mailTemplateKind.options).toEqual(['invite', 'verify', 'reset'])
   })
 
-  it('clientOidcErrorCode is exactly the eleven callback outcomes', () => {
+  it('clientOidcErrorCode is exactly the twelve callback outcomes', () => {
     expect(clientOidcErrorCode.options).toEqual([
       'no_access',
       'email_taken',
@@ -227,6 +227,11 @@ describe('the enums, by arity AND content', () => {
       'provider_misconfigured',
       'provider_disabled',
       'invalid_request',
+      // The twelfth (train 5 review, G2): the org is at `max_end_users` and
+      // this identity would need an account created. Its own code rather than
+      // `no_access`, for `domain_not_allowed`'s reason — it is not about the
+      // person, and the remedy belongs to the developer.
+      'quota_exceeded',
     ])
   })
 

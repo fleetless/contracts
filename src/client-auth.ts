@@ -365,6 +365,14 @@ export type ClientOidcExchangeRequest = z.infer<typeof clientOidcExchangeRequest
  *   `provider_misconfigured`, `provider_disabled` — the provider's or the
  *   developer's to fix, and the app can say so.
  * - `invalid_request` — the start parameters did not hold up.
+ * - `quota_exceeded` — the org has as many app users as its `max_end_users`
+ *   quota allows, so no account can be created for this identity. Named rather
+ *   than folded into `no_access`, for `domain_not_allowed`'s reason: it is not
+ *   about the person, the app can say what happened, and the remedy belongs to
+ *   the developer rather than to whoever is trying to sign in. It is raised
+ *   **only where an account would be created** — an identity that already has
+ *   one signs in at the quota exactly as it does under it, because refusing a
+ *   sign-in would turn a protection limit into an outage.
  */
 export const clientOidcErrorCode = z.enum([
   'no_access',
@@ -378,6 +386,7 @@ export const clientOidcErrorCode = z.enum([
   'provider_misconfigured',
   'provider_disabled',
   'invalid_request',
+  'quota_exceeded',
 ])
 export type ClientOidcErrorCode = z.infer<typeof clientOidcErrorCode>
 
