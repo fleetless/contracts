@@ -1429,12 +1429,17 @@ describe('the per-app MCP surface', () => {
    * would answer which clients an account has connected, and would turn a
    * double-clicked button into a refusal. The developer pair keeps
    * `not_found`, which is about the app and the user, so the assertion is
-   * split rather than written once over all four. Second, a withdrawal does
-   * not end a session already running, and **every one of the four rows has to
-   * say so**: a residual that is stated in one row and silent in the other
-   * three is a residual the next reader will assume away.
+   * split rather than written once over all four. Second, a withdrawal now
+   * ends a session already running — the app's MCP endpoint reads the consent
+   * table on every request — and **both delete rows have to say when it
+   * bites**: at the withdrawn client's next call, not when its token expires.
+   * That replaces the residual this pin used to require. It is asserted on
+   * both rows rather than on the one somebody remembered, and the retired
+   * sentence is asserted ABSENT from both: a row still promising that a live
+   * session survives is worse than a row that says nothing, because a reader
+   * who finds it stops looking.
    */
-  it('gives both withdrawal doors one shape, an idempotent 204 and the residual in prose', () => {
+  it('gives both withdrawal doors one shape, an idempotent 204 and one story about live sessions', () => {
     const GRANT_ROUTES = [...DEVELOPER_GRANT_ROUTES, ...CLIENT_GRANT_ROUTES]
     const rows = ROUTES.filter((r) => /mcp-grants|\/api\/client\/mcp\/grants/.test(r.path))
     expect(rows.map(key).sort(), 'the consent-withdrawal surface is exactly these four routes').toEqual([...GRANT_ROUTES].sort())
@@ -1451,13 +1456,16 @@ describe('the per-app MCP surface', () => {
       if (listing) expect(r.notes ?? '', `${key(r)} does not say the client's name is the client's own claim`).toContain('unverified')
     }
 
-    // The two deletes: the ruling that makes them safe to retry, and the
-    // residual — on BOTH of them rather than on the one somebody remembered,
-    // because a window stated once and silent beside it is a window the next
-    // reader assumes away.
+    // The two deletes: the ruling that makes them safe to retry, and when the
+    // withdrawal bites — on BOTH of them rather than on the one somebody
+    // remembered, because a statement made once and silent beside it is one
+    // the next reader assumes the opposite of.
     for (const r of rows.filter((x) => x.method === 'DELETE')) {
-      expect(r.notes ?? '', `${key(r)} does not state the idempotency ruling`).toContain('whether or not there was')
-      expect(r.notes ?? '', `${key(r)} does not say what a withdrawal leaves running`).toContain('fifteen')
+      const notes = r.notes ?? ''
+      expect(notes, `${key(r)} does not state the idempotency ruling`).toContain('whether or not there was')
+      expect(notes, `${key(r)} does not say when a withdrawal reaches a live session`).toContain('next call')
+      // The sentence this surface used to carry, and must not carry again.
+      expect(notes, `${key(r)} still promises that a live session survives a withdrawal`).not.toMatch(/does not end (an|a live) (MCP )?session/)
       expect(r.errors, `${key(r)} treats a withdrawn grant as a spent credential`).not.toContain('token_spent')
     }
 

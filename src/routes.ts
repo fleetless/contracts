@@ -782,11 +782,12 @@ export const ROUTES: readonly RouteEntry[] = [
       'client this user never approved — would make the route an oracle for which clients somebody has connected, answered before the ' +
       'listing beside it was read; and it would turn the ordinary retry into a refusal. Only a withdrawal that actually ended a standing ' +
       'agreement writes an audit event, so the log counts consents ended rather than buttons pressed. **`404` is still the app and the ' +
-      'user**, which are the two things the caller must own. \n\n**It does not end an MCP session already running.** The access token that ' +
-      'consent produced is a fifteen-minute bearer the transport checks against the account, not against this table, so a session in flight ' +
-      'survives until it expires; there is no refresh grant on this authorization server, so nothing can extend it, and the next ' +
-      'authorization shows the consent screen again. Blocking the account (`PATCH /api/apps/:id/users/:userId`) is what ends a live session ' +
-      'now, and it ends every one of their sessions rather than this client\'s.',
+      'user**, which are the two things the caller must own. \n\n**It ends a session already running, at that client\'s very next call.** ' +
+      'The app\'s MCP endpoint reads this table on every request, beside the account checks it already makes, so a withdrawn client is ' +
+      'answered `401` with the `WWW-Authenticate` challenge that sends it back to the consent screen. The refusal is keyed on the ' +
+      '`client_id` the access token carries, so it bites at the next call rather than at the next token: that token is still unexpired — ' +
+      'up to fifteen minutes are left on it — and is refused anyway. Only this client stops. The person\'s other clients and their own use ' +
+      'of the app are untouched, which is the difference from blocking the account (`PATCH /api/apps/:id/users/:userId`).',
   },
 
   {
@@ -1480,8 +1481,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'a developer turning it off ends the sessions already running, and it is decided **before the bearer is looked at** — the reverse of ' +
       'the usual order, and deliberate: it is a fact about the path, an app identifier is public, and an absent server that answered `401` ' +
       'would send a client hunting a credential no credential can satisfy. `401 unauthorized` is a missing, unverifiable or expired bearer, ' +
-      'or an `aud` that is not this endpoint. `403 forbidden` is a token that verifies and is not this app\'s user: another app\'s session, a ' +
-      'Fleetless user\'s central `mcp_session`, an account that is `blocked` or still `pending_verification`, or a foreign `Origin`.',
+      'an `aud` that is not this endpoint, or **a consent this person has since withdrawn from the client the token was minted for**: the ' +
+      'access token names its client, and the standing consent is re-read here on every request exactly as the account is, so ' +
+      '`DELETE /api/client/mcp/grants/:clientId` and its developer twin bite at the next call rather than when the token expires. `403 ' +
+      'forbidden` is a token that verifies and is not this app\'s user: another app\'s session, a Fleetless user\'s central `mcp_session`, ' +
+      'an account that is `blocked` or still `pending_verification`, or a foreign `Origin`.',
   },
   {
     method: 'GET', path: MCP_APP.endpoint, section: 'mcp',
@@ -1989,11 +1993,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'with the app user themselves as the actor. \n\n**`204` whether or not there was ' +
       'anything to withdraw.** A client id this account never approved, and one it withdrew a minute ago, both answer the end state that was ' +
       'asked for: a `404` would tell the caller which clients some account has connected, and would make the ordinary double-click a ' +
-      'failure. Only a withdrawal that ended a standing agreement is audited. \n\n**It does not end an MCP session already running.** That ' +
-      'consent minted a fifteen-minute access token, and the MCP transport checks it against the account rather than against this table, so ' +
-      'a session in flight survives until it expires. Nothing can extend it — this authorization server issues no refresh tokens — and the ' +
-      'next authorization asks again. An app that needs a client cut off **now** blocks the account, which ends every session that account ' +
-      'holds rather than this client\'s alone.',
+      'failure. Only a withdrawal that ended a standing agreement is audited. \n\n**It ends a session already running, at that client\'s ' +
+      'very next call.** The app\'s MCP endpoint reads this table on every request and keys the check on the `client_id` the access token ' +
+      'carries, so the withdrawn client is answered `401` with a challenge and has to ask this person again. The token it holds is still ' +
+      'unexpired — up to fifteen minutes are left on it — and is refused anyway. Nothing else stops: this ends one client, not the ' +
+      'account, which is what blocking would end.',
   },
 
   /* ------------------------------------------------------------- robots */
