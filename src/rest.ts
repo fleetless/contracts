@@ -483,7 +483,7 @@ export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
  * **This union exists so the route can name a response at all.** The entry
  * carried `response: null` while the handler demonstrably answers something,
  * which reads in the generated reference as *this route returns nothing* —
- * the documented absence this project keeps paying for. A `null` there should
+ * a documented absence. A `null` there should
  * mean `204`, and on this route it did not.
  */
 export const invokeOrServiceResponse = z.union([invokeResponse, serviceCallResponse])
@@ -619,7 +619,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * surface minted it cannot be routed correctly by anything.
  *
  * So the link shapes are fixed here rather than in whichever repo builds them.
- * **They moved to the auth portal** (auth-portal spec `2026-08-30`, D-A1): the
+ * **They moved to the auth portal**: the
  * console serves no credential page at all any more, and `{portal}` is the
  * cloud's `AUTH_PUBLIC_URL` — `auth.fleetless.dev` where the deployment has
  * that vhost, the cloud's own base where it does not, since the cloud renders
@@ -631,7 +631,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | team invitation                | `{portal}/accept-invite/{token}` |
  *
  * **An app user's links are not in this table, and cannot be** (2026-09-05,
- * D2/D5). Fleetless renders an app user no page, so there is no `{portal}` path
+ * Fleetless renders an app user no page, so there is no `{portal}` path
  * to name: the link points into the **developer's own app**, at the template
  * they configured (`appAuthConfig.invite_url`, `verify_url`, `reset_url`), with
  * the token substituted for `{token}`. That is why those fields are validated
@@ -642,7 +642,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * not a row to restore"*. It was designed; the answer was that the row belongs
  * to the developer and not to this table.
  *
- * The strings themselves live in `cloud/src/portal-paths.ts`, read by the
+ * The strings themselves live server-side, read by the
  * route that serves each page AND by the builder that mails it — one constant,
  * because the defect this table records happened again after it was written:
  * the mailer, the page and this table can each spell a path differently, and

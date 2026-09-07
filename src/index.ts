@@ -404,7 +404,7 @@ export {
   // 2026-09-04 — the public site (closed beta).
   waitlistRequest,
   developerLoginRequest,
-  // 2026-09-05 — the two identity spaces (app-user-auth, D1).
+  // The two identity spaces.
   USER_DISPLAY_NAME_MAX,
   orgAdminTier,
   fleetlessUser,
@@ -528,7 +528,7 @@ export type {
   McpConsentGrantListResponse,
   ClientIdentity,
 } from './client-auth.js'
-// 2026-09-05 — the per-app identity space (app-user-auth, D1/D3/D4/D5).
+// The per-app identity space.
 export {
   APP_USER_DISPLAY_NAME_MAX,
   APP_URL_PLACEHOLDERS,

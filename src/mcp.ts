@@ -40,7 +40,7 @@ export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
  *
  * **Not parameterised, and that is now a statement rather than the absence of
  * one.** The central endpoint serves the org's team with the console tool
- * family (2026-09-05, D7); an app's users reach a different endpoint, whose
+ * family; an app's users reach a different endpoint, whose
  * path `mcpAppEndpointPath` builds. Two constants for two audiences, so a call
  * site says which it means instead of an argument deciding it.
  *
@@ -53,7 +53,7 @@ export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
 export const MCP_ENDPOINT_PATH = '/mcp' as const
 
 /**
- * The path of **one app's** MCP server (D7) — what an app user pastes into
+ * The path of **one app's** MCP server — what an app user pastes into
  * their AI tool, served only while the app's `appAuthConfig.mcp_enabled` is on.
  *
  * A helper rather than a template literal at four call sites, for
@@ -80,7 +80,7 @@ export function mcpAppEndpointPath(appIdentifier: string): string {
 
 /**
  * **Every path one app's MCP server answers on, built from its identifier
- * once** (D7).
+ * once**.
  *
  * Six strings, and each of them is spelled in at least three places that
  * cannot see one another: the cloud registers the route, the console renders a

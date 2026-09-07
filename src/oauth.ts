@@ -2,7 +2,7 @@
 import { z } from 'zod'
 
 /**
- * **OAuth 2.1, and it remains only for MCP** (2026-09-05 app-user-auth, D8).
+ * **OAuth 2.1, and it remains only for MCP.**
  *
  * This file used to describe two front doors: an app's end users signing in
  * through a Fleetless-hosted, app-branded login page, and MCP clients signing
@@ -81,8 +81,8 @@ export const oauthError = z.object({
    * makes the two indistinguishable to the caller, and *a field that cannot
    * express a distinction produces a workaround somewhere else*. Answering in
    * `apiError` instead would keep the distinction and hand an RFC-compliant
-   * client a body it cannot parse — which is the conformance this wave exists
-   * to provide.
+   * client a body it cannot parse, which is the conformance this dialect
+   * exists to provide.
    *
    * So both: `error` is what a standard client reads, `fleetless_code` is what
    * our own tooling switches on. RFC 6749 §5.2 permits additional members, and
@@ -114,8 +114,7 @@ export const redirectUri = z
     (v) => {
       // Parsed, not prefix-matched. `startsWith('https://')` alone accepts the
       // literal string `https://` and anything else that merely opens with
-      // those characters — a shape check standing in for a value check, which
-      // is the failure this project keeps meeting under other names.
+      // those characters — a shape check standing in for a value check.
       let url: URL
       try {
         url = new URL(v)
@@ -245,10 +244,9 @@ export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegi
  * **The MCP token endpoint's request — one grant, because the servers serve
  * one.**
  *
- * Both authorization servers, central and per-app, exchange through
- * `exchangeMcpAuthorizationCode` (`cloud/src/mcp-oauth-core.ts`), whose first
- * act is to refuse anything but `authorization_code` before a single lookup
- * happens. There is no refresh grant here: a session ends when its token
+ * Both authorization servers, central and per-app, exchange through one
+ * implementation, whose first act is to refuse anything but
+ * `authorization_code` before a single lookup happens. There is no refresh grant here: a session ends when its token
  * expires and the client signs in again.
  *
  * **This was a `discriminatedUnion` with a `refresh_token` branch, and that
@@ -421,14 +419,13 @@ export type OauthRedirectResponse = z.infer<typeof oauthRedirectResponse>
  * differently, and it worked — but every path it held belonged to the app-level
  * OAuth flow (`authorize`, `token`, `register`, `consent`, `login`,
  * `impersonate`, `idpCallback`) or to the stub resource's metadata documents,
- * and OAuth 2.1 now remains only for MCP (D8). The MCP authorization server
- * builds its own paths in `cloud/src/routes/mcp-oauth.ts`, where they are read
- * by one file rather than by two repositories.
+ * and OAuth 2.1 now remains only for MCP. The MCP authorization server builds
+ * its own paths, where they are read by one file rather than by two.
  *
- * Deleted rather than left with the four entries whose routes this train also
- * removes, because that is precisely the defect this constant was created after
- * and then reproduced: its `idpStart` entry named a route the cloud had deleted
- * and stood for months with nothing noticing. A constant whose every value
+ * Deleted rather than left holding entries whose routes are gone, which is the
+ * defect it was created to prevent and then reproduced: an entry naming a route
+ * the server had deleted stood for months with nothing noticing. A constant
+ * whose every value
  * names a deleted route is that failure at full size.
  */
 
@@ -445,7 +442,7 @@ export type OauthRedirectResponse = z.infer<typeof oauthRedirectResponse>
  * shape and the documentation, not the error path.
  *
  * **Four route entries point at it**: `GET /mcp/oauth/authorize` and
- * `GET /mcp/:appIdentifier/oauth/authorize` (D7), which read the same wire.
+ * `GET /mcp/:appIdentifier/oauth/authorize`, which read the same wire.
  * They spent a release naming nothing — the app-level `/oauth/authorize` this
  * was written for was deleted, and `query: null` was read as "there is no
  * query here" rather than as "the handler reads it by hand" — and the eight
@@ -479,10 +476,9 @@ export const oauthAuthorizeQuery = z
     // **No `scope`, because this authorization server issues none.** The field
     // was here describing itself as "carried onto the interaction and read
     // again at consent"; neither authorize handler reads it, the interaction
-    // row has no column for it, and the consent screen answers `scopes: []`
-    // from a comment that says so in as many words
-    // (`cloud/src/routes/client-mcp-interactions.ts`). A parameter documented
-    // as carried and in fact dropped is worse than one that is absent.
+    // row has no column for it, and the consent screen answers `scopes: []`.
+    // A parameter documented as carried and in fact dropped is worse than one
+    // that is absent.
   })
   .meta({
     description: 'The authorization request an MCP client sends, per RFC 6749 §4.1.1 with mandatory PKCE. The handler reads it parameter by parameter rather than through one parse, because the answers differ: `client_id` and `redirect_uri` are refused flat, with no redirect, since until both are confirmed there is no trusted target to bounce a browser to, and everything after them is reported to the client\'s own callback as query parameters.',
@@ -494,10 +490,10 @@ export type OauthAuthorizeQuery = z.infer<typeof oauthAuthorizeQuery>
  *
  * It carried one parameter, `app_identifier`, on the argument that RFC 7591's
  * registration body has no field for it and one endpoint could serve every
- * app. It was kept — explicitly, in its own doc comment — "for the per-app MCP
- * registration the MCP train adds (D7), which needs exactly this parameter".
+ * app. It was kept — explicitly, in its own doc comment — for a per-app MCP
+ * registration that was said to need exactly this parameter.
  *
- * **That train shipped and needed no such parameter.** `POST
+ * **That registration shipped and needed no such parameter.** `POST
  * /mcp/:appIdentifier/oauth/register` puts the app in the **path**, built by
  * `MCP_APP_PATHS`, and `resolveAppMcpTarget` reads it from `request.params`;
  * `registerMcpDynamicClient` never looks at a query at all. So the one reason

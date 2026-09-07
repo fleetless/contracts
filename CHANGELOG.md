@@ -5,6 +5,35 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html) over
 the wire shapes.
 
+## [1.0.3] — 2026-09-07
+
+The second half of 1.0.2's sweep. **No wire shape changes**: every file under
+`artifacts/schema-outgoing/` is byte-identical to 1.0.2, as are 226 of the 227
+files under `artifacts/schema/` — the one that moves carries a reworded
+`scopes` description. What changes is who the prose is addressed to.
+
+### Fixed
+
+- **Descriptions and comments that spoke inward.** 1.0.2 removed the markers — a
+  ticket id, a robot's hostname, a German paragraph — and left the stance. Text
+  that named an internal decision label (`D2`, `D7`), pointed at a file in
+  another repository (`cloud/src/routes/config.ts`), said "this project" or
+  "this repository", cited a document a reader does not have, or explained how
+  somebody discovered the behaviour rather than what the behaviour is. All of it
+  is rewritten for a reader who has only this package: 13 descriptions and every
+  affected doc comment across all 20 modules.
+- **The guard now covers that half too.** `test/published-prose.test.ts` gained
+  five patterns — an internal decision label, a path into another repository, a
+  reference to this project, a reference to a document the reader does not have,
+  and how-it-was-found prose — each with fixtures asserting both what it must
+  catch and what it must leave alone, because "caught by the body schema" and
+  "the row is found by token hash" are ordinary English and a detector that
+  reddens on them is one somebody deletes.
+- **The German detector no longer trips on a URL.** A path segment is not prose,
+  and `von`, `bei`, `nach` and `wie` are all ordinary path segments. URLs are
+  removed before that scan; a fixture asserts a URL alone stays green and that
+  one beside German prose still goes red.
+
 ## [1.0.2] — 2026-09-07
 
 A documentation and packaging release. (1.0.1 was tagged and never published:

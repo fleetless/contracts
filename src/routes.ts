@@ -287,16 +287,16 @@ export const IN_HANDLER_ROUTES: readonly string[] = [
  * **The three refusals every `auth: 'developer'` route inherits from its guard**,
  * spelled once rather than retyped eighty times.
  *
- * They are the arms of `cloud/src/auth.ts`'s `requireDeveloper`: no bearer or an
- * unverifiable one is `401 unauthorized`, an expired one `401 token_expired`, a
+ * They are the arms of the developer guard: no bearer or an unverifiable one is
+ * `401 unauthorized`, an expired one `401 token_expired`, a
  * vanished account or a bumped `token_version` `401 token_revoked`.
  *
  * **Three, not four: `403 forbidden` went with the Org Admins group.** It stood
  * for "an account that is no longer in the org's Org Admins group", and the
- * two-space cut leaves a Fleetless user who IS the team — `TokenRefusalReason`
- * in `cloud/src/auth.ts` is `'expired' | 'revoked' | 'invalid'`, and
- * `createRequireDeveloper` answers 401 codes only. A removed team member now
- * gets `401 token_revoked`; a reader of the API reference who branched on
+ * two identity spaces leave a Fleetless user who IS the team, and the guard's
+ * refusal reasons are `'expired' | 'revoked' | 'invalid'` — 401 codes only. A
+ * removed team member gets `401 token_revoked`; a reader of the API reference
+ * who branched on
  * `forbidden` to render "you lost console access" was branching on an answer no
  * developer-guarded route can send. The `forbidden` producers that remain
  * (`history.ts`, `commands.ts`, `cameras.ts`, `robots.ts`, `mcp.ts`) all sit on
@@ -318,15 +318,15 @@ const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked'] as co
  * **The same four codes, not five.** `sendTokenRefusal` has a fifth arm,
  * `account_blocked`, and this list carried it for exactly one commit. Nothing
  * reaches it: `TokenRefusalReason` admits `'blocked'`, but no site in
- * `cloud/src` constructs one — the only reasons ever returned are `'invalid'`,
- * `'revoked'` and `'forbidden'`. `auth.ts` says why on the line where the check
- * used to be: D2 replaced "block the account" with "remove the assignment", so
- * an app user who loses access loses it because no assignment resolves, and
- * there is no blocked state left to re-check.
+ * the cloud constructs one — the only reasons ever returned are `'invalid'`,
+ * `'revoked'` and `'forbidden'`. Access is withdrawn by removing an assignment
+ * rather than by blocking an account, so an app user who loses access loses it
+ * because no assignment resolves, and there is no blocked state left to
+ * re-check.
  *
  * Listing it would have documented a refusal no caller can receive — the same
- * mistake as the `invalid_token` above, found by review rather than by any test
- * here, because a code in `ERROR_CODES` satisfies every check this file has.
+ * mistake as the `invalid_token` above. No check here catches it, because a
+ * code in `ERROR_CODES` satisfies every one of them.
  *
  * It keeps `forbidden`, which `DEVELOPER_GUARD` no longer carries: this guard's
  * routes have live 403 producers — a slug the role does not grant
@@ -676,7 +676,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` ' +
       'is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one ' +
       'would carry rights nothing in this app can resolve. **The password policy answers `400 validation_error`**, not a code of its own: the ' +
-      'twelve-character minimum is the `password` field\'s schema rule, and every route in this repository that takes a password refuses a ' +
+      'twelve-character minimum is the `password` field\'s schema rule, and every route that takes a password refuses a ' +
       'short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering ' +
       'somebody by hand has made the decision the verification mail automates, and its address counts as proven. `409 target_state_conflict` ' +
       'names `default_role_id` when `role_id` is absent and the app has no default role, or its default names a role that no longer resolves ' +
@@ -857,7 +857,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'and an answer saying so would tell whoever still holds the link that it was once real.',
   },
 
-  /* --------------------------------------- the app's OIDC providers (D4) */
+  /* ------------------------------------------- the app's OIDC providers */
   {
     method: 'GET', path: '/api/apps/:id/oidc-providers', section: 'apps',
     summary: "Lists every OIDC provider configured on the app, enabled or not.",
@@ -1279,7 +1279,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: null,
     errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
     notes:
-      'The identifier-first step, with nothing left to identify: Fleetless users are password-only (design D1/D7), so **this step does not ' +
+      'The identifier-first step, with nothing left to identify: Fleetless users are password-only, so **this step does not ' +
       'read the address at all** — it renders the password card for a known address, an unknown one and an empty one alike, and the login ' +
       'step below answers the same `401` for all three. That is a property of the shape rather than of two branches agreeing: there is no ' +
       'lookup here whose result could differ. A browser form post gets the password card; a JSON caller gets `{ "next" }`, which has no ' +
@@ -1453,12 +1453,12 @@ export const ROUTES: readonly RouteEntry[] = [
       'a token belongs to its own app\'s endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the ' +
       'caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. ' +
       '`mcp_access_denied` is gone with the per-user override and the ' +
-      'group flag it read: every Fleetless user has MCP access here (D1). Stateless: a fresh transport per request, no session id, nothing ' +
+      'group flag it read: every Fleetless user has MCP access here. Stateless: a fresh transport per request, no session id, nothing ' +
       'survives the call.',
   },
 
 
-  /* ----------------------------------------- mcp (one app's own server, D7) */
+  /* --------------------------------------------- mcp (one app's own server) */
   {
     method: 'POST', path: MCP_APP.endpoint, section: 'mcp',
     summary: "One app's MCP endpoint: the same stateless Streamable HTTP transport, carrying that app's robots.",
@@ -1498,11 +1498,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'MCP\'s Streamable HTTP gives this path three verbs: `POST` carries JSON-RPC, `GET` opens the server-initiated SSE stream, and `DELETE` ' +
       'ends a session. This server has no sessions — the argument is in `MCP_PROTOCOL_VERSION`\'s own note, and a per-process session map is ' +
       'what breaks at the second cloud instance — so `GET` and `DELETE` answer `405`, which is what a client is built to fall back from. ' +
-      '\n\n**The `405` is this cloud\'s own answer, not the SDK\'s**, and the difference was measured: MCP SDK 1.30.0 opens an SSE stream on ' +
+      '\n\n**The `405` is this cloud\'s own answer, not the SDK\'s**, and the two differ: MCP SDK 1.30.0 opens an SSE stream on ' +
       '`GET` (`handleGetRequest`) and answers `200` on `DELETE` (`handleDeleteRequest`), neither of which a stateless server has any ' +
       'business doing, so the cloud writes the `405` itself in the transport\'s own JSON-RPC error shape with `Allow: POST`. \n\n**The row exists so that the `405` is not a `404`.** An unregistered verb answers ' +
       '`404`, and at a path whose last segment is an app identifier a `404` already means *no such app* — one answer for two states, which is ' +
-      'the failure this project keeps paying for. Registering the verb lets the endpoint say "this app\'s server is here; this verb is not ' +
+      'one answer for two states. Registering the verb lets the endpoint say "this app\'s server is here; this verb is not ' +
       'part of it". The central `/mcp` registers neither verb and does not need to: its path takes no parameter, so nothing can misread its ' +
       '`404`. \n\n**The `405` body is the transport\'s JSON-RPC error object, not the `apiError` envelope.** The three codes above are the ' +
       'refusals that come *first* — the app, its switch, then the bearer, in the order `POST` describes — and they are `apiError` because ' +
@@ -1555,7 +1555,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'canonical public base, never from the friendly `mcp.fleetless.dev` alias or the request\'s `Host`**, because a client checks a minted ' +
       'token\'s `iss` and `aud` against these exact strings. \n\n**Unlike the central document, `authorization_endpoint` does not move to an ' +
       'auth-portal origin**, and there is nothing here for one to serve: this authorization step renders no Fleetless page at all. It ' +
-      'redirects to the app\'s own `mcp_login_url` (D7), which is on the developer\'s origin already.',
+      'redirects to the app\'s own `mcp_login_url`, which is on the developer\'s origin already.',
   },
   {
     method: 'POST', path: MCP_APP.register, section: 'mcp',
@@ -1564,7 +1564,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [APP_IDENTIFIER], query: null, request: dynamicClientRegistrationRequest, response: dynamicClientRegistrationResponse,
     errors: ['rate_limited', 'not_found'], transport: 'http',
     notes:
-      'RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — `registerMcpDynamicClient`, one implementation, because a ' +
+      'RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — one implementation, because a ' +
       'second answer to "is this redirect URI acceptable" would agree with the first only by luck. The request schema is what the endpoint ' +
       'accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` ' +
       'failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, ' +
@@ -1585,7 +1585,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: ['not_found', 'target_state_conflict'], transport: 'http',
     notes:
       'The same query as `GET /mcp/oauth/authorize`, read the same way — parameter by parameter, because the answers differ and one parse ' +
-      'would collapse them. \n\n**Fleetless renders no page here, and that is the whole of D7.** The route writes an interaction — ten minutes, as the OIDC ones live ' +
+      'would collapse them. \n\n**Fleetless renders no page here**, and that is the whole of it. The route writes an interaction — ten minutes, as the OIDC ones live ' +
       '— and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own ' +
       'UI, reads `GET /api/client/mcp/interactions/:id` to show the client\'s claimed name and the scopes it asked for, and calls approve or ' +
       'deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET ' +
@@ -1602,7 +1602,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'under `/api/client/mcp/interactions/:id`. `409 ' +
       'target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It ' +
       'is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — ' +
-      'Fleetless has nowhere to redirect, and rendering a page of its own instead would contradict D2.',
+      'Fleetless has nowhere to redirect, and rendering a page of its own would contradict the rule that Fleetless shows an app user no page.',
   },
   {
     method: 'POST', path: MCP_APP.token, section: 'mcp',
@@ -1862,7 +1862,7 @@ export const ROUTES: readonly RouteEntry[] = [
       '\n\n**It lists `rate_limited` and no other code, because every sign-in outcome it has is a redirect.** Success and failure alike are ' +
       'a `302` to the app\'s own ' +
       '`redirect_uri`: `?code=…&state=…` when a session was resolved, `?error=<clientOidcErrorCode>&state=…` when it was not, so the app ' +
-      'renders its own message and can bind either answer to the request it started. Fleetless shows an app user no page (D2). \n\n**The one ' +
+      'renders its own message and can bind either answer to the request it started. Fleetless shows an app user no page. \n\n**The one ' +
       'exception is a `state` that resolves to no interaction** — unknown, hand-edited, or past its ten minutes. Then there is no confirmed ' +
       'redirect target to carry the answer to, and bouncing a browser to an unvalidated one is the hole the whole flow is arranged to avoid, ' +
       'so the cloud renders an HTML problem page at `400`. That is the only Fleetless-rendered surface an app user can reach. It is HTML ' +
@@ -1887,7 +1887,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'deserve different advice on the app\'s own page.',
   },
 
-  /* --------------------------- the app's own MCP consent screen (D7) */
+  /* ------------------------------- the app's own MCP consent screen */
   {
     method: 'GET', path: '/api/client/mcp/interactions/:id', section: 'client-auth',
     summary: 'Reads a pending MCP authorization so the app can draw its own consent screen.',
@@ -1924,7 +1924,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD, 'rate_limited', 'interaction_expired', 'mcp_disabled'], transport: 'http',
     notes:
       'The person is already signed in **at the app**, by whatever means that app uses, and this is the app telling Fleetless what they ' +
-      'decided. Fleetless never sees that sign-in, which is D7 in one sentence. \n\nThe guard admits all three caller kinds and the handler ' +
+      'decided. Fleetless never sees that sign-in. \n\nThe guard admits all three caller kinds and the handler ' +
       'takes one: a developer bearer or a server key reaching this is `401 unauthorized`, because a consent is a person\'s and a server key ' +
       'is not a person — the same shape `POST /api/client/password/change` has. `403 mcp_disabled` is the app\'s switch, re-read here as it is ' +
       'on every request — and it is the one refusal on this surface that names the switch, because reaching it needs an app-user session ' +
@@ -1969,7 +1969,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
       '**So the developer\'s app can offer a "connected apps" screen of its own**, which is the only place an end user could ever be shown ' +
-      'this: Fleetless renders no page for an app\'s users (D2), and the console is the developer\'s tool rather than their customers\'. ' +
+      'this: Fleetless renders no page for an app\'s users, and the console is the developer\'s tool rather than their customers\'. ' +
       '\n\nThe answer is about the bearer\'s own account and takes no user id — there is no id to pass and therefore nothing to pass the ' +
       'wrong one. The guard admits all three caller kinds because it is shared, and the handler takes one: a developer bearer or a server ' +
       'key is `401 unauthorized`, the shape `POST /api/client/password/change` has, because a consent is a person\'s and a server key is not ' +
@@ -2317,7 +2317,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'Needs the `action_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing ' +
       'durable recorded what had run. Two residuals worth stating rather than implying away. `history` is a syntactically valid slug and ' +
-      'Fastify matches a static segment first, so a robot with a service literally slugged `history` can no longer be **read** through ' +
+      'The router matches a static segment first, so a robot with a service literally slugged `history` can no longer be **read** through ' +
       '`GET /api/robots/:id/jobs/:slug`; invoking, cancelling and the listing are unaffected. And a run row names its actor by email address, ' +
       'so an end user holding this capability learns which other people have been driving the machine. `robot_id` in the query is shared with ' +
       'the org-wide read; a *different* one here is refused rather than quietly answered about the robot in the path.',
@@ -2685,7 +2685,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than ' +
       'following it: a `preHandler` would already have buffered the whole file. The announced size is refused there too, before a single byte ' +
       'is read — it is an announcement and not a proof, so it only ever rejects early and never accepts early, and a body that lies small is ' +
-      'still caught by the real length check. Past both, Fastify\'s own body limit answers a bare `413 bad_request` with neither ceiling nor ' +
+      'still caught by the real length check. Past both, the server\'s own body limit answers a bare `413 bad_request` with neither ceiling nor ' +
       'size in it. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler ' +
       'registered on this route.',
   },

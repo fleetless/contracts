@@ -133,7 +133,8 @@ export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
   /**
-   * `app.default_role_id`'s write half — an app *setting*, which is where D1
+   * `app.default_role_id`'s write half — an app *setting*, which is where the
+ * two-identity-space model
    * put the default role, so it belongs on the app's own PATCH and not on a
    * route of its own.
    *

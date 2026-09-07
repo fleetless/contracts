@@ -321,7 +321,7 @@ export const liveSessionEndReason = z.enum([
   /**
    * The cloud ended it and cannot say which of the above applied. **Kept
    * deliberately**: a channel that cannot say "I do not know" will say
-   * something false instead, and this project has paid for that four times in
+   * something false instead, which is the costlier failure in
    * the camera path alone.
    */
   'unknown',

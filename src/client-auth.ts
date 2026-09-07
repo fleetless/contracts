@@ -83,7 +83,7 @@ export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
 /* ---------------------------------------------- registration and mails -- */
 
 /**
- * **Self-registration** (D6) — and the account it creates cannot log in yet.
+ * **Self-registration** — and the account it creates cannot log in yet.
  *
  * `register` writes the user as `pending_verification` and mails the app's
  * `verify_url`. Without that step the domain whitelist would prove nothing:
@@ -303,7 +303,7 @@ export type ClientOidcStartQuery = z.infer<typeof clientOidcStartQuery>
  * `state` is the one required field because it is the one Fleetless minted: it
  * resolves the `oidc_interactions` row that holds the app's `redirect_uri`,
  * and without it there is nowhere to send any answer, success or failure. That
- * is the single case where the cloud renders a page of its own (D2).
+ * is the single case where the cloud renders a page of its own.
  *
  * It exists as a schema rather than as four parameters read by hand because
  * the manifest forbids the second: a documented route whose prose names a
@@ -342,7 +342,7 @@ export type ClientOidcExchangeRequest = z.infer<typeof clientOidcExchangeRequest
 /**
  * **Why a federated sign-in ended without a session, in a code the app can
  * branch on** — carried back to the app's own `redirect_uri` as `error`, not
- * rendered by Fleetless (D2). The only Fleetless-rendered page in this flow is
+ * rendered by Fleetless. The only Fleetless-rendered page in this flow is
  * the one for a state that can no longer be resolved to a redirect URI, because
  * then there is nowhere to send the answer.
  *
@@ -394,7 +394,7 @@ export type ClientOidcErrorCode = z.infer<typeof clientOidcErrorCode>
 
 /**
  * **A pending MCP authorization, as the app's own consent screen reads it**
- * (D7). Fleetless renders no page here either: `authorize` redirects to the
+ * Fleetless renders no page here either: `authorize` redirects to the
  * app's `mcp_login_url` with an interaction id, the app authenticates the user
  * with its normal UI, shows this, and approves or denies through the API.
  *
@@ -504,7 +504,7 @@ export type McpConsentGrantListResponse = z.infer<typeof mcpConsentGrantListResp
  * quietest way for a cut like this to go wrong.
  *
  * **`act` is gone.** It named the org admin behind an impersonation (the RFC
- * 8693 pattern). Impersonation is deleted with no successor (D1), so a field
+ * 8693 pattern). Impersonation is deleted with no successor, so a field
  * that could still arrive would describe a delegation nothing can mint — and a
  * client rendering "you are acting as …" from it would be showing a state the
  * platform cannot enter.

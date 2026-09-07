@@ -89,7 +89,7 @@ export type AlertRowCondition = z.infer<typeof alertRowCondition>
 export const alertSeverity = z.enum(['warning', 'error'])
 export type AlertSeverity = z.infer<typeof alertSeverity>
 
-/** The two states of the alert state machine. There is no third state — an alert is never "unknown" or "pending"; it holds its last state across non-comparable samples (D2). */
+/** The two states of the alert state machine. There is no third state — an alert is never "unknown" or "pending"; it holds its last state across non-comparable samples. */
 export const alertState = z.enum(['ok', 'firing'])
 export type AlertState = z.infer<typeof alertState>
 
@@ -118,7 +118,7 @@ export const datapointAlertRow = z.object({
   severity: alertSeverity,
   condition: alertRowCondition,
   state: alertState,
-  /** `null` only until the first evaluation writes a state; every alert is created `ok` (D2), so in practice this is set from creation onward. */
+  /** `null` only until the first evaluation writes a state; every alert is created `ok`, so in practice this is set from creation onward. */
   state_since: z.iso.datetime().nullable(),
   /**
    * The value at the alert's last state transition — written only when the
@@ -148,7 +148,7 @@ export type AlertListResponse = z.infer<typeof alertListResponse>
 
 /**
  * `GET /api/org/alerts?state=firing` — feeds the overview's "open issues"
- * tile and the fleet grid's per-robot badge (D3). Org-scoped and
+ * tile and the fleet grid's per-robot badge. Org-scoped and
  * cross-robot, so each entry carries `robot_name` alongside the alert: the
  * overview has no robot context of its own to join against.
  */
@@ -176,7 +176,7 @@ export type OrgAlertsQuery = z.infer<typeof orgAlertsQuery>
 
 /**
  * `GET /api/robots/:id/datapoints/:slug/display` — chart display config from
- * the modal's Chart tab (D1, D4). `robot_id`/`slug` live in the path, not
+ * the modal's Chart tab. `robot_id`/`slug` live in the path, not
  * the body; there is exactly one row per `(robot_id, slug)`, so there is
  * nothing to list or identify beyond the path itself.
  *
@@ -192,7 +192,7 @@ export type DatapointDisplay = z.infer<typeof datapointDisplay>
 
 /**
  * `PUT /api/robots/:id/datapoints/:slug/display` — applies immediately,
- * never published, never sent to the bridge (D1). Same shape as
+ * never published, never sent to the bridge. Same shape as
  * `datapointDisplay`, kept as its own type per house convention (`put*Request`
  * beside the entity it writes) so the two can diverge if the read side ever
  * grows a field the write side should not accept.

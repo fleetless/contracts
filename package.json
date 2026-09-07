@@ -1,6 +1,6 @@
 {
   "name": "@fleetless/contracts",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Fleetless wire contracts: the bridge-cloud protocol, the REST API schemas and the error codes, as zod schemas with generated JSON Schema and OpenAPI artifacts.",
   "license": "Apache-2.0",
   "author": "Dehne Robotik GmbH",

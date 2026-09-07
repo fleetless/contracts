@@ -18,7 +18,7 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  * resolve four different id kinds to render a row.
  *
  * **`end_user` stays, and it stays for the rows already written.** The
- * two-space cut (2026-09-05, D1) replaced the org's one user pool with
+ * split into two identity spaces replaced the org's one user pool with
  * Fleetless users and per-app app users; every new row an app user writes
  * carries `app_user`. But an audit log is the one thing this platform must
  * never rewrite, and there are stored rows whose `kind` is `end_user`. Dropping
@@ -26,9 +26,8 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  * cannot be read back is worse than one carrying a retired word.
  *
  * So this enum is deliberately **wider than what any producer emits**: nothing
- * writes `end_user` any more, and nothing may start again. That is the kind of
- * claim this repository has been wrong about before by leaving it unsaid, so it
- * is said here rather than inferred from a `grep` somebody runs in a year.
+ * writes `end_user` any more, and nothing may start again. That is said here
+ * rather than left to be inferred from a search somebody runs in a year.
  *
  * `developer` is a Fleetless user. It kept its name through both redesigns
  * because it was always right about what it named: the person who configures

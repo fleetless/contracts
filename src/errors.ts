@@ -119,14 +119,11 @@ export const ERROR_CODES = [
   'email_taken',
   'identifier_taken',
   'weak_password',
-  /* `not_a_member` was removed on 2026-08-29. It had no producer anywhere in
-   * this repository or in the cloud (`grep` found exactly two hits: its own
-   * entry here and a test asserting the entry existed), and its vocabulary was
-   * the deleted model's — "member" of an app's pool, in a platform whose
-   * membership is now a group and whose access is an assignment. A code that
-   * nothing emits and whose noun no longer exists is the third failure mode in
-   * this project's list: a guard written against a state no producer reports.
-   * The refusals that do the work are `forbidden` (silent about existence) and
+  /* `not_a_member` is gone. It had no producer anywhere, and its vocabulary was
+   * a deleted model's — "member" of an app's pool, in a platform whose access is
+   * an assignment. A code that nothing emits, whose noun no longer exists, is a
+   * refusal a consumer must still branch on and can never receive. The refusals
+   * that do the work are `forbidden` (silent about existence) and
    * `tier_required` (about the caller's own tier). */
   /**
    * The account itself is blocked — distinct from `forbidden` on purpose: it
@@ -404,7 +401,7 @@ export const ERROR_CODES = [
   // `WWW-Authenticate` **header**, which is correct and present, not the body.
   //
   // So the rule is about the JSON-RPC layer, and the transport layer below it
-  // is ordinary Fastify. Stating it as "never `apiError` anywhere" was the
+  // is ordinary HTTP. Stating it as "never `apiError` anywhere" was the
   // kind of tidy sentence that is easier to remember than the truth — and
   // this file has now produced two of those about itself.
   //
@@ -423,8 +420,8 @@ export const ERROR_CODES = [
    * flag; the central-MCP cut deleted the per-app `/mcp/<identifier>` endpoint
    * that flag gated, and 2026-08-29 removed the field itself from `app`, so
    * the code stood for a year with nothing able to produce it. The
-   * app-user-auth design brings the per-app endpoint back (D7) with the switch
-   * on `appAuthConfig` rather than on `app`, and this is its refusal again.
+   * per-app endpoint is back, with the switch on `appAuthConfig` rather than on
+   * `app`, and this is its refusal again.
    *
    * The lesson that survives is about the year in between: an enum member with
    * no producer is not harmless, because a reader arriving at it takes it for
@@ -472,7 +469,7 @@ export const ERROR_CODES = [
    * would make a client branch on which route it called.
    */
   'capability_required',
-  // 2026-08-29 — org-central identity (D1/D2).
+  // Org-central identity.
   /**
    * **An org must keep at least one Owner**, so the last one is neither
    * deletable nor demotable. 409, on both `DELETE /api/org/users/:id` and
@@ -488,7 +485,7 @@ export const ERROR_CODES = [
    * caller could infer from a silence about existence.
    */
   'last_owner',
-  // 2026-08-29 — oidc-federation (D3/D4).
+  // OIDC federation.
   /**
    * **The target is in a state that refuses the operation** — not the caller's
    * rights, not the target's existence, but *what the target currently is*.
@@ -553,7 +550,7 @@ export const ERROR_CODES = [
    * `409` from the configuration routes: the draft parses as YAML but its root
    * is not a mapping — a list, a scalar, or an empty document. Distinct from
    * `validation_error`, which is about a field inside a document that *is* one.
-   * Produced by `cloud/src/routes/config.ts`.
+   * Produced by the configuration draft route.
    */
   'draft_not_a_document',
   /**
@@ -561,23 +558,22 @@ export const ERROR_CODES = [
    * it has no mapping for, and the code the realtime socket sends for the same
    * state. It says nothing about the request, deliberately: a caller cannot act
    * on it beyond retrying, and the detail belongs in the server's log rather
-   * than in a body a stranger receives. Produced by `cloud/src/server.ts`'s
-   * error handler and `cloud/src/ws/realtime.ts`.
+   * than in a body a stranger receives. Produced by the server's own error
+   * handler and by the realtime socket.
    */
   'internal_error',
   /**
    * `422` from `POST /api/robots/:id/jobs/:slug/cancel`: the job exists and the
    * caller may address it, but it is in a state that has nothing left to
    * cancel — already settled, or of a kind that does not support cancellation.
-   * Produced by `cloud/src/commands.ts` and mapped in
-   * `cloud/src/routes/commands.ts`.
+   * Produced by the command layer and mapped onto the job routes.
    */
   'not_cancellable',
   /**
    * `415`. The request carried a body in a media type the route does not read.
    * It is the cloud-wide answer from the content-type parser, not one route's:
    * a caller reaching it never got as far as validation, which is why this is
-   * not a `validation_error`. Produced by `cloud/src/server.ts`.
+   * not a `validation_error`. Produced by the server itself.
    */
   'unsupported_media_type',
   /**
@@ -587,16 +583,14 @@ export const ERROR_CODES = [
    * hash recorded on the interaction row.
    *
    * **The impersonation interstitial it also named is deleted** with the rest
-   * of the app OAuth flow (2026-09-05, D1/D2). That page is where this defence
-   * was found missing on a GET rather than a POST — three times over, on three
-   * different screens — which is the reason worth carrying forward: the check
-   * belongs on every verb that *renders* the step, not only on the one that
+   * of the app OAuth flow. The rule that outlives it: this defence goes on
+   * every verb that *renders* the step, not only on the one that
    * completes it.
    *
    * Deliberately not `invalid_token` or `unauthorized`: nothing about the
    * caller's credential is being refused, and the remedy is specific and
-   * actionable — start the flow again in this browser. Produced by
-   * `cloud/src/routes/console-oauth.ts` and `cloud/src/routes/mcp-oauth.ts`.
+   * actionable — start the flow again in this browser. Produced by both
+   * hosted authorization flows.
    */
   'wrong_browser',
   /**
@@ -610,9 +604,8 @@ export const ERROR_CODES = [
    * why nothing noticed. The envelope validates; only the *code* was absent
    * from the one list a client can match against, so a caller branching on
    * `ERROR_CODES` fell through to its unknown-error arm for the single most
-   * common refusal the editor produces. That is this file's own "documented
-   * absence" failure, on the codes list itself. Produced by
-   * `cloud/src/routes/config.ts`.
+   * common refusal an editor produces — a documented absence on the codes list
+   * itself. Produced by the configuration draft route.
    */
   'invalid_yaml',
   /**
@@ -622,7 +615,7 @@ export const ERROR_CODES = [
    *
    * Two codes rather than one, because the two say different things to whoever
    * typed the text: the first means "this is not YAML", the second means "this
-   * is YAML I cannot keep". Produced by `cloud/src/routes/config.ts`.
+   * is YAML I cannot keep". Produced by the configuration draft route.
    */
   'unstorable_yaml',
 

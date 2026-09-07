@@ -59,22 +59,20 @@ import { alertSeverity } from './alerts.js'
  * index. Splitting them would put one rule here and its three siblings there
  * — the shape this file has twice had to undo.
  *
- * **Every refusal that answers one of the spec's codes carries
+ * **Every refusal that answers one of the format's validation codes carries
  * `params: { code }`** with that code, which zod passes through `safeParse`
  * untouched. The cloud maps an issue to a code and its repair by reading that
  * field, never by matching the message prose — a join nobody notices
  * breaking.
  *
- * Read the sentence narrowly, because a wider reading is false and was
- * written here once. Plenty of refusals in this file carry no `params.code`,
- * and correctly: the section caps (`parameterMap`'s fifty, `messageMap`'s two
- * hundred), the camera device-path rules, and every refusal zod raises on its
- * own — `unrecognized_keys` behind `unknown_key`, `too_big` behind
- * `invalid_rate`. Those are not spec codes wearing a different hat; the cloud
- * reaches them through zod's own issue codes. The one *spec* code with no
- * `params` is a reversed pair of bounds — `min_value`/`max_value` on a
- * parameter, `y_min`/`y_max` on a chart: `invalid_range` was deleted with
- * `expected_range`, and no code replaced it.
+ * Read that sentence narrowly. Plenty of refusals in this file carry no
+ * `params.code`, and correctly: the section caps (`parameterMap`'s fifty,
+ * `messageMap`'s two hundred), the camera device-path rules, and every refusal
+ * zod raises on its own — `unrecognized_keys` behind `unknown_key`, `too_big`
+ * behind `invalid_rate`. Those are not validation codes wearing a different
+ * hat; a consumer reaches them through zod's own issue codes. The one named
+ * code with no `params` is a reversed pair of bounds — `min_value`/`max_value`
+ * on a parameter, `y_min`/`y_max` on a chart — for which no code exists.
  *
  * `robotConfigDoc` carries all six sections — messages, datapoints, actions,
  * services, publishers and cameras — plus the alerts, the chart bounds and the
@@ -103,16 +101,12 @@ import { alertSeverity } from './alerts.js'
  * which is a published artifact other tools validate against and which a person
  * reads. One constant with two readers, never two strings that happen to agree
  * — `config-zod-messages.test.ts` asserts the two readings are the same string
- * at all 24 pattern positions the document has, because under D3 nothing
- * consumes `patternErrorMessage` at runtime and an unwatched second spelling of
- * a live rule drifts word for word, forever and invisibly.
+ * at every pattern position the document has. An unwatched second spelling of a
+ * live rule drifts word for word, forever and invisibly.
  *
- * In the console `patternErrorMessage` is also the live pattern diagnostic
- * **until wave 3 lands**: `useMonacoYaml.ts` still passes `validate: true`, so
- * between task 7's artifacts and D3 these sentences are what monaco-yaml shows.
- * D3 then turns that validation off, and from there the message a developer
- * sees comes from this schema's own parser and from the cloud — the same
- * sentence, which is the point of there being one.
+ * An editor that validates against the published JSON Schema shows
+ * `patternErrorMessage`; one that does not shows whatever the server's parser
+ * says. They are the same sentence, which is the point of there being one.
  *
  * The tense matters because the two states look identical from inside this
  * file. Whoever reads it after wave 3 should find a claim that was true when
@@ -152,11 +146,10 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
 /**
  * One field, carrying the sentence it says when it is absent.
  *
- * **Three shapes of "this key is not here", and the first version of this
- * helper caught one of them.** A walk over every required key of a fully
- * populated document — `config-zod-messages.test.ts`, which is the guard that
- * found it — says the format has 52 required-key positions and that 14 were
- * still answering in zod's words:
+ * **Three shapes of "this key is not here", and a helper has to cover all
+ * three.** A walk over every required key of a fully populated document —
+ * `config-zod-messages.test.ts` — enumerates every required-key position in the
+ * format and asserts none of them still answers in zod's words:
  *
  * - `invalid_type`, the ordinary case: a string, a number, an object.
  * - `invalid_value` from a `z.literal` or a `z.enum`. A missing `fleetless:`
@@ -176,10 +169,10 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
  * **`z.unknown()` needs a wrapper before it can be given a sentence at all.**
  * It accepts `undefined`, so zod marks the key required and raises its own
  * `expected nonoptional, received undefined` — an issue it attributes to
- * neither the field nor the object, so no error map of ours is consulted
- * (measured). `z.nonoptional` puts a schema there that can carry one. The JSON
- * Schema and the inferred type are byte-identical either way (measured, zod
- * 4.4.3), and a field that is genuinely optional is `.optional()` and is
+ * neither the field nor the object, so no error map of ours is consulted.
+ * `z.nonoptional` puts a schema there that can carry one. The JSON Schema and
+ * the inferred type are identical either way, and a field that is genuinely
+ * optional is `.optional()` and is
  * skipped here — but it is **not** behaviourally free, and that is the one
  * place this task changed what the format accepts: a required key *present*
  * holding `undefined` is now refused where zod's internal check accepted it.
@@ -195,11 +188,11 @@ const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
  *
  * `clone` is the only way to add an `error` to a schema that is already built,
  * and **it drops the schema's registry entry** — its `description`, its
- * `examples`, every annotation this wave added, all of which live in
+ * `examples` and every other annotation, all of which live in
  * `z.globalRegistry` keyed by the schema instance rather than in its
- * definition. So the entry is read back and put on the clone. Measured on zod
- * 4.4.3: `z.globalRegistry.get` resolves the whole `.meta()` parent chain into
- * one object, so what is copied is what the export would have produced, and a
+ * definition. So the entry is read back and put on the clone.
+ * `z.globalRegistry.get` resolves the whole `.meta()` parent chain into one
+ * object, so what is copied is what the export would have produced, and a
  * later `.meta()` on the result merges with it as it did before. A wrapper that
  * silently emptied every hover in the format would be the worst available way
  * to improve one message.
@@ -249,8 +242,8 @@ const saysItIsMissing = <T extends z.core.$ZodType>(field: T): T => {
  * The second arm is the discriminated union: zod hands its error map the whole
  * object and points the path at the discriminator, so `input` is not
  * `undefined` and the first arm cannot see it. `Object.hasOwn` rather than
- * `in`, on this project's own rule — a document's keys are chosen by a
- * developer, and `constructor` satisfies the slug grammar.
+ * `in`, because a document's keys are chosen by a developer and `constructor`
+ * satisfies the slug grammar.
  */
 const absent = (issue: z.core.$ZodRawIssue, key: string): boolean =>
   issue.input === undefined
@@ -350,8 +343,8 @@ const describeValues = <V extends string>(values: readonly V[], table: Record<V,
  *
  * The two syntaxes collide. `defaultSnippets` bodies are inserted as LSP
  * snippets, where `${1:front}` is a tab stop and `${speed}` is a *variable* —
- * and an unknown variable is not left alone. Measured against
- * monaco-editor 0.52.2's own `SnippetParser`, which is what the console runs:
+ * and an unknown variable is not left alone. Against monaco-editor's own
+ * `SnippetParser`:
  *
  * | body holds | the editor inserts |
  * |---|---|
@@ -378,17 +371,16 @@ type Snippet = { label: string, description: string, body: Record<string, unknow
  * `{ battery: … }`, and `battery: ▮` offers the `…`. Both positions are real
  * and both were silent, but they are **one skeleton**, so each is authored once
  * as a `Snippet` constant and wrapped here for the section — never copied.
- * Two copies of one skeleton is the drift this wave caught three times in three
- * reviews: a body inventing a value its sibling had already answered, under a
- * label that still agreed. `config-snippets.test.ts` deep-compares the two
- * positions rather than trusting this.
+ * Two copies of one skeleton drift: a body invents a value its sibling had
+ * already answered, under a label that still agrees.
+ * `config-snippets.test.ts` deep-compares the two positions rather than
+ * trusting this.
  *
  * **The slug key belongs to the wrapper, not to the skeleton**, because it
  * differs per snippet — `battery_voltage` for a plain datapoint, `battery` for
  * the numeric one. It therefore takes tab stop `${1}`, and an entry body's own
  * stops are numbered from `${2}` throughout. At the entry position that leaves
- * no `${1}` at all, which costs nothing — measured against
- * monaco-editor 0.52.2's own `SnippetParser`, the version the console runs: it
+ * no `${1}` at all, which costs nothing: monaco-editor's `SnippetParser`
  * sorts placeholders by index and requires neither that they start at 1 nor
  * that they be contiguous, so a body of `a: ${2:x}` visits `2` first, and one
  * of `a: ${2:x}` / `b: ${5:y}` visits `2` then `5`.
@@ -622,9 +614,9 @@ export const parameterSpec = strictObject({
      * A default must satisfy the same constraints a caller's value must.
      *
      * Without this, a default is the one way past bounds that are otherwise
-     * the enforcement point — the spec calls `min_value`/`max_value` "the
-     * speed limit that actually holds", enforced in the cloud before anything
-     * reaches the robot. But a caller who simply omits the parameter gets the
+     * the enforcement point. `min_value`/`max_value` are the speed limit that
+     * actually holds, enforced in the cloud before anything reaches the robot.
+     * But a caller who simply omits the parameter gets the
      * default, and the bridge fills it at the template walk without
      * re-checking bounds, deliberately: a second enforcement point there
      * would be the weaker of two policies. So `{min_value: -1, max_value: 1,
@@ -826,10 +818,9 @@ export const datapointAlert = strictObject({
      * `getInsertTextForProperty` (`yaml.worker.js:8520`) takes
      * `defaultSnippets[0].body` only when a node carries **exactly one**
      * snippet, so accepting `condition` from the key list writes the bare key
-     * here where every other node this wave touched writes its whole block.
-     * The two stay anyway: the value position — a developer who has written
-     * `condition:` and pressed ⏎ — is where the question "what goes here?" is
-     * actually asked, and that is the position this wave exists to answer.
+     * here where every other node writes its whole block. The two stay anyway:
+     * the value position — a developer who has written `condition:` and pressed
+     * ⏎ — is where the question "what goes here?" is actually asked.
      * Merging them into one would buy back the key completion by deleting the
      * choice the schema deliberately does not name, which is the worse trade;
      * anyone tempted to make it should change the key-completion behaviour
@@ -1012,9 +1003,9 @@ const NUMERIC_DATAPOINT_SNIPPET: Snippet = {
     /**
      * The quotes inside `unit` are part of the inserted text and are not
      * decoration. A body string is written into the document verbatim, and `%`
-     * is a YAML directive indicator: measured with `yaml` 2.9.0, `unit: %` is a
-     * **syntax error** ("Plain value cannot start with directive indicator
-     * character %") while `unit: "%"` parses to `%`. Nothing between here and
+     * is a YAML directive indicator: `unit: %` is a **syntax error** ("Plain
+     * value cannot start with directive indicator character %") while
+     * `unit: "%"` parses to `%`. Nothing between here and
      * the buffer quotes a scalar for us.
      */
     numeric: { scale: 100, unit: '"%"', decimals: 1 },
@@ -1196,10 +1187,9 @@ export type DatapointConfig = z.infer<typeof datapointConfig>
  * `z.unknown()`, because a template can be any shape a ROS message can — so
  * nothing below the top of it is checked by the type at all.
  *
- * That gap was measured and missed once already: a top-level `message: null`
- * was refused while `message: { linear: { x: null } }` parsed clean, and a
- * check written to catch exactly this was deleted on the strength of six test
- * cases, none of which reached inside a body.
+ * The gap is easy to miss: a top-level `message: null` is refused while
+ * `message: { linear: { x: null } }` parses clean, and a test suite that never
+ * reaches inside a body cannot tell the two apart.
  *
  * Walked with an explicit stack and a seen-set, not recursion: a YAML anchor
  * can make a template both very deep and genuinely cyclic, and a developer can
@@ -1285,10 +1275,9 @@ export const messageBody = messageTemplate
  * contract.** This runs inside `publisherConfig`'s failsafe refinement, so a
  * `RangeError: Maximum call stack size exceeded` did not stay here: it
  * propagated out of `safeParse`, which is specified to return a result and
- * not to throw. Measured on the recursive version — fine at 8 000 levels of
- * nesting, throwing at 20 000 — and a flow-style YAML one-liner reaches that
- * in about 120 KB of input. A draft PUT would have answered 500 where it
- * meant 400.
+ * not to throw. A recursive walk survives a few thousand levels of nesting and
+ * throws somewhere above that, which a flow-style YAML one-liner reaches in
+ * about 120 KB of input — so a draft PUT would answer 500 where it meant 400.
  *
  * `seen` is not an optimisation. YAML anchors can express a cycle
  * (`&a { b: *a }`), and the parser resolves an alias to the same object, so
@@ -1352,14 +1341,13 @@ const SHARED_MESSAGE_SNIPPET: Snippet = {
  * that paragraph would be a second thing to keep true.
  *
  * **How the description gets here is zod behaviour, not something written
- * below.** Measured against zod 4.4.3: `.meta()` on an already-registered
- * schema merges rather than replaces, and the clone resolves the parent's entry
+ * below.** `.meta()` on an already-registered schema merges rather than
+ * replaces, and the clone resolves the parent's entry
  * *lazily* — a clone taken before the parent was registered at all still sees
  * the parent's description afterwards. So no spread is needed and there is no
- * evaluation-order hazard. This was first written as
- * `.meta({ ...messageTemplate.meta(), … })`; dropping the spread was measured
- * to change nothing in the export, and two mechanisms for one description is
- * the shape this file removes rather than adds.
+ * evaluation-order hazard. A defensive `.meta({ ...messageTemplate.meta(), … })`
+ * spread changes nothing in the export and is a second mechanism for one
+ * description, so it is deliberately absent.
  *
  * It is undocumented behaviour all the same, so `config-snippets.test.ts`
  * asserts this node still carries a description and that it is the same string
@@ -1661,8 +1649,8 @@ export type CameraCredentials = z.infer<typeof cameraCredentials>
  * therefore no validation rule to forget.
  *
  * **Each branch carries its own `defaultSnippets`, rather than one list on the
- * union.** Both placements were measured and both work; this one keeps a
- * label beside the branch it names, so the two cannot drift, and it makes a
+ * union.** Both placements work; this one keeps a label beside the branch it
+ * names, so the two cannot drift, and it makes a
  * fifth source impossible to add without one — `config-snippets.test.ts`
  * walks the exported branches and fails on any that carries none.
  */
@@ -1701,15 +1689,14 @@ export const cameraSource = z.discriminatedUnion('kind', [
        * `rosTypeName` accepts either, publish accepts either, no diagnostic
        * fires anywhere, and the bridge then subscribes with the wrong type and
        * delivers no frames. A snippet supplying a wrong answer where it could
-       * have supplied a question is this project's *check that cannot fire*,
-       * arriving through a hint the developer trusts.
+       * have supplied a question is a defect arriving through a hint the
+       * developer trusts.
        *
        * `kind: 'ros'` stays a literal, because the branch really does fix it.
        *
-       * Measured through the actual pipeline rather than assumed, because
-       * choice syntax is the one construct here that three layers must each
+       * Choice syntax is the one construct here that three layers must each
        * pass through unharmed: yaml-language-server's `stringifyObject` emits
-       * the body verbatim, and monaco-editor 0.52.2's `SnippetParser` parses
+       * the body verbatim, and monaco-editor's `SnippetParser` parses
        * `${2|a,b|}` into a placeholder carrying both options whose
        * `toString()` — the text on the buffer before anyone chooses — is the
        * first one. So a developer who tabs past this gets a document
@@ -1861,9 +1848,9 @@ export type CameraSource = z.infer<typeof cameraSource>
  *
  * The bound lives here once, and `rest.ts`'s `cameraDescriptor` reuses it —
  * the same treatment `rateThrottleHz` got, and for the same reason: the
- * descriptor used to say `snapshot_interval_ms` while the document said
- * seconds, so the cloud converted on one descriptor and not its sibling, with
- * nothing in either file saying so.
+ * two spellings of one interval — milliseconds in a descriptor, seconds in the
+ * document — mean a server converting on one and not the other, with nothing in
+ * either file saying so.
  */
 export const snapshotIntervalSeconds = z.number().int().min(1).max(3600)
 

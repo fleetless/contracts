@@ -5,17 +5,15 @@ import type { ValidationIssue } from './config.js'
 /**
  * What is wrong with a configuration document, in one account.
  *
- * Everything here used to live in `cloud/src/validation.ts`. It is in
- * contracts because the console has to say **exactly** what the server says
- * about a document — same codes, same sentences, same paths — and the only
- * way that is true is if it is the same code. A console that reimplemented
- * this and then disagreed with the server about what is wrong would be worse
- * than a console that said nothing (spec D3).
+ * It lives in contracts because an editor has to say **exactly** what the
+ * server says about a document — same codes, same sentences, same paths — and
+ * the only way that is true is if it is the same code. An editor that
+ * reimplemented this and then disagreed with the server about what is wrong
+ * would be worse than one that said nothing.
  *
- * **The second door D3 forbids existed for one wave, and closed in wave 2
- * task 8** (cloud `a307e18`, 2026-09-03). The cloud cannot import a specifier
- * it has not pinned, so its own copy of `schemaIssues`, `refusal`, `slugOf`,
- * `formatPath` and `valueAt` stood from wave 1, when this module landed here,
+ * **A second implementation is the thing this module exists to prevent.** A
+ * server that cannot import this package keeps its own copy of `schemaIssues`,
+ * `refusal`, `slugOf`, `formatPath` and `valueAt`,
  * until that re-pin deleted them and imported these. The window is recorded
  * rather than dropped because it cost a live bug while it was open: the
  * cloud's own `formatPath` wrote a blank path segment as the empty string,
@@ -46,10 +44,9 @@ export const DOCUMENT_ROOT_PATH = '(document)'
  * `messages:` is deliberately not among them: its names are their own
  * namespace.
  *
- * `cloud/src/config-sections.ts` re-exports this constant and drives the
- * cloud's iteration over sections from it; the console reads it directly
- * (`useConfigRepairs.ts`). It was spelled out separately in all three until
- * wave 2 task 8 (cloud `a307e18`, 2026-09-03) — this is the only spelling
+ * The cloud re-exports this constant and drives its iteration over sections
+ * from it; an editor reads it directly. Spelling it out separately in each
+ * would be three copies — this is the only spelling
  * since.
  */
 export const EXPOSURE_SECTIONS = ['datapoints', 'actions', 'services', 'publishers', 'cameras'] as const
@@ -157,10 +154,10 @@ function slugOf(path: readonly PropertyKey[]): string | null {
  * width. Rendered bare, such a key produced a path a reader cannot act
  * on — and at the root it produced the empty string, which
  * `validationIssue.path` (`z.string().min(1)`) refuses. That was the cloud
- * publishing a finding that fails the cloud's own contract for findings, and
- * after D2 stored the draft it cost the whole `configDraftResponse`, not one
- * issue: the console's `safeParse` dropped the response and handed the editor
- * nothing, for two characters typed.
+ * publishing a finding that fails its own contract for findings, and because a
+ * draft that does not parse is stored rather than refused it costs the whole
+ * `configDraftResponse`, not one issue: a client's `safeParse` drops the
+ * response and hands the editor nothing, for two characters typed.
  *
  * The quoted spelling is the segment's JSON string literal, and that is the
  * whole of the reason for choosing it: JSON's string syntax is a subset of
@@ -250,9 +247,9 @@ function isBlank(segment: PropertyKey): segment is string {
  *
  * Escaping on the way out was the alternative and was rejected: `path` is a
  * wire field (`validationIssue.path`), it is rendered to developers as-is,
- * and every recorded expectation in this repo and the cloud's spells it
- * unescaped. Changing what the server says about every document to make one
- * console lookup total is the larger of the two costs.
+ * and every recorded expectation on both sides spells it unescaped. Changing
+ * what the server says about every document to make one client-side lookup
+ * total is the larger of the two costs.
  *
  * So the property this has, and the one its test asserts, is the narrow one:
  * **a path round-trips when no string segment contains `.` or `[`, and the

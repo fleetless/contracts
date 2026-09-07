@@ -181,7 +181,7 @@ export const JOB_RUN_RETENTION_DAYS = 90
  * invites every reader to handle it.
  *
  * **`app_user` is what a client-app caller writes now, and `end_user` stays**
- * (app-user auth, D1). The seam this comment used to describe — two names for
+ * identity spaces. The seam this comment used to describe — two names for
  * two ways into one merged pool — is settled: the two identity spaces are
  * separate tables again, and `app_user` is a row in `app_users`, belonging to
  * exactly one app. `end_user` is kept for the same reason `auditActor.kind`
@@ -211,10 +211,10 @@ export const jobRunKind = z.enum(['action', 'service'])
 export type JobRunKind = z.infer<typeof jobRunKind>
 
 /**
- * One durable record of one invocation (spec `2026-08-20-timeseries-and-run-history`,
- * D2). One row per run, never one per event: the per-event timeline's write rate
+ * One durable record of one invocation. One row per run, never one per event:
+ * the per-event timeline's write rate
  * is set by the bridge, and a throttled log that cannot say it was throttled is
- * the instrument this codebase refuses everywhere else. The live timeline is
+ * an instrument that cannot say what it does not know. The live timeline is
  * delivered in full by realtime, for as long as somebody is watching.
  */
 export const jobRun = z.object({

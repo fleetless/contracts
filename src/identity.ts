@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 /**
  * **Fleetless users: the org's team, and the only people who reach the
- * console** (spec `2026-09-05-app-user-auth`, D1).
+ * console.**
  *
  * There are two identity spaces now and **nothing joins them**:
  *
@@ -18,7 +18,7 @@ import { z } from 'zod'
  * A Fleetless user who wants to use an app registers or is invited like
  * anybody else; there is no path from one space to the other.
  *
- * **What that deleted, with no successor** (D1): groups and the Org Admins
+ * **What that deleted, with no successor**: groups and the Org Admins
  * group, app assignments, impersonation, the per-user MCP override and the
  * org-level federation policy. The 2026-08-29 model had put developers and end
  * users into one pool per org and connected them with all of the above; in use
@@ -53,7 +53,7 @@ export const password = z.string().min(12).max(256)
 export const USER_DISPLAY_NAME_MAX = 120
 
 /**
- * **The two tiers a Fleetless user can hold** (D1). Owner-exclusive: delete
+ * **The two tiers a Fleetless user can hold**. Owner-exclusive: delete
  * the org, edit org settings, promote to owner, and later billing. Everything
  * else a Fleetless user may do, a `developer` may do.
  *
@@ -105,7 +105,7 @@ export type PatchOrgResponse = z.infer<typeof patchOrgResponse>
  * central endpoint), and `has_password`. The last is the interesting one — it
  * existed because a pool user might have been provisioned by an identity
  * provider and hold no Fleetless credential. A Fleetless user always holds
- * one: the console is password-only by design (D1), which removes the
+ * one: the console is password-only by design, which removes the
  * IdP-lockout class entirely, so a field reporting whether the credential
  * exists would have exactly one value forever.
  */
@@ -205,7 +205,7 @@ export type WaitlistRequest = z.infer<typeof waitlistRequest>
 
 /**
  * Console login. Fleetless users only, always the Fleetless password — the
- * console has no federated door at all (D1), which removes the IdP-lockout
+ * console has no federated door at all, which removes the IdP-lockout
  * class entirely.
  *
  * This resolves a person by address alone, and a Fleetless user's email is
@@ -524,7 +524,7 @@ export type IdpIssuer = z.infer<typeof idpIssuer>
  * here.** `oidcCallbackErrorCode` and `oidcCallbackError` described the page
  * `GET /mcp/oauth/idp-callback` rendered when a group's identity provider sent
  * a browser back — `jit_disabled` and `email_collision` name provisioning steps
- * only a group provider had. D1 makes Fleetless users password-only and deletes
+ * only a group provider had. Fleetless users are password-only now, which deletes
  * group providers, so the flow that produced these codes cannot start; the
  * route is gone from this manifest and from the cloud.
  *

@@ -38,7 +38,7 @@
         "email",
         "profile"
       ],
-      "description": "The scopes to request. Defaults to `openid email profile`, which is what the linking rules in this design actually read: the subject, the address and its verified flag, and a name.",
+      "description": "The scopes to request. Defaults to `openid email profile`, which is what account linking actually reads: the subject, the address and its verified flag, and a name.",
       "minItems": 1,
       "maxItems": 20,
       "type": "array",

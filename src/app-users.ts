@@ -3,8 +3,7 @@ import { z } from 'zod'
 import { idpIssuer, mailStatus, password } from './identity.js'
 
 /**
- * **App users: the per-app identity space** (spec `2026-09-05-app-user-auth`,
- * D1–D7).
+ * **App users: the per-app identity space.**
  *
  * The 2026-08-29 model put developers and end users into one pool per org,
  * tied apps to groups, and let an org admin enter an app only by
@@ -23,7 +22,7 @@ import { idpIssuer, mailStatus, password } from './identity.js'
  *   as unrelated accounts, and a Fleetless user who wants to use an app
  *   registers or is invited like anybody else.
  *
- * **Fleetless shows an app user no page** (D2). The developer's own UI owns
+ * **Fleetless shows an app user no page**. The developer's own UI owns
  * every screen and calls the JSON client-auth API (`client-auth.ts`). The one
  * Fleetless-rendered surface an app user can reach is the problem page for an
  * OIDC callback whose state no longer resolves to a redirect URI — every other
@@ -74,7 +73,7 @@ export type AppUserStatus = z.infer<typeof appUserStatus>
  * **A user of one app.** Not a user of the org: `app_id` is the whole scope,
  * and the uniqueness constraint the cloud enforces is `(app_id, lower(email))`
  * rather than a global one. The same person at two apps of one org is two
- * unrelated rows, by design (D1).
+ * unrelated rows, by design.
  */
 export const appUser = z.object({
   id: z.uuid().meta({
@@ -160,8 +159,8 @@ export type CreateAppUserRequest = z.infer<typeof createAppUserRequest>
  * offering it is a refusal rather than a silently dropped field.
  *
  * **`status` admits only `active` and `blocked`.** `pending_verification` is
- * reached once, by self-registration, and left by spending the mailed token
- * (D6). A developer able to set it back could void a verified address without
+ * reached once, by self-registration, and left by spending the mailed token.
+ * A developer able to set it back could void a verified address without
  * the user ever seeing a mail, and there is no route out of that state that
  * does not require a token nobody re-sent. So the narrower enum is the rule,
  * stated in the schema rather than left to a handler to remember.
@@ -212,7 +211,7 @@ export type CreateAppInvitationRequest = z.infer<typeof createAppInvitationReque
  * An app that has configured none has nowhere for it to point, so there is no
  * link to hand back — `null` says that outright, where an absent key would be
  * indistinguishable from a mapper that dropped the field and a fabricated
- * Fleetless-hosted URL would name a page this product does not serve (D2).
+ * Fleetless-hosted URL would name a page this product does not serve.
  */
 export const appInvitation = z.object({
   id: z.uuid().meta({ description: 'The invitation, as listed and revoked by the developer.' }),
@@ -253,7 +252,7 @@ export const appInvitationListResponse = z.object({
 export type AppInvitationListResponse = z.infer<typeof appInvitationListResponse>
 
 /**
- * **An app's OIDC provider, as read back** (D4). Any number per app, unlike
+ * **An app's OIDC provider, as read back**. Any number per app, unlike
  * the group provider this replaces — a developer serving two customers needs
  * two, and the old at-most-one rule was a property of groups rather than of
  * identity.
@@ -331,7 +330,7 @@ export const createAppOidcProviderRequest = z
       description: 'The client secret, **write-only**: it is stored encrypted and comes back through nothing — not the read, not this route\'s own answer, not an audit detail. Required on create, since a provider with no secret cannot exchange a code; the minimum length refuses a value that is a misconfiguration rather than a secret.',
     }),
     scopes: z.array(z.string().min(1).max(60)).min(1).max(20).default(['openid', 'email', 'profile']).meta({
-      description: 'The scopes to request. Defaults to `openid email profile`, which is what the linking rules in this design actually read: the subject, the address and its verified flag, and a name.',
+      description: 'The scopes to request. Defaults to `openid email profile`, which is what account linking actually reads: the subject, the address and its verified flag, and a name.',
     }),
     link_verified_emails: z.boolean().default(false).meta({
       description: 'Whether a federated login may join an existing app user by verified address. **Defaults to off**, because relaxing later is additive and admitting duplicates now and tightening afterwards is not.',
@@ -482,16 +481,15 @@ export const emailDomain = z
   )
 
 /**
- * **The app's auth settings: one row per app, configured by a Fleetless user**
- * (D3).
+ * **The app's auth settings: one row per app, configured by a Fleetless user.**
  *
  * `self_registration` and `allowed_domains` are **one policy for one
  * decision** — they govern registration by password and registration through
- * an identity provider alike (D4). An invitation always bypasses both, because
+ * an identity provider alike. An invitation always bypasses both, because
  * a developer inviting somebody by hand has already made the decision the
  * whitelist automates.
  *
- * The four URLs are what makes D2 work: Fleetless mails a link, and the link
+ * The four URLs are what makes that work: Fleetless mails a link, and the link
  * points into the developer's app. An app that has configured none of them
  * still works for password login — it simply cannot send a mail that leads
  * anywhere, and `send_mail` is refused rather than silently sending a dead
@@ -542,7 +540,7 @@ export const putAppAuthConfigRequest = appAuthConfig
 export type PutAppAuthConfigRequest = z.infer<typeof putAppAuthConfigRequest>
 
 /**
- * The three mails a developer may replace with their own template (D5).
+ * The three mails a developer may replace with their own template.
  * Mails to *Fleetless* users — a team invitation, a console password reset —
  * stay Fleetless default and are deliberately not customisable: they are
  * about this platform, not about the developer's product.
