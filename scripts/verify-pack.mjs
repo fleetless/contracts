@@ -40,6 +40,7 @@ const MUST_CONTAIN = [
   'LICENSE',
   'NOTICE',
   'README.md',
+  'CHANGELOG.md',
 ]
 
 /**

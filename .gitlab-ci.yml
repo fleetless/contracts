@@ -1,0 +1,164 @@
+# The contracts pipeline. Every push runs the checks and packs the tarball; a
+# release tag (vX.Y.Z, or vX.Y.Z-<pre>.N for `next`) publishes that same
+# tarball to npm as `@fleetless/contracts`.
+#
+# Modelled on `sdk/.gitlab-ci.yml`, minus one thing and plus one thing:
+#
+#   - GONE: the `insteadOf` rewrites. The SDK needs them because it pulls
+#     `@fleetless/contracts` from a private git+ssh URL and the runner has no
+#     SSH. This repository has no private dependency at all — `pnpm install`
+#     here resolves zod, tsx, typescript and vitest from the public registry —
+#     so there is no token to plumb and no reason to plumb one.
+#   - NEW: the artifact staleness gate. `artifacts/` is generated AND
+#     committed, and it is what every non-TypeScript consumer validates
+#     against. A local test already fails on stale artifacts; this makes CI
+#     fail on them too, because the local test only runs if somebody runs it.
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/'
+    - if: '$CI_COMMIT_BRANCH'
+
+stages: [verify, publish]
+
+# No `cache:`, for the reasons measured in sdk/.gitlab-ci.yml: GitLab archives
+# only paths inside the working directory and pnpm's store on this runner sits
+# one level above it, so the cache block archives nothing while staying green;
+# moving the store in makes vitest glob a second repository's test files out of
+# pnpm's temp directory. /builds is the runner's own volume and survives
+# between jobs, so the default store is already warm.
+
+default:
+  image: node:22-slim
+  before_script:
+    # `git` is not in node:22-slim, and this pipeline needs it for the
+    # staleness gate below — `git status` on a checkout with no git binary is
+    # not a check that passes, it is a job that dies on line one.
+    # `ca-certificates` so the registry's TLS has a trust store.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates >/dev/null
+    - corepack enable && corepack prepare pnpm@11.20.0 --activate
+    - pnpm install --frozen-lockfile
+
+verify:
+  stage: verify
+  script:
+    # First, and deliberately: on a tag pipeline the cheapest check is the one
+    # guarding the release, so a tag whose version disagrees with package.json
+    # fails before the suite spends a minute agreeing with itself.
+    #
+    # `> dist-tag.env`, never `| tee dist-tag.env`. A pipeline's exit status is
+    # the LAST command's unless `pipefail` is set, so `| tee` would hand this
+    # guard tee's success and make it unable to fail in the one case it exists
+    # for.
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        node scripts/verify-version-tag.mjs "$CI_COMMIT_TAG" > dist-tag.env
+      else
+        echo '# not a tag pipeline: nothing to publish' > dist-tag.env
+      fi
+      cat dist-tag.env
+    - pnpm typecheck
+    - pnpm test
+    # The staleness gate. `pnpm artifacts` regenerates `artifacts/` from the
+    # zod schemas; if the committed copy already matched, the tree is
+    # unchanged. If it does not match, somebody edited a schema and did not
+    # regenerate — and the artifact is what the bridge and the docs site read,
+    # so the package would ship a schema that disagrees with its own source.
+    #
+    # `--porcelain` and not `git diff --stat`: a stat over 227 JSON files is
+    # read by nobody, and `git diff` alone exits 0 on an UNTRACKED new schema,
+    # which is exactly the case a newly registered export produces. `status
+    # --porcelain` reports tracked modifications and untracked files alike,
+    # and its emptiness is the whole assertion.
+    - pnpm artifacts
+    - |
+      DIRTY="$(git status --porcelain artifacts/)"
+      if [ -n "$DIRTY" ]; then
+        echo "FATAL: the committed artifacts are stale. \`pnpm artifacts\` changed:" >&2
+        echo "$DIRTY" >&2
+        echo "Run \`pnpm artifacts\` locally and commit artifacts/ with the schema change." >&2
+        git --no-pager diff -- artifacts/ | head -200 >&2
+        exit 1
+      fi
+      echo "artifacts/ is current"
+    - pnpm build
+    # Both directions: what the tarball must contain, and what it must not.
+    - pnpm run test:pack
+    # The bytes `publish` ships. `npm pack` runs `prepare` (tsc) itself, so the
+    # tarball is built from this tree, not from whatever `pnpm build` left.
+    - npm pack --pack-destination .
+  artifacts:
+    paths: ["fleetless-contracts-*.tgz", "dist-tag.env"]
+    expire_in: 1 week
+
+publish:
+  stage: publish
+  needs: [verify]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/'
+  # No install: the tarball from `verify` is what ships, and `npm` is in the
+  # image. Nothing here needs pnpm or git.
+  before_script: []
+  script:
+    # NPM_TOKEN is a protected, masked variable. Protected means an
+    # unprotected ref receives an EMPTY value, not a missing one — name that
+    # case first, before anything can fail on it obliquely. npm leaves an
+    # unexpandable `${NPM_TOKEN}` in .npmrc verbatim, so without this guard the
+    # job would publish-attempt with the literal string as its token and fail
+    # on a 401 that says nothing about the cause.
+    - |
+      if [ -z "$NPM_TOKEN" ]; then
+        echo "FATAL: NPM_TOKEN is empty. It is a protected variable; the tag must be protected (v*), and the variable must exist on this project or be inherited from the group." >&2
+        exit 1
+      fi
+    - eval "$(cat dist-tag.env)"
+    - |
+      if [ -z "$DIST_TAG" ]; then
+        echo "FATAL: dist-tag.env from verify carries no DIST_TAG. verify only writes one on a tag pipeline; this job should not have run." >&2
+        exit 1
+      fi
+    - |
+      set -- fleetless-contracts-*.tgz
+      if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+        echo "FATAL: expected exactly one packed tarball from verify, found: $*" >&2
+        exit 1
+      fi
+      TARBALL="$1"
+    - echo "publishing $TARBALL to dist-tag $DIST_TAG"
+    # The heredoc is QUOTED ('NPMRC'), so the shell does not expand
+    # ${NPM_TOKEN} — npm does, when it reads the file. The token therefore
+    # never touches the disk and never reaches the log. An unquoted heredoc
+    # would write the secret out and look identical here.
+    - |
+      cat > .npmrc <<'NPMRC'
+      //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+      NPMRC
+    # `--access public` is the belt to package.json's publishConfig suspenders: a
+    # scoped package defaults to `restricted`, and a restricted publish of an
+    # open-source package succeeds silently and is invisible to everyone.
+    - npm publish "$TARBALL" --access public --tag "$DIST_TAG"
+    # The registry, not the exit code, is the evidence that it landed.
+    - |
+      VERSION="${CI_COMMIT_TAG#v}"
+      # ~2 minutes of lookups, not 20 seconds. npm answers reads from a replica
+      # that lags a publish, and the cost of the two outcomes is wildly
+      # asymmetric: waiting another minute costs a minute, whereas giving up
+      # early fails a job that has ALREADY published — and that is the one
+      # state nobody can retry out of, because npm refuses to publish over an
+      # existing version.
+      for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        seen=$(npm view "@fleetless/contracts@$VERSION" version 2>/dev/null || true)
+        [ "$seen" = "$VERSION" ] && break
+        echo "npm does not report $VERSION yet (attempt $attempt of 12, saw '${seen:-nothing}'); waiting"
+        sleep 10
+      done
+      if [ "$seen" != "$VERSION" ]; then
+        echo "FATAL: npm publish exited 0 but the registry does not serve @fleetless/contracts@$VERSION after 12 lookups over ~2 minutes." >&2
+        echo "publish may have succeeded; the registry has not served the version yet; do NOT retry this job (npm refuses to republish a version) — check \`npm view @fleetless/contracts@$VERSION\` by hand" >&2
+        exit 1
+      fi
+      echo "npm has @fleetless/contracts@$VERSION"
+  after_script:
+    # Runs on success and on failure. `-f`: on an early exit the file may not
+    # exist, and an after_script that fails hides the job's real error.
+    - rm -f .npmrc

@@ -85,3 +85,24 @@ commit messages, documentation.
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+
+## Releasing (maintainers)
+
+The pipeline publishes; nobody runs `npm publish` by hand.
+
+1. Update `CHANGELOG.md` and set the new version in `package.json`. The two
+   must agree with the tag or CI refuses the release.
+2. Commit, push, and let the `verify` job go green on the branch.
+3. Tag `vX.Y.Z` (or `vX.Y.Z-beta.N` for a pre-release, which publishes to the
+   `next` dist-tag) and push the tag. The tag pipeline runs `verify` again and
+   then `publish`.
+
+`publish` needs an `NPM_TOKEN` variable, protected and masked. Protected means
+an unprotected ref receives an empty value rather than a missing one, so the
+tag pattern must be protected too; the job names that case before it can fail
+on it obliquely.
+
+**If the publish job goes red after `npm publish` has run, do not press
+retry.** npm refuses to republish a version, so a retry fails with a 403 that
+reads like a broken pipeline rather than like a release that already happened.
+Check `npm view @fleetless/contracts@<version>` first.
