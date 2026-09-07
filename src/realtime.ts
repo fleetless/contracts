@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { RESOURCE_HEALTH_STATES } from './rest.js'
 import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'

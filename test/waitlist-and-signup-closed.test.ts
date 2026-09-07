@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
 import { ERROR_CODES, waitlistRequest } from '../src/index.js'
 import { exportedSchemas, schemaIo } from '../scripts/export-schemas.js'

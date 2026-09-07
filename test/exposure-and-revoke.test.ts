@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
 import { auditQuery, bridgeConfigApplied, configState, exposureCounts, robotListItem, PROTOCOL_VERSION } from '../src/index.js'
 

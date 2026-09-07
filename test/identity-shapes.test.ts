@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * **The Fleetless-user half of the two identity spaces** (spec
  * `2026-09-05-app-user-auth`, D1): the org's team, its invitations and its

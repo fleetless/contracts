@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * **What is left of the federation shapes after the two-space cut** (spec
  * `2026-09-05-app-user-auth`).

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * **The per-app identity space** (spec `2026-09-05-app-user-auth`, D1–D7).
  *
@@ -163,7 +164,7 @@ describe('emailDomain — one canonical spelling, so two entries that look alike
   })
 
   it('accepts a hyphenated domain', () => {
-    expect(emailDomain.safeParse('dehne-robotik.de').success).toBe(true)
+    expect(emailDomain.safeParse('robot-fleet.example.com').success).toBe(true)
   })
 })
 
@@ -488,7 +489,7 @@ describe('appOidcProvider — the secret goes in and never comes back', () => {
 describe('appAuthConfig — what the developer may set, and the one field they may not', () => {
   const ROW = {
     self_registration: true,
-    allowed_domains: ['dehne-robotik.de'],
+    allowed_domains: ['example.com'],
     allowed_origins: ['https://app.example.com'],
     mcp_enabled: false,
     invite_url: 'https://app.example.com/invite/{token}',

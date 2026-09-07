@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { assetFailure } from './assets.js'
 import { applyError, slug } from './common.js'

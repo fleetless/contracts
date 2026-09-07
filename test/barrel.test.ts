@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * The package's only export path is `dist/index.js` — `package.json` maps
  * `"."` to it and nothing else, so a deep import is refused by Node with

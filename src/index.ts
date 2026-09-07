@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export {
   SLUG_RULE,
   ROS_NAME_RULE,

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
  *

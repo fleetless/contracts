@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
 import type { ValidationIssue } from '../src/config.js'

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import type { z } from 'zod'
 import { slug, RESERVED_SLUGS, parameterSpec, parameterType, messageBody, messageRef, PLACEHOLDER_RE, placeholderNames, messageMap } from '../src/index.js'

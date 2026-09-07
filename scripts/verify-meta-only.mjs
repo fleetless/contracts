@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Prove that a change to the schemas added ONLY `description` and `examples`.
  *

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * `barrel.test.ts` uses `import.meta.glob` — a Vite feature, not a TypeScript
  * one — to hold every source file against the barrel. Vite's own `client.d.ts`

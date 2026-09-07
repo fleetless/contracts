@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
 import { orgUsageQuery, orgUsageResponse, usageDay, usageMetric, usageRow, USAGE_WINDOW_MAX_DAYS } from '../src/index.js'
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * **The route manifest: every HTTP route the cloud registers, declared once.**
  *
