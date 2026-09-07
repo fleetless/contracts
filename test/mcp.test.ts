@@ -41,7 +41,7 @@ const docWithoutDescriptions = {
     },
   },
   actions: {
-    dock: { ros_name: '/dock', type: 'rx1_msgs/action/Dock' },
+    dock: { ros_name: '/dock', type: 'robot_msgs/action/Dock' },
   },
 }
 
@@ -151,8 +151,8 @@ describe('the app-level MCP switch, gone and back', () => {
   }
 
   /**
-   * W7c gave an app an `mcp_enabled` switch for the per-app endpoint
-   * `/mcp/<identifier>`. The central-MCP cut deleted that endpoint, so Andre
+   * An app once had an `mcp_enabled` switch for a per-app endpoint
+   * `/mcp/<identifier>`. That endpoint is deleted, so the switch
    * removed the field on 2026-08-29. The app-user-auth design brings the
    * per-app endpoint back (D7) — and puts the switch on `appAuthConfig`, not
    * back on `app`.

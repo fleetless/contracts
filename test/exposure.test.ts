@@ -46,7 +46,7 @@ describe('exposure model', () => {
   it('indexes at most one array level per segment, because ROS has no nested arrays', () => {
     // ROS 2 IDL has float64[], float64[3], float64[<=10] — and no float64[][].
     // A second index on a segment can denote nothing, and the bridge has always
-    // raised FieldPathError for it; the grammar used to disagree (FL-004).
+    // raises FieldPathError for it, and the grammar has to agree.
     expect(datapointConfig.safeParse({ ...DATAPOINT, field: 'ranges[0][1]' }).success).toBe(false)
     // The regex carries two index groups — the first segment's and every later
     // one's — so a fix that touches only the first leaves this one open.
@@ -289,7 +289,7 @@ describe('REST shapes', () => {
   })
 
   it('carries a null document for a draft that is valid YAML but not a fleetless document', () => {
-    // FL-005 D2: a draft is saved whenever it parses as YAML, so a draft can
+    // A draft is saved whenever it parses as YAML, so a draft can
     // exist whose text is not a `robotConfigDoc` at all. That draft has no
     // document, and `null` is how it says so.
     expect(
@@ -356,14 +356,14 @@ describe('REST shapes', () => {
   it('bounds robot_details keys and value kinds', () => {
     expect(
       robotDetailsDoc.safeParse({
-        model: 'rx1',
+        model: 'ranger-x1',
         payload_kg: 12.5,
         indoor: true,
         sensors: ['lidar', 'imu'],
         dimensions: { x: 1, y: 2 },
       }).success,
     ).toBe(true)
-    expect(robotDetailsDoc.safeParse({ 'Model-Name': 'rx1' }).success).toBe(false)
+    expect(robotDetailsDoc.safeParse({ 'Model-Name': 'ranger-x1' }).success).toBe(false)
     expect(robotDetailsDoc.safeParse({ model: null }).success).toBe(false)
   })
 })

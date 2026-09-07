@@ -5,10 +5,9 @@ import { APP_USER_DISPLAY_NAME_MAX, providerSlug } from './app-users.js'
 import { password } from './identity.js'
 
 /**
- * **The client auth API: the whole of what an app user's browser talks to**
- * (spec `2026-09-05-app-user-auth`, §4).
+ * **The client auth API: the whole of what an app user's browser talks to.**
  *
- * Fleetless shows an app user **no page** (D2). The developer's own UI owns
+ * Fleetless shows an app user **no page**. The developer's own UI owns
  * every screen — login, registration, verification, invitation acceptance,
  * password reset, the provider buttons, the MCP consent — and calls these
  * routes as JSON. The hosted, app-branded login and consent pages this file
@@ -28,7 +27,7 @@ import { password } from './identity.js'
  * anything else is parsed as a JWT. That rule is written down once, here, so
  * the SDK and the cloud cannot drift into disagreeing about it.
  *
- * **The enumeration discipline is the design's, not a preference** (§4):
+ * **The enumeration discipline is deliberate, not a preference:**
  * `register`, `resend-verification` and `password/reset` answer `202` for every
  * policy-allowed request whether or not the address exists, and `login` answers
  * the identical `invalid_credentials` for a wrong password, a `blocked` account

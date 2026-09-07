@@ -57,7 +57,7 @@ describe('an asset says what it is and where it came from', () => {
     id: UUID,
     robot_id: UUID,
     kind: 'mesh' as const,
-    name: 'package://rx1_description/meshes/base.dae',
+    name: 'package://robot_description/meshes/base.dae',
     media_type: 'model/vnd.collada+xml',
     size_bytes: 1024,
     sha256: SHA,
@@ -90,10 +90,10 @@ describe('completeness distinguishes three different unhappy answers', () => {
     const body = {
       assets: [],
       urdf: { present: false, mesh_count: 0, missing: [] },
-      // In die FIXTURE, nicht in die Zusicherung. Die letzte Zeile dieses
-      // Tests behauptet, `body` ohne `urdf_available` werde abgelehnt — ohne
-      // `active_sync` hier würde sie aus ZWEI Gründen scheitern und damit aus
-      // dem falschen bestehen. Genau diese Form ist hier schon durchgerutscht.
+      // In the FIXTURE, not in the assertion. The last line of this test
+      // claims `body` without `urdf_available` is refused — without
+      // `active_sync` here it would fail for TWO reasons and therefore pass
+      // for the wrong one.
       active_sync: null,
     }
     expect(assetListResponse.safeParse({ ...body, urdf_available: null }).success).toBe(true)

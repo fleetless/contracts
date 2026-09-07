@@ -57,7 +57,7 @@ export type ExposureSection = (typeof EXPOSURE_SECTIONS)[number]
 
 /**
  * The refusals `robotConfigDoc` already made, reported as validation issues
- * with their FL-002 codes.
+ * with the format's own codes.
  *
  * **This maps; it does not re-decide.** Seven of the thirteen codes are
  * answered by the schema before a document ever becomes a `RobotConfigDoc`,
@@ -78,8 +78,8 @@ export type ExposureSection = (typeof EXPOSURE_SECTIONS)[number]
  *   sentence differs at the document root, where there is no key to remove:
  *   see `EMPTY_DOCUMENT_MESSAGE`.
  *
- * Everything else keeps zod's own code. Those are refusals with no FL-002
- * code — a reversed `min_value`/`max_value` pair, a section over its cap, a
+ * Everything else keeps zod's own code. Those are refusals the format names no
+ * code for — a reversed `min_value`/`max_value` pair, a section over its cap, a
  * key that is not a slug — and inventing a fourteenth code for them would put
  * a code on the wire that no table documents.
  */
@@ -117,9 +117,9 @@ const NULL_KEY_MESSAGE = 'This key is null. Omission is the only spelling of "no
  * a genuine `invalid_type` on `null` at the empty path, so the code is right —
  * but the sentence for a null *key* told the developer to remove a key that
  * does not exist, and "select all, delete" is the commonest way anybody gets
- * here. Since FL-005 D2 stores the draft rather than refusing it, that
- * sentence is what the FINDINGS panel shows persistently for an emptied
- * editor, where it used to ride a one-shot 422 nobody read.
+ * here. A draft that does not parse is stored rather than refused, so this
+ * sentence is what an editor's findings panel shows persistently for an emptied
+ * document rather than a one-shot refusal nobody reads.
  *
  * It names the smallest legal document rather than only saying what is wrong,
  * because at this path there is no line to jump to and no repair to offer —

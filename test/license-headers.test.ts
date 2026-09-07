@@ -8,17 +8,46 @@ import { describe, expect, it } from 'vitest'
  * line. The package is published to npm under Apache-2.0, and a file without
  * the header is a file whose licence a downstream reader has to infer.
  *
- * What makes this test fail: delete the header from any one file under `src/`,
- * `scripts/` or `test/`. Verified by doing exactly that — the run named the
- * file. What ALSO makes it fail, and is the harder half: the sweep finding
- * fewer files than the repository has. A guard over a set that silently walks
- * an empty directory is the failure mode this project has hit most often, so
- * the count is asserted twice — against a floor, and against the real listing.
+ * What makes this test fail: delete the header from any one file under any
+ * source directory. Verified by doing exactly that — the run named the file.
+ * What ALSO makes it fail, and is the harder half: the sweep finding fewer
+ * files than the repository has. A guard over a set that silently walks an
+ * empty directory is the failure mode this project has hit most often, so the
+ * count is asserted twice — against a floor, and against the real listing.
+ *
+ * **The directories are derived from the repository, not listed.** A named list
+ * (`src`, `scripts`, `test`) is a requirement about a set guarded by three
+ * examples: a `bin/`, a `tools/`, or a `.ts` at the repository root is invisible
+ * to it and carries whatever header somebody copied. So the walk starts at the
+ * repository and excludes a literal set of directories that are not source —
+ * which makes a NEW top-level directory a failure until somebody classifies it,
+ * the same shape the `unclassified` assertion already has one level down.
+ *
+ * The published half of this rule is not here: `dist/` is what a consumer
+ * receives, `tsc` drops the header from declaration emit, and
+ * `scripts/stamp-dist.mjs` puts it back. `scripts/verify-pack.mjs` asserts it
+ * over the tarball's own bytes, which is the only place that can.
  */
 
 const HEADER = '// SPDX-License-Identifier: Apache-2.0'
 const ROOT = new URL('..', import.meta.url).pathname
-const DIRS = ['src', 'scripts', 'test']
+
+/**
+ * Not source, and excluded by name so that anything else is swept. Generated
+ * output (`dist`, `artifacts`), dependencies, VCS metadata, and the agent
+ * scratch directory that is not part of the package.
+ */
+const NOT_SOURCE = new Set(['node_modules', 'dist', 'artifacts', '.git', '.superpowers', 'coverage', '.nuxt'])
+
+const DIRS = readdirSync(ROOT, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && !NOT_SOURCE.has(e.name))
+  .map((e) => e.name)
+  .sort()
+
+/** Files at the repository root itself — a `.ts` there is source like any other. */
+const ROOT_FILES = readdirSync(ROOT, { withFileTypes: true })
+  .filter((e) => e.isFile())
+  .map((e) => e.name)
 
 /** Extensions that carry `//` comments and therefore must carry the header. */
 const SOURCE = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs']
@@ -29,7 +58,13 @@ const SOURCE = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs']
  * added here deliberately, which is the moment somebody asks whether it should
  * have been source instead.
  */
-const EXEMPT = new Set(['tsconfig.json'])
+const EXEMPT = new Set([
+  'tsconfig.json',
+  // Root files that are not source and are not this rule's business.
+  'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.gitignore',
+  '.gitlab-ci.yml', 'LICENSE', 'NOTICE', 'README.md', 'CHANGELOG.md',
+  'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md',
+])
 
 function walk(dir: string): string[] {
   const out: string[] = []
@@ -41,7 +76,7 @@ function walk(dir: string): string[] {
   return out
 }
 
-const all = DIRS.flatMap(walk)
+const all = [...DIRS.flatMap(walk), ...ROOT_FILES]
 const sources = all.filter((f) => SOURCE.some((ext) => f.endsWith(ext)))
 
 describe('SPDX headers', () => {
@@ -67,6 +102,16 @@ describe('SPDX headers', () => {
         `no source files found under ${dir}/`,
       ).toBeGreaterThan(0)
     }
+  })
+
+  it('derives the directory set from the repository rather than a literal list', () => {
+    // The three that must always be there, asserted so the derivation cannot
+    // quietly return fewer — an exclude set that grew a typo would otherwise
+    // shrink the swept set and every assertion with it.
+    expect(DIRS).toEqual(expect.arrayContaining(['src', 'scripts', 'test']))
+    // And a new top-level source directory is swept without anybody editing
+    // this file: it is in DIRS by construction unless it is in NOT_SOURCE.
+    for (const name of DIRS) expect(NOT_SOURCE.has(name)).toBe(false)
   })
 
   it('every source file opens with the SPDX header', () => {

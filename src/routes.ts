@@ -205,9 +205,9 @@ export interface RouteEntry {
    * It exists because the OpenAPI render marked every request body `required`,
    * which documented a refusal `POST /api/robots/:id/jobs/:slug/cancel` does not
    * make: it parses `request.body ?? {}`, and a bodyless `POST` was every
-   * caller's shape before `job_id` existed. Getting that wrong in the other
-   * direction is what W5's worst bug was — a bodyless `POST` with a JSON
-   * content type rejected outright — so this is a fact worth carrying rather
+   * caller's shape before `job_id` existed. Getting it wrong in the other
+   * direction — a bodyless `POST` with a JSON content type rejected outright —
+   * makes whole routes unreachable, so this is a fact worth carrying rather
    * than a default worth assuming.
    */
   readonly requestOptional?: true
@@ -1496,8 +1496,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: ['not_found', 'unauthorized', 'forbidden'], transport: 'http',
     notes:
       'MCP\'s Streamable HTTP gives this path three verbs: `POST` carries JSON-RPC, `GET` opens the server-initiated SSE stream, and `DELETE` ' +
-      'ends a session. This server has no sessions — the argument is in `MCP_PROTOCOL_VERSION`\'s own note, and W8\'s second cloud instance is ' +
-      'where a per-process session map would break — so `GET` and `DELETE` answer `405`, which is what a client is built to fall back from. ' +
+      'ends a session. This server has no sessions — the argument is in `MCP_PROTOCOL_VERSION`\'s own note, and a per-process session map is ' +
+      'what breaks at the second cloud instance — so `GET` and `DELETE` answer `405`, which is what a client is built to fall back from. ' +
       '\n\n**The `405` is this cloud\'s own answer, not the SDK\'s**, and the difference was measured: MCP SDK 1.30.0 opens an SSE stream on ' +
       '`GET` (`handleGetRequest`) and answers `200` on `DELETE` (`handleDeleteRequest`), neither of which a stateless server has any ' +
       'business doing, so the cloud writes the `405` itself in the transport\'s own JSON-RPC error shape with `Allow: POST`. \n\n**The row exists so that the `405` is not a `404`.** An unregistered verb answers ' +

@@ -133,7 +133,7 @@ describe('the format explains its own rules', () => {
       const node = found.nodes.get(p)
       if (!Array.isArray(node.enumDescriptions) || node.enumDescriptions.length !== node.enum.length) return true
       if (node.enumDescriptions.some((d: unknown) => typeof d !== 'string' || d.trim().length === 0)) return true
-      // The §1.3 failure mode in its own right: one paragraph repeated is
+      // A failure mode in its own right: one paragraph repeated is
       // indistinguishable from no per-value documentation at all, and that is
       // exactly the state `enumDescriptions` was added to leave.
       return new Set(node.enumDescriptions).size !== node.enumDescriptions.length

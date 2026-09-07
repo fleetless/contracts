@@ -7,13 +7,12 @@ import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
 
 /**
- * Client realtime protocol (spec §11.1): WebSocket subscriptions on
- * datapoints. W1 scope: subscribe/unsubscribe plus the datapoint event
- * stream; command parity arrives in W4.
+ * Client realtime protocol: WebSocket subscriptions on datapoints, the
+ * datapoint event stream, and full command parity with REST.
  */
 
 /**
- * The first frame a client sends after the socket opens (W3, spec §3.4).
+ * The first frame a client sends after the socket opens.
  *
  * A browser cannot set an `Authorization` header on a WebSocket handshake,
  * and a token in the query string would outlive the request in server,
@@ -51,7 +50,7 @@ export const authError = z.object({
 export type AuthError = z.infer<typeof authError>
 
 /**
- * Command parity (spec §11.1): everything REST can do — invoke an action,
+ * Command parity: everything REST can do — invoke an action,
  * call a service, publish, cancel — also travels over this socket.
  *
  * **Every command carries a `request_id` and every reply echoes it.** A
@@ -66,20 +65,16 @@ export const clientInvoke = z.object({
   request_id: z.string().min(1).max(64),
   robot_id: z.uuid(),
   slug,
-  /** Parameters by field path, validated against the config's rules (§4.4). */
+  /** Parameters by field path, validated against the configuration's rules. */
   params: z.record(z.string(), z.unknown()),
   /**
-   * How long this one call is worth waiting for (W6b) — the same field,
-   * meaning and cap as `invokeRequest.patience_ms`; absent means
-   * `DEFAULT_PATIENCE_MS`.
+   * How long this one call is worth waiting for — the same field, meaning and
+   * cap as `invokeRequest.patience_ms`; absent means `DEFAULT_PATIENCE_MS`.
    *
-   * It is here because **§11.1 parity is a rule, not a preference**: what REST
-   * can do travels over this socket. The first version of this delta gave
-   * `patience_ms` to the REST body only — and the SDK invokes exclusively over
-   * the realtime channel, so the field would have been unreachable for every
-   * SDK caller while appearing in the documentation. W6a shipped four SDK
-   * methods no SDK caller could invoke; this is the same defect caught before
-   * it shipped, by the SDK owner rather than by a reviewer.
+   * It is here because **parity is a rule, not a preference**: what REST can do
+   * travels over this socket. A field given to the REST body alone would be
+   * unreachable to every caller that invokes over the realtime channel, while
+   * still appearing in the documentation.
    */
   patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS).optional(),
 })
@@ -89,17 +84,17 @@ export const clientCancel = z.object({
   type: z.literal('cancel'),
   request_id: z.string().min(1).max(64),
   robot_id: z.uuid(),
-  /** Which slug — required, and the only address a cancel had until W6b. */
+  /** Which slug — required, and the coarse address of a cancel. */
   slug,
   /**
-   * Which job on that slug (W6b), or `null` for *whatever is running there*.
+   * Which job on that slug, or `null` for *whatever is running there*.
    *
    * The two are different requests and both are legitimate. An operator
    * hitting a stop button means the second: stop the machine, whatever it is
    * doing. A client cancelling the job it started means the first — and until
-   * this field existed it could not say so, so a cancel that arrived just
-   * after its own job ended stopped the next caller's job instead. Same slug,
-   * same wire frame, entirely different machine behaviour, and nothing in the
+   * this field a client could not say so, and a cancel arriving just after its
+   * own job ended would stop the next caller's job instead. Same slug, same
+   * wire frame, entirely different machine behaviour, and nothing in the
    * protocol able to tell them apart.
    *
    * A named id that is not running answers `not_found` rather than falling
@@ -135,11 +130,10 @@ export type ClientPublish = z.infer<typeof clientPublish>
  * a command has reached the bridge, deliberately, so that the next command —
  * a stop, say — is never held up behind bookkeeping. Work that follows the
  * send therefore runs unordered: a publish that *acquires* a slug writes an
- * audit record before answering, while an immediately following publish by
- * the now-current holder has nothing to write and answers at once. Its reply
- * overtakes. Measured in W5: exactly one reversal in fifty-six zero-gap
- * bursts, which is the signature of that cause — it can happen only once per
- * identity and slug — and not of a race.
+ * audit record before answering, while an immediately following publish by the
+ * now-current holder has nothing to write and answers at once. Its reply
+ * overtakes. That reversal happens at most once per identity and slug, which
+ * is what distinguishes it from a race.
  *
  * Serialising the replies would mean putting that bookkeeping in front of
  * every following command, including the stop. The ordering that matters is
@@ -155,9 +149,9 @@ export const commandResult = z.object({
    * - `ok:true` on an invoke or a call: the job that was just created.
    * - `ok:true` on a cancel: the job the cancel was sent to.
    * - `ok:false, code:'busy'`: **the job that is already running** — the
-   *   caller has none. This is the §11.3 "inkl. Information, was läuft", and
-   *   it is the whole reason a busy refusal is useful: the caller learns
-   *   whether to wait or to give up (see `busyDetails`).
+   *   caller has none. Naming what is already running is the whole reason a
+   *   busy refusal is useful: the caller learns whether to wait or to give up
+   *   (see `busyDetails`).
    * - any other refusal: `null`.
    */
   job: job.nullable(),
@@ -179,12 +173,11 @@ export const commandResult = z.object({
    * The same payload the REST envelope carries in `apiError.details` — for
    * `parameter_invalid`, a `parameterInvalidDetails`.
    *
-   * Added because it was missing, and its absence quietly broke §11.1: this
-   * socket is supposed to do *everything* REST can do, but a
-   * `parameter_invalid` arriving here had nowhere to put its violations, so
-   * the same refusal was actionable over HTTP and opaque over the socket.
-   * A client cannot bind an error to the input that caused it from a code
-   * alone — which is the entire point of the flat parameter shape.
+   * It is here because this socket does *everything* REST can do, and without
+   * it a `parameter_invalid` arriving here would have nowhere to put its
+   * violations — the same refusal actionable over HTTP and opaque over the
+   * socket. A client cannot bind an error to the input that caused it from a
+   * code alone, which is the entire point of the flat parameter shape.
    */
   details: z.unknown().optional(),
 })
@@ -205,7 +198,7 @@ export const errorFrame = z.object({
 export type ErrorFrame = z.infer<typeof errorFrame>
 
 /**
- * Subscribe to a slug's stream (spec §11.3: **state is observed by slug**).
+ * Subscribe to a slug's stream — **state is observed by slug**.
  *
  * Which kinds are subscribable, and why it is not a matter of taste:
  *
@@ -227,7 +220,7 @@ export const clientSubscribe = z.object({
   robot_id: z.uuid(),
   slug,
   /**
-   * What the subscriber expects, and how it wants it (W5).
+   * What the subscriber expects, and how it wants it.
    *
    * `kind` lets the server answer **`wrong_kind`** instead of accepting a
    * subscribe the client will then filter to silence — and silence is
@@ -235,8 +228,6 @@ export const clientSubscribe = z.object({
    * Optional, so an older client that omits it keeps today's behaviour.
    *
    * `options` is where a camera says what it wants; a datapoint needs none.
-   * It exists now rather than later because adding a field to a frame three
-   * repos parse is cheap once and expensive twice.
    */
   /**
    * `publisher` is here even though a publisher is not subscribable: a client
@@ -260,7 +251,7 @@ export type ClientUnsubscribe = z.infer<typeof clientUnsubscribe>
 
 /**
  * Refusal of a subscribe, addressed by the (robot_id, slug) it refers to.
- * Codes follow the §11.5 error culture: stable code + human message.
+ * Codes follow the same error culture as REST: stable code plus human message.
  * robot_id/slug are plain strings ECHOING what the client sent — the frame
  * must be constructible precisely when those values are malformed, so that
  * a bad robot_id or slug gets a diagnosis instead of a dead socket.
@@ -289,7 +280,7 @@ export const datapointEvent = z.object({
 export type DatapointEvent = z.infer<typeof datapointEvent>
 
 /**
- * A change in the health of something the developer configured (W6a).
+ * A change in the health of something the developer configured.
  *
  * The push half of `resourceHealthState`; the REST list is the snapshot half,
  * and neither is useful alone — a page that loads after the change would see
@@ -300,19 +291,17 @@ export type DatapointEvent = z.infer<typeof datapointEvent>
  * looking at the thing that broke.
  */
 /**
- * Why a live camera session ended (W9a).
+/**
+ * Why a live camera session ended.
  *
- * **The reason travels WITH the ending, and that is the whole point of this
- * enum existing rather than a state somebody reads afterwards.** W6a put a
- * `cause` on the wire, the console named the real reason, and the lead
- * observed the gate step and closed it — and the review then found it still
- * could not tell, for a different reason: `stopped_by_config_change` is
- * **sticky**, nothing moves a camera out of it, and `LiveCameraRow` read that
- * *current* state at the moment a stream ended. A config change at 10:00 and
- * an unrelated release at 10:30 therefore reported the same cause (DEF-070).
+ * **The reason travels WITH the ending, rather than being read afterwards from
+ * a state.** Some of these states are sticky — nothing moves a camera out of
+ * `stopped_by_config_change` — so a client that reads the current state at the
+ * moment a stream ends reports a configuration change from hours ago as the
+ * cause of an unrelated ending.
  *
- * A state read after the fact answers "what is true now". A viewer needs
- * "what happened to my session", and only an event carries that.
+ * A state read after the fact answers "what is true now". A viewer needs "what
+ * happened to my session", and only an event carries that.
  */
 export const liveSessionEndReason = z.enum([
   /** Another holder of this camera released it — another tab, or another client. */
@@ -340,21 +329,18 @@ export const liveSessionEndReason = z.enum([
 export type LiveSessionEndReason = z.infer<typeof liveSessionEndReason>
 
 /**
- * A live camera session ended, told to the **client that holds it** (W9a).
+/**
+ * A live camera session ended, told to the **client that holds it**.
  *
- * This is the channel `DEF-051`, `DEF-052`, `DEF-053` and `DEF-070` each
- * described from a different direction across four waves. Until now the only
- * vehicle was `camera_state`, which the cloud stores in `publishState` and
- * reads in exactly one place — refusing a *later* joiner — so reporting a
- * failure would have written to a dead end.
+ * Without this frame the only vehicle is `camera_state`, which the cloud stores
+ * and reads in exactly one place — refusing a *later* joiner — so a failure
+ * reported through it is written to a dead end.
  *
  * Unlike `resourceHealthEvent`, which is developer-only and org-scoped, this
- * one is addressed to the **holder of the session**: it names `session_id`
- * (W6b gave `liveSessionResponse` one precisely so a session could be
- * addressed) and is delivered only to the identity that session was minted
- * for. A developer watching the same robot learns about the *resource* health;
- * the viewer learns about *their own session*. Two questions, two channels,
- * on purpose.
+ * one is addressed to the **holder of the session**: it names `session_id` and
+ * is delivered only to the identity that session was minted for. A developer
+ * watching the same robot learns about the *resource* health; the viewer learns
+ * about *their own session*. Two questions, two channels, on purpose.
  */
 export const liveSessionEvent = z.object({
   type: z.literal('live_session'),
@@ -366,13 +352,10 @@ export const liveSessionEvent = z.object({
   /**
    * **Classified text the cloud produced, never text the robot sent.**
    *
-   * An earlier draft of this comment said *"the robot's own words when it has
-   * any"*, which reads as permission to pass `bridgeCameraState.error.message`
-   * straight through. Nothing sanitises that field, and this codebase has a
-   * documented incident of a password reaching a developer surface through
-   * exactly that route — `camera-health.ts`'s fixed-string `REASON` discipline
-   * exists because of it. Nimbus-W9a stopped at the sentence and asked rather
-   * than taking the permission it appeared to give (2026-08-19).
+   * It is **not** the robot's own words. Nothing sanitises
+   * `bridgeCameraState.error.message`, and a camera password reaches a
+   * developer surface through exactly that route — which is why the cloud maps
+   * a robot's diagnosis to fixed strings rather than forwarding it.
    *
    * So: `null` unless the cloud itself has something classified to say. If a
    * developer needs the robot's own diagnosis later, it arrives as a mapped
@@ -386,16 +369,15 @@ export const liveSessionEvent = z.object({
 export type LiveSessionEvent = z.infer<typeof liveSessionEvent>
 
 /**
- * A resource's health entry was **withdrawn** (W9a, DEF-071).
+ * A resource's health entry was **withdrawn**.
  *
- * The store's `invalidate()` deliberately emitted nothing, reasoning that
- * "withdrawing a claim nobody can currently stand behind is not new
- * information — the next `GET` already reflects it." That holds for a page
- * that loads later. **It is false for a page that is already open, because
- * there is no next `GET`:** `ensureSnapshot()` runs on `acquire` and nowhere
- * else, there is no interval, and the event handler only ever *writes* keys.
- * A camera retargeted to a source that never reports — which is the case the
- * clearing exists for — leaves an open tab showing the old value indefinitely.
+ * Withdrawing a claim nobody can currently stand behind looks like it needs no
+ * event: the next `GET` already reflects it. That holds for a page that loads
+ * later. **It is false for a page that is already open, because there is no
+ * next `GET`** — a client fetches the snapshot once and then only ever writes
+ * keys the event stream gives it. A camera retargeted to a source that never
+ * reports, which is the case the clearing exists for, would leave an open tab
+ * showing the old value indefinitely.
  *
  * **A separate event type rather than a nullable `state` on the existing
  * one**, so a consumer's `switch` has to name it. A nullable field invites
@@ -426,17 +408,14 @@ export const resourceHealthEvent = z.object({
 export type ResourceHealthEvent = z.infer<typeof resourceHealthEvent>
 
 /**
- * One line of the developer console's activity panel (spec
- * `2026-08-20-org-event-stream`).
+ * One line of the developer console's activity panel.
  *
  * **This is an activity log for humans, not a complete feed.** It is throttled
- * and sampled. `orgEventDropped` still reports a drop on the wire, but since
- * FL-001 **no Fleetless surface renders it** — the console's gap banner was
- * removed on request, and nothing replaced it. A reader of this stream
- * therefore cannot tell a complete window from a sampled one, and this
- * comment says so rather than implying a notice that exists only in the
- * protocol. Anything that needs completeness reads the audit log or the
- * job-run history, both durable, both 90 days.
+ * and sampled. `orgEventDropped` reports a drop on the wire, but no Fleetless
+ * surface renders it, so a reader of this stream cannot tell a complete window
+ * from a sampled one unless their own client shows the drop. Anything that
+ * needs completeness reads the audit log or the job-run history, both durable,
+ * both 90 days.
  */
 export const ORG_EVENT_SAMPLE_INTERVAL_MS = 1_000
 /** The backstop above the per-slug cap: a fleet larger than the panel could serve anyway. */
@@ -449,21 +428,16 @@ export const ORG_EVENT_BUFFER_IDLE_MS = 3_600_000
 export const ORG_EVENT_DETAIL_MAX_BYTES = 4_096
 
 /**
- * `'alert'` — a transition of a datapoint alert (`ok ⇄ firing`, spec
- * `2026-08-28-alerts-and-datapoint-modal-design` D2). A firing event carries
- * the alert's own `severity`; a resolved event is always `info` — resolving
- * is good news regardless of how bad the firing was.
+ * `'alert'` — a transition of a datapoint alert (`ok ⇄ firing`). A firing
+ * event carries the alert's own `severity`; a resolved event is always `info` —
+ * resolving is good news regardless of how bad the firing was.
  *
- * `'datapoint'` — since FL-001, **no producer emits this kind**: the
- * datapoint producer was made a deliberate no-op (Task 5/6, this stream's own
- * per-slug sampling made it redundant with what the datapoint history route
- * already serves). The member stays in the enum rather than being removed,
- * because a reader may still hold a pre-deploy frame of this kind sitting in
- * a buffer (a reconnect replay, a client that hasn't refreshed) and must be
- * able to parse it rather than fail closed on an old, valid value. Same shape
- * as the correction on `ORG_EVENT_SAMPLE_INTERVAL_MS`'s comment just above:
- * name what the wire no longer does instead of leaving a value the cloud can
- * never send undocumented.
+ * `'datapoint'` — **no producer emits this kind**: per-slug sampling on this
+ * stream made it redundant with what the datapoint history route already
+ * serves. The member stays in the enum rather than being removed, because a
+ * reader may still hold an older frame of this kind in a buffer (a reconnect
+ * replay, a client that has not refreshed) and must be able to parse it rather
+ * than fail closed on an old, valid value.
  */
 export const orgEventKind = z.enum(['datapoint', 'health', 'job', 'bridge', 'audit', 'alert'])
 export type OrgEventKind = z.infer<typeof orgEventKind>

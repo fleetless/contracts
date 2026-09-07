@@ -86,7 +86,7 @@ describe('the seven codes the schema decides, mapped rather than re-checked', ()
    * The code is right and stays; the sentence was the one for a null *key*,
    * and at this path there is no key. Asserted on the message rather than only
    * on the code, which is the assertion that could not see the defect: the
-   * code was `explicit_null` before and after, and since FL-005 D2 stores the
+   * code is `explicit_null` either way, and because the draft store keeps the
    * draft rather than refusing it, this sentence is what the FINDINGS panel
    * shows an emptied editor persistently.
    */
@@ -212,7 +212,7 @@ describe('what the mapping attaches to an issue besides its code', () => {
     expect(outside[0]!.slug).toBeNull()
   })
 
-  it('keeps zod\'s own code where FL-002 has none', () => {
+  it('keeps zod\'s own code where the format names none', () => {
     // A reversed bounds pair is a refusal with no `params.code`, and inventing
     // a fourteenth code for it would put a code on the wire no table
     // documents.

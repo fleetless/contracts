@@ -25,7 +25,7 @@ describe('idpIssuer — the string that decides where the server connects', () =
   /**
    * `file:`, `gopher:` and friends are what turn an issuer field into a read of
    * the server's own disk. This is the check that a scheme allow-list, not a
-   * `z.url()`, is what stands here — the defect Argus-W7b found by storing
+   * `z.url()`, is what stands here — the defect found by storing
    * `file:///etc/passwd` through the app's IdP route and catching the outbound
    * fetch on a listener.
    */

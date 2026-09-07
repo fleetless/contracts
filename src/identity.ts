@@ -140,7 +140,7 @@ export const fleetlessUserListResponse = z.object({
 export type FleetlessUserListResponse = z.infer<typeof fleetlessUserListResponse>
 
 /**
- * Access plus refresh (spec §3.4). The access token is short-lived; the
+ * Access plus refresh. The access token is short-lived; the
  * refresh token rotates on every use, so a stolen one is detectable when the
  * original is presented again.
  *
@@ -164,8 +164,8 @@ export const refreshRequest = z.object({ refresh_token: z.string().min(1) })
 export type RefreshRequest = z.infer<typeof refreshRequest>
 
 /**
- * Registering an org creates the org and its first owner in one step
- * (André, 2026-08-10): whoever registers the organisation is the owner.
+ * Registering an org creates the org and its first owner in one step: whoever
+ * registers the organisation is the owner.
  */
 export const signUpRequest = z.object({
   org_name: z.string().min(1).max(120),
@@ -224,7 +224,7 @@ export const developerLoginRequest = z.object({
 export type DeveloperLoginRequest = z.infer<typeof developerLoginRequest>
 
 /**
- * What happened to the mail, in four words instead of one (W6c).
+ * What happened to the mail, in four words instead of one.
  *
  * `mail_sent: boolean` could not tell **"we have no SMTP configured"** from
  * **"we tried and the server refused"**, so the console had to pick a sentence
@@ -396,10 +396,10 @@ export type TierChangeRequest = z.infer<typeof tierChangeRequest>
 
 /**
  * What a `forbidden` refusal carries when the reason is the caller's **tier**
- * rather than a missing grant (W6c).
+ * rather than a missing grant.
  *
- * §3.3 makes `forbidden` deliberately silent about *existence*, and that stays
- * true — this says nothing about what the target is. But "your role does not
+ * `forbidden` is deliberately silent about *existence*, and that stays true —
+ * this says nothing about what the target is. But "your role does not
  * permit this" and "there is no such thing" are the same answer today, and a
  * developer cannot tell *ask an owner* from *you have the wrong id*. Naming
  * the required tier reveals only what the caller could read off the docs.
@@ -439,8 +439,8 @@ export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
  *
  * **The response never says whether the address exists.** It is unauthenticated
  * and would otherwise be an account-enumeration oracle — the one place where
- * §3.3's "reveal nothing about what exists" is not a preference but the whole
- * point. So this answers the same way for a known and an unknown address, in
+ * revealing nothing about what exists is not a preference but the whole point.
+ * So this answers the same way for a known and an unknown address, in
  * status, body **and timing**, and any consumer that renders "no such account"
  * from it has reintroduced the oracle.
  *
@@ -475,24 +475,20 @@ export type PasswordResetConfirm = z.infer<typeof passwordResetConfirm>
  * An IdP issuer URL — **an attacker-supplied string that decides where the
  * *server* connects.**
  *
- * `redirectUri` in `oauth.ts` got a parsed scheme check and an explicit
- * loopback allow-list, with the reasoning written down, because it decides
- * where a *credential* goes. This field got `z.url()` — in the same file, in
- * the same wave. Argus-W7b found it and stored `file:///etc/passwd`,
- * `http://169.254.169.254/latest/meta-data` and `http://infra-postgres-1:5432`
- * through the app's IdP route, then caught the outbound discovery fetch on a
- * listener he stood up. **That is this project's own question — which rules
- * have we already written down, and where else do they apply — answered badly,
- * one field over.**
+ * `redirectUri` in `oauth.ts` carries a parsed scheme check and an explicit
+ * loopback allow-list because it decides where a *credential* goes. A bare
+ * `z.url()` here would accept `file:///etc/passwd`, a cloud metadata address or
+ * an internal database host, and the server would then fetch it during issuer
+ * discovery. The same rule applies one field over.
  *
  * **What this shape can decide, it now decides:** http(s) only (so no `file:`,
  * `gopher:`, `data:`), no credentials in the URL, no fragment, no query. RFC
- * 8414 §3 builds the discovery URL from the issuer's path, so a query string
+ * 8414 builds the discovery URL from the issuer's path, so a query string
  * there is meaningless and a `@` is a redirect trick.
  *
  * **What it cannot decide, stated rather than implied:** it cannot tell
- * `http://localhost:8081/realms/fleetless-test` — the dev IdP this project
- * ships — from `http://127.0.0.1:5432`. Both are loopback http. So **this is
+ * a development identity provider on `http://localhost:8081` from a database
+ * on `http://127.0.0.1:5432`. Both are loopback http. So **this is
  * not the SSRF defence and must not be mistaken for one.** The defence belongs
  * at the fetch, in the cloud: refuse loopback, link-local and private ranges
  * unless something explicitly opts in for development, and it names DNS

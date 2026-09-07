@@ -56,12 +56,12 @@ export const providerSlug = z
 /**
  * **The three states an app user can be in, and the order is the lifecycle.**
  *
- * - `pending_verification` — self-registered, mail sent, cannot log in yet
- *   (D6). Without this state the domain whitelist would prove nothing: anybody
- *   could claim any address at an allowed domain.
+ * - `pending_verification` — self-registered, mail sent, cannot log in yet.
+ *   Without this state a domain allow-list would prove nothing: anybody could
+ *   claim any address at an allowed domain.
  * - `active` — may log in.
  * - `blocked` — may not, and every refusal is the same `invalid_credentials`
- *   a wrong password gets (§4). A block that announced itself would be an
+ *   a wrong password gets. A block that announced itself would be an
  *   account-enumeration oracle with an extra step.
  *
  * `pending_verification` is reached exactly once and left only by spending the
@@ -570,7 +570,7 @@ export const MAIL_TEMPLATE_VARIABLES = [
 ] as const
 
 /**
- * **The Fleetless default text for the three app mails** (spec D5, §6).
+ * **The Fleetless default text for the three app mails.**
  *
  * It lives here rather than in the cloud because two products send the same
  * words: the cloud renders these when an app has no template of its own, and
@@ -604,7 +604,7 @@ export const MAIL_TEMPLATE_VARIABLES = [
  * that one is written by an authenticated developer about somebody they
  * invited.
  *
- * **`expires_in_hours` is the only lifetime variable the spec offers**, and
+ * **`expires_in_hours` is the only lifetime variable a template gets**, and
  * the three values are 1, 24 and 168. "The next 168 hours" is not how a person
  * says a week, so each default converts: 48 and up reads in days, exactly one
  * reads "1 hour", everything else reads in hours. The conversion is in the

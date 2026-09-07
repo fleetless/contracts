@@ -29,7 +29,7 @@ with nothing but a network connection to the npm registry.
 | `pnpm test` | The vitest suite. No network, no server. |
 | `pnpm build` | `tsc` into `dist/`. |
 | `pnpm artifacts` | Regenerates `artifacts/` from the zod schemas. |
-| `pnpm run test:pack` | Packs the tarball and asserts what is and is not inside it. |
+| `pnpm run test:pack` | Packs the tarball, asserts what is and is not inside it, then installs it into a scratch project and imports it for real. |
 
 To run one test file, use `pnpm vitest run test/<name>.test.ts`. Do **not**
 use `pnpm test -- <pattern>`: it does not filter, it runs the whole suite, and
@@ -46,8 +46,24 @@ the exit code you read is the suite's.
    consumer validating against the artifact.
 
 Every source file carries the SPDX header `// SPDX-License-Identifier:
-Apache-2.0` as its first line. A test asserts this over the whole set, so a new
-file without one fails the suite.
+Apache-2.0` as its first line. A test asserts this over the whole set — and the
+directory list is derived from the repository rather than written down, so a new
+top-level directory is swept the day it exists.
+
+The published files carry it too, which `tsc` does not do on its own:
+declaration emit drops a leading comment, so `scripts/stamp-dist.mjs` puts the
+header back on every file in `dist/` and `pnpm run test:pack` asserts it over
+the tarball's own bytes.
+
+**Nothing internal reaches the published bytes.** Doc comments in `src/` are
+carried into `dist/*.js` and `dist/*.d.ts` by `tsc`, and every
+`.meta({ description })` is copied into the JSON Schema and OpenAPI artifacts —
+so a comment written for the people who build this is a comment an editor shows
+to somebody who installed it. Write a description as what a field means to a
+caller, never as how the behaviour was found, on which machine, or under which
+internal ticket. `test/published-prose.test.ts` greps the built output and fails
+on German prose, an internal ticket id, a developer machine path or a
+first-name attribution.
 
 ## Pull requests
 
@@ -88,10 +104,22 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Releasing (maintainers)
 
-The pipeline publishes; nobody runs `npm publish` by hand.
+The pipeline publishes, and `npm publish` from a working tree is refused by a
+`prepublishOnly` script — the rule has a mechanism rather than only a sentence.
+(The pipeline is unaffected: it publishes the tarball `verify` packed, and npm
+runs no prepare lifecycle for a tarball argument.)
 
-1. Update `CHANGELOG.md` and set the new version in `package.json`. The two
-   must agree with the tag or CI refuses the release.
+1. Update `CHANGELOG.md` and set the new version in `package.json`. **CI checks
+   both**, in `scripts/verify-version-tag.mjs`: `package.json` must equal the
+   tag without its `v`, and `CHANGELOG.md` must carry a dated heading reading
+   exactly `## [X.Y.Z] — YYYY-MM-DD`. `CHANGELOG.md` ships inside the tarball,
+   so a forgotten entry documents the wrong version to every consumer and npm
+   will not take a version back.
+
+   The same script refuses a release tag that would move npm's `latest`
+   backwards — a backported `v1.0.1` published while `latest` is `2.0.0` would
+   make `npm i @fleetless/contracts`, the command the README gives outsiders,
+   install a package a major version behind.
 2. Commit, push, and let the `verify` job go green on the branch.
 3. Tag `vX.Y.Z` (or `vX.Y.Z-beta.N` for a pre-release, which publishes to the
    `next` dist-tag) and push the tag. The tag pipeline runs `verify` again and

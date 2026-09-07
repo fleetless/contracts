@@ -3,29 +3,24 @@ import { z } from 'zod'
 import { slug } from './common.js'
 
 /**
- * Datapoint alerts and per-datapoint chart display config (spec
- * `2026-08-28-alerts-and-datapoint-modal-design`, D1/D2/D5).
+/**
+ * Datapoint alerts and per-datapoint chart display config.
  *
- * An alert is a **state machine** (`ok ⇄ firing`), not a fire-once event —
- * the definition (this file's request/entity shapes) and the runtime state
- * (`state`, `state_since`, `last_value`) share one row, evaluated by the
- * cloud at ingest.
+ * An alert is a **state machine** (`ok ⇄ firing`), not a fire-once event. The
+ * definition and the runtime state (`state`, `state_since`, `last_value`) are
+ * read together, and the cloud evaluates the alert at ingest.
  *
- * **Both tables moved into `robotConfigDoc` in FL-002.** The alert definition
- * is `config.ts`'s `datapointAlert`, nested under the datapoint it watches;
- * the chart bounds are `datapointChart`. They therefore take effect on
- * publish rather than immediately, and in exchange every change to them is
- * versioned, comparable and revertible. The runtime state stays wherever the
- * definition goes: it belongs in the database and has no business in a
- * versioned document.
+ * **The definitions live in the configuration document.** The alert definition
+ * is `config.ts`'s `datapointAlert`, nested under the datapoint it watches; the
+ * chart bounds are `datapointChart`. They therefore take effect on publish
+ * rather than immediately, and in exchange every change to them is versioned,
+ * comparable and revertible. The runtime state stays in the database: it has no
+ * business in a versioned document.
  *
- * **What is left here is the read surface**, which FL-002 wave 4 kept rather
- * than deleted: `GET /api/robots/:id/alerts` and `GET /api/org/alerts` still
- * answer with the definition joined to its state, and the shapes below are
- * what they answer with. What wave 4 did remove is the mail path — the fields
- * `cooldown_minutes`, `recipients` and `notify_on_resolve`, and the two
- * bounds that guarded them. No alert can send mail, so nothing here describes
- * one.
+ * **What is here is the read surface.** `GET /api/robots/:id/alerts` and
+ * `GET /api/org/alerts` answer with the definition joined to its state, and the
+ * shapes below are what they answer with. No alert sends mail, so nothing here
+ * describes one.
  */
 
 /**
@@ -110,10 +105,9 @@ export type AlertState = z.infer<typeof alertState>
  * document and the runtime state out of `datapoint_alert_state`, and the
  * cloud joins the two per request (`routes/alerts.ts`'s `toWire`).
  *
- * **It carried three mail settings — `cooldown_minutes`, `recipients` and
- * `notify_on_resolve` — and FL-002 wave 4 removed them with the mail path.**
- * The format has no mail fields, so no alert could be configured to send one;
- * the three had nothing behind them well before they were deleted.
+ * **There are no mail settings here.** The configuration format has no mail
+ * fields, so no alert can be configured to send one, and a shape describing
+ * recipients would describe a delivery path that does not exist.
  */
 export const datapointAlertRow = z.object({
   id: z.uuid(),

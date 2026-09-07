@@ -4,11 +4,11 @@
 #
 # Modelled on `sdk/.gitlab-ci.yml`, minus one thing and plus one thing:
 #
-#   - GONE: the `insteadOf` rewrites. The SDK needs them because it pulls
-#     `@fleetless/contracts` from a private git+ssh URL and the runner has no
-#     SSH. This repository has no private dependency at all — `pnpm install`
-#     here resolves zod, tsx, typescript and vitest from the public registry —
-#     so there is no token to plumb and no reason to plumb one.
+#   - GONE: the `insteadOf` rewrites that used to plumb a job token into git.
+#     Nothing in this group installs a dependency over git any more —
+#     `@fleetless/contracts` is a public npm package and the SDK consumes it
+#     that way — so there is no token to plumb and no reason to plumb one. Do
+#     not add one back.
 #   - NEW: the artifact staleness gate. `artifacts/` is generated AND
 #     committed, and it is what every non-TypeScript consumer validates
 #     against. A local test already fails on stale artifacts; this makes CI
@@ -58,6 +58,12 @@ verify:
       fi
       cat dist-tag.env
     - pnpm typecheck
+    # Build BEFORE the suite. `test/published-prose.test.ts` greps the built
+    # `dist/` for internal prose, and `pnpm test` does not build — so on a stale
+    # or absent `dist/` it would be answering about the wrong bytes. `prepare`
+    # already emits on install; this makes it a fact of the job rather than a
+    # side effect of a lifecycle script.
+    - pnpm build
     - pnpm test
     # The staleness gate. `pnpm artifacts` regenerates `artifacts/` from the
     # zod schemas; if the committed copy already matched, the tree is
@@ -93,7 +99,6 @@ verify:
         exit 1
       fi
       echo "artifacts/ is current"
-    - pnpm build
     # Both directions: what the tarball must contain, and what it must not.
     - pnpm run test:pack
     # The bytes `publish` ships. `npm pack` runs `prepare` (tsc) itself, so the

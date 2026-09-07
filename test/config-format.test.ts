@@ -388,7 +388,7 @@ describe('document', () => {
     expect(robotConfigDoc.safeParse(doc(pub(null, stop))).success).toBe(false)
     expect(robotConfigDoc.safeParse(doc(pub(stop, null))).success).toBe(false)
     expect(
-      robotConfigDoc.safeParse(doc({ actions: { dock: { ros_name: '/dock', type: 'rx1_msgs/action/Dock', message: null } } })).success,
+      robotConfigDoc.safeParse(doc({ actions: { dock: { ros_name: '/dock', type: 'robot_msgs/action/Dock', message: null } } })).success,
     ).toBe(false)
     expect(
       robotConfigDoc.safeParse(doc({ services: { reset: { ros_name: '/reset', type: 'std_srvs/srv/Trigger', message: null } } })).success,

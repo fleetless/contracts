@@ -1047,7 +1047,7 @@ describe('the per-app OIDC surface', () => {
  * Written the way the train-2 and train-3 blocks are: each assertion names
  * every member, asserts the count, then asserts the property over all of them.
  * A guard written against one hand-picked row proves that row and nothing
- * about the ten beside it — which is the shape seven guards in FL-005 had, and
+ * about the ten beside it — the shape a guard written against one example has, and
  * every one of them was caught by a review rather than by its author.
  */
 describe('the per-app MCP surface', () => {
@@ -1116,7 +1116,7 @@ describe('the per-app MCP surface', () => {
    * proxy routes on.
    *
    * **The two `.well-known` paths are the reason this test exists.** RFC 9728
-   * §3.1 and RFC 8414 §3 insert the document name *before* the resource's
+   * RFC 9728 §3.1 and RFC 8414 §3 insert the document name *before* the resource's
    * path, so the identifier comes last; the design note wrote them the other
    * way round in prose, and a client fetching
    * `/.well-known/oauth-protected-resource/<identifier>` would find nothing at
@@ -1188,7 +1188,7 @@ describe('the per-app MCP surface', () => {
 
     // The `405` is a decision, so the rows say so — a bare status is the state
     // somebody "fixes" to 200 by making the server stateful without noticing
-    // that W8's second instance is what the statelessness is for.
+    // that a second cloud instance is what the statelessness is for.
     for (const k of TRANSPORT_ROUTES.slice(1)) {
       const notes = ROUTES.find((r) => key(r) === k)!.notes ?? ''
       expect(notes, `${k} does not say why it answers 405`).toContain('stateless')
@@ -1653,7 +1653,7 @@ describe('the parked-items round', () => {
    * it"* — which is an argument about `.strict()`, not about documenting the
    * wire, and it was read as the second for a release while 6 fields sat out
    * of `/openapi.json`. The schema is no longer strict, agreeing with RFC 7591
-   * §3.1, and the route names it.
+   * RFC 7591 §3.1, and the route names it.
    */
   it('lets no entry document a query as schema-free', () => {
     const confessions = [

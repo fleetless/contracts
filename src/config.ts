@@ -21,15 +21,14 @@ import {
 import { alertSeverity } from './alerts.js'
 
 /**
- * The exposure model (spec §4): what a developer configures per robot, how a
+ * The exposure model: what a developer configures per robot, how a
  * configuration moves from draft to published, and how the cloud reports what
  * it refuses.
  *
  * ## What this schema decides, and what it leaves to the cloud
  *
- * FL-002 names thirteen validation codes and this file implements some of
- * them. The line was drawn four times while the format was written and never
- * written down, so here it is.
+ * The format names thirteen validation codes and this file implements some of
+ * them. Here is where the line runs.
  *
  * **Decided here** — everything a single entry, plus its own declared types,
  * answers on its own: `unknown_key` (every object is this file's own
@@ -78,11 +77,10 @@ import { alertSeverity } from './alerts.js'
  * `expected_range`, and no code replaced it.
  *
  * `robotConfigDoc` carries all six sections — messages, datapoints, actions,
- * services, publishers and cameras — plus, since FL-002, the alerts, the
- * chart bounds and the camera credentials that used to live outside it.
- * Everything configurable about a robot is in this document, and there is one
- * door to it. FL-002 rewrote the slug grammar (underscores, not dashes) and
- * keyed every section by name; draft/publish and versioning are unchanged.
+ * services, publishers and cameras — plus the alerts, the chart bounds and the
+ * camera credentials. Everything configurable about a robot is in this
+ * document, and there is one door to it. Every section is keyed by name, and
+ * the document moves from draft to published under a version.
  */
 
 /**
@@ -136,23 +134,18 @@ const DEVICE_PATH_RULE = 'A capture device is a path under `/dev/`, and the char
  *
  * **`slug` itself stays plain in `common.ts`, and the reason is blast radius.**
  * Not metadata loss: `.meta()` on a clone *merges* with the parent's entry per
- * key and resolves it lazily, measured against zod 4.4.3 and written up at
- * `messageBody`'s own `.meta()` below — a later `description` on a use of
- * `slug` would keep the sentence, not drop it.
+ * key and resolves it lazily — a later `description` on a use of `slug` keeps
+ * the sentence rather than dropping it.
  *
- * What that reach would cost was measured instead, by adding the one `.meta()`
- * line to `slug` in a copy of `src/` and re-exporting every artifact under each
- * schema's own `io`: **42 of the 159 published schema artifacts** would carry
- * it, `bridge-hello`, `datapoint-frame`, `snapshot-header` and
- * `bridge-camera-state` among them — protocol frames the bridge **vendors**
- * under `bridge/test/contracts/schema/`, so rewording one sentence would become
- * a re-vendor plus a `SOURCE.md` edit in another repo. As landed the same
- * search finds **7**, all config-derived.
+ * The cost is reach. Annotating `slug` itself puts the sentence into dozens of
+ * the published schema artifacts, protocol frames included, so rewording one
+ * sentence becomes a change to every consumer that vendors those. Annotating
+ * the key here reaches only the configuration schemas, which is where the
+ * sentence is useful.
  *
- * Whether `vscode-json-languageservice` honours `patternErrorMessage` on a
- * `propertyNames` schema at all is **not measured** — §1.3 measured a value
- * position, not a key one. It ships for the same reason as the rest: the
- * artifact is read by tools and by people.
+ * Whether a given YAML language service honours `patternErrorMessage` on a
+ * `propertyNames` schema is not something this package can promise. It ships
+ * for the same reason as the rest: the artifact is read by tools and by people.
  */
 const mapKey = slug.meta({ patternErrorMessage: SLUG_RULE })
 
@@ -275,37 +268,28 @@ const namesItsAbsence = <T extends z.ZodRawShape>(shape: T): T =>
  * its own name when it is absent.
  *
  * **This is not `z.strictObject`** — it is this file's, wrapping it. The
- * difference is the second half: `Invalid input: expected object, received
- * undefined` was the whole of what a developer was told when a camera had no
- * `source:` (design §1.5), naming neither the key nor the fact that it was
- * required. monaco-yaml said `Missing property "source".` for the same
- * document, and was right to.
+ * difference is the second half. Plain zod tells a developer whose camera has
+ * no `source:` only `Invalid input: expected object, received undefined`,
+ * naming neither the key nor the fact that it was required. A YAML language
+ * service says `Missing property "source".` for the same document, and is right
+ * to.
  *
  * It has to be done a field at a time. zod attributes a missing key to the
  * **field's own** schema — an `invalid_type` whose input is `undefined` — and
- * an `error` on the containing object is never consulted for it; measured on
- * zod 4.4.3, an error map on the object saw no such issue at all. So the
+ * an `error` on the containing object is never consulted for it. So the
  * sentence is attached to every field of every shape, here, in one place,
- * rather than at the eighteen objects and hundred-odd fields it would
- * otherwise have to be remembered at.
+ * rather than at each of the objects and fields it would otherwise have to be
+ * remembered at.
  *
- * **How "every" is enforced, because the first version of this comment said
- * "every" and was wrong.** Six of the eighteen objects were written
- * `z\n  .strictObject({`, so `z.strictObject` never appeared on one line and a
- * `grep` for it returned only prose. Twelve conversions read as eighteen, and
- * eleven required keys — `datapoints.<slug>.topic` and `.type` among them,
- * which is the commonest entry in the whole format — went on reciting the
- * sentence §1.5 calls unusable. The claim was in the source, which is what the
- * next person reads.
- *
- * What makes it true now is not this paragraph. It is
+ * **How "every" is enforced.** Not by this paragraph: a claim in a comment is
+ * what the next person reads and not what holds. It is
  * `config-zod-messages.test.ts`'s *"a required key that is absent names
- * itself"*: a walk of the exported schema's `required` arrays against a
+ * itself"* — a walk of the exported schema's `required` arrays against a
  * fully-populated document, `oneOf` branches resolved by their discriminator,
- * deleting one key at a time and asserting the message names it. It reaches 52
- * positions across 19 objects, and the count comes out of the walk rather than
- * off a list — a required key added to the format later is swept the day it
- * exists, and an object that skips this helper is red before it is merged.
+ * deleting one key at a time and asserting the message names it. The count
+ * comes out of the walk rather than off a list, so a required key added to the
+ * format later is swept the day it exists, and an object that skips this helper
+ * is red before it is merged.
  */
 const strictObject = <T extends z.ZodRawShape>(shape: T) => z.strictObject(namesItsAbsence(shape))
 
@@ -413,35 +397,29 @@ const underSlug = (slugKey: string, snippet: Snippet): Snippet =>
   ({ ...snippet, body: { [slugKey]: snippet.body } })
 
 /**
- * What an exposed service *is*, in the developer's own words (§17).
+ * What an exposed service *is*, in the developer's own words.
  *
  * This is what `robot_describe` carries verbatim, so it is read by a model
  * that has never seen this robot and cannot ask a follow-up question.
  * `unit` and `range` already say what a number *is*; this says what it
  * *means*.
  *
- * **It lives on the configuration rather than on the app, and that was a
- * decision with a cost.** §17's own wording put the semantic descriptions in
- * the MCP app; André moved them here on 2026-08-18 so that a description is
- * written once per service and true for every app that reaches the robot,
- * beside the other metadata. What is given up is real and should not be
- * rediscovered as a bug: **two apps can no longer describe one service
- * differently for two audiences.** §17 was reworded in the same wave rather
- * than left contradicting this field.
+ * **It lives on the configuration rather than on the app, and that is a
+ * decision with a cost.** A description written here is written once per
+ * service and is true for every app that reaches the robot, beside the other
+ * metadata. What is given up is real and should not be rediscovered as a bug:
+ * **two apps cannot describe one service differently for two audiences.**
  *
  * **`.optional()` and not `.nullable().default(null)`, deliberately.** The
  * established shape in this file is a default — and every use of it has
  * added an instance to a known contradiction: `.default()` publishes the
  * field as **required** in the generated JSON Schema, because after parsing
- * it is always present. That is recorded four times over in
- * `scripts/export-schemas.ts`, whose fix (`io: 'input'`, applied per schema)
- * is a judgement call across roughly sixty schemas plus a re-vendor and a
- * re-pin in four repos. W7c's playbook said task 0 would do it; reading the
- * measured blast radius — 90 artifacts, 436 deletions for the blanket
- * version — said otherwise, at the start of a wave with five people blocked
- * on this pin. So the field simply does not create a fifth instance:
- * optional is optional in both modes, and *absent* is the single spelling of
- * "not described". `.min(1)` keeps the empty string from becoming a second.
+ * it is always present. That is recorded in `scripts/export-schemas.ts`, whose
+ * remedy (`io: 'input'`, applied per schema) is a judgement call across dozens
+ * of schemas and every consumer that vendors them. So this field simply does
+ * not add another instance: optional is optional in both modes, and *absent* is
+ * the single spelling of "not described". `.min(1)` keeps the empty string from
+ * becoming a second.
  */
 export const serviceDescription = z.string().min(1).max(2000).optional()
 
@@ -708,7 +686,7 @@ export const parameterMap = slugKeyed(parameterSpec)
   })
 
 /**
- * Slugs no configured entry may take (spec §4.3), across **all five exposure
+ * Slugs no configured entry may take, across **all five exposure
  * sections at once** — slugs are one namespace, so a name reserved here is
  * reserved everywhere.
  *
@@ -721,12 +699,12 @@ export const parameterMap = slugKeyed(parameterSpec)
  * name is the honest half of that: the alternative is a slug the format
  * accepts and one route silently cannot address.
  *
- * **This constant is the only list.** The cloud's `validation.ts` builds its
- * set from it and emits `reserved_slug`; `config-store.ts` reads it for the
- * rename target; the console reads it for slug suggestion and repairs. Nothing
- * copies the members. Note that it is NOT the enumeration of built-in
- * datapoints — the cloud keeps that separately, and it must, now that a
- * reserved name exists that no plane serves.
+ * **This constant is the only list.** The cloud builds its set from it and
+ * emits `reserved_slug`; the rename path reads it for the target; an editor
+ * reads it for slug suggestion and repairs. Nothing copies the members. Note
+ * that it is NOT the enumeration of built-in datapoints — those are kept
+ * separately, and must be, because a reserved name exists that nothing
+ * publishes.
  *
  * **What it does not do: `robotConfigDoc` does not enforce it.** Reservation is
  * a semantic check that belongs with the ones that need the robot's context,
@@ -1419,7 +1397,7 @@ const ACTION_SNIPPET: Snippet = {
 }
 
 /**
- * An action the robot can be asked to perform (spec §4.2, §11.3). At most one
+ * An action the robot can be asked to perform. At most one
  * job runs per action slug; a second call is refused `busy`, and every
  * observer of the slug watches the same job.
  */
@@ -1462,7 +1440,7 @@ const SERVICE_SNIPPET: Snippet = {
   },
 }
 
-/** A ROS service call with validated parameters (spec §4.2). */
+/** A ROS service call with validated parameters. */
 export const serviceConfig = strictObject({
   ros_name: rosName.meta({
     description: 'The ROS service the robot answers on, as an absolute graph name. The call is one request and one reply with no progress in between, so whatever this service does has to finish inside that reply; anything long-running belongs in `actions`.',
@@ -1675,7 +1653,7 @@ export const cameraCredentials = strictObject({
 export type CameraCredentials = z.infer<typeof cameraCredentials>
 
 /**
- * Where a camera's frames come from (spec §10 names four sources).
+ * Where a camera's frames come from — one of four sources.
  *
  * A discriminated union rather than optional fields, so an impossible camera
  * is **unrepresentable** rather than merely invalid — there is no way to
@@ -1750,16 +1728,12 @@ export const cameraSource = z.discriminatedUnion('kind', [
       description: 'Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`.',
     }),
     /**
-     * Scheme-constrained deliberately. The playbook drafted `z.string().url()`
-     * here and the shipped contract was `z.string().min(1).max(2048)` — nobody
-     * recorded the change, and the W6 review found the consequence: the bridge
-     * opens these with libraries that honour `file:` and `ftp:`, so an
-     * unconstrained URL turns a configuration document into an arbitrary
-     * local-file read on the robot, with the two distinct failure codes
-     * doubling as a file-existence oracle. Spec §7.6 is ROS-pure exposure with
-     * no shell or http features; that rule came back by omission rather than
-     * by intent. The bridge re-checks this too — a robot must not become a
-     * file server because a validator changed.
+     * Scheme-constrained deliberately. The bridge opens these with libraries
+     * that honour `file:` and `ftp:`, so an unconstrained URL turns a
+     * configuration document into an arbitrary local-file read on the robot,
+     * with the two distinct failure codes doubling as a file-existence oracle.
+     * The bridge re-checks this too — a robot must not become a file server
+     * because a validator changed.
      */
     url: z
       .string()
@@ -1807,8 +1781,8 @@ export const cameraSource = z.discriminatedUnion('kind', [
         /**
          * The host and the path this branch's own snippet body inserts, and the
          * URL its rule sentence names — one answer to "what goes here?", not a
-         * third. The sibling `rtsp` url had an `examples` from the first day and
-         * this position was the format's only silent URL (§1.1).
+         * third. Every URL position in the format carries an example; a silent
+         * one is the position a developer has to guess at.
          */
         examples: ['http://cam-1.plant.local/video.mjpg'],
       }),
@@ -1833,16 +1807,14 @@ export const cameraSource = z.discriminatedUnion('kind', [
      * on the robot, never by the cloud.
      *
      * Constrained to `/dev/` for the same reason the `rtsp` and `mjpeg` URLs
-     * are constrained to their schemes, and it was missed the first time
-     * (Momus, W6 verification). The device string reaches
+     * are constrained to their schemes. The device string reaches
      * `cv2.VideoCapture(device)` on the robot, and OpenCV does not restrict
-     * itself to devices: measured on cv2 4.5.4, an ordinary local video file
-     * opens and its pixels are published to the cloud, and so does
-     * `http://127.0.0.1:8899/secret.jpg`. Unconstrained, this field is an
-     * arbitrary local-file read *and* an outbound fetch from inside the robot
-     * — the §7.6 violation closed for the other two source kinds, reachable
-     * through the fourth, because "it is just a device path" read like a
-     * reason not to check.
+     * itself to devices: an ordinary local video file opens and its pixels are
+     * published to the cloud, and so does an `http://` URL pointing back inside
+     * the robot's own network. Unconstrained, this field is an arbitrary
+     * local-file read *and* an outbound fetch from inside the robot — the same
+     * hole closed for the other two source kinds, reachable through the fourth,
+     * because "it is just a device path" reads like a reason not to check.
      *
      * Narrower than the URL hole in one respect worth recording: a non-media
      * file and a missing file both fail to open, so this branch never worked
@@ -1919,14 +1891,14 @@ const CAMERA_SNIPPET: Snippet = {
 }
 
 /**
- * A camera the robot exposes (spec §10).
+ * A camera the robot exposes.
  *
- * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: §10 makes them the
+ * `width`/`height`/`fps`/`bitrate_kbps` are not cosmetic: they are the
  * developer's control over **the robot's own bandwidth**, which is why they
  * live in the configuration rather than in a viewer's request. A viewer never
  * gets to make a robot send more.
  *
- * The two modes are deliberately independent (§10):
+ * The two modes are deliberately independent:
  *
  * - **Snapshot** runs always, at `snapshot_interval_seconds`, whether or not
  *   anyone is watching live. The cloud caches the one frame and serves every
@@ -1986,7 +1958,7 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
  * their own name. A duplicate name is then a YAML syntax error rather than a
  * rule somebody has to write, and the name reads as the entry's heading.
  *
- * Slugs remain ONE namespace across all five exposure sections (§4.1), which
+ * Slugs remain ONE namespace across all five exposure sections, which
  * is what lets a role grant say `{robot, slug}` without naming a kind. That
  * check spans sections and therefore lives in the cloud, not here.
  */
@@ -2026,12 +1998,12 @@ export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 
 
 /**
- * One thing the cloud has to say about a configuration (spec §11.5: field +
- * violated rule).
+ * One thing the cloud has to say about a configuration: the field, and the
+ * rule it violates.
  *
  * `error` blocks the publish. `warning` does not — an unknown topic is a
- * warning on purpose, because configuring a robot that has never been
- * connected must stay possible (spec §4.1).
+ * warning on purpose, because configuring a robot that has never been connected
+ * must stay possible.
  */
 export const validationIssue = z.object({
   path: z.string().min(1),
@@ -2044,8 +2016,7 @@ export type ValidationIssue = z.infer<typeof validationIssue>
 
 /**
  * Where a robot's configuration stands — the material for the console's
- * "draft newer than published", "published v2 · applied v1 · bridge offline"
- * (spec §15.2, robot tab 1).
+ * "draft newer than published", "published v2 · applied v1 · bridge offline".
  */
 export const configState = z.object({
   published_version: z.number().int().positive().nullable(),

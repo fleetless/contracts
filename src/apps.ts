@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { slug } from './common.js'
 
 /**
- * Apps, roles and rights (spec §3.2, §3.3, §12.2).
+ * Apps, roles and rights.
  *
  * The rule that shapes all of this: **roles are the only filter**. A robot
  * assigned to an app exposes every one of its services to that app; what a
@@ -36,7 +36,7 @@ export const app = z.object({
   identifier: appIdentifier.meta({
     description: 'The stable handle a client sends at login, lowercase and underscore-separated. **Globally unique, not per organisation** — `clientLoginRequest` carries no org context to disambiguate with, so a collision is refused with `identifier_taken`.',
   }),
-  /** Robots are referenced individually; tags never grant rights (§12.2). */
+  /** Robots are referenced individually; tags never grant rights. */
   robot_ids: z.array(z.uuid()).meta({
     description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants.',
   }),
@@ -86,12 +86,11 @@ export const appListResponse = z.object({
 export type AppListResponse = z.infer<typeof appListResponse>
 
 /**
- * **`robot_ids` is accepted here, and `.strict()` catches everything else
- * (W7a).** Through W7 this shape carried `name` and `identifier` only, robots
- * attached through `updateAppRequest`, and zod stripped the extra key — so a
- * caller creating an app *with* robots got a `201` and an app with none.
- * **Two people fell into it independently on the same day**, which is the
- * definition of a shape that reads as though it does something it does not.
+ * **`robot_ids` is accepted here, and `.strict()` catches everything else.**
+ * A create shape carrying `name` and `identifier` only would let zod strip an
+ * offered `robot_ids`, so a caller creating an app *with* robots gets a `201`
+ * and an app with none — a shape that reads as though it does something it does
+ * not.
  *
  * Both halves matter and neither alone is enough. Accepting `robot_ids` is
  * right because attaching robots at creation is the obvious operation and the
@@ -114,21 +113,17 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
 /**
  * **`.strict()` is what makes an absent field mean something here.**
  *
- * This shape was not strict until 2026-08-29, which meant an offered field the
- * route does not implement was *dropped* — the caller got a `200`, nothing
- * changed, and nothing anywhere said so. That is the exact silence
- * `createAppRequest` above already learned about in W7a (*"a create shape that
- * silently drops a field cost two people a day each"*), and the lesson had not
- * been carried one shape over. A caller who sends a field this route does not
- * do is asking for something, and the honest answer is `400`, not a success
- * that means less than it looks.
+ * Without it, an offered field the route does not implement is *dropped* — the
+ * caller gets a `200`, nothing changes, and nothing anywhere says so. It is the
+ * same silence `createAppRequest` above describes. A caller who sends a field
+ * this route does not do is asking for something, and the honest answer is
+ * `400`, not a success that means less than it looks.
  *
- * Two fields left with the two-space cut and are worth naming, because both
- * were on this shape and neither has a successor here.
+ * Two fields are absent and worth naming, because neither has a successor here.
  * `accepts_dynamic_clients` gated app-level OAuth dynamic client registration,
- * which is deleted: apps use the JSON client-auth API and OAuth 2.1 remains
- * only for MCP. `group_id` named the group that owned the app, and groups are
- * gone; who may log into an app is now the app's own user list.
+ * which no longer exists: apps use the JSON client-auth API, and OAuth 2.1
+ * remains only for MCP. `group_id` named a group that owned the app; who may
+ * log into an app is the app's own user list.
  *
  * The route keeps its own check as belt-and-braces; a schema and a handler
  * agreeing is not two policies, it is one policy stated where each half can
@@ -153,9 +148,9 @@ export const updateAppRequest = z.object({
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 
 /**
- * A server key carries full app rights for server-side code (spec §3.4) —
- * never for clients. Same handling as the robot token from W1: the value is
- * returned exactly once and only its hash is stored.
+ * A server key carries full app rights for server-side code — never for
+ * clients. Same handling as the robot token: the value is returned exactly once
+ * and only its hash is stored.
  */
 export const serverKeyToken = z.string().regex(/^flk_[0-9a-f]{32}$/)
 
@@ -195,7 +190,7 @@ export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
 
 /**
  * Every app starts with `observe` and `operate`; custom roles are allowed
- * from v1 (§3.3). `builtin` marks the two starting roles — they may be
+ * too. `builtin` marks the two starting roles — they may be
  * edited like any other, the flag exists so the console can explain where
  * they came from.
  */
@@ -225,23 +220,20 @@ export type RoleListResponse = z.infer<typeof roleListResponse>
 
 /**
  * The rights matrix of one role: which slugs of which robot it may use, plus
- * the capabilities roles also govern (§3.3). `capabilities`' own doc comment
+ * the capabilities roles also govern. `capabilities`' own doc comment
  * below says which of them are enforced today and which is still a switch
  * that changes nothing.
  */
 export const rolePermissions = z.object({
   role_id: z.uuid(),
   /**
-   * **A slug is unique per robot across ALL service kinds** (spec §4.1:
-   * "Jeder Dienst erhält einen Slug" — one namespace, not one per kind), and
-   * the cloud's config validation enforces that with a kind-agnostic
-   * collection pass. That is why this list carries slugs and not
-   * (kind, slug) pairs: when W4 adds actions, services and publishers, a
-   * grant keeps meaning exactly what it means today, and this shape does not
-   * change. What W4 does need is an endpoint that lists every *grantable*
-   * slug of a robot with its kind, so the console's matrix can offer them —
-   * today it enumerates datapoints only, which is the seam that would
-   * otherwise force a rebuild.
+   * **A slug is unique per robot across ALL exposure kinds** — one namespace,
+   * not one per kind — and the cloud's configuration validation enforces that
+   * with a kind-agnostic collection pass. That is why this list carries slugs
+   * and not (kind, slug) pairs: a grant means the same thing whichever kind the
+   * slug turns out to name. `GET /api/robots/:id/exposures` is the companion
+   * read that lists every grantable slug of a robot **with** its kind, so a
+   * rights matrix can offer them.
    */
   grants: z.array(
     z.object({
@@ -252,25 +244,22 @@ export const rolePermissions = z.object({
   /**
    * App-wide abilities a role grants, as opposed to per-slug grants above.
    *
-   * **A capability here is a promise, and one of them is still not kept.**
-   * `action_history` and `presence` were both gated by this object from W4
-   * and implemented nowhere — no route, no SDK method, no realtime frame
-   * (register row 8). A console could therefore switch them on and nothing
-   * changed, which is worse than their absence: the developer believes they
-   * granted something. **This paragraph stays** whatever the current tally
-   * is: it is the only place that says a switch in the console may change
-   * nothing, and it is how the next unkept capability gets caught.
+   * **A capability here is a promise, and one of them is still not kept.** A
+   * capability with no route, no SDK method and no realtime frame behind it can
+   * be switched on while nothing changes, which is worse than its absence: the
+   * developer believes they granted something. **This paragraph stays**
+   * whatever the current tally is: it is the only place that says a switch may
+   * change nothing, and it is how the next unkept capability gets caught.
    *
-   * `assets` (W7) was the first one redeemed. It gates §4.6's asset store,
-   * which is not covered by `grants` because **assets are not slugs** — and it
-   * is its own decision rather than a side effect of reaching the robot,
-   * because a mesh set gives away the machine's build.
+   * `assets` gates the asset store, which is not covered by `grants` because
+   * **assets are not slugs** — and it is its own decision rather than a side
+   * effect of reaching the robot, because a mesh set gives away the machine's
+   * build.
    *
-   * **`action_history` is kept as of the run-history delta.** It gates
+   * **`action_history` is kept.** It gates
    * `GET /api/robots/:id/jobs/history` — an end user whose role lacks it is
    * refused `403 capability_required`, naming the capability so the developer
-   * knows which switch is off. It was unkeepable while nothing durable
-   * recorded what had run; `jobRun` and `job_runs` are that record.
+   * knows which switch is off.
    *
    * **What granting it discloses.** A `jobRun` names the actor who invoked
    * it, and `jobActor.label` is an email — so an end user holding this

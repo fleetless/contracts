@@ -1,6 +1,6 @@
 {
   // **Nothing in `test/` was ever typechecked in this repo until 2026-08-19
-  // (W9c), and it took a witness that could not fail to notice.**
+  // and it took a witness that could not fail to notice.**
   //
   // The root tsconfig is `include: ["src"]` with `rootDir: "src"`, because
   // `pnpm build`'s emitted `dist/` has to mirror `src/` exactly. So `tsc
@@ -16,12 +16,11 @@
   "compilerOptions": {
     "rootDir": "..",
     "noEmit": true,
-    // Das Testprojekt braucht, was das Bauprojekt nicht braucht: Node
-    // (`node:fs`, `process`). `vite/client` waere der uebliche Weg fuer
-    // `import.meta.glob`, aber `vite` liegt hier nicht als eigenes Paket —
-    // vitest bringt es nur transitiv. Statt eine Abhaengigkeit einzufuehren,
-    // die niemand sonst braucht, deklariert `test/vite-env.d.ts` die eine
-    // Funktion, die `barrel.test.ts` tatsaechlich benutzt.
+    // The test project needs what the build project does not: node
+    // (`node:fs`, `process`). `vite/client` would be the usual way to get
+    // `import.meta.glob`, but `vite` is not a package here — vitest brings it
+    // in transitively only. Rather than add a dependency nobody else needs,
+    // `test/vite-env.d.ts` declares the one function `barrel.test.ts` uses.
     "types": ["node"]
   },
   "include": ["**/*.ts", "../src/**/*.ts"]

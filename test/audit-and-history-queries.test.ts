@@ -18,8 +18,8 @@ describe('a limit a query string can actually carry', () => {
   })
 
   it('refuses what a coercion silently swallowed', () => {
-    // `z.coerce.number()` machte aus '' eine 0 und aus true eine 1 — beides
-    // Eingaben, die niemand gemeint hat. Die Union hat keinen Zweig dafuer.
+    // `z.coerce.number()` turns '' into 0 and true into 1 — inputs nobody
+    // meant. The union has no branch for either.
     for (const bad of ['', 'abc', '12abc', true, null, {}, '-5', '1.5']) {
       expect(lim(bad).success).toBe(false)
     }

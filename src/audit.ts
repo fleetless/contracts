@@ -3,13 +3,13 @@ import { z } from 'zod'
 import { wireSeqCursor, wireTimestampMs } from './common.js'
 
 /**
- * Audit (spec §16). Every state-changing interaction is recorded and **every
- * entry carries its actor — never anonymous** (§16.2). Reads are not audited.
+/**
+ * Audit. Every state-changing interaction is recorded and **every entry carries
+ * its actor — never anonymous**. Reads are not audited.
  *
- * W3 writes the events that exist once identities do: logins, failed logins,
- * end-user management, config publishes, bridge connect/disconnect. The view
- * with filters, CSV export and the 90-day retention window is W6 (André,
- * 2026-08-10) — same shape of work as the history API.
+ * What is written: logins, failed logins, user management, configuration
+ * publishes, bridge connect and disconnect. The log is filterable, exportable
+ * as CSV, and kept for ninety days.
  */
 
 /**
@@ -46,8 +46,7 @@ export const auditEvent = z.object({
   org_id: z.uuid(),
   at: z.iso.datetime(),
   /**
-   * A monotonic counter, ascending in write order, unique across the log
-   * (W6b).
+   * A monotonic counter, ascending in write order, unique across the log.
    *
    * `at` is not a total order. Two events written in the same millisecond —
    * a login and the config publish it enables, a cascade writing several
@@ -59,11 +58,7 @@ export const auditEvent = z.object({
    *
    * It is also the only correct **cursor** for paging this log, for the same
    * reason: a cursor that is not unique either skips rows or repeats them at
-   * every page boundary. No cursor parameter exists on `GET /api/audit` yet —
-   * the route returns the whole log — and that is stated here rather than
-   * implied, because a contract that describes a capability the API does not
-   * have is the defect this project keeps finding. When paging is added it
-   * uses this field; nothing else in this shape can carry it.
+   * every page boundary. Nothing else in this shape can carry one.
    *
    * Required, not optional: an event without a sequence cannot be ordered
    * against one that has it, and a log with two orderings has none.
@@ -100,12 +95,7 @@ export const auditEvent = z.object({
 export type AuditEvent = z.infer<typeof auditEvent>
 
 /**
- * **How this log is read (W9d, DEF-078 and DEF-123).**
- *
- * Until now `GET /api/audit` returned the **whole** log — no filters, no
- * cursor. `auditEvent.seq`'s own comment has said so plainly since W6b rather
- * than describing a capability the API does not have; this shape builds
- * exactly what that comment announced.
+ * **How this log is read.**
  *
  * **The cursor is `seq`, and no other field can be.** `at` is not a total
  * order: two events written in the same millisecond sort differently on every
@@ -115,10 +105,6 @@ export type AuditEvent = z.infer<typeof auditEvent>
  *
  * `before_seq` rather than `after_seq`, because this log is read **newest
  * first**: the next page is older, not newer.
- *
- * **Filters are part of the same work, not a later garnish.** A console view
- * without them is a page with nothing to filter by — the register row says
- * exactly that, which is why the two rows are one piece of work.
  */
 /**
  * A unix-millisecond bound a Postgres `timestamptz` can actually hold.
@@ -136,7 +122,7 @@ export const auditQuery = z.object({
   /** Only events with a smaller `seq` — the next, older page. */
   before_seq: wireSeqCursor.optional(),
   /**
-   * Same shape as DEF-059's `historyQuery.limit`: a union whose input branch
+   * The same shape as `historyQuery.limit`: a union whose input branch
    * **is the wire**. A `z.coerce` cannot be published — zod renders the
    * coercion's result in either `io` direction, so the artifact would describe
    * a shape a query string can never carry.
@@ -169,36 +155,25 @@ export const auditQuery = z.object({
   /**
    * Only events by this actor.
    *
-   * **`z.uuid()`, because the column is one (Argus-W9, W9 review).** This was
-   * `z.string().min(1).max(200)`, so any non-uuid value reached Postgres as a
-   * uuid parameter and threw: `?actor_id=not-a-uuid` answered **500
-   * `internal_error`**, on the list route and the export alike.
+   * **`z.uuid()`, because the column is one.** A looser string type lets any
+   * non-uuid value reach the database as a uuid parameter, where the cast
+   * throws: `?actor_id=not-a-uuid` then answers **500 `internal_error`** rather
+   * than refusing the value.
    *
-   * Not a SQL-injection finding — Drizzle parameterises, and `' or 1=1--`
-   * failed at the same cast. It is a **500 where a 400 belongs**, and a 500 is
-   * the answer that explains nothing.
-   *
-   * The place is the part worth keeping: **this same wave pulled
-   * `refuseIfNotUuid` through ~15 call sites** so a typo could be told from a
-   * deletion — and the brand-new filter, whose field has exactly that shape,
-   * is the one that did not get it. A rule applied to the sites in front of
-   * you is not a rule applied to the class.
+   * Not an injection question — the query is parameterised either way. It is a
+   * **500 where a 400 belongs**, and a 500 is the answer that explains nothing.
    */
   actor_id: z.uuid().optional(),
   /** Only events about this kind of target, e.g. `robot`. */
   target_kind: z.string().min(1).max(40).optional(),
   /**
    * Absolute bounds in unix milliseconds, **half-open `[from, to)`** — the
-   * same rule the history shapes follow (DEF-062).
+   * same rule the history shapes follow.
    *
-   * **Bounded to years 1..9999, and the bound is borrowed rather than
-   * invented.** `nonnegative()` alone let `253402300800000` (year 10000)
-   * through, where the Postgres bind path has no representation and the route
-   * answered 500 — measured either side of the edge: `253402300799000` → 200,
-   * `253402300800000` → 500 (Argus-W9). `history-query.ts`'s `parseTimeExprMs`
-   * already carries exactly this range, with M3's reasoning for why
-   * `Number.isSafeInteger` is wider than what a timestamp can be; this is that
-   * same number, not a second one that happens to agree.
+   * **Bounded to years 1..9999.** `nonnegative()` alone admits instants a
+   * timestamp column has no representation for, and the route answers 500
+   * rather than refusing the value. `Number.isSafeInteger` is wider than what a
+   * timestamp can be, so the bound is stated rather than inherited.
    */
   from_ms: auditTimestampMs.optional(),
   to_ms: auditTimestampMs.optional(),
@@ -227,7 +202,7 @@ export const auditListResponse = z.object({
 export type AuditListResponse = z.infer<typeof auditListResponse>
 
 /**
- * **What a CSV export of this log looks like (DEF-123, spec §16.3).**
+ * **What a CSV export of this log looks like.**
  *
  * The column order lives here because otherwise the cloud and the console
  * would each carry their own, and nobody would notice them drifting apart
@@ -241,10 +216,9 @@ export type AuditListResponse = z.infer<typeof auditListResponse>
 export const AUDIT_CSV_COLUMNS = ['seq', 'at', 'actor_kind', 'actor_id', 'action', 'target_kind', 'target_id', 'target_label', 'details'] as const
 
 /**
- * Spec §16.3: the audit log is kept for **90 days**.
+ * The audit log is kept for **90 days**.
  *
- * A constant here so the cloud does not derive it a second time — the same
- * reasoning as `ASSET_UPLOAD_MAX_BYTES`, and the same register row that found
- * there is no purge touching audit rows at all.
+ * A constant here so no consumer derives it a second time — the same reasoning
+ * as `ASSET_UPLOAD_MAX_BYTES`.
  */
 export const AUDIT_RETENTION_DAYS = 90

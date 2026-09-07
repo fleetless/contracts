@@ -11,9 +11,8 @@ import { rosTypeName } from './common.js'
  * Bridge <-> cloud protocol, version 2.
  *
  * The version is exchanged in the hello handshake; the cloud refuses an
- * incompatible bridge with a clear message (spec §5) — `ws/bridge.ts`'s
- * `protocol_mismatch`, which names both versions and lands on the robot
- * detail page as `last_hello_error`.
+ * incompatible bridge with a clear message: `protocol_mismatch`, which names
+ * both versions and reaches the robot's detail view as `last_hello_error`.
  *
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
  * beside `message`. The check is `!==`, not a floor, so a bridge that is not
@@ -23,7 +22,7 @@ import { rosTypeName } from './common.js'
 export const PROTOCOL_VERSION = 2
 
 /**
- * The bridge socket close code for "this robot no longer exists" (W6a).
+ * The bridge socket close code for "this robot no longer exists".
  *
  * Deliberately distinct from the auth failures: a deleted robot must **stop**,
  * and a token that was valid a second ago is indistinguishable from one that
@@ -36,44 +35,39 @@ export const CLOSE_ROBOT_DELETED = 4004
 
 /**
  * How long a command waits for its answer when the caller names no patience
- * of its own (W6b).
+ * of its own.
  *
- * 15 s, which is what both halves already used independently: the cloud's
- * `commandTimeoutMs` and the bridge's `GOAL_ACCEPT_TIMEOUT_S`. That they
- * agreed was a coincidence of two separate decisions, and neither side could
- * be told otherwise for a single call. Naming the number once, here, is what
- * makes it one number rather than two that happen to match.
+ * 15 s, stated once here rather than once in the cloud and once in the bridge.
+ * Two constants that happen to match are not one number: neither side can be
+ * told otherwise for a single call, and when they drift nobody can say whose
+ * deadline a caller hit.
  *
- * A caller who knows their robot's work takes longer says so per call. A
- * caller who says nothing gets exactly today's behaviour — which is the point
- * of picking today's number as the default rather than a nicer one.
+ * A caller who knows their robot's work takes longer says so per call.
  */
 export const DEFAULT_PATIENCE_MS = 15_000
 
 /**
  * The longest patience a caller may ask for.
  *
- * A waiting REST request is a held-open connection, and there is **no rate
- * limiting** on this platform until W8 — so an unbounded `patience_ms` is an
- * unauthenticated way to pin the cloud's sockets open. Two minutes is long
- * enough for the robot work anybody has described (a planner, a docking
+ * A waiting REST request is a held-open connection, so an unbounded
+ * `patience_ms` is a way to pin the cloud's sockets open. Two minutes is long
+ * enough for the robot work this API is meant for (a planner, a docking
  * manoeuvre, an arm trajectory) and short enough that a thousand of them is
  * still a bounded amount of cloud.
  *
- * Raising it is a W8 conversation, after rate limiting exists — not a
- * one-line change here.
+ * Raising it is a conversation about rate limiting, not a one-line change
+ * here.
  */
 export const MAX_PATIENCE_MS = 120_000
 
 /**
  * The shortest patience a caller may ask for.
  *
- * A floor exists because **impatience reaches the robot**. Measured in W6b's
- * review: `patience_ms: 1` on an action makes the bridge report `goal_timeout`
- * and then issue a *corrective cancel* against a goal the action server
- * accepts a moment later — so a caller who asks for an unreachable deadline
- * does not merely get an error, they cause a cancellation on the machine.
- * Repeatable, and on a platform with no rate limiting until W8.
+ * A floor exists because **impatience reaches the robot**. A `patience_ms` of
+ * 1 on an action makes the bridge report `goal_timeout` and then issue a
+ * *corrective cancel* against a goal the action server accepts a moment later
+ * — so a caller who asks for an unreachable deadline does not merely get an
+ * error, they cause a cancellation on the machine.
  *
  * One second, because it has to be longer than a goal-acceptance round trip on
  * a healthy robot and shorter than any wait a human would call patient. It is
@@ -87,7 +81,7 @@ export const MIN_PATIENCE_MS = 1_000
 export { slug } from './common.js'
 
 /**
- * One job the bridge still has, as reported in the handshake (W6b).
+ * One job the bridge still has, as reported in the handshake.
  *
  * It carries the **slug and the state**, not only the id, because the cloud's
  * reconciliation needs both and had neither. Reading `active_job_ids` as bare
@@ -116,7 +110,7 @@ export const bridgeHello = z.object({
   token: z.string().min(1),
   bridge_version: z.string().min(1),
   /**
-   * Every job this bridge still knows about, right now (spec §6.1, W4).
+   * Every job this bridge still knows about, right now.
    *
    * A reconnect and a restart look **identical** on the wire otherwise: same
    * token, same version, same frame. But they must end differently — after a
@@ -131,16 +125,9 @@ export const bridgeHello = z.object({
    * has none — which is exactly the truth the cloud needs. A breadcrumb file
    * would only add a window in which the crash beat the write.
    *
-   * Defaulted so pre-W4 bridges still parse; they had no jobs, so the empty
-   * list is also the correct answer for them.
-   *
-   * **Renamed from `active_job_ids` in W6b**, when the entries stopped being
-   * ids. A field called `_ids` holding objects is the shape this project has
-   * repeatedly been caught by — a name that describes what the field used to
-   * carry, kept because renaming looked like churn. Nothing is deployed yet
-   * (W8 is the first deployment), so the old name is gone rather than
-   * accepted alongside the new one: two accepted spellings would have to be
-   * supported and reconciled forever, and nobody is asking for that.
+   * Defaulted, so a bridge that sends no such field still parses; a bridge
+   * with no jobs and a bridge that does not report them both mean the cloud
+   * has nothing to keep alive.
    */
   active_jobs: z.array(activeJob).max(500).default([]),
 })
@@ -163,7 +150,7 @@ export type CloudHelloError = z.infer<typeof cloudHelloError>
 
 /**
  * One datapoint sample. `timestamp_ms` is the capture time at the bridge —
- * never the receive time — so clients compute age themselves (spec §6.3).
+ * never the receive time — so clients compute age themselves.
  */
 export const datapointFrame = z.object({
   type: z.literal('datapoint'),
@@ -192,9 +179,9 @@ export const bridgePong = z.object({
 export type BridgePong = z.infer<typeof bridgePong>
 
 /**
- * The published configuration, cloud → bridge (spec §4.1: the bridge applies
- * the published version). Sent right after `hello_ok` and again on every
- * publish, so a bridge never has to ask.
+ * The published configuration, cloud → bridge — the bridge applies the
+ * published version. Sent right after `hello_ok` and again on every publish,
+ * so a bridge never has to ask.
  *
  * `version: 0` with an empty document means *nothing published yet* — a fresh
  * robot, not an error.
@@ -239,7 +226,7 @@ export const bridgeConfigApplied = z.object({
 export type BridgeConfigApplied = z.infer<typeof bridgeConfigApplied>
 
 /**
- * Commands, cloud → bridge (spec §6.1, §11.3). The **cloud** mints the
+ * Commands, cloud → bridge. The **cloud** mints the
  * `job_id` before the bridge is asked to do anything, so a job exists —
  * and can be reported `lost` — even if the answer never comes back.
  */
@@ -248,21 +235,20 @@ export const cloudInvoke = z.object({
   job_id: z.uuid(),
   slug,
   /**
-   * Already validated against §4.4 rules; the bridge validates structurally.
+   * Already validated against the configuration's parameter rules; the bridge
+   * validates structurally.
    *
    * **Flat, keyed by parameter name** — `{"target_x": 1}`. The key is a key of
-   * the entry's `parameters` mapping, not a path into the message. Those were
-   * the same thing until FL-002 and are now deliberately decoupled: a
-   * parameter keeps its name when the field it fills moves in the message
-   * tree, which is the same reason a slug is not a topic name.
+   * the entry's `parameters` mapping, not a path into the message. The two are
+   * deliberately decoupled: a parameter keeps its name when the field it fills
+   * moves in the message tree, which is the same reason a slug is not a topic
+   * name.
    *
-   * Three things follow, and the last one got stronger rather than weaker:
-   * the key a caller sends is the key a rule names, so a `parameter_invalid`
-   * reports something the caller can find; the console binds one input per
-   * parameter; and a position the template does not mark with `${…}` cannot
-   * be set by any caller at all. That last one used to be a rule about what
-   * no `parameterSpec` declared. It is now structural — the value has nowhere
-   * to go.
+   * Three things follow: the key a caller sends is the key a rule names, so a
+   * `parameter_invalid` reports something the caller can find; a UI binds one
+   * input per parameter; and a position the template does not mark with
+   * `${…}` cannot be set by any caller at all, structurally — the value has
+   * nowhere to go.
    *
    * The bridge substitutes these values into the entry's `message` template
    * at its placeholder positions. It no longer unflattens a dotted path;
@@ -270,31 +256,30 @@ export const cloudInvoke = z.object({
    */
   params: z.record(z.string(), z.unknown()),
   /**
-   * How long this one call is worth waiting for (W6b), already resolved by
-   * the cloud — the caller's `invokeRequest.patience_ms`, or
+   * How long this one call is worth waiting for, already resolved by the
+   * cloud — the caller's `invokeRequest.patience_ms`, or
    * `DEFAULT_PATIENCE_MS` when they named none.
    *
    * **Required here, optional at REST**, deliberately. At the REST edge an
    * absent value is a caller who did not care and gets the default. By the
    * time the frame is on this socket somebody has decided, and the bridge
    * must never be in the position of picking a number the cloud is already
-   * counting against — which is what two independent 15 s constants meant in
-   * practice: a bridge that gave up at 15.0 s and a cloud that gave up at
-   * 15.0 s, agreeing only by accident, with no way to tell whose deadline a
-   * caller had actually hit.
+   * counting against. Two independent constants that happen to match give up
+   * at the same moment by accident, with no way to tell whose deadline a
+   * caller actually hit.
    */
   patience_ms: z.number().int().min(MIN_PATIENCE_MS).max(MAX_PATIENCE_MS),
 })
 export type CloudInvoke = z.infer<typeof cloudInvoke>
 
 /**
- * Cancel — the bridge must issue a real ROS goal cancel (§11.3).
+ * Cancel — the bridge must issue a real ROS goal cancel.
  *
  * `slug` stays, and stays required: it is how the bridge finds the tracker,
  * and it is what a cancel with no id means.
  *
- * `job_id` is what W6b adds, and what makes a cancel say *which* job. Without
- * it a cancel arriving a moment after one job ended and another began on the
+ * `job_id` is what makes a cancel say *which* job. Without it a cancel
+ * arriving a moment after one job ended and another began on the
  * same slug stops the **new** one — the caller asked to stop something that
  * had already finished and stopped a machine that had just started moving.
  * That is not a race anybody had to lose: the caller knew the id, and the
@@ -333,7 +318,7 @@ export type CloudPublish = z.infer<typeof cloudPublish>
 
 /**
  * Progress on a job, bridge → cloud. `timestamp_ms` is capture time, so a
- * burst delivered late after a reconnect is visibly late (§6.3).
+ * burst delivered late after a reconnect is visibly late.
  */
 export const bridgeJobUpdate = z.object({
   type: z.literal('job_update'),
@@ -352,7 +337,7 @@ export const bridgeJobUpdate = z.object({
 export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
 
 /**
- * Jobs the bridge can no longer account for **while connected** (§6.1) — a
+ * Jobs the bridge can no longer account for **while connected** — a
  * tracker dropped, an action server that vanished mid-goal, anything where
  * the honest answer is "I lost this" rather than a state.
  *
@@ -408,8 +393,8 @@ export const bridgeTypeDefinitions = z.object({
 export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
 
 /**
- * The built-in `bridge_state` datapoint every robot has (spec §4.3):
- * connection status plus latency, the basis for offline-aware client UIs.
+ * The built-in `bridge_state` datapoint every robot has: connection status
+ * plus latency, the basis for offline-aware client UIs.
  */
 export const bridgeState = z.object({
   online: z.boolean(),
@@ -426,8 +411,7 @@ const bridgePressureTier = z.object({
 })
 
 /**
- * The built-in `bridge_pressure` datapoint (spec §4.3, the pressure-telemetry
- * design's "The decision that shapes everything"): the bridge's own
+ * The built-in `bridge_pressure` datapoint: the bridge's own
  * bandwidth-shaping state, sent on the same reserved-slug path as
  * `bridge_state` so history, realtime, REST and MCP exposure fall out of the
  * ordinary datapoint machinery for free.
@@ -499,8 +483,8 @@ export const bridgePressure = z.object({
 export type BridgePressure = z.infer<typeof bridgePressure>
 export const PRESSURE_SLUG = 'bridge_pressure' as const
 
-/* ------------------------------------------------------------------ W5 --
- * Cameras (spec §10).
+/* ------------------------------------------------------------------------
+ * Cameras.
  */
 
 /**
@@ -513,13 +497,11 @@ export const PRESSURE_SLUG = 'bridge_pressure' as const
  * Binary rather than base64 in a text frame, because base64 costs a third of
  * the robot's upstream for nothing. Self-contained rather than a JSON frame
  * followed by a binary one, because that pairing would depend on frame
- * ordering — and W4 established, at some cost, that ordering across a socket
- * is not something to lean on.
+ * ordering, and ordering across a socket is not something to lean on.
  *
- * `timestamp_ms` is the bridge's **capture** time (§6.3), which is what lets
- * every consumer state a snapshot's true age. A picture that lies about when
- * it was taken is this wave's version of a job that reads "running" when
- * nobody knows.
+ * `timestamp_ms` is the bridge's **capture** time, which is what lets every
+ * consumer state a snapshot's true age. A picture that lies about when it was
+ * taken is as bad as a job that reads "running" when nobody knows.
  */
 /**
  * The largest a snapshot frame — header and image bytes together — may be on
@@ -535,15 +517,13 @@ export const PRESSURE_SLUG = 'bridge_pressure' as const
  * connection with 1009 — taking datapoints, jobs, commands and configuration
  * down with it. The bridge would then reconnect, receive the same
  * configuration, capture the same frame and be closed again: a robot that
- * will not stay online, from a configuration the platform accepted. Measured
- * during the W5 review, a 4K JPEG of real camera content lands around
- * 2.2 MiB and 1080p on a noisy scene within 40% of this number, so the margin
- * is thinner than it looks.
+ * will not stay online, from a configuration the platform accepted. The margin
+ * is thinner than it looks — a 4K JPEG of real camera content lands around
+ * 2.2 MiB, and 1080p on a noisy scene comes within half of this number.
  *
- * **The bridge must degrade rather than exceed it** — lower JPEG quality,
- * then downscale, and if it still does not fit, skip the frame and say so.
- * A missing snapshot is a gap, and this wave already established that a gap
- * is an honest answer; a closed socket is not.
+ * **The bridge must degrade rather than exceed it** — lower JPEG quality, then
+ * downscale, and if it still does not fit, skip the frame and say so. A missing
+ * snapshot is a gap, and a gap is an honest answer; a closed socket is not.
  */
 export const SNAPSHOT_MAX_BYTES = 1_572_864 // 1.5 MiB, against a 2 MiB socket ceiling
 
@@ -562,7 +542,7 @@ export type SnapshotHeader = z.infer<typeof snapshotHeader>
  * Cloud → bridge: start publishing this camera live.
  *
  * The **cloud** mints the room and the publisher token, for the same reason
- * it mints a `job_id` before asking anything (§6.1): the side that owns the
+ * it mints a `job_id` before asking anything: the side that owns the
  * refcount must own the identity of the stream, or a robot could end up
  * publishing into a room nobody is watching.
  */
@@ -573,12 +553,12 @@ export const cloudCameraStart = z.object({
   room: z.string().min(1),
   token: z.string().min(1),
   /**
-   * Names **this attempt** (W6b), and is echoed in the `camera_state` that
-   * answers it.
+   * Names **this attempt**, and is echoed in the `camera_state` that answers
+   * it.
    *
-   * W6a gave `camera_state` a `cause` and said in the same comment that a
-   * cause is not a correlation. This is the other half. Start a camera, have
-   * it fail slowly, start it again: the first attempt's failure arrives while
+   * `camera_state.cause` says what kind of event a frame is; a cause is not a
+   * correlation, and this is the other half. Start a camera, have it fail
+   * slowly, start it again: the first attempt's failure arrives while
    * the second is in flight, matches on slug, and resolves the attempt it
    * knows nothing about. The viewer is then told the running stream failed,
    * for a reason belonging to an attempt that is already over.
@@ -587,14 +567,13 @@ export const cloudCameraStart = z.object({
 })
 export type CloudCameraStart = z.infer<typeof cloudCameraStart>
 
-/** Cloud → bridge: the last viewer left; stop publishing (§10 refcount). */
+/** Cloud → bridge: the last viewer left; stop publishing. */
 /**
- * Assets (spec §4.6, W7): the bridge **reports availability and transfers
- * nothing** until asked.
+ * Assets: the bridge **reports availability and transfers nothing** until
+ * asked.
  *
- * **The bytes never travel on this socket.** `server.ts` caps a frame at
- * 2 MiB, a single mesh exceeds that routinely, and raising the cap is already
- * tied to W8's rate limiting in the deferral register because it amplifies an
+ * **The bytes never travel on this socket.** A frame is capped at 2 MiB and a
+ * single mesh exceeds that routinely; raising the cap amplifies an
  * unauthenticated path. So the socket carries the *conversation* — what exists,
  * transfer this, here is how far I got — and the bytes go over HTTP with the
  * robot's own credential.
@@ -618,7 +597,7 @@ export const bridgeAssetsAvailable = z.object({
 export type BridgeAssetsAvailable = z.infer<typeof bridgeAssetsAvailable>
 
 /**
- * The explicit request §4.6 requires — nothing moves without it.
+ * The explicit request that starts a transfer — nothing moves without it.
  *
  * The upload credential is minted per sync and travels here rather than being
  * derived from the robot token: it is scoped to one robot's assets and one
@@ -649,12 +628,13 @@ export const bridgeAssetProgress = z.object({
   total: z.number().int().nonnegative(),
   /**
    * **Each entry says why** — see `assetFailure` in `assets.ts` for the three
-   * kinds and why one word was not enough. The bound is `assets.ts`'s too: a
-   * `.dae` with 17,331 unresolvable internal references produced a frame 32
-   * bytes over `MAX_WS_PAYLOAD_BYTES`, and `ws` enforces that **before**
-   * delivery — so the outcome was the robot's own socket closed, mid-sync, by
-   * a file in its workspace (Kassandra-W7a). A producer at its own ceiling
-   * reports **one** `refused` entry naming the file, not one per reference.
+   * kinds and why one word is not enough. The bound is `assets.ts`'s too: a
+   * single `.dae` can carry tens of thousands of unresolvable internal
+   * references, which is enough to push this frame past
+   * `MAX_WS_PAYLOAD_BYTES`. That limit is enforced **before** delivery, so the
+   * outcome is not a dropped frame but the robot's own socket closed mid-sync
+   * by a file in its workspace. A producer at its own ceiling reports **one**
+   * `refused` entry naming the file, not one per reference.
    */
   failed: z.array(assetFailure).max(1000),
   /**
@@ -666,17 +646,12 @@ export const bridgeAssetProgress = z.object({
    * answers with silence is a backstop nobody can debug, and the alternative
    * on the table was to report every requested URI in `failed`. That would
    * have made `failed` mean two different things at once — *could not be
-   * resolved* and *was never attempted* — which is the one-field-two-facts
-   * defect this project has now split five times (`set`/`readable`,
-   * `truncated`/`truncated_by`, `value`/`sample_count`, `publishing`/`cause`,
-   * and camera health's own).
+   * resolved* and *was never attempted* — one field carrying two facts, each
+   * overwriting the other.
    *
    * So: `running` while work is happening, `finished` when the bridge will
    * send no more for this sync, `refused_busy` when it never started because
    * another sync was in flight. `failed` keeps its single meaning.
-   *
-   * Raised by Rosie-W7, who found the gap by asking what a second request
-   * should do rather than picking the silent option.
    */
   state: z.enum(['running', 'finished', 'refused_busy']),
 })
@@ -701,15 +676,13 @@ export const bridgeCameraState = z.object({
   publishing: z.boolean(),
   error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
   /**
-   * Why this frame was sent (W6a).
+   * Why this frame was sent.
    *
    * Without it, `{publishing: false, error: null}` is sent for **three
    * different things** — an answer to `camera_stop`, a stream stopped by a
-   * configuration change, and a source that recovered — and the cloud can
-   * only tell them apart by remembering what it saw before. Deriving a cause
-   * from remembered state is precisely the inference this project keeps
-   * finding to be wrong, and W6a exists because four failures had been
-   * sharing one silence.
+   * configuration change, and a source that recovered — and the cloud can only
+   * tell them apart by remembering what it saw before. A cause derived from
+   * remembered state is a guess.
    *
    * `'command'`       this frame answers a `camera_start` / `camera_stop`.
    * `'source'`        unsolicited: the source's own health changed, whether or
@@ -719,29 +692,24 @@ export const bridgeCameraState = z.object({
    *                   failure, and it must not be logged as one.
    * `'live_lost'`     publishing ended unexpectedly after it had started.
    *
-   * Note it does **not** answer "which attempt is this?" — `camera_state`
-   * still has no request id, and that remains a named deferral in cluster C.
-   * `cause` says what kind of event this is; correlation is a separate fact
-   * and giving one field both jobs would be the same mistake again.
+   * It does **not** answer "which attempt is this?" — `request_id` beside it
+   * does. `cause` says what kind of event this is; correlation is a separate
+   * fact, and giving one field both jobs would be the same mistake again.
    *
-   * Required, not optional: an absent cause would default to the reading
-   * somebody happens to assume, and every frame's sender knows its own
-   * reason. Old bridges fail validation on this frame — acceptable while
-   * nothing is deployed, and W8 is the first deployment.
+   * Required, not optional: an absent cause would default to whatever reading
+   * the receiver happens to assume, and every frame's sender knows its own
+   * reason.
    */
   cause: z.enum(['command', 'source', 'config_change', 'live_lost']),
   /**
    * When the **robot** observed this state — bridge capture time, never
-   * receive time, the same discipline `timestamp_ms` follows for samples
-   * (spec §6.3).
+   * receive time, the same discipline `timestamp_ms` follows for samples.
    *
-   * It exists because the cloud stamped `resourceHealthState.changed_at_ms`
-   * with its own `Date.now()`, and a **restatement** is by definition an old
-   * state re-sent into an empty map. So after a cloud restart every failure —
-   * including one from yesterday — was dated to the restart, in the one
-   * scenario `changed_at_ms`'s own doc comment was written for: *"a page that
-   * loads late must be able to tell a failure from a minute ago from one from
-   * yesterday"*.
+   * It exists because a cloud that stamps `resourceHealthState.changed_at_ms`
+   * with its own clock dates every **restatement** to the moment it restarted
+   * — a restatement is by definition an old state re-sent into an empty map.
+   * That destroys exactly what `changed_at_ms` is for: a page that loads late
+   * must be able to tell a failure from a minute ago from one from yesterday.
    *
    * On a restatement this carries **when the state was first observed**, not
    * when the frame was sent. A bridge that re-states a failure it has held for
@@ -749,7 +717,7 @@ export const bridgeCameraState = z.object({
    */
   observed_at_ms: z.number().int().nonnegative(),
   /**
-   * Which request this frame answers (W6b), or `null` when it answers none.
+   * Which request this frame answers, or `null` when it answers none.
    *
    * `null` is not a gap and must not be treated as one: a `cause: 'source'`
    * frame — the unsolicited health report that makes a wrong password visible
@@ -766,10 +734,10 @@ export const bridgeCameraState = z.object({
    * **The pairing rule is not in this schema, deliberately.** "Non-null iff
    * `cause === 'command'`" is a cross-field constraint; a zod `.refine()`
    * would express it at runtime and then **disappear** from the generated
-   * JSON Schema, which is what the bridge vendors. The cloud would reject
-   * frames the bridge had validated as correct — the same artifact/runtime
-   * divergence that `.default()` publishing as `required` has produced four
-   * times in this project, only pointing the other way. The rule is enforced
+   * JSON Schema, which is what a non-TypeScript bridge validates against. The
+   * cloud would reject frames the bridge had validated as correct — the same
+   * artifact-versus-runtime divergence that `.default()` publishing as
+   * `required` produces, pointing the other way. The rule is enforced
    * where the correlation is used, in the cloud's bridge frame handler, and
    * stated here so nobody has to derive it from that code.
    */

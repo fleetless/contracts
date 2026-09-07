@@ -12,7 +12,7 @@ const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
 const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
 const NOW = '2026-08-10T20:00:00.000Z'
 
-describe('W3a — org, member and robot patches; slug rename', () => {
+describe('org, member and robot patches; slug rename', () => {
   it('patchOrgRequest: strict, and pins the 120-char org-name bound', () => {
     expect(patchOrgRequest.safeParse({ name: 'a'.repeat(120) }).success).toBe(true)
     expect(patchOrgRequest.safeParse({ name: 'a'.repeat(121) }).success).toBe(false)
@@ -44,7 +44,7 @@ describe('W3a — org, member and robot patches; slug rename', () => {
     expect(patchRobotRequest.safeParse({ name: 'a'.repeat(63) }).success).toBe(true)
     expect(patchRobotRequest.safeParse({ name: 'a'.repeat(64) }).success).toBe(false)
     expect(patchRobotRequest.safeParse({ name: '' }).success).toBe(false)
-    expect(patchRobotRequest.safeParse({ name: 'rx1', names: 'rx1' }).success).toBe(false)
+    expect(patchRobotRequest.safeParse({ name: 'ranger', names: 'ranger' }).success).toBe(false)
   })
 
   it('renameSlugRequest: strict, and refuses a non-slug `to`', () => {

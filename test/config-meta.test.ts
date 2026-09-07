@@ -6,7 +6,7 @@ import { robotConfigDoc } from '../src/config.js'
 /**
  * Every field the format documents must carry a hover text.
  *
- * The editor (FL-004) renders `description` from the exported JSON Schema, so
+ * A configuration editor renders `description` from the exported JSON Schema, so
  * a field without one is a field a developer hovers and learns nothing from.
  * This test is the wave's own guarantee: a new field added later without a
  * description fails here rather than shipping a blank tooltip.
@@ -182,7 +182,7 @@ describe('every camera source branch carries a hover text', () => {
  * A `description:` field is the one position in the format where the developer
  * has to write prose, and the editor offering nothing there is the state item 3
  * describes: every sibling of `datapoints.<slug>.description` offered an
- * example and it did not, so the fourteen silent scalars of §1.1 included three
+ * example and it did not, so the silent scalar positions included three
  * `description`s that simply lacked an `examples`.
  *
  * The reason this is a walk and not a list of three: a `description` added to a

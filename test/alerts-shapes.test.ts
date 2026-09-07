@@ -99,7 +99,7 @@ describe('datapointAlert — the entity, definition + runtime state together', (
     expect(parsed.condition).toMatchObject({ resolve_hysteresis: 0 })
   })
 
-  // FL-002 wave 4 removed the mail path. This shape is a plain `z.object`,
+  // There is no mail path. This shape is a plain `z.object`,
   // which strips unknown keys rather than refusing them, so the pin has to be
   // on the parsed output: a caller still sending the old fields gets them
   // dropped, and no reader can be handed a mail setting that means nothing.
@@ -142,7 +142,7 @@ describe('alertListResponse / orgFiringAlertsResponse', () => {
   it('orgFiringAlertsResponse requires robot_name alongside every alert field', () => {
     expect(orgFiringAlertsResponse.safeParse({ alerts: [VALID_ALERT] }).success).toBe(false)
     expect(
-      orgFiringAlertsResponse.safeParse({ alerts: [{ ...VALID_ALERT, robot_name: 'rx1' }] }).success,
+      orgFiringAlertsResponse.safeParse({ alerts: [{ ...VALID_ALERT, robot_name: 'ranger-x1' }] }).success,
     ).toBe(true)
   })
 })

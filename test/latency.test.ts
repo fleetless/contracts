@@ -45,7 +45,7 @@ describe('orgLatencyResponse', () => {
 
 describe('orgLatencyQuery', () => {
   // A query string carries text, never numbers — the union's input branch is
-  // the wire (DEF-059), so this is the shape a real request actually has.
+  // the wire, so this is the shape a real request actually has.
   it('accepts the window as the numeric strings a query string carries', () => {
     const parsed = orgLatencyQuery.parse({ from_ms: '1755690000000', to_ms: '1755693600000' })
     expect(parsed.from_ms).toBe(1755690000000)
@@ -66,7 +66,7 @@ describe('orgLatencyQuery', () => {
   })
 
   it('refuses a non-uuid robot_id here, where the column is one', () => {
-    // The `?actor_id=not-a-uuid` -> 500 defect (Argus-W9), refused in the
+    // The `?actor_id=not-a-uuid` -> 500 defect, refused in the
     // same place its fix was: the contract, not a second guard in the route.
     expect(orgLatencyQuery.safeParse({ from_ms: 1000, to_ms: 2000, robot_id: 'not-a-uuid' }).success).toBe(false)
   })

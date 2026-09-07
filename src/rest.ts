@@ -7,8 +7,8 @@ import { rosGraph, typeDefinition } from './introspection.js'
 import { job } from './jobs.js'
 
 /**
- * REST shapes of the robot resource (spec §11.1). W1 scope: create, list,
- * get, and the built-in `bridge_state` datapoint read.
+ * REST shapes of the robot resource: create, list, get, and the built-in
+ * `bridge_state` datapoint read.
  */
 
 export const robot = z.object({
@@ -38,8 +38,8 @@ export const createRobotRequest = z.object({
 export type CreateRobotRequest = z.infer<typeof createRobotRequest>
 
 /**
- * The robot token binds one bridge to one robot (spec §5). It is returned
- * exactly once, here; the cloud stores only a hash of it.
+ * The robot token binds one bridge to one robot. It is returned exactly once,
+ * here; the cloud stores only a hash of it.
  */
 export const robotToken = z.string().regex(/^frt_[0-9a-f]{32}$/)
 
@@ -50,10 +50,10 @@ export const createRobotResponse = z.object({
 export type CreateRobotResponse = z.infer<typeof createRobotResponse>
 
 /**
- * How many things a robot exposes, per kind (spec `2026-08-21-exposure-and-revoke-design` D1).
+ * How many things a robot exposes, per kind.
  *
- * **Five numbers, never a sum.** `robotDeletionSummary.slug_count` already made
- * this call and wrote down why: fold cameras in and the sentence "this deletes
+ * **Five numbers, never a sum.** `robotDeletionSummary.slug_count` makes the
+ * same call for the same reason: fold cameras in and the sentence "this deletes
  * N slugs and M cameras" counts them twice. A list row has the same problem.
  *
  * **Counted from the published configuration, and excluding the built-ins.**
@@ -96,7 +96,7 @@ export type RobotListResponse = z.infer<typeof robotListResponse>
 
 /**
  * The REST read of one datapoint. For bridge-captured data `timestamp_ms`
- * is the capture time at the bridge (spec §6.3); for the cloud-observed
+ * is the capture time at the bridge; for the cloud-observed
  * built-in `bridge_state` it is the time the cloud observed the state.
  */
 export const datapointValue = z.object({
@@ -110,16 +110,15 @@ export const datapointValue = z.object({
 })
 export type DatapointValue = z.infer<typeof datapointValue>
 
-/* ------------------------------------------------------------------ W2 --
+/* ------------------------------------------------------------------------
  * Exposure: the configuration resource, introspection, types, and the
- * datapoint surface generated from the published configuration (spec §4,
- * §11.2).
+ * datapoint surface generated from the published configuration.
  */
 
 /**
  * One robot in full: what the list shows, plus what only the detail view
  * needs — which bridge build is connected, why the last hello was refused,
- * and where the configuration stands (spec §15.2, tab 1).
+ * and where the configuration stands.
  */
 export const robotDetailResponse = z.object({
   ...robotListItem.shape,
@@ -187,19 +186,16 @@ export type ConfigDraftResponse = z.infer<typeof configDraftResponse>
  * the server parses it, and there is exactly one account of what the
  * configuration says.
  *
- * It also settles who owns parsing, and **FL-005 D2 moved that line**. The
- * sentence here used to read that the console refuses unparsable YAML before it
- * sends, so a syntax error never reaches the server. That is no longer the
- * rule: the **server** refuses text that is not valid YAML, with the line and
- * column, and stores everything else — including valid YAML that is not a
- * fleetless document, which comes back with `doc: null` and its issues. The
- * console checks as you type so the answer is immediate; the server checks
- * because it is the one that decides. Two checks of one question, and the
- * server's is the one that binds.
+ * It also settles who owns parsing. The **server** refuses text that is not
+ * valid YAML, with the line and column, and stores everything else — including
+ * valid YAML that is not a fleetless document, which comes back with
+ * `doc: null` and its issues. An editor may check as you type so the answer is
+ * immediate; the server checks because it is the one that decides. Two checks
+ * of one question, and the server's is the one that binds.
  *
- * The pair that used to be called a defect — a stored source that does not
- * parse to its stored document — is now a **represented state**: no document at
- * all. See `configDraftResponse` above.
+ * A stored source that does not parse to a document is therefore a
+ * **represented state**, not an error: no document at all. See
+ * `configDraftResponse` above.
  */
 export const putConfigDraftRequest = z.object({ source: z.string().max(1_000_000) })
 export type PutConfigDraftRequest = z.infer<typeof putConfigDraftRequest>
@@ -269,11 +265,11 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
 /**
  * What a client can read on this robot: the built-ins plus everything the
  * published configuration exposes. This is the seed of the generated
- * per-robot API (§11.2).
+ * per-robot API.
  *
- * **The OpenAPI rendering exists since the route manifest (`routes.ts`):
- * `artifacts/openapi.json`, derived from the manifest and these schemas by
- * `scripts/export-schemas.ts`.**
+ * **The OpenAPI rendering is `artifacts/openapi.json`**, derived from the
+ * route manifest in `routes.ts` and these schemas by
+ * `scripts/export-schemas.ts`.
  */
 export const datapointDescriptor = z.object({
   slug: slug.meta({ description: 'The name a client reads this datapoint by.' }),
@@ -304,8 +300,8 @@ export const datapointListResponse = z.object({
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
 
 /**
- * The built-in `robot_details` datapoint (spec §4.3): static properties the
- * developer maintains. Bounded so one robot cannot become a document store.
+ * The built-in `robot_details` datapoint: static properties the developer
+ * maintains. Bounded so one robot cannot become a document store.
  */
 export const robotDetailsDoc = z.record(
   z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),
@@ -325,8 +321,8 @@ export const putRobotDetailsRequest = z.object({ details: robotDetailsDoc })
 export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
 
 
-/* ------------------------------------------------------------------ W4 --
- * The command surface (spec §11.1, §11.3) and what a role may be granted.
+/* ------------------------------------------------------------------------
+ * The command surface, and what a role may be granted.
  *
  * The routes, written down because cloud, console and SDK each need them and
  * a body schema does not imply a path:
@@ -340,7 +336,7 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  * | `GET /api/robots/:id/exposures`          | —               | `exposureListResponse` |
  *
  * **Commands are addressed by slug, never by kind.** Slugs are one namespace
- * across all kinds (§4.1) and a role grant is `{robot, slug}` with no kind in
+ * across all kinds and a role grant is `{robot, slug}` with no kind in
  * it — so a path segment naming the kind would demand a fact the permission
  * model deliberately does not carry. The cloud already knows from the
  * published configuration whether a slug is an action or a service; a caller
@@ -354,7 +350,7 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  */
 
 /**
- * Invoke an action or call a service; parameters by field path (§4.4).
+ * Invoke an action or call a service; parameters by field path.
  *
  * Flat, keyed by `parameterSpec.name` — see `cloudInvoke.params` for why the
  * flat form is the one that makes a refusal legible.
@@ -364,7 +360,7 @@ export const invokeRequest = z.object({
     description: 'The values this call needs, keyed by **parameter name** rather than by field path — so a name survives the field moving inside the message. Every parameter without a default must be present, and the bounds the configuration declares are enforced in the cloud, before anything reaches the robot.',
   }),
   /**
-   * How long **this call** is worth waiting for, in milliseconds (W6b).
+   * How long **this call** is worth waiting for, in milliseconds.
    *
    * **Absent means `DEFAULT_PATIENCE_MS`** — today's behaviour, unchanged, for
    * every caller who does not care. It is optional because most callers have
@@ -396,37 +392,28 @@ export const invokeRequest = z.object({
 export type InvokeRequest = z.infer<typeof invokeRequest>
 
 /**
- * The answer to an invoke. The job id is informative (§11.3): state is
- * observed by slug afterwards, over polling or a subscription.
+ * The answer to an invoke. The job id is informative: state is observed by
+ * slug afterwards, over polling or a subscription.
  */
 /**
- * The body of a cancel (W6b). **Every field optional, and the body itself may
- * be absent** — `POST .../cancel` was bodyless before this wave and every
- * existing caller still sends nothing.
- *
- * That is not politeness, it is the W5 defect: a bodyless `POST` carrying
- * `content-type: application/json` was rejected outright, which made
- * `cameras.live()` unreachable through the SDK and took `cancel`, publish,
- * restore, key rotation and member removal with it — unnoticed since W4. A
- * schema that demands a body would reintroduce it on the one verb that stops
- * a machine.
+ * The body of a cancel. **Every field optional, and the body itself may be
+ * absent** — `POST .../cancel` takes no body at all in its simplest form, and
+ * a schema that demanded one would break every caller on the one verb that
+ * stops a machine.
  *
  * **`.strict()`, and that is the whole point of the shape.** A plain object
  * strips unknown keys, so a caller who *means* to name a job and misspells the
  * field — `jobId` for `job_id` — has their id silently removed and gets the
  * **slug-wide** cancel instead: the most destructive reading of a request they
- * did not make. Measured in W6b's review: `{"jobId": "<some other job>"}`
- * answered `200` and stopped the job that was actually running, which nobody
- * had named. The `?force=true` precedent this route's design borrowed from
- * fails *safe* on a typo — a misspelled `force` simply does not force.
- * Stripping here fails unsafe, so unknown keys are refused instead.
+ * did not make. A `?force=true` flag fails *safe* on a typo, because a
+ * misspelled `force` simply does not force. Stripping here fails unsafe, so
+ * unknown keys are refused instead.
  *
  * `job_id` absent and `job_id: null` mean the **same** thing here, and that is
- * deliberate: over REST an absent body is how every caller written before this
- * wave says "cancel whatever is running". On the socket, `clientCancel.job_id`
- * is required-and-nullable instead, because a frame is assembled fresh by a
- * client that has already been updated — there, `null` is a decision and an
- * omission is a bug.
+ * deliberate: over REST an absent body is how a caller says "cancel whatever is
+ * running". On the socket, `clientCancel.job_id` is required-and-nullable
+ * instead, because a frame is assembled fresh by a client that knows this
+ * contract — there, `null` is a decision and an omission is a bug.
  */
 export const cancelRequest = z.object({
   job_id: z.uuid().nullable().optional().meta({
@@ -436,18 +423,17 @@ export const cancelRequest = z.object({
 export type CancelRequest = z.infer<typeof cancelRequest>
 
 /**
- * The query of a live release (W6b): `DELETE .../live?session_id=<uuid>`.
+ * The query of a live release: `DELETE .../live?session_id=<uuid>`.
  *
  * A query parameter rather than a body, following `?force=true` on robot
- * deletion — the precedent this repo already set for "a DELETE that needs one
- * more fact". A body on a DELETE is carried inconsistently by proxies and by
+ * deletion. A body on a DELETE is carried inconsistently by proxies and by
  * `fetch` itself, and this call runs from a browser tab that is often closing.
  *
  * **`.strict()`, for the reason `cancelRequest` is** — `?sessionid=` instead of
- * `?session_id=` was measured releasing **both** of an identity's holds and
- * stranding the other tab, which is precisely the defect this field was added
- * to remove. A refused typo costs a round trip; a stripped one stops a robot
- * somebody else is watching.
+ * `?session_id=` would release **every** one of an identity's holds and strand
+ * its other tabs, which is precisely what this field exists to prevent. A
+ * refused typo costs a round trip; a stripped one stops a robot somebody else
+ * is watching.
  *
  * Absent means today's meaning: release **all** of this identity's holds on
  * this camera. A client that has lost its id, or is going away entirely, still
@@ -514,14 +500,12 @@ export type PublishRequest = z.infer<typeof publishRequest>
  * The **most recent** job on a slug — running or already finished — or null
  * only when nothing has ever run there.
  *
- * It said "the job currently running" until W4's review, and that quietly
- * made §11.3's first sentence false. The spec offers two equal ways to
- * observe a slug — *"Polling (REST) oder Subscription (Realtime)"* — but a
- * route that forgets a job the moment it settles lets a poller see only
- * `running`, then `null`. Succeeded, failed, cancelled, `lost` and
- * never-invoked all become the same answer, so §6.1's promise that a lost
- * job is *said out loud* held for subscribers and silently did not hold for
- * anyone polling. It is also the recovery `command_outcome_unknown` points
+ * A slug can be observed two equally valid ways, by polling this route or by
+ * subscribing. A route that forgot a job the moment it settled would let a
+ * poller see only `running`, then `null`: succeeded, failed, cancelled, `lost`
+ * and never-invoked would all become the same answer, and the promise that a
+ * lost job is said out loud would hold for subscribers and silently not hold
+ * for anyone polling. It is also the recovery `command_outcome_unknown` points
  * a caller to.
  *
  * Read `job.state` to tell a live job from a finished one; that is what the
@@ -536,20 +520,18 @@ export type JobResponse = z.infer<typeof jobResponse>
 
 /**
  * Every job the platform currently believes this robot has — `GET
- * /api/robots/:id/jobs` (W6b).
+ * /api/robots/:id/jobs`.
  *
  * `jobResponse` answers "what is on this slug", which requires knowing the
- * slug first. That was enough while a job could only exist on a slug the
- * published configuration named. W6b breaks that assumption twice: a
- * reconnecting bridge can name a job the cloud has **no row for** and the
- * cloud adopts it, and a configuration change can leave a job on a slug the
- * document no longer contains. Both are jobs nobody can ask about, because
- * asking requires already knowing what to ask for.
+ * slug first. Two kinds of job break that assumption: a reconnecting bridge
+ * can name a job the cloud has **no row for**, and the cloud adopts it; and a
+ * configuration change can leave a job on a slug the document no longer
+ * contains. Both are jobs nobody can ask about, because asking requires
+ * already knowing what to ask for.
  *
- * So this route exists to answer the question the per-slug route cannot: not
- * "is something running here", but "what is this robot doing". A restarted
- * cloud that has just reconciled a robot's `hello.active_jobs` has exactly
- * this list and, until now, no way to say it out loud.
+ * So this route answers the question the per-slug route cannot: not "is
+ * something running here", but "what is this robot doing". A cloud that has
+ * just reconciled a robot's `hello.active_jobs` has exactly this list.
  *
  * The array is ordered newest first and is **never null**: a robot doing
  * nothing answers `{ jobs: [] }`. "Nothing is running" and "we did not look"
@@ -557,27 +539,23 @@ export type JobResponse = z.infer<typeof jobResponse>
  * distinction `robotDeletionSummary` was made all-required for.
  *
  * **At most one entry per slug: the current job there, exactly what
- * `jobResponse` would answer for that slug.** This is not a history endpoint
- * and must not become one. The first implementation returned every job the
- * registry still held — six rows and four complete Fibonacci results after a
- * few minutes of gate traffic, and unbounded in both count and payload for a
- * robot that has been working all day. The list would have grown until a
- * console page carried a robot's entire past, and the one thing it exists to
- * answer — *what is this robot doing* — would have been the first line of a
- * scroll.
+ * `jobResponse` would answer for that slug.** This is not a history endpoint.
+ * Returning every job a registry still holds is unbounded in both count and
+ * payload for a robot that has been working all day, and the one thing this
+ * route exists to answer — *what is this robot doing* — would be the first
+ * line of a scroll. The durable history has its own routes.
  *
  * A settled job stays visible as its slug's current entry until something
  * else runs there, which is what makes a job that just failed still findable.
  * Read `state` to tell a live one from a finished one, exactly as with
  * `jobResponse`.
  */
-/* ------------------------------------------------------------------ W6c --
- * Identity, rewritten by the 2026-08-29 org-central redesign (D1/D2/D6).
- * Written down here for the same reason the W4 command routes were: **a body
- * schema does not imply a path**, and three consumers were about to derive
- * nine paths independently from one implementation.
+/* ------------------------------------------------------------------------
+ * Identity. Written down here for the same reason the command routes are:
+ * **a body schema does not imply a path**, and every consumer would otherwise
+ * derive nine paths independently from one implementation.
  *
- * **Two identity spaces, two prefixes** (2026-09-05 app-user-auth, D1). The
+ * **Two identity spaces, two prefixes.** The
  * `/api/org/` vs `/api/end-users/` split this table once insisted on, and the
  * one pool that replaced it, are both gone. `/api/org/users` is the **team**:
  * Fleetless users, console access, a tier each. An app's users live under
@@ -606,22 +584,18 @@ export type JobResponse = z.infer<typeof jobResponse>
  * model survives in production while the contract says otherwise.
  *
  * **`POST /api/auth/password/reset` answers `202` for every well-formed
- * address**, known or not. It is the one route where §3.3's silence about
- * existence is not a preference but the entire point: any status, body or
- * timing difference between the two cases is an account-enumeration oracle.
- * Note *timing* — a route that only sends mail for a real address must not
- * become measurably faster for an unknown one. Email is **globally unique**
- * (Andre, 2026-08-29), so a bare address names at most one account and the
- * route mails the one match, if any; the per-org detour the 2026-08-29
- * redesign briefly took (multi-candidate verify on login, mail-every-match on
- * reset) is retired, with no shape change. See `passwordResetRequest`.
+ * address**, known or not. It is the one route where saying nothing about
+ * whether an account exists is not a preference but the entire point: any
+ * status, body or timing difference between the two cases is an
+ * account-enumeration oracle. Note *timing* — a route that only sends mail for
+ * a real address must not become measurably faster for an unknown one. Email is
+ * **globally unique**, so a bare address names at most one account and the
+ * route mails the one match, if any. See `passwordResetRequest`.
  *
- * **Both surfaces get the password routes, mirrored.** Cluster D named the app
- * user explicitly — *"an end user cannot change their own password, and there
- * is no reset path"* — and a console user needs the same thing; the first
- * version of this block gave the routes only one prefix, which would have
- * shipped the wave's named item for the wrong principal. `passwordChangeRequest`
- * is shared because the operation is identical; the **prefix** is what says
+ * **Both surfaces get the password routes, mirrored.** An end user and a
+ * console user each need a way to change and to reset a password.
+ * `passwordChangeRequest` is shared because the operation is identical; the
+ * **prefix** is what says
  * which session is being spent, exactly as it does for `login`. The two *reset*
  * requests are separate shapes rather than one, because the surfaces identify a
  * person differently: a Fleetless user by a globally unique address, an app
@@ -634,15 +608,14 @@ export type JobResponse = z.infer<typeof jobResponse>
  * Re-issuing is the honest way to keep the promise: revoke everything, hand the
  * caller a new pair. Anything else means the caller keeps working until their
  * access token expires and is then silently logged out, which is
- * indistinguishable from the change having failed (Nimbus-W6c).
+ * indistinguishable from the change having failed.
  *
- * **Every link this wave mails must carry what the page needs to act on it.**
- * Three things were mailed to pages that could not handle them — a reset link
- * to the *request* page, an accept link to a `404`, a register confirmation to
- * a redirect (Kassandra-W6c). Fixing the paths alone would have left the defect
- * underneath: **both surfaces mailed the identical reset URL**, and the
- * console's confirm page posts to the console route, so an app user's token
- * sent there answers `token_spent` forever. A URL that does not say which
+ * **Every mailed link must carry what the page needs to act on it.** The
+ * failure mode is a link mailed to a page that cannot handle it: a reset link
+ * pointing at the *request* page, an accept link pointing at a `404`. Worse and
+ * quieter: **both surfaces mailing the identical reset URL**, when the page it
+ * points at posts to only one of the two routes, so the other surface's token
+ * answers `token_spent` forever. A URL that does not say which
  * surface minted it cannot be routed correctly by anything.
  *
  * So the link shapes are fixed here rather than in whichever repo builds them.
@@ -672,11 +645,10 @@ export type JobResponse = z.infer<typeof jobResponse>
  * The strings themselves live in `cloud/src/portal-paths.ts`, read by the
  * route that serves each page AND by the builder that mails it — one constant,
  * because the defect this table records happened again after it was written:
- * `buildAcceptUrl` mailed `{console}/accept-invite/{token}` while the console
- * served `/invite/{token}`, and this table said a third thing. Nothing caught
- * it because nothing shared a string.
+ * the mailer, the page and this table can each spell a path differently, and
+ * nothing catches it because nothing shares a string.
  *
- * ## W7 — the asset store (§4.6)
+ * ## The asset store
  *
  * | route | who | role capability |
  * |---|---|---|
@@ -688,47 +660,34 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | — |
  * | `POST /api/bridge/assets` | robot token, per sync | — |
  *
- * **The read routes are dual-mode, and the first version of this table said
- * `developer` for all three — contradicting the sentence that followed it.**
- * `assets` is an *app-role* capability (§3.3), and developers are not in any
- * app's role system at all (§3.1/§3.4: two identity spaces, and a credential
- * from one never authenticates the other). Enforced literally, an end user
- * could never fetch a URDF — which is §4.6's entire "Clients: `GET .../urdf`"
- * story, and the audience the asset store exists for.
+ * **The read routes are dual-mode.** `assets` is an *app-role* capability, and
+ * developers are not in any app's role system at all — two identity spaces, and
+ * a credential from one never authenticates the other. Reading the table as
+ * developer-only would mean an end user could never fetch a URDF, which is the
+ * audience the asset store exists for.
  *
  * So: a developer reaches the robot because it belongs to their org; an end
- * user reaches it when their role grants `assets`. Caught by Threepio-W7
- * reading §3.3 against this table before anything was built on it — the second
- * time in two waves that this one check has caught a delta placing a feature
- * in the wrong identity space.
+ * user reaches it when their role grants `assets`.
  *
  * **The rewritten mesh URIs in a served URDF are absolute, not
  * root-relative.** A relative URL resolves against *the consumer's* origin,
  * and the consumers here are apps on other domains — so `/api/robots/…` would
- * 404 against the customer's own site. This is the same mistake as W5's
- * `LIVEKIT_URL=localhost`, which was handed to a viewer's browser and cost an
- * afternoon: **a URL we hand to somebody else's browser must never be relative
- * to ours.** Raised by Data-W7 asking which it was rather than assuming.
+ * 404 against the customer's own site. **A URL handed to somebody else's
+ * browser must never be relative to ours.**
  *
- * **There is no per-asset `DELETE`, and its absence is the design.** The first
- * version of this table had one, for symmetry — which is not a reason. Assets
- * are immutable and content-addressed, and the operation a developer actually
- * performs is *the URDF changed, sync again*: a **re-sync reconciles**, so
- * assets the new URDF no longer references stop belonging to that robot. One
- * mechanism instead of two. Robot deletion is already covered by W6a's
- * cascade.
+ * **There is no per-asset `DELETE`, and its absence is the design.** Symmetry
+ * is not a reason. Assets are immutable and content-addressed, and the
+ * operation a developer actually performs is *the URDF changed, sync again*: a
+ * **re-sync reconciles**, so assets the new URDF no longer references stop
+ * belonging to that robot. One mechanism instead of two, and robot deletion is
+ * already a cascade.
  *
- * Left in, it would have been a route with no console, no SDK method and no
- * gate step — register row 8's third instance, in the wave whose own contracts
- * file warns about the first two by name. Caught by Eve-W7 asking why it was
- * in her mission's route table but in neither her mission nor the gate.
+ * Reading is a role capability; **changing the store is Owner-tier** — a sync
+ * spends the org's asset quota and a deletion breaks every app rendering that
+ * robot, so neither is a Member's to do.
  *
- * Reading is a role capability; **changing the store is Owner-tier**, matching
- * W6c's reading of §3.1 — a sync spends the org's asset quota and a deletion
- * breaks every app rendering that robot, so neither is a Member's to do.
- *
- * **`GET .../assets/missing` shipped undocumented for a whole wave and is the
- * sole producer of `asset_missing` (W7a, Momus-W7 M5).** It never succeeds,
+ * **`GET .../assets/missing` is the sole producer of `asset_missing`.** It
+ * never succeeds,
  * and that is what it is for: when the served URDF is rewritten, a reference
  * the store cannot answer has to be rewritten into *something*, and a URL that
  * 404s `asset_missing` naming the reference is the only option that leaves the
@@ -757,8 +716,8 @@ export type JobResponse = z.infer<typeof jobResponse>
  * credential over HTTP**. Everything the bridge does today goes over the
  * WebSocket, so this is new surface, not a variation of something existing —
  * and it accepts bodies far larger than any other route on the platform. It is
- * where a rate limit and a size ceiling matter most, and where W6c's own rule
- * applies: the refusal must precede the work, not follow it.
+ * where a rate limit and a size ceiling matter most, and where the general
+ * rule applies hardest: the refusal must precede the work, not follow it.
  *
  * The end-user links carry `app_identifier` because the page cannot act
  * without it: `clientPasswordResetRequest` requires it, and an end user is
@@ -766,18 +725,17 @@ export type JobResponse = z.infer<typeof jobResponse>
  * not enough, and a page that guesses the app is a page that guesses wrong.
  *
  * **This is a stopgap and should be named as one.** An app's users landing on
- * *our console* to reset a password is wrong — the page belongs to the app,
- * and an app has no configured base URL to send them to. Registered for W7;
- * until then the console hosts both, and the URL carries the app so that
- * moving it later is a redirect rather than a redesign.
+ * the Fleetless console to reset a password is wrong — the page belongs to the
+ * app, and an app has no configured base URL to send them to yet. Until it
+ * does, the console hosts both, and the URL carries the app so that moving it
+ * later is a redirect rather than a redesign.
  *
- * **`DELETE /api/org/members/:id` is not a row deletion.** Gate step 3 takes a
- * token minted before the removal and uses it; if it still works, the feature
- * is not built. `revokeSessionsForSubject` is already wired.
+ * **`DELETE /api/org/members/:id` is not a row deletion.** A token minted
+ * before the removal must stop working; sessions are revoked for the subject.
  */
 
 /**
- * What a `rate_limited` refusal tells the caller (W6c).
+ * What a `rate_limited` refusal tells the caller.
  *
  * One number, and it is the only one that matters: **when to come back.** A
  * limit that says "too many" without saying "in 800 ms" produces a client that
@@ -795,11 +753,10 @@ export type RateLimitDetails = z.infer<typeof rateLimitDetails>
 
 /**
  * Every job this robot's registry currently holds, **ordered newest first by
- * `started_at`, with `seq` as the tiebreaker** (W7, register rows 2j and 2l).
+ * `started_at`, with `seq` as the tiebreaker**.
  *
- * The field is named because the previous version of this comment claimed an
- * order without saying what produced it, and the answer turned out to matter
- * twice over:
+ * The tiebreaker is named rather than left implicit, because it matters twice
+ * over:
  *
  * 1. **`started_at` alone is not a total order.** Two jobs minted in the same
  *    millisecond sorted against each other arbitrarily — differently on each
@@ -825,9 +782,9 @@ export type RobotJobsResponse = z.infer<typeof robotJobsResponse>
 /**
  * Every slug of a robot that a role can be granted, **with its kind**.
  *
- * The roles matrix was built in W3 against the datapoint list, which was the
- * only kind that existed. With four kinds it needs one list that names them,
- * or the matrix silently cannot grant an action.
+ * A roles matrix built against the datapoint list alone cannot grant an
+ * action, a service or a publisher. One list that names every kind, with its
+ * kind, is what a matrix needs.
  */
 export const exposure = z.object({
   slug,
@@ -841,8 +798,8 @@ export const exposureListResponse = z.object({
 })
 export type ExposureListResponse = z.infer<typeof exposureListResponse>
 
-/* ------------------------------------------------------------------ W5 --
- * Cameras (spec §10). Routes, written down as the W4 command routes are:
+/* ------------------------------------------------------------------------
+ * Cameras. Routes, written down as the command routes are:
  *
  * | route | answers |
  * |---|---|
@@ -875,36 +832,27 @@ export const SNAPSHOT_HEADERS = {
 } as const
 
 /**
- * The metadata an asset upload carries beside its raw body (W7).
+ * The metadata an asset upload carries beside its raw body.
  *
- * Here rather than as a convention documented on both sides, and the reason is
- * a scar. W5 shipped `x-fleetless-*` headers the CORS policy did not expose,
- * so `age_ms` was `null` in **every** browser while the SDK documented `null`
- * as "nothing captured yet" — a fresh frame reporting as no snapshot at all,
- * invisible to three test suites because none of them was a browser. And W6b
- * found the general form: three repos agreeing with each other about a payload
- * none of them exchanged, each right in its own tests.
- *
- * **A string shared by two repos and defined in both is a string that drifts.**
- * A zod schema cannot validate a header, which is an argument for writing the
- * names down once, not an argument for writing them down twice.
+ * Written here rather than left as a convention each side documents for
+ * itself. **A string shared by two implementations and defined in both is a
+ * string that drifts**, and a header is the easiest place for that to happen
+ * unnoticed: a zod schema cannot validate one, which is an argument for
+ * writing the names down once, not an argument for writing them down twice.
  *
  * `name` is the `package://` URI verbatim for a mesh — the same string
  * `asset.name` stores, and the same one `urdfCompleteness.missing` reports, so
  * a failed upload and a missing mesh can be matched by eye.
  */
 /**
- * **`name` travels percent-encoded, and that is a fix rather than a
- * convention** (W7a review, André's decision to fix rather than defer).
+ * **`name` travels percent-encoded in a second header.**
  *
- * HTTP header values are latin-1 (`http.client` in Python, and the same is
- * true on the other side). So a texture called `textures/日本語.png` raised a
- * `UnicodeEncodeError` **inside `urllib`** — a `ValueError`, caught by neither
- * `HTTPError` nor `URLError` — which propagated to the sync's broad handler
- * and marked **everything still remaining** as failed. One non-ASCII filename
- * cost a developer every mesh after it in that sync, with no cause on the
- * wire. R6 made it ordinary rather than exotic: `.dae` internal names come
- * from 3D-authoring tools, where non-ASCII is Tuesday.
+ * HTTP header values are latin-1. A texture called `textures/日本語.png` cannot
+ * be put in one at all: in Python it raises a `UnicodeEncodeError` inside
+ * `urllib` — a `ValueError`, caught by neither `HTTPError` nor `URLError` — so
+ * a single non-ASCII filename can fail an entire sync with no cause on the
+ * wire. Non-ASCII names are ordinary rather than exotic, because `.dae`
+ * internal names come from 3D-authoring tools.
  *
  * The encoding is not invented here. **`GET .../assets/missing?name=` already
  * carries this exact string percent-encoded**, because a query parameter is
@@ -912,21 +860,19 @@ export const SNAPSHOT_HEADERS = {
  * answered.
  *
  * **It is a SECOND header, and that is the whole design rather than a
- * detail.** The first version overloaded `name` itself: the producer would
- * encode, the store would `decodeURIComponent`. That decodes identically for
- * every name without a `%`, so an **older bridge and a newer cloud agree by
- * luck** — right up until a name contains `%2f`, which the store would then
- * silently turn into a `/`. A wire change whose breakage is invisible in the
- * common case and silent in the uncommon one is the worst of both (Argus-W7a,
- * reading the contract rather than the code).
+ * detail.** Overloading `name` itself — the producer encodes, the store
+ * decodes — decodes identically for every name without a `%`, so an older
+ * producer and a newer store agree by luck right up until a name contains
+ * `%2f`, which the store would then silently turn into a `/`. A wire change
+ * whose breakage is invisible in the common case and silent in the uncommon
+ * one is the worst of both.
  *
  * So `name` keeps meaning exactly what it always meant, and `nameEncoded`
  * carries the percent-encoded UTF-8 form. **The store prefers `nameEncoded`
  * when present and uses `name` otherwise**, so:
  *
- * - an older bridge sends only `name` and behaves exactly as before;
- * - a newer bridge sends both, and a name it cannot express in latin-1 travels
- *   intact for the first time;
+ * - a producer that sends only `name` behaves exactly as it always did;
+ * - a producer that sends both can carry a name latin-1 cannot express;
  * - no value is ever ambiguous about which encoding it is in.
  *
  * A producer that can send `nameEncoded` should send both, so a store older
@@ -939,23 +885,22 @@ export const ASSET_UPLOAD_HEADERS = {
   nameEncoded: 'x-fleetless-asset-name-encoded',
   syncId: 'x-fleetless-sync-id',
   /**
-   * **Die angekündigte Größe, und sie ist der Grund, warum `asset_too_large`
-   * überhaupt entstehen kann (W9b, DEF-116).**
+   * **The announced size, and it is what makes `asset_too_large` reachable at
+   * all.**
    *
-   * Fastifys `bodyLimit` greift im Content-Type-Parser, also **vor** dem
-   * Handler — eine zu große Datei bekam damit ein blankes `413 bad_request`
-   * ohne `limit_bytes` und ohne `size_bytes`, und der strukturierte Fehlercode,
-   * den `assetTooLargeDetails` beschreibt, hatte schlicht keinen erreichbaren
-   * Erzeuger (Momus-W7, M1, an den echten Routenoptionen reproduziert).
+   * A server-side body limit is applied by the content-type parser, before the
+   * handler runs, so an oversized upload can only be refused with a bare
+   * `413` carrying neither `limit_bytes` nor `size_bytes` — and the structured
+   * refusal `assetTooLargeDetails` describes would have no producer.
    *
-   * Mit einer angekündigten Größe im Kopf kann die Ablehnung dort entstehen,
-   * wo sie etwas sagen kann: bevor ein Byte gepuffert ist, mit beiden Zahlen.
-   * Und die Bridge erfährt ihre Grenze, ohne 194 MB zu lesen, um sie zu
-   * entdecken — was am 2026-08-18 auf rx1 genau so ausging (DEF-148).
+   * With the size announced in a header the refusal can be made where it can
+   * say something: before a byte is buffered, with both numbers. It also lets
+   * a producer discover its own limit without first reading the whole file
+   * into memory.
    *
-   * Der Kopf ist eine **Ankündigung, kein Beweis**: Ein Absender kann lügen.
-   * Der Deckel gilt weiterhin auch am Körper — dies ersetzt die Durchsetzung
-   * nicht, es macht die Absage nur beantwortbar.
+   * The header is an **announcement, not a proof**: a sender can lie. The
+   * ceiling still applies to the body — this does not replace enforcement, it
+   * only makes the refusal answerable.
    */
   size: 'x-fleetless-asset-size',
 } as const
@@ -995,7 +940,7 @@ export type CameraListResponse = z.infer<typeof cameraListResponse>
  * What a viewer needs to join, and **what it costs them to hold**.
  *
  * `POST` takes a refcount hold and `DELETE` releases it; the first hold
- * starts the robot publishing and the last release stops it (§10). A client
+ * starts the robot publishing and the last release stops it. A client
  * that forgets to release keeps a robot streaming to nobody, so the SDK hands
  * back a `release()` rather than a bare token.
  *
@@ -1011,16 +956,14 @@ export type CameraListResponse = z.infer<typeof cameraListResponse>
  */
 export const liveSessionResponse = z.object({
   /**
-   * This viewer's hold, and the **only** thing `DELETE` should be given
-   * (W6b).
+   * This viewer's hold, and the **only** thing `DELETE` should be given.
    *
-   * A hold was addressed by `{identity, robot, slug}` and nothing else, so
-   * two tabs of one logged-in user were one hold as far as the refcount could
-   * see. Closing either tab released it: the second tab kept its LiveKit
-   * connection — the token is checked at join and never again — and went on
-   * rendering a video that the robot had already stopped producing. The
-   * viewer sees a frozen picture, not an ended session, which is the failure
-   * this project rejects everywhere else.
+   * A hold addressed by `{identity, robot, slug}` alone would make two tabs of
+   * one logged-in user a single hold as far as the refcount can see. Closing
+   * either tab would release it, and the surviving tab would keep its LiveKit
+   * connection — the token is checked at join and never again — rendering a
+   * video the robot had already stopped producing. A frozen picture is not an
+   * ended session.
    *
    * `DELETE` without a session id keeps today's meaning — *release my holds
    * on this camera* — because an SDK that has lost its id, or a client that
@@ -1055,8 +998,8 @@ export type LiveSessionResponse = z.infer<typeof liveSessionResponse>
  * which polls continuously while a tab is open.
  *
  * `age_ms` is not a convenience: a cached frame served without its age is
- * indistinguishable from a live one, and §10 makes snapshots deliberately
- * cheap and therefore deliberately old. `null` values mean nothing has been
+ * indistinguishable from a live one, and snapshots are deliberately cheap and
+ * therefore deliberately old. `null` values mean nothing has been
  * captured yet — which is an answer, not an error.
  */
 export const snapshotMetaResponse = z.object({
@@ -1080,33 +1023,28 @@ export const snapshotMetaResponse = z.object({
 export type SnapshotMetaResponse = z.infer<typeof snapshotMetaResponse>
 
 // ---------------------------------------------------------------------------
-// W6 — retention, history and org quotas (§8, §12.4)
+// Retention, history and org quotas
 // ---------------------------------------------------------------------------
 
 /**
- * **Both history shapes answer the same boundary the same way: `[from, to)`
- * (W9d, DEF-062 — decision pre-made at the W6 boundary so no wave
- * re-litigates it).**
+ * **Both history shapes answer the same boundary the same way: `[from, to)`.**
  *
- * They did not. `samples` was inclusive of `to`, `buckets` exclusive — same
- * range, same data, opposite answers for a point landing exactly on `to`, and
- * the buckets answer rendered as a gap tooltipped *"empty — no samples"*.
- * `sdk/README.md` documented the inclusive notation for the half-open path,
- * so it was wrong for one of the two whichever way you read it.
+ * Half-open, because it is the only rule under which **adjacent windows tile
+ * without overlap**: `[0,10)` then `[10,20)` covers every instant once. With an
+ * inclusive upper bound a sample at exactly `10` belongs to both windows, and
+ * any consumer summing them counts it twice.
  *
- * Half-open wins because it is the only rule under which **adjacent windows
- * tile without overlap**: `[0,10)` then `[10,20)` covers every instant once.
- * With an inclusive upper bound a sample at exactly `10` belongs to both
- * windows, and any consumer summing them counts it twice.
+ * Two shapes that answered it differently would give opposite results for a
+ * point landing exactly on `to` — same range, same data — and the difference
+ * renders as a gap in one of the two.
  *
- * This is a statement about behaviour, not a field — nothing in the shapes
- * below can enforce it. It is written here because this is the one place both
- * shapes are defined together, and the cloud's `history-store` and the SDK's
- * README are the two places that have to agree with it.
+ * This is a statement about behaviour, not a field: nothing in the shapes below
+ * can enforce it. It is written here because this is the one place both shapes
+ * are defined together.
  */
 
 /**
- * A history query (§8). `from`/`to` accept **either** a relative expression
+ * A history query. `from`/`to` accept **either** a relative expression
  * (`now-30s`, `now-5m`, `now-1h`) **or** absolute unix milliseconds, because
  * a chart asks the first way and a report asks the second, and making a
  * client convert is making it guess our clock.
@@ -1132,26 +1070,23 @@ export const historyQuery = z.object({
     description: 'A dotted path to a numeric field inside an object value, such as `pose.x`. Without it the datapoint\'s value is used whole, which only works when it is already a number.',
   }),
   /**
-   * **A union whose input branch IS the wire, not a coercion (W9d, DEF-059).**
+   * **A union whose input branch IS the wire, not a coercion.**
    *
-   * This was `z.coerce.number()`, for a good reason that stayed true: the
-   * schema describes a **query string**, where every value arrives as text,
-   * and a bare `z.number()` would make each route coerce by hand. What was
-   * measured afterwards is that a coercion cannot be *published*: zod renders
-   * a coercion's **result** in either `io` mode, so `io: 'input'` and
-   * `io: 'output'` both emit `{"type":"integer"}` — an artifact describing a
+   * The schema describes a **query string**, where every value arrives as
+   * text. `z.coerce.number()` would read it, but a coercion cannot be
+   * *published*: zod renders a coercion's **result** in either `io` mode, so
+   * input and output both emit `{"type":"integer"}` — an artifact describing a
    * shape a query string can never carry. Anyone validating a real request
    * against it rejects every one that sets `limit`.
    *
-   * That is a **different** defect from the `.default()` class, which
-   * `io: 'input'` genuinely does fix; `export-schemas.ts` once claimed one
-   * remedy for both and has been corrected.
+   * That is a different problem from `.default()` publishing as required,
+   * which input-mode export genuinely does fix.
    *
-   * A union states both truths honestly: the wire carries a numeric string,
-   * a programmatic caller may pass a number, and the artifact can render the
+   * A union states both truths honestly: the wire carries a numeric string, a
+   * programmatic caller may pass a number, and the artifact can render the
    * input branch because there is one to render.
    *
-   * **What the artifact no longer says, named here rather than left silent.**
+   * **What the artifact does not say, named here rather than left silent.**
    * The `1..10000` bound lives in the `.pipe()`, which is the *output* half, so
    * no input-mode artifact can express it as a constraint: the published shape
    * is `^\d{1,5}$` or a bare integer, and five digits is a weak echo of the
@@ -1159,18 +1094,17 @@ export const historyQuery = z.object({
    * parsing, not by the shape of the text — but it is a **reduction**, and an
    * artifact that stops naming a bound reads as if there were none.
    *
-   * So both branches carry the number in a `.describe()` (Nimbus-W9d's
-   * proposal). It is **not** a constraint and nothing validates against it; it
-   * means a generator, or a person reading only the published schema, sees the
-   * actual ceiling instead of nothing. The gap is narrowed and named rather
-   * than closed.
+   * So both branches carry the number in a `.describe()`. It is **not** a
+   * constraint and nothing validates against it; it means a generator, or a
+   * person reading only the published schema, sees the actual ceiling instead
+   * of nothing. The gap is narrowed and named rather than closed.
    */
   limit: z
     .union([
       z
         .string()
         .regex(/^\d{1,5}$/)
-        // **The description carries the number the shape cannot** (Nimbus-W9d's
+        // **The description carries the number the shape cannot** (see the
         // proposal). Five digits is the regex's bound, not the contract's; the
         // real ceiling lives in the `.pipe()` below and therefore cannot appear
         // in an input-mode artifact. This does not close that gap and does not
@@ -1192,7 +1126,7 @@ export const historyQuery = z.object({
 export type HistoryQuery = z.infer<typeof historyQuery>
 
 /**
- * Raw samples. `timestamp_ms` is the **bridge's capture time** (§6.3) — the
+ * Raw samples. `timestamp_ms` is the **bridge's capture time** — the
  * same instant the live value carried, so a recorded point and a live one can
  * be placed on one axis without apology.
  *
@@ -1248,9 +1182,8 @@ export type HistorySamplesResponse = z.infer<typeof historySamplesResponse>
  * inspection.
  *
  * `sample_count` exists because an empty bucket and a bucket whose average is
- * zero are different facts. W5 established at some cost what happens when two
- * facts share one representation, and a chart is the easiest place in this
- * product to draw a gap as a line.
+ * zero are different facts. When two facts share one representation, a chart
+ * is the easiest place to draw a gap as a line.
  */
 export const historyBucketsResponse = z.object({
   slug: slug.meta({ description: 'The datapoint these buckets summarise.' }),
@@ -1338,7 +1271,7 @@ export const historyResponse = z.union([historySamplesResponse, historyBucketsRe
 export type HistoryResponse = z.infer<typeof historyResponse>
 
 /**
- * W6a — deletion, and the one channel that reports health.
+ * Deletion, and the one channel that reports health.
  *
  * | Route | Body | Answer |
  * |---|---|---|
@@ -1364,25 +1297,18 @@ export type HistoryResponse = z.infer<typeof historyResponse>
  * takes an optional `robot_id` filter rather than living at a per-robot
  * path.
  *
- * The first version of this table said the opposite, with a justification
- * that sounded right and was incomplete: it reasoned only from a page that
- * has just opened one robot. But the console shows health on the **robot
- * list** too, and a per-robot path makes that N requests to render one
- * screen — while the event that must keep it fresh arrives org-wide anyway.
- * A snapshot and a channel that disagree about scope are not two halves of
- * one thing; they are two things that have to be reconciled by every
- * consumer, separately, forever.
+ * The per-robot reading is the tempting one and it is wrong: a health list is
+ * rendered for every robot at once, and a per-robot path makes that N requests
+ * to draw one screen — while the event that keeps it fresh arrives org-wide
+ * anyway. A snapshot and a channel that disagree about scope are not two halves
+ * of one thing; they are two things every consumer has to reconcile, separately,
+ * forever.
  *
- * So: same scope, one route, and `?robot_id=` for the narrow question. The
- * cloud owner proposed this while unblocking the console, and was right.
- *
- * This table was missing from the first W6a delta, and a teammate had to ask
- * three separate people for the paths — which is how a route becomes a fact
- * that lives only in an inbox.
+ * So: same scope, one route, and `?robot_id=` for the narrow question.
  */
 
 /**
- * What a `robot.deleted` audit event carries (W6a).
+ * What a `robot.deleted` audit event carries.
  *
  * A deletion record that says only *that* something was destroyed is a
  * receipt for an unknown amount. This names it: how many configured slugs,
@@ -1402,8 +1328,7 @@ export const robotDeletionSummary = z.object({
    * console renders them in one sentence: *"this deletes N published slugs …
    * and M cameras"*. With cameras inside `slug_count` that sentence counts
    * them twice, on the one screen whose whole justification is naming what an
-   * irreversible click destroys (Momus, W6a review — the cloud summed all
-   * five and the console then added the cameras again).
+   * irreversible click destroys.
    *
    * A draft is destroyed too and is described by `had_unpublished_draft`
    * rather than by either of these: describing three things with two numbers
@@ -1414,7 +1339,7 @@ export const robotDeletionSummary = z.object({
   bytes_freed: z.number().int().nonnegative(),
   cameras: z.array(slug),
   /**
-   * Assets destroyed with the robot (W7), and **`asset_bytes_freed` is what
+   * Assets destroyed with the robot, and **`asset_bytes_freed` is what
    * this org actually gets back** — not the sum of the assets' sizes.
    *
    * Storage is content-addressed, so a mesh two robots share survives the
@@ -1502,17 +1427,16 @@ export const robotDeleteQuery = z
 export type RobotDeleteQuery = z.infer<typeof robotDeleteQuery>
 
 /**
- * The seven health states, declared **once** (W6a review).
+ * The seven health states, declared **once**.
  *
- * `resourceHealthState` and `resourceHealthEvent` are the snapshot and the
- * push of the same thing, and they had the same seven values written out
- * twice, linked by nothing — the artifacts published two independent copies
- * with no `$ref`. They agreed only because whoever added `unknown` remembered
- * to add it in both places, on the wave's last contract commit.
+ * `resourceHealthState` and `resourceHealthEvent` are the snapshot and the push
+ * of the same thing. Writing the values out twice publishes two independent
+ * artifacts with no `$ref` between them, kept in step only by whoever
+ * remembers to edit both.
  *
- * One concept rendering as two artifacts that nothing keeps in step is its
- * own class of artifact-versus-source defect, distinct from `.default()`
- * publishing as `required` and from `z.coerce`'s unrepresentable input.
+ * One concept rendering as two artifacts that nothing keeps in step is its own
+ * class of artifact-versus-source defect, distinct from `.default()` publishing
+ * as `required` and from a coercion's unrepresentable input.
  */
 export const RESOURCE_HEALTH_STATES = [
   'ok',
@@ -1524,7 +1448,7 @@ export const RESOURCE_HEALTH_STATES = [
   'unreadable_credential',
   /**
    * A camera names a credential that **does not exist** in this org — deleted,
-   * mistyped, or belonging to somebody else (W6a review).
+   * mistyped, or belonging to somebody else.
    *
    * Separate from `unreadable_credential` because that one asserts a
    * decryption that was attempted and failed, and here nothing was ever
@@ -1534,11 +1458,11 @@ export const RESOURCE_HEALTH_STATES = [
    * — a different fact with a different fix.
    *
    * **Retiring with the credential store**, and not live behaviour to build
-   * against. Its one producer was `cloud-config-frame.ts` tolerating an
-   * unresolved `credentials_ref` at publish time; FL-002 deleted that field,
-   * so nothing emits this today. It is kept only until the wave that removes
-   * the store also removes these three credential states — `unreadable_credential`
-   * and the `readable` fact on `credentialSummary` go the same way.
+   * against. Its one producer tolerated an unresolved `credentials_ref` at
+   * publish time; that field is gone, so nothing emits this today. It is kept
+   * only until the credential store is removed, which takes these three
+   * credential states with it — `unreadable_credential` and the `readable` fact
+   * on `credentialSummary` go the same way.
    */
   'credential_missing',
   /** A configuration change stopped this stream, deliberately. */
@@ -1560,26 +1484,22 @@ export const RESOURCE_HEALTH_STATES = [
 
 /**
  * The health of one thing a developer configured, as the platform currently
- * sees it (W6a).
+ * sees it.
  *
- * This exists because four separate findings turned out to be one absence:
- * nothing carried the state of a camera, a source or a credential to a
- * developer who was not, at that exact moment, pressing a button. A publish
- * failure after the `201` never reached the viewer holding the token; a
- * source whose password was wrong failed at config-apply time with nobody
- * watching and stayed silent until someone pressed "Go live" days later; a
- * viewer could not learn *why* a stream ended, so the console had to offer
- * two possibilities and rank neither; and an undecryptable credential
- * reported as healthy.
+ * It exists because nothing else carries the state of a camera, a source or a
+ * credential to a developer who is not, at that exact moment, pressing a
+ * button. A publish failure after the `201` reaches no one; a source whose
+ * password is wrong fails at config-apply time with nobody watching and stays
+ * silent until someone presses "Go live" days later; a viewer cannot learn
+ * *why* a stream ended; an undecryptable credential reports as healthy.
  *
- * One shape, because four patches against four symptoms is how W5 nearly
- * wrote a failure report into `publishState` — a field the cloud writes and
- * reads in exactly one place, which would have been a dead end.
+ * One shape rather than a field per symptom, because a failure written into a
+ * state field the platform writes and reads in one place is a dead end.
  *
- * `reason` is for a human and is **never** built from an exception message:
- * W6 found a camera password in a log through `log.exception`, and again in
- * `LiveStartError`'s message, which travels to the cloud on this very path.
- * Type names and fixed strings only.
+ * `reason` is for a human and is **never** built from an exception message: a
+ * camera password reaches a log that way, and an exception message from a
+ * failing stream travels to the cloud on this very path. Type names and fixed
+ * strings only.
  */
 export const resourceHealthState = z.object({
   robot_id: z.uuid(),
@@ -1587,18 +1507,17 @@ export const resourceHealthState = z.object({
   /** The camera slug, or the credential name. */
   ref: z.string().min(1).max(64),
   /**
-   * **Which of two questions this entry answers (W9a, DEF-072).**
+   * **Which of two questions this entry answers.**
    *
    * `'source'`  — can the source be read at all? (`unreachable`, `auth_failed`,
    *               `unreadable_credential`, `missing_credential`, `ok`, …)
    * `'publish'` — given a readable source, did publishing to LiveKit work?
    *
-   * Before this, both went into one entry keyed `${robot} ${kind} ${ref}` with
-   * one flat `state`, in which `publish_failed` answered *"can we publish"*
-   * and every other value answered *"can the source be read"* — **same key,
-   * same field, two questions**, so each overwrote the other. The conflation
-   * was once an occasional race; W6a's reconnect restatement made it
-   * guaranteed, on every reconnect, for any camera with an active viewer.
+   * Without the facet both answers land in one entry keyed
+   * `${robot} ${kind} ${ref}` with one flat `state`, in which `publish_failed`
+   * answers *"can we publish"* and every other value answers *"can the source
+   * be read"* — same key, same field, two questions, each overwriting the
+   * other.
    *
    * The facet is part of the entry's identity: a camera can perfectly well be
    * readable and unpublishable at the same moment, and that pair is exactly
@@ -1620,14 +1539,8 @@ export type ResourceHealthState = z.infer<typeof resourceHealthState>
 /**
  * The current state of everything in the **org**.
  *
- * This doc said "on one robot" until the W6a review found it: the route moved
- * to org scope in `2bb67c5` and the route table forty lines above spends a
- * paragraph explaining why the per-robot reading was wrong — while the schema
- * it describes still said the old thing. Cloud, console and SDK all implement
- * org-wide correctly; contracts was the only place still saying otherwise,
- * and it is the first place a fourth consumer reads.
- *
- * A channel with no snapshot cannot answer "what is the state now?" for a
+ * Org-wide, not per robot — the route table above explains why. A channel
+ * with no snapshot cannot answer "what is the state now?" for a
  * page that just loaded — it can only report the next change, which may be
  * hours away. Both halves or neither.
  */
@@ -1653,9 +1566,9 @@ export const orgHealthQuery = z
 export type OrgHealthQuery = z.infer<typeof orgHealthQuery>
 
 /**
- * Org protection quotas (§12.4) — generous, server-side adjustable, visible
- * in Settings. Protection against runaway use, not a business model; a later
- * one docks onto the same dials.
+ * Org protection quotas — generous, server-side adjustable, visible in
+ * settings. Protection against runaway use, not a business model; a later one
+ * docks onto the same dials.
  */
 export const orgQuotas = z.object({
   max_robots: z.number().int().positive(),
@@ -1665,30 +1578,28 @@ export const orgQuotas = z.object({
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().positive(),
   /**
-   * Asset storage (§4.6, W7) — **its own dial, not part of
-   * `max_retention_bytes`.** A sync grows storage in jumps and time series
-   * grow steadily; one dial would let the first crowd out the second, and the
-   * org that hit its limit would be told to look at the wrong thing.
+   * Asset storage — **its own dial, not part of `max_retention_bytes`.** A
+   * sync grows storage in jumps and time series grow steadily; one dial would
+   * let the first crowd out the second, and the org that hit its limit would be
+   * told to look at the wrong thing.
    *
    * **Counted per distinct blob *this org references* — not per asset row, and
-   * not per object the platform stores on its behalf (W7a, D1).** The two
-   * readings are indistinguishable from the number alone and a customer is
-   * entitled to know which one they are being charged for.
+   * not per object the platform stores on its behalf.** The two readings are
+   * indistinguishable from the number alone and a customer is entitled to know
+   * which one they are being charged for.
    *
    * Within an org, sharing is free: two robots referencing the same mesh cost
    * one copy, which is what dedup means to a customer, and anything else
    * charges an org twice for a fleet of identical robots — the normal case.
    *
-   * **Across orgs, sharing is not free, and W7 shipped the opposite.** Storage
-   * stays globally content-addressed (one object per sha256; that efficiency
-   * is real), but accounting is per-org: an org is charged for each distinct
-   * blob it references and credited when its own last reference goes, whether
-   * or not the blob survives for somebody else. Global refcounting made the
-   * first org to sync a blob pay for it forever while every later org stored
-   * it free — so the quota was evadable by anyone whose mesh someone else had
-   * already uploaded, and an org's own number depended on who got there first,
-   * which nobody can predict. Measured before the change: 342 bytes held by an
-   * org owning no assets, with no operation able to free them.
+   * **Across orgs, sharing is not free.** Storage stays globally
+   * content-addressed (one object per sha256; that efficiency is real), but
+   * accounting is per-org: an org is charged for each distinct blob it
+   * references and credited when its own last reference goes, whether or not
+   * the blob survives for somebody else. Global refcounting would make the
+   * first org to sync a blob pay for it forever while every later org stored it
+   * free — a quota evadable by anyone whose mesh someone else had already
+   * uploaded, and an org's own number would depend on who got there first.
    */
   max_asset_storage_bytes: z.number().int().nonnegative(),
 })
@@ -1702,8 +1613,7 @@ export type OrgQuotas = z.infer<typeof orgQuotas>
  * `positive()` because a quota of zero would forbid everything, but a
  * **usage** of zero is the honest answer for every org on the day it signs
  * up. Reusing one schema for a limit and a measurement is the same mistake as
- * letting an empty bucket and a zero average share a representation, which
- * this wave spent a lot of care avoiding one layer up.
+ * letting an empty bucket and a zero average share a representation.
  *
  * Every field is optional because a quota we do not measure must be
  * **absent**, never reported as `0` — "not measured" and "measured as zero"
@@ -1750,11 +1660,9 @@ export const BRIDGE_LATENCY_RETENTION_DAYS = 7
  * | `GET /api/org/latency` | `orgLatencyQuery` | `orgLatencyResponse` — one series per robot, truncation named |
  * | `GET /api/robots/:id/jobs/history` | `jobRunQuery` | `jobRunListResponse` — the same read, robot-scoped, developers **and** clients |
  *
- * **Written down here because the last time a delta shipped shapes without
- * their paths, a teammate had to ask three separate people** — see
- * `robotDeletionSummary`'s neighbouring table, which exists for exactly that
- * reason. The shapes landed one wave before the routes did, so this table is
- * the only place the two halves meet.
+ * The paths are written down beside the shapes, as in
+ * `robotDeletionSummary`'s neighbouring table: a shape whose route is not
+ * named here is a fact that lives only in somebody's memory.
  *
  * Three things about them are worth stating rather than inferring:
  *
@@ -1852,7 +1760,7 @@ export type RobotLatencySeries = z.infer<typeof robotLatencySeries>
 export const orgLatencyQuery = z
   .object({
     from_ms: wireTimestampMs,
-    /** Exclusive — half-open `[from, to)`, the convention every other query here already follows (DEF-062). */
+    /** Exclusive — half-open `[from, to)`, the convention every other query here already follows. */
     to_ms: wireTimestampMs,
     /**
      * One robot's own sparkline. `z.uuid()`, because the column is one —
@@ -1911,7 +1819,7 @@ export type OrgLatencyResponse = z.infer<typeof orgLatencyResponse>
 export const USAGE_WINDOW_MAX_DAYS = 366
 
 /**
- * The five things the meter records (spec D1).
+ * The five things the meter records.
  *
  * Storage is two metrics and not one summed byte count, for
  * `org_quotas.max_asset_storage_bytes`'s own reason applied to billing: a sync
@@ -1958,7 +1866,7 @@ export const usageDay = z
 
 /**
  * **The window is inclusive at both ends**, unlike every millisecond window in
- * this file (`from_ms`/`to_ms`, half-open per DEF-062).
+ * this file (`from_ms`/`to_ms`, which are half-open).
  *
  * That inconsistency is deliberate and is stated here rather than left to be
  * discovered: a calendar day is a unit, not an instant, and a person asking for
@@ -1999,7 +1907,7 @@ export type OrgUsageQuery = z.infer<typeof orgUsageQuery>
 /**
  * One day's reading for one metric.
  *
- * **`app_id` is `null` when the consumer is the org itself** (spec D2), and
+ * **`app_id` is `null` when the consumer is the org itself**, and
  * what that `null` means for billing depends on the *metric*, not on
  * `app_id` alone. `api_calls` and `live_session_ms` are attributable to an
  * app: a `null` app_id on those two is the developer console's own traffic,
@@ -2028,9 +1936,8 @@ export type OrgUsageQuery = z.infer<typeof orgUsageQuery>
  * not hold at all: everything counted since the last successful flush is
  * held in memory, deliberately uncapped, and a `kill -9` loses all of it.
  * The trade is intentional (dropping billing data to bound process memory is
- * the worse half of it), but "at most one interval" describes a platform
- * whose writes are landing, not a guarantee that survives an outage. This
- * sentence used to say "never more", and it was false.
+ * the worse half of it), but "at most one interval" describes a platform whose
+ * writes are landing, not a guarantee that survives an outage.
  *
  * A row the database rejects **permanently** — most concretely one whose org
  * has been deleted since the count, since a usage row's `org_id` is `ON
@@ -2103,11 +2010,10 @@ export type RenameSlugResponse = z.infer<typeof renameSlugResponse>
  * `GET /api/robots/:id/config/slug-usage/:slug` — what a rename would touch;
  * feeds the console's confirm dialog.
  *
- * `alert_count` (spec `2026-08-28-alerts-and-datapoint-modal-design`, D5)
- * joined the atomic rename transaction alongside grants and history: alerts
- * are keyed by `(robot_id, slug)` too, and a rename that silently moved the
- * alert row while the usage preview stayed silent about it would show a
- * developer a smaller blast radius than the rename actually has.
+ * `alert_count` is part of the atomic rename transaction alongside grants and
+ * history: alerts are keyed by `(robot_id, slug)` too, and a rename that
+ * silently moved the alert row while the usage preview stayed silent about it
+ * would show a developer a smaller blast radius than the rename actually has.
  */
 export const slugUsageResponse = z.object({
   grant_count: z.number().int().nonnegative(),

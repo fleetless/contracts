@@ -2,7 +2,7 @@
 import { z } from 'zod'
 
 /**
- * The one error shape of the REST and realtime APIs (spec §11.5): a stable
+ * The one error shape of the REST and realtime APIs: a stable
  * machine-readable code plus a human message; validation errors name the
  * field and the violated rule in `details`.
  */
@@ -14,7 +14,7 @@ export const apiError = z.object({
 export type ApiError = z.infer<typeof apiError>
 
 /**
- * One violated §4.4 rule. `details` on the envelope stays `unknown` — codes
+ * One violated parameter rule. `details` on the envelope stays `unknown` — codes
  * are an open set, so their payloads cannot all be enumerated — but the
  * payload of `parameter_invalid` **is** pinned here, because otherwise every
  * consumer guesses: the cloud emits one shape, the SDK sniffs for two, the
@@ -46,12 +46,12 @@ export const parameterInvalidDetails = z.object({
 export type ParameterInvalidDetails = z.infer<typeof parameterInvalidDetails>
 
 /**
- * The codes in use as of W2. The wire deliberately allows any string — this
+ * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
  */
 export const ERROR_CODES = [
-  // W1
+  // Core.
   'not_found',
   'validation_error',
   'bad_request',
@@ -59,7 +59,7 @@ export const ERROR_CODES = [
   'invalid_token',
   'protocol_mismatch',
   'invalid_frame',
-  // W2 — configuration
+  // Configuration.
   'duplicate_slug',
   'reserved_slug',
   /**
@@ -74,14 +74,14 @@ export const ERROR_CODES = [
   'invalid_rate',
   'invalid_range',
   'config_conflict',
-  // W2 — reading
+  // Reading.
   'no_data',
-  // W2 — talking to the robot
+  // Talking to the robot.
   'robot_offline',
   'bridge_timeout',
-  // W3 — identity and rights. `forbidden` is deliberately the answer both
+  // Identity and rights. `forbidden` is deliberately the answer both
   // for "your role does not grant this" and for "there is no such slug":
-  // roles are the only filter (§3.3), and a caller must not be able to map
+  // roles are the only filter, and a caller must not be able to map
   // the configuration of an app they have no rights in.
   'unauthorized',
   'forbidden',
@@ -102,15 +102,11 @@ export const ERROR_CODES = [
    * project's list: a documented refusal no caller can receive, which a reader
    * would reasonably branch on. */
   /**
-   * The address is already taken — **globally, across every org** (Andre,
-   * 2026-08-29).
+   * The address is already taken — **globally, across every org**.
    *
-   * The 2026-08-29 redesign first made `users.email` unique *per org* (D1), so
-   * this code briefly meant only *this org already has this address*. That was
-   * reversed the same day: email is **globally unique** again, one address is
-   * exactly one account in exactly one org, and this code means *somebody,
-   * somewhere already has this address* — the pre-redesign meaning the code's
-   * name always implied. There is no per-org reading of it any more.
+   * A Fleetless user's email is globally unique: one address is exactly one
+   * account in exactly one org, and this code means *somebody, somewhere
+   * already has this address*. There is no per-org reading of it.
    *
    * It stays an answer to a *write* an authenticated caller made — signing up,
    * inviting or creating — never to a login, which may not say whether an
@@ -137,39 +133,25 @@ export const ERROR_CODES = [
    * tells the account holder something about *their own* account, and reveals
    * nothing about any other principal or about what exists.
    *
-   * **It has now lost its producer, as this comment predicted it would.** The
-   * paragraph here used to say "it loses its producer when D1's `users`
-   * replaces `end_users` — it has not lost it yet", and named the five sites
-   * that still emitted it, all reading `end_users.status === 'blocked'`. D1
-   * landed. `users` has no `status` column, nothing reinstates one, and
-   * removing a user's assignments is what withdraws access instead — so those
-   * five sites went with the old tables.
-   *
-   * What is left in the cloud is a *shape* with no input: `TokenRefusalReason`
-   * still admits `'blocked'` and `sendTokenRefusal` still has an arm for it
-   * (`auth.ts`), as does `ws/realtime.ts` — but no site anywhere constructs
-   * `reason: 'blocked'`, so neither arm is reachable. Verified by grep in
-   * FL-007, after `routes.ts` listed this code on the dual-auth guard and a
-   * review asked what produces it. Nothing does.
+   * **It has no producer today.** No user table carries a `status` column, and
+   * removing a user's assignments is what withdraws access instead. The cloud
+   * still has code paths shaped to carry this refusal, but nothing constructs
+   * one, so no caller can receive it.
    *
    * Kept, like `mcp_disabled` and for the same reason: the reserved shape is
    * the point, and a code removed from the vocabulary is a code the next
    * producer re-invents differently. But **do not list it as a refusal of any
    * route** — that would document an answer no caller can receive.
-   *
-   * The tense discipline this comment was written under still stands: it now
-   * says the producer is gone because the producer is gone, not because a plan
-   * expects it to be.
    */
   'account_blocked',
-  // W4 — the command path.
-  /** One job per action slug (§11.3); the refusal carries what is running. */
+  // The command path.
+  /** One job per action slug; the refusal carries what is running. */
   'busy',
-  /** A parameter failed its §4.4 rule; details name the field and the rule. */
+  /** A parameter failed its declared rule; details name the field and the rule. */
   'parameter_invalid',
-  /** The bridge could not account for this job after a restart (§6.1). */
+  /** The bridge could not account for this job after a restart. */
   'job_lost',
-  /** Another user holds this publisher and has not been quiet long enough (§6.4). */
+  /** Another user holds this publisher and has not been quiet long enough. */
   'publisher_busy',
   /** A well-formed realtime frame this server does not know — the socket stays open. */
   'unknown_command',
@@ -180,8 +162,8 @@ export const ERROR_CODES = [
    * it sends them looking for a configuration mistake that is not there.
    */
   'not_subscribable',
-  // W5 — cameras.
-  /** The robot is connected but this camera is not publishing (§10). */
+  // Cameras.
+  /** The robot is connected but this camera is not publishing. */
   'camera_offline',
   /**
    * Nothing has been captured yet. An answer, not a failure: a camera
@@ -199,7 +181,7 @@ export const ERROR_CODES = [
    * nothing.
    */
   'wrong_kind',
-  // W6 — retention and history.
+  // Retention and history.
   /**
    * The slug exists and is granted, but is configured live-only, so there is
    * no history to return. An empty array would be indistinguishable from a
@@ -216,7 +198,7 @@ export const ERROR_CODES = [
    */
   'not_aggregatable',
   /**
-   * An org quota (§12.4) is exhausted. The message names **which** one —
+   * An org quota is exhausted. The message names **which** one —
    * "quota exceeded" without saying which is a dead end for whoever has to
    * act on it. Recording stops; live values keep flowing, because a storage
    * limit is not a reason to take a robot away from its operator.
@@ -233,13 +215,13 @@ export const ERROR_CODES = [
   'credential_in_use',
   /**
    * An action goal was never accepted — no server answered within the
-   * bridge's patience (W5, from W4's review). Distinct from `failed`, which
+   * bridge's patience. Distinct from `failed`, which
    * means the robot tried: nothing tried here. It exists so a slug whose ROS
    * server is absent cannot stay wedged forever with the platform reporting
    * a machine as busy doing something it never started.
    */
   'goal_timeout',
-  // W6a — deletion.
+  // Deletion.
   /**
    * A robot cannot be deleted while a live session is open. Refusing beats
    * deleting for the same reason `credential_in_use` does: the session
@@ -253,15 +235,15 @@ export const ERROR_CODES = [
    * A deletion destroyed some of a robot and then failed. The robot still
    * exists and is **not intact**; retrying the delete is the way out.
    *
-   * It exists because the alternative was a generic `internal_error`, which
+   * It exists because the alternative is a generic `internal_error`, which
    * says "nothing happened" — and a caller who reads that goes looking for a
-   * transient glitch. W6a's review measured the state it hides: configuration,
-   * drafts, types and 300 000 rows gone, the robot still listed, and no audit
-   * event. A failure that cannot be told apart from a no-op is how that state
-   * stayed invisible.
+   * transient glitch. What it can hide is configuration, drafts, types and
+   * hundreds of thousands of rows already gone, the robot still listed, and no
+   * audit event. A failure that cannot be told apart from a no-op is how that
+   * state stays invisible.
    */
   'robot_deletion_partial',
-  // W6b — addressing.
+  // Addressing.
   /**
    * The bridge will not queue another job: its queue is full.
    *
@@ -279,7 +261,7 @@ export const ERROR_CODES = [
    *
    * The numbers ride with it for the reason `publisher_busy` carries
    * `retry_after_ms`: a refusal that names a state and no action leaves the
-   * caller to busy-loop, on a platform with no rate limiting until W8.
+   * caller to busy-loop.
    */
   'job_queue_full',
   /**
@@ -288,9 +270,9 @@ export const ERROR_CODES = [
    * **Path and query only.** A malformed uuid in a *body* is caught by the
    * body schema first and answers `validation_error` — the same mistake under
    * two codes, split by where the id sat. Stated here rather than promised
-   * away: a consumer branching on `invalid_uuid` must not expect it for a
-   * body field (Momus, W6b review). Unifying them is a W7 question, because
-   * it means refusing before schema validation on every route that takes one.
+   * away: a consumer branching on `invalid_uuid` must not expect it for a body
+   * field. Unifying the two would mean refusing before schema validation on
+   * every route that takes an id.
    *
    * Distinct from `not_found`, which was the answer for both and made a
    * **typo indistinguishable from a deletion**. A developer whose client
@@ -299,7 +281,7 @@ export const ERROR_CODES = [
    * refused before any lookup — so it leaks nothing that `not_found` did not.
    */
   'invalid_uuid',
-  // W6c — identity, and the limit that has to exist before it.
+  // Identity, and the limit that has to exist before it.
   /**
    * Too many attempts. The details carry `retry_after_ms`, for the reason
    * `publisher_busy` carries it: a refusal that names a state and no action
@@ -315,7 +297,7 @@ export const ERROR_CODES = [
   /**
    * The caller's **tier** is insufficient — an org Member reaching for what
    * only an Owner may do. Distinct from `forbidden`, which stays deliberately
-   * silent about existence (§3.3): this one says nothing about the target
+   * silent about existence: this one says nothing about the target
    * either, only about the caller's own role, which they can already read.
    *
    * Without it, "ask an owner to do this" and "you have the wrong id" are the
@@ -329,7 +311,7 @@ export const ERROR_CODES = [
    * ask for a new link.
    */
   'token_spent',
-  // W7 — the command path, still.
+  // The command path, continued.
   /**
    * A **service call** was dispatched and never returned. Distinct from
    * `goal_timeout`, which means an action goal was never *accepted* — nothing
@@ -338,13 +320,13 @@ export const ERROR_CODES = [
    * It exists because the bridge previously bounded a hung service with
    * nothing at all: `_invoke_service` took no patience, so the caller got
    * `bridge_timeout` from the cloud while the job stayed `running` forever on
-   * both sides and the slug was busy for good (register row 2n, and 2e for the
-   * cloud half). Rosie-W7 established that rclpy's
-   * `Client.remove_pending_request` can abandon the future cheaply, so unlike
-   * the action path this one can guarantee the callback never fires late.
+   * both sides and the slug busy for good. rclpy's
+   * `Client.remove_pending_request` abandons the pending future cheaply, so
+   * unlike the action path this one can guarantee the callback never fires
+   * late.
    */
   'service_timeout',
-  // W7 — the asset store.
+  // The asset store.
   /**
    * A URDF references a mesh the store does not have. Distinct from
    * `not_found` on the URDF itself: the URDF is present and readable, and the
@@ -362,7 +344,7 @@ export const ERROR_CODES = [
    * cannot be read without the limit.
    */
   'asset_too_large',
-  // W7b — the hosted authorization server.
+  // The hosted authorization server.
   //
   // **This comment was wrong in its first form and a teammate followed it
   // faithfully into a conformance bug.** It said these were "management-side
@@ -382,9 +364,8 @@ export const ERROR_CODES = [
   // (`/mcp/oauth/register` today), and as an ordinary `apiError` code at the
   // developer-facing management routes.
   //
-  // Every code below has a producer landing in this same wave. W6b's lesson:
-  // an enum value with no producer is precisely the defect that wave was
-  // cataloguing, and a teammate was right to refuse to add one.
+  // Every code below has a producer. An enum value with no producer is a
+  // refusal a caller can never receive and a consumer must still branch on.
   /**
    * The app has not opted in to dynamic client registration. A normal app has
    * no reason to accept self-registering clients, so the flag is off by
@@ -405,7 +386,7 @@ export const ERROR_CODES = [
    * fix it.
    */
   'idp_unavailable',
-  // W7c — the MCP server, and a THIRD dialect on the same process.
+  // The MCP server, and a THIRD dialect on the same process.
   //
   // The correction above is about two dialects; there are now three, and the
   // MCP endpoint speaks the one that is neither. **Inside the protocol** —
@@ -414,9 +395,7 @@ export const ERROR_CODES = [
   // general-purpose implementation of somebody else's specification, and a
   // body it cannot parse is indistinguishable from a broken server.
   //
-  // **This claim was wider than the code in W7c's first version, and Momus-W7c
-  // caught it in the same comment block whose opening sentence is about a
-  // previous comment here misleading somebody.** The five refusals that happen
+  // **The claim is narrower than it first reads.** The five refusals that happen
   // *before* a bearer token is read — unknown app or MCP off (`404`), no or
   // bad token (`401`), foreign `Origin` (`403`), `GET`/`DELETE` (`405`),
   // malformed body (`400`) — are plain HTTP and answer `apiError`, exactly as
@@ -468,11 +447,11 @@ export const ERROR_CODES = [
    * **Deliberately one code for both**: to a developer holding the console,
    * the role's datasheet (`mcpRobotDatasheet`) already lists every exposure
    * the role does grant, so a second code would split an outcome nobody acts
-   * on differently. To anyone else the two must be indistinguishable anyway —
-   * §3.3.
+   * on differently. To anyone else the two must be indistinguishable anyway,
+   * because roles are the only filter.
    */
   'tool_not_available',
-  // W9 — capabilities.
+  // Capabilities.
   /**
    * An app-wide **capability** the caller's role does not grant — today
    * `assets` (`GET /api/robots/:id/assets` and the URDF/by-id byte routes)
@@ -482,16 +461,15 @@ export const ERROR_CODES = [
    * **Distinct from `forbidden`, and the distinction is the point.**
    * `forbidden` is deliberately silent about existence, because roles are the
    * only filter and a slug the caller cannot use must be indistinguishable
-   * from a slug that is not there (§3.3). A capability is not a slug: it is a
+   * from a slug that is not there. A capability is not a slug: it is a
    * switch in the console that the developer owns, and the caller reaching
    * this refusal has already been proven to reach the robot. Answering
    * `forbidden` there tells a developer only that they may not — not which
    * toggle to flip — and a promise the console makes is exactly what these
    * capabilities have historically failed to keep.
    *
-   * Both gates answered differently for one wave: `assets` said `forbidden`,
-   * the newer `action_history` said this. One decision with two codes makes a
-   * client branch on which route it called, so `assets` was moved here.
+   * Both capability gates answer with this code. One decision with two codes
+   * would make a client branch on which route it called.
    */
   'capability_required',
   // 2026-08-29 — org-central identity (D1/D2).
@@ -500,13 +478,9 @@ export const ERROR_CODES = [
    * deletable nor demotable. 409, on both `DELETE /api/org/users/:id` and
    * `PATCH /api/org/users/:id/tier`.
    *
-   * **It was already being emitted before it was registered here** — the cloud
-   * has answered `last_owner` from `org-members.ts` since W3a, and
-   * `identity.ts`'s own doc comment named it, but `sendError` takes a bare
-   * `string` and nothing ever compared the two lists. So a consumer switching
-   * exhaustively over `ERROR_CODES` could not handle a code the server
-   * actually sends. Registered as part of carrying the rule onto the new
-   * tiers, and named as the pre-existing gap it was rather than as a new code.
+   * A code the server sends must be in this list, or a consumer switching
+   * exhaustively over `ERROR_CODES` cannot handle it. Nothing compares the two
+   * automatically, because the cloud's error helper takes a bare string.
    *
    * Deliberately not `forbidden` or `tier_required`: an Owner reaching this
    * has every permission the act needs. The refusal is about the org's
@@ -557,7 +531,7 @@ export const ERROR_CODES = [
    */
   'signup_closed',
 
-  // FL-007 (route manifest): emitted by the cloud, catalogued late.
+  // Emitted by the cloud, catalogued late.
   //
   // Every one of the five below has had a live producer for some time; what
   // they never had was an entry here. **Each was confirmed by grepping the

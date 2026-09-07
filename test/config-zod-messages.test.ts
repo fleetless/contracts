@@ -6,8 +6,8 @@ import { robotConfigDoc } from '../src/config.js'
 /**
  * What a developer is told when the format refuses.
  *
- * Three of zod's own sentences were measured (design §1.5) to be unusable in
- * front of a developer: a refused map key said `Invalid key in record`, naming
+ * Three of zod's own sentences are unusable in front of a developer: a
+ * refused map key says `Invalid key in record`, naming
  * neither the key nor the grammar; a missing required key said `Invalid input:
  * expected object, received undefined`, naming nothing; and a pattern violation
  * quoted its regular expression back at the reader.
@@ -213,8 +213,8 @@ describe('one rule, one sentence', () => {
  * appeared on one line and a `grep` for it found only the comments; twelve
  * conversions read as eighteen, and eleven required keys — including
  * `datapoints.<slug>.topic` and `.type`, the commonest entry in the format —
- * still said `Invalid input: expected string, received undefined`, which is the
- * string design §1.5 quotes as unusable.
+ * still said `Invalid input: expected string, received undefined`, the string
+ * this file's own header calls unusable.
  *
  * So the count is not typed here. It falls out of the enumeration: a walk of
  * the exported schema's `required` arrays paired with a fully-populated
@@ -510,7 +510,7 @@ describe('the accepted language is unchanged', () => {
    * there that can carry a sentence. It also refuses a key that is *present*
    * holding `undefined`, which zod's internal check accepted, and that is a
    * change to what the format accepts inside a task whose whole constraint was
-   * not to make one. It was ruled in deliberately (André, 2026-09-03) on the
+   * not to make one. It is deliberate, on the
    * strength of the three measurements below, because the alternative is two of
    * the worst messages in the format on a field developers write by hand.
    *

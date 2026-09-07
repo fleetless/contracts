@@ -65,11 +65,11 @@ export {
   bridgeCameraState,
   SNAPSHOT_MAX_BYTES,
   CLOSE_ROBOT_DELETED,
-  // W7 — assets.
+  // Assets.
   bridgeAssetsAvailable,
   cloudAssetRequest,
   bridgeAssetProgress,
-  // W6b — addressing.
+  // Addressing.
   activeJob,
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
@@ -154,12 +154,12 @@ export {
   validationIssue,
   configState,
   snapshotIntervalSeconds,
-  // FL-002 — the defaults the format names, so nobody invents them twice.
+  // The defaults the format names, so nobody invents them twice.
   ALERT_SEVERITY_DEFAULT,
   ALERT_ENABLED_DEFAULT,
   RETENTION_INTERVAL_SECONDS_DEFAULT,
   CHART_WINDOW_MINUTES_DEFAULT,
-  // W6
+  // Retention, history and quotas.
   cameraSource,
   cameraCredentials,
 } from './config.js'
@@ -183,10 +183,9 @@ export type {
   ConfigState,
 } from './config.js'
 /**
- * FL-005 — the one account of what is wrong with a document, shared by the
- * cloud and the console. The cloud held a second copy for one wave; it was
- * deleted in wave 2 task 8 (cloud `a307e18`, 2026-09-03). See
- * `config-issues.ts`'s header for what that window cost.
+ * The one account of what is wrong with a configuration document, shared by
+ * every layer that reports on one. See `config-issues.ts`'s header for why a
+ * second copy of this vocabulary is a defect rather than a convenience.
  */
 export {
   DOCUMENT_ROOT_PATH,
@@ -226,7 +225,7 @@ export {
   putRobotDetailsRequest,
   invokeRequest,
   invokeResponse,
-  // W6b — addressing.
+  // Addressing.
   cancelRequest,
   releaseLiveQuery,
   serviceCallResponse,
@@ -243,7 +242,7 @@ export {
   cameraListResponse,
   liveSessionResponse,
   snapshotMetaResponse,
-  // W6 — retention, history, quotas.
+  // Retention, history, quotas.
   historyQuery,
   historySamplesResponse,
   historyBucketsResponse,
@@ -257,7 +256,7 @@ export {
   resourceHealthListResponse,
   orgHealthQuery,
   robotDeleteQuery,
-  // W3a — robot rename, slug rename.
+  // Robot rename, slug rename.
   patchRobotRequest,
   renameSlugRequest,
   renameSlugResponse,
@@ -417,14 +416,14 @@ export {
   acceptTeamInviteRequest,
   patchFleetlessUserRequest,
   tierChangeRequest,
-  // W6c — identity.
+  // Identity.
   mailStatus,
   tierRequiredDetails,
   passwordChangeRequest,
   passwordResetRequest,
   passwordResetConfirm,
   idpIssuer,
-  // W3a — auth/me, org and member patches.
+  // auth/me, org and member patches.
   authMeResponse,
   patchOrgRequest,
   patchAuthMeRequest,

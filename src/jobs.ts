@@ -3,16 +3,16 @@ import { z } from 'zod'
 import { slug, wireSeqCursor, wireTimestampMs } from './common.js'
 
 /**
- * Jobs (spec §6.1, §11.3): one running unit of work on a robot — an action
+ * Jobs: one running unit of work on a robot — an action
  * goal or a service call — with an id both sides know, so bridge and cloud
  * stay in sync across a disconnect.
  *
  * Two rules shape everything here:
  *
- * 1. **State is observed by slug, not by id.** The id is informative (§11.3);
- *    a client watches `robot × slug` and sees whatever job is running there,
- *    which is also why every observer of a slug sees the same job.
- * 2. **`lost` is a real outcome and must be said out loud** (§6.1). Job state
+ * 1. **State is observed by slug, not by id.** The id is informative; a client
+ *    watches `robot × slug` and sees whatever job is running there, which is
+ *    also why every observer of a slug sees the same job.
+ * 2. **`lost` is a real outcome and must be said out loud.** Job state
  *    lives only in the bridge's memory; if it restarts mid-job, the results
  *    are gone. The cloud then marks the job `lost` — never leaves it reading
  *    "running" because nobody contradicted it. A system that reports a
@@ -40,17 +40,17 @@ export const job = z.object({
     description: 'When this job last changed, as an ISO 8601 timestamp.',
   }),
   /**
-   * A monotonic counter, ascending in mint order (W7), and the **named**
-   * tiebreaker for any listing that claims an order.
+   * A monotonic counter, ascending in mint order, and the **named** tiebreaker
+   * for any listing that claims an order.
    *
    * `started_at` is not a total order: two jobs minted in the same millisecond
    * sort against each other arbitrarily, and arbitrarily means *differently on
    * each query* — so `GET /api/robots/:id/jobs`, which documents "newest
-   * first", can show one twice and the other not at all. Exactly the defect
-   * `auditEvent.seq` was added for in W6b, in a route the same wave shipped.
+   * first", can show one twice and the other not at all. `auditEvent.seq`
+   * exists for the same reason on the audit log.
    *
    * **Scoped honestly: per cloud process, per run.** Job state lives in memory
-   * (§6.1 — that is why `lost` exists at all), so this counter restarts when
+   * — that is why `lost` exists at all — so this counter restarts when
    * the cloud does, alongside the jobs it orders. Sound, because it only ever
    * orders jobs that coexist in one registry — and stated, because a reader
    * who assumed `auditEvent.seq`'s durable semantics would be wrong.
@@ -65,14 +65,10 @@ export const job = z.object({
    * Present on `failed`; a human message, plus a code where one exists.
    *
    * `details` exists because a refusal that carries only prose forces every
-   * consumer to parse it. W6b shipped `job_queue_full` with a documented
-   * `{limit, queued}` payload and **nowhere to put it**: the bridge reports a
-   * full queue as a job error, this shape had no `details`, and so the numbers
-   * were formatted into the message and lost. The console then rendered a
-   * "wait for one of N to finish" alert from a shape nothing in the system
-   * produced, and its test built that shape by hand — three repos agreeing
-   * with each other about a payload none of them exchanged (Momus, W6b
-   * review).
+   * consumer to parse it. A documented payload with nowhere to put it — the
+   * bridge reports a full queue as a job error — ends up formatted into the
+   * message and lost, and every consumer then builds the structured shape by
+   * hand from its own assumption.
    *
    * Optional, because most job errors have nothing structured to add. Where a
    * code has a documented payload — `job_queue_full` has
@@ -100,8 +96,8 @@ export type Job = z.infer<typeof job>
 /**
  * One update about a job, pushed to subscribers of its slug.
  *
- * `timestamp_ms` is the bridge's capture time, exactly as for a datapoint
- * (§6.3 says action feedback carries it too) — so a client computes the age
+ * `timestamp_ms` is the bridge's capture time, exactly as for a datapoint —
+ * action feedback carries it too — so a client computes the age
  * of a progress report the same way it computes the age of a sensor value,
  * and a burst of late-delivered feedback after a reconnect is visibly late
  * rather than looking current.
@@ -120,9 +116,8 @@ export const jobEvent = z.object({
 export type JobEvent = z.infer<typeof jobEvent>
 
 /**
- * What a busy refusal tells the caller (spec §11.3: "inkl. Information, was
- * läuft"). A refusal that only says "busy" forces the caller to guess whether
- * to wait or to give up.
+ * What a busy refusal tells the caller: what is already running. A refusal that
+ * only says "busy" forces the caller to guess whether to wait or to give up.
  */
 export const busyDetails = z.object({
   running: job,
@@ -130,7 +125,7 @@ export const busyDetails = z.object({
 export type BusyDetails = z.infer<typeof busyDetails>
 
 /**
- * What a `publisher_busy` refusal tells the caller (spec §6.4).
+ * What a `publisher_busy` refusal tells the caller.
  *
  * "Another caller is publishing and has not been quiet long enough" names a
  * state and no action: the caller does not know how much longer, because
@@ -151,7 +146,7 @@ export const publisherBusyDetails = z.object({
 export type PublisherBusyDetails = z.infer<typeof publisherBusyDetails>
 
 /**
- * What a `job_queue_full` refusal tells the caller (W6b).
+ * What a `job_queue_full` refusal tells the caller.
  *
  * Both numbers, not just the limit: `limit` alone says how big the queue is
  * and nothing about whether waiting will help, and `queued` alone cannot be

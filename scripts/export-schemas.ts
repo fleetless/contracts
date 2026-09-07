@@ -2,9 +2,11 @@
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
  *
- * The bridge (Python) validates frames against these files with `jsonschema`
- * — no codegen step in W0. A test guards that the committed artifacts match
- * a fresh export, so the artifacts can never silently go stale.
+ * They exist so a consumer that is not TypeScript can validate the wire
+ * without running a TypeScript build — the robot-side bridge's own test
+ * harness checks its frames against vendored copies of these files with
+ * Python's `jsonschema`. A test guards that the committed artifacts match a
+ * fresh export, so the artifacts can never silently go stale.
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -234,14 +236,14 @@ import {
 } from '../src/rest.js'
 
 export const exportedSchemas = {
-  // FL-006 — the MCP server's datasheet. REST-only shapes: the bridge has no
+  // The MCP server's datasheet. REST-only shapes: the bridge has no
   // MCP surface at all, so these are here for the same reason the other REST
   // responses are — "every wire schema", one map, no second place to look.
-  // They replaced W7c's `mcp-tool-preview` pair when the per-slug tool
+  // They replaced an earlier `mcp-tool-preview` pair when the per-slug tool
   // preview gave way to a fixed catalog.
   'mcp-robot-datasheet': mcpRobotDatasheet,
   'mcp-role-preview-response': mcpRolePreviewResponse,
-  // W7 — assets. The three bridge<->cloud frames belong here for the reason
+  // Assets. The three bridge<->cloud frames belong here for the reason
   // stated below: the bridge validates against these files, so a frame absent
   // from this map is a frame it cannot check. The bytes themselves never ride
   // the socket — these describe the conversation, not the payload.
@@ -251,7 +253,7 @@ export const exportedSchemas = {
   asset: asset,
   'asset-list-response': assetListResponse,
   'asset-sync-status': assetSyncStatus,
-  // W5 — cameras. Every bridge<->cloud frame is validated against its
+  // Cameras. Every bridge<->cloud frame is validated against its
   // generated schema in both directions, so a frame missing from this map is
   // a frame the bridge cannot check.
   'snapshot-header': snapshotHeader,
@@ -261,7 +263,7 @@ export const exportedSchemas = {
   'camera-list-response': cameraListResponse,
   'live-session-response': liveSessionResponse,
   'snapshot-meta-response': snapshotMetaResponse,
-  // W6 — retention, history, quotas, camera sources.
+  // Retention, history, quotas, camera sources.
   'camera-source': cameraSource,
   'history-query': historyQuery,
   'history-samples-response': historySamplesResponse,
@@ -269,7 +271,7 @@ export const exportedSchemas = {
   'org-quotas': orgQuotas,
   'org-quota-usage': orgQuotaUsage,
   'org-quota-usage-counts': orgQuotaUsageCounts,
-  // W6a — deletion and the resource-health channel.
+  // Deletion and the resource-health channel.
   'robot-deletion-summary': robotDeletionSummary,
   'resource-health-state': resourceHealthState,
   'resource-health-list-response': resourceHealthListResponse,
@@ -545,52 +547,48 @@ export const exportedSchemas = {
 
 /**
  * Wire constants that are **not schemas**, exported so a non-TypeScript
- * consumer can vendor them instead of re-typing them (W7a).
+ * consumer can vendor them instead of re-typing them.
  *
- * The bridge is the consumer. It cannot import this package, so through W7 it
- * carried `x-fleetless-asset-kind`, `x-fleetless-asset-name`,
- * `x-fleetless-sync-id` and `robot_description` as Python string literals
- * under a comment naming the TypeScript constant they were copied from — the
- * exact drift those constants exist to prevent, in the one repo that cannot
- * prevent it. A `zod` schema cannot describe a header name or a convention,
- * which is an argument for emitting the values once, not for writing them
- * down twice.
+ * The robot-side bridge is that consumer. It cannot import this package, so
+ * without this file it would carry `x-fleetless-asset-kind`,
+ * `x-fleetless-asset-name`, `x-fleetless-sync-id` and `robot_description` as
+ * string literals under a comment naming the TypeScript constant they were
+ * copied from — the exact drift those constants exist to prevent, in the one
+ * consumer that cannot prevent it. A `zod` schema cannot describe a header name
+ * or a convention, which is an argument for emitting the values once, not for
+ * writing them down twice.
  *
  * Kept flat and JSON-only on purpose: this file is read by `json.load` and
  * indexed by these keys, so a value here is part of the wire contract and
  * renaming a key breaks a consumer exactly as renaming a schema field would.
  */
 export const exportedConstants = {
-  // W9d: the cloud must not derive the retention window a second time.
+  // So the cloud does not derive the retention window a second time.
   AUDIT_RETENTION_DAYS,
 
   ASSET_UPLOAD_HEADERS,
   /**
-   * **Der Deckel gehört hierher, weil die Bridge ihn sonst raten muss — und
-   * genau das war der Defekt (W9b, DEF-127).**
+   * **The upload ceiling belongs here, or the bridge has to guess it.**
    *
-   * Der Vertrag sagt „eine Zahl, die Cloud und Bridge lesen". Für einen
-   * TypeScript-Konsumenten stimmte das sofort; für die Bridge nicht, denn sie
-   * kann das npm-Paket nicht importieren und liest ausschließlich dieses
-   * Artefakt (`fleetless_bridge/contracts_constants.json`). Der Header war
-   * angekommen, die Zahl nicht — **eine Grenze, die eine Seite nicht lesen
-   * kann, ist wieder zwei Zahlen.** Gefunden von Rosie-W9b, bevor sie darauf
-   * baute, in dem Commit, der das Raten abschaffen sollte.
+   * The contract says "one number the cloud and the bridge both read". That is
+   * immediately true for a TypeScript consumer and not for the bridge, which
+   * cannot import the npm package and reads only this artifact. Exporting the
+   * header name without the number leaves **a limit one side cannot read,
+   * which is two numbers again.**
    */
   ASSET_UPLOAD_MAX_BYTES,
   SNAPSHOT_HEADERS,
   URDF_ASSET_NAME,
   /**
    * **The `assetKind` *values*, because the bridge sends them and nothing
-   * guarded them** (Momus-W7a, W7a review, answering this file's own question
-   * about what else crosses the TypeScript/Python line).
+   * guarded them.**
    *
    * `assetKind` generates no standalone artifact, `asset.schema.json` is not
    * among the schemas the bridge vendors, and none of the vendored schemas
-   * constrains `kind` — so `"urdf"`, `"mesh"`, `"texture"` lived as Python
-   * string literals with nothing to check them against. Same wire, same enum,
-   * same wave in which one line refusing an unknown kind killed a three-repo
-   * chain and was found by the console owner in a repo that was not hers.
+   * constrains `kind` — so `"urdf"`, `"mesh"` and `"texture"` would live on the
+   * other side as string literals with nothing to check them against. Same
+   * wire, same enum, and one line refusing an unknown kind is enough to break
+   * every consumer of it.
    */
   ASSET_KINDS: assetKind.options,
 } as const
@@ -605,7 +603,7 @@ export const exportedConstants = {
  * check under this table refuses to export when the two sets disagree.
  *
  * **What input mode also does, named because the first version of this comment
- * read as if it were only about `.default()`** (Argus-W9, W9 review): it drops
+ * read as if it were only about `.default()`**: it drops
  * `additionalProperties: false` as well. Of the 24 schemas the bridge vendors,
  * three still carry one.
  *
@@ -774,11 +772,11 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
  * artifact next door, and it is right: it describes what a receiver accepts,
  * and this project's receivers strip unknown keys rather than refusing them.
  *
- * This set exists because the io split *removed* something (Argus-W9). Input
- * mode drops `additionalProperties: false`, and the bridge's own test harness
- * was using the vendored copies to check its **outgoing** frames — where a
- * relaxed schema points the wrong way. Rosie-W9d supplied the reason it
- * matters: every outgoing message in that repo is a hand-typed dict literal
+ * This set exists because the io split *removed* something. Input mode drops
+ * `additionalProperties: false`, and the bridge's own test harness uses the
+ * vendored copies to check its **outgoing** frames — where a relaxed schema
+ * points the wrong way. It matters because every outgoing message on that side
+ * is a hand-typed dict literal
  *
  *     json.dumps({"type": "hello", "protocol_version": …, "active_jobs": […]})
  *
@@ -1159,19 +1157,17 @@ if (isMain) {
   const dir = join(import.meta.dirname, '..', 'artifacts', 'schema')
   mkdirSync(dir, { recursive: true })
   for (const [name, schema] of Object.entries(exportedSchemas)) {
-    // **Per-schema `io` mode — DEF-059, closed in W9d.** For four waves this
-    // file emitted every artifact in zod's *output* mode, and recorded the
-    // resulting contradiction in a comment rather than fixing it.
+    // **Per-schema `io` mode.** Emitting every artifact in zod's *output* mode
+    // is the tempting default and it is wrong for half of them.
     //
     // Output mode describes what a value looks like **after** parsing, so a
     // `.default()`ed field is marked `required` — the artifact said a config
     // frame must carry `cameras`, while `robotConfigDoc` promises the opposite
-    // and the bridge's runtime keeps that promise. Fifth instance by W6b, and
-    // by then it had reached the handshake itself: `bridgeHello.active_jobs`
-    // is `.default([])`, was published as `required`, and the bridge's own
-    // vendored copy therefore disagreed with the contract about a **documented
-    // absence**. Latent for this bridge, which always sends the key; real for
-    // any other implementation.
+    // and the bridge's runtime keeps that promise. It reaches the handshake
+    // itself: `bridgeHello.active_jobs` is `.default([])`, and published as
+    // `required` the bridge's own vendored copy would disagree with the
+    // contract about a **documented absence** — latent for a bridge that always
+    // sends the key, real for any other implementation.
     //
     // The blanket switch was never the fix, and measuring it is what showed
     // why: input mode across all 113 schemas is the correct description for a

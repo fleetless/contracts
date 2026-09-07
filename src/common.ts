@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 /**
  * Names shared by every layer: the Fleetless slug and the ROS names it is
- * deliberately decoupled from (spec §4.1).
+ * deliberately decoupled from.
  *
  * They live here rather than in `protocol.ts` so the exposure model
  * (`config.ts`) and the bridge protocol can both use them without importing
@@ -20,16 +20,11 @@ import { z } from 'zod'
  * Each is used **twice**: as the message zod itself produces, here, and as
  * `patternErrorMessage` in `config.ts`'s exported JSON Schema, which is a
  * published artifact that other tools validate against and that a person
- * reads. Under FL-005 D3 nothing will consume `patternErrorMessage` at runtime
- * **once wave 3 lands** — `useMonacoYaml.ts` still passes `validate: true`
- * today, so until then this sentence IS the live diagnostic in the editor and
- * zod's is the live one on the server. Either way it is a second spelling of a
- * live rule, and an unwatched one would drift word for word,
- * forever and invisibly — the shape that had `buildAcceptUrl` mailing one URL
- * three ways. They are therefore one constant with two readers rather than two
- * strings that happen to agree, and `config-zod-messages.test.ts` asserts the
- * two readings are the same string at all 24 pattern positions the document
- * has.
+ * reads. Either way it is a second spelling of a live rule, and an unwatched
+ * second spelling drifts word for word, forever and invisibly. They are
+ * therefore one constant with two readers rather than two strings that happen
+ * to agree, and `config-zod-messages.test.ts` asserts the two readings are the
+ * same string at every pattern position the document has.
  *
  * **They are exported because the pattern and its sentence must not be able to
  * move apart**, and the pattern is here while the schema annotation is in
@@ -37,15 +32,13 @@ import { z } from 'zod'
  * document — the two URL schemes and the capture-device path — are constants in
  * `config.ts` beside their own patterns, on the same rule.
  *
- * **The blast radius of putting the sentence here was measured, and it is
- * zero artifacts.** A `.meta()` on `slug` would reach 42 of the 159 published
- * schema artifacts, the bridge's vendored protocol frames among them — which is
- * why `mapKey` in `config.ts` carries the annotation and `slug` does not. A
- * message on a `.regex()` check is a different thing: zod renders no error
- * message into JSON Schema at all, so every artifact is byte-identical either
- * way (measured across all 278 barrel schemas under both `io` modes,
- * 2026-09-03). What it does reach is the sentence a *parser* produces, in every
- * layer that parses one of these names — which is the improvement, not a cost.
+ * **Putting the sentence here changes no published artifact.** A `.meta()` on
+ * `slug` would reach dozens of the published schemas — which is why `mapKey` in
+ * `config.ts` carries the annotation and `slug` does not. A message on a
+ * `.regex()` check is a different thing: zod renders no error message into JSON
+ * Schema at all, so every artifact is byte-identical either way. What it does
+ * reach is the sentence a *parser* produces, in every layer that parses one of
+ * these names — which is the improvement, not a cost.
  */
 
 export const SLUG_RULE = 'A name is lower-case: it starts with a letter, continues with letters and digits, and joins further words with a single underscore — `battery_voltage`. Capitals, dashes, dots, spaces, a leading digit and a doubled or trailing underscore are all refused.'
@@ -55,7 +48,7 @@ export const SLUG_RULE = 'A name is lower-case: it starts with a letter, continu
  * message name. Lowercase, underscore-separated, letter-initial, 2..63
  * characters, no leading/trailing/doubled underscores.
  *
- * Names are stable and decoupled from ROS names (spec §4.1) — renaming a
+ * Names are stable and decoupled from ROS names — renaming a
  * topic on the robot must never break a client app. The reverse also holds
  * and costs more: changing a name breaks every client, role grant and MCP
  * tool name that uses it.
@@ -82,9 +75,9 @@ export const ROS_TYPE_NAME_RULE = 'A ROS 2 type name has three segments: the pac
 
 /**
  * A ROS interface type as ROS 2 spells it: `pkg/msg/Type`, `pkg/srv/Type`,
- * `pkg/action/Type`. W2 resolves field trees for `msg` only (§4.5); the
- * other two are listed by the introspection browser and get their trees in
- * W4, where action and service parameters exist.
+ * `pkg/action/Type`. Introspection resolves a field tree for each of the
+ * three; a message has one flat list, a service and an action have one tree
+ * per part.
  */
 export const rosTypeName = z
   .string()
@@ -97,15 +90,15 @@ export const FIELD_PATH_RULE = 'A field path is dotted and lower-case, and each 
  * A path into a message: dot-separated field names, each carrying **at most
  * one** array index, e.g. `percentage`, `pose.position.x`, `ranges[0]`,
  * `poses[0].pose.position.x`. `null` in a datapoint config means *the whole
- * message* (spec §4.2: one field or one whole topic — never several topics).
+ * message*: one field or one whole topic, never several topics.
  *
  * One index per segment is not a preference but the shape of the target: ROS 2
  * IDL has `float64[]`, `float64[3]` and `float64[<=10]`, and no nested or
  * multi-dimensional arrays at all. A second index on one segment — `a[0][1]` —
  * could therefore denote nothing on any message that exists. The bridge has
  * always refused it (`sampling.py`'s `FieldPathError`, *"ROS has no nested
- * arrays"*); this grammar said otherwise until FL-004, so a hand-written or
- * AI-generated document could pass the cloud and then fail at the robot as a
+ * arrays"*). A grammar that said otherwise would let a hand-written or
+ * AI-generated document pass the cloud and then fail at the robot as a
  * `config_applied` error — the latest and worst place to learn it.
  */
 export const fieldPath = z
@@ -119,14 +112,12 @@ export const fieldPath = z
  *
  * The union's input branch **is the wire** — a `z.coerce` cannot be published,
  * because zod renders the coercion's result in either `io` direction, so the
- * artifact would describe a shape a query string can never carry (DEF-059).
+ * artifact would describe a shape a query string can never carry.
  *
- * The year bound is borrowed rather than invented: `nonnegative()` alone let
- * `253402300800000` through, where the Postgres bind path has no representation
- * and the route answered 500 — measured either side of the edge,
- * `253402300799000` -> 200 and `253402300800000` -> 500 (Argus-W9). This moved
- * here from `audit.ts` when `jobRunQuery` needed the same guard; a second copy
- * would have been a second policy for one decision.
+ * The year bound is not decorative. `nonnegative()` alone admits instants a
+ * timestamp column has no representation for, and the route answers 500 rather
+ * than refusing the value. It lives here, once, because more than one query
+ * needs it and a second copy would be a second policy for one decision.
  */
 /**
  * A `seq` cursor as a **query string** actually carries it.

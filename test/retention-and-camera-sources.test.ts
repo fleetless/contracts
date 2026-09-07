@@ -41,8 +41,8 @@ describe('camera sources', () => {
   })
 
   it('accepts a URL carrying userinfo — it is one of the two places credentials may live', () => {
-    // André's call: a developer may do this. The schema does not refuse it,
-    // and neither does the cloud any more — FL-002 removed both
+    // A developer may do this. The schema does not refuse it, and neither
+    // does the cloud — both
     // `credentials_in_url` and `credentials_in_url_ignored`. The rule is now
     // that the explicit `credentials` block wins where both are present, so
     // there is nothing left to warn about.

@@ -95,15 +95,11 @@ export type OauthError = z.infer<typeof oauthError>
 /**
  * A redirect URI, and the rule is stricter than "a URL".
  *
- * **The defence for this was already written down in this codebase, twice.**
- * `config.ts` validates a V4L2 device path from the wire with a prefix rule
- * *and* an explicit refusal of `..` segments, tested, with the reasoning
- * recorded; W7's review then found a `package://` traversal in the bridge
- * that the same rule would have prevented, and the finding that mattered was
- * not the traversal but that **the rule existed one file over and was never
- * carried across.** A redirect URI is the same shape of problem from a less
- * trusted source: an attacker-supplied string that decides where a credential
- * is sent.
+ * **The same defence is written down elsewhere in this package.** `config.ts`
+ * validates a capture-device path from the wire with a prefix rule *and* an
+ * explicit refusal of `..` segments. A redirect URI is the same shape of
+ * problem from a less trusted source: an attacker-supplied string that decides
+ * where a credential is sent.
  *
  * Matching at the server is **exact string comparison against a registered
  * value** — never a prefix, never a wildcard host, never "starts with". A
@@ -137,7 +133,7 @@ export const redirectUri = z
       // yields `"["` for `[::1]:8080`, because an IPv6 literal is *made of*
       // colons. So `[::1]` never matched the allow-list it is named in, in any
       // spelling, while two developer-facing messages went on saying it was
-      // permitted. Found by Momus-W7b, reproduced against the live server.
+      // permitted.
       // `hostname` already strips the port and keeps the brackets.
       if (url.protocol === 'http:') return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
       return false
@@ -171,7 +167,7 @@ export const MCP_DCR_MAX_REDIRECT_URIS = 5
  * authorization servers understand**, central and per-app.
  *
  * **Not `.strict()`, and that is the schema agreeing with the server rather
- * than a gap in it.** §3.1 obliges a registration endpoint to ignore metadata
+ * than a gap in it.** RFC 7591 §3.1 obliges a registration endpoint to ignore metadata
  * it does not understand, and real MCP clients send `client_uri`, `logo_uri`,
  * `software_id` and `contacts`. A strict shape here would describe a `400`
  * that no conforming client ever earns, and would take the whole
@@ -179,9 +175,8 @@ export const MCP_DCR_MAX_REDIRECT_URIS = 5
  * are therefore stripped by this schema and ignored by the server, which is
  * the same answer said twice.
  *
- * **The server still reads the body field by field** (`registerMcpDynamicClient`
- * in `cloud/src/mcp-oauth-core.ts`), and the reason is the error vocabulary,
- * not the shape: §3.2.2 distinguishes `invalid_redirect_uri` from
+ * **The server still reads the body field by field**, and the reason is the
+ * error vocabulary, not the shape: RFC 7591 §3.2.2 distinguishes `invalid_redirect_uri` from
  * `invalid_client_metadata`, and one `safeParse` failure cannot say which of
  * the two a caller earned. So this schema is what the endpoint *accepts*, and
  * the handler is what turns a miss into the right RFC code.
@@ -378,11 +373,10 @@ export type AuthorizationServerMetadata = z.infer<typeof authorizationServerMeta
 /**
  * RFC 9728 — what a *resource* publishes about who may authorize for it.
  *
- * W7b mints tokens bound to a resource that W7c builds. **A minting mechanism
- * with no validator is the failure mode this project has now met twelve times
- * in one wave: a check that cannot fail.** So W7b also ships a resource that
- * *rejects* a token whose audience names something else, and the gate measures
- * the rejection rather than the presence of the claim.
+ * Tokens are minted bound to a resource. **A minting mechanism with no
+ * validator is a check that cannot fail**, so the resource itself *rejects* a
+ * token whose audience names something else, and that rejection is what a check
+ * measures rather than the presence of the claim.
  */
 export const protectedResourceMetadata = z.object({
   resource: z.url().meta({

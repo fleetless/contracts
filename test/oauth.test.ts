@@ -108,7 +108,7 @@ describe('dynamicClientRegistrationRequest', () => {
     // **This assertion was the opposite one release ago**, and the schema was
     // `.strict()` on the argument that a shape which strips is a shape that
     // lies quietly. That argument is right for a body somebody validates and
-    // wrong for this one: §3.1 obliges a registration endpoint to ignore
+    // wrong for this one: RFC 7591 §3.1 obliges a registration endpoint to ignore
     // metadata it does not understand, real MCP clients send `client_uri`,
     // `logo_uri` and `software_id`, and the server ignores them. A strict
     // schema documented a `400` no conforming client can earn.

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { rosName, rosTypeName } from './common.js'
 
 /**
- * Introspection (spec §4.1, §4.5): what the connected bridge can tell the
+ * Introspection: what the connected bridge can tell the
  * cloud about the robot's ROS graph, so the console can offer a quick pick
  * instead of a blank text field.
  *
@@ -51,10 +51,10 @@ export const typeField: z.ZodType<TypeField> = z.lazy(() =>
 )
 
 /**
- * A resolved type of one robot. Custom types are per robot (spec §4.5): two
- * robots may define `custom_msgs/msg/Speed` differently and both are right.
+ * A resolved type of one robot. Custom types are per robot: two robots may
+ * define `custom_msgs/msg/Speed` differently and both are right.
  *
- * W2 resolved messages only; W4 adds services and actions, because a
+ * Messages, services and actions all appear here, because a
  * `parameterSpec.name` has to resolve against *something*, and an action has
  * no flat field list — it has a goal, a result and a feedback tree.
  *
@@ -71,8 +71,8 @@ export const typeField: z.ZodType<TypeField> = z.lazy(() =>
  * a result in. They are carried so the console can show what an action will
  * report back, and so a client knows the shape of `job.result` in advance.
  *
- * The `msg` member keeps W2's exact shape, so every type already stored stays
- * valid without migration.
+ * The `msg` member is the flat field list a message resolves to; the other
+ * two carry one tree per part.
  */
 export const typeDefinition = z.discriminatedUnion('kind', [
   z.object({

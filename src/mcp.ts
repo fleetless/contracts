@@ -3,10 +3,9 @@ import { z } from 'zod'
 import { slug } from './common.js'
 
 /**
- * The MCP server of §17: **one** remote MCP endpoint for the whole platform,
- * whose tools are the exposed services and datapoints the signed-in user's
- * roles permit. The per-app `/mcp/<identifier>` servers this file once
- * described were deleted by the org-central identity redesign (D5/D6).
+ * The MCP server: **one** remote MCP endpoint for the whole platform, whose
+ * tools are the exposed services and datapoints the signed-in user's roles
+ * permit. There is no per-app endpoint.
  *
  * **This file describes the seam, not the protocol.** The MCP messages
  * themselves (`initialize`, `tools/list`, `tools/call`) are defined by the
@@ -19,8 +18,8 @@ import { slug } from './common.js'
  */
 
 /**
- * The protocol revision W7c speaks. Chosen with André on 2026-08-18 over the
- * newer `2026-07-28`.
+ * The protocol revision this server speaks, chosen over the newer
+ * `2026-07-28`.
  *
  * This is the latest revision the **stable** MCP TypeScript SDK ships, and it
  * negotiates down to `2024-11-05`, so it covers the AI tools that exist today.
@@ -28,11 +27,10 @@ import { slug } from './common.js'
  * Streamable HTTP's session ids, the standalone SSE channel and resumability,
  * and servers speaking only it answer `405` to GET and DELETE.
  *
- * **Which is why this server is stateless anyway.** Building sessions we would
- * have to delete again is work in the wrong direction, and a per-process
- * session map is the assumption that breaks at the second cloud instance —
- * the register already carries one row of exactly that shape
- * (`max_realtime_connections`), and W8 is where a second instance appears.
+ * **Which is why this server is stateless anyway.** Building sessions that a
+ * later revision removes is work in the wrong direction, and a per-process
+ * session map is an assumption that breaks the moment a second cloud instance
+ * exists.
  */
 export const MCP_PROTOCOL_VERSION = '2025-11-25' as const
 
@@ -161,7 +159,7 @@ export const mcpToolNamePattern = /^[a-z0-9][a-z0-9_-]*$/
 
 /**
  * One exposure of a robot, as `robot_describe` and the console's per-role
- * preview list it (FL-006). Every exposure the role grants is listed —
+ * preview list it. Every exposure the role grants is listed —
  * a missing `description` is shown as `null`, never used to hide the entry.
  *
  * `input_schema` is a JSON Schema document generated from an action's,
