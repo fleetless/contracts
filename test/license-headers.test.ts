@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdirSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -15,13 +16,18 @@ import { describe, expect, it } from 'vitest'
  * empty directory is the failure mode this project has hit most often, so the
  * count is asserted twice — against a floor, and against the real listing.
  *
- * **The directories are derived from the repository, not listed.** A named list
- * (`src`, `scripts`, `test`) is a requirement about a set guarded by three
- * examples: a `bin/`, a `tools/`, or a `.ts` at the repository root is invisible
- * to it and carries whatever header somebody copied. So the walk starts at the
- * repository and excludes a literal set of directories that are not source —
- * which makes a NEW top-level directory a failure until somebody classifies it,
- * the same shape the `unclassified` assertion already has one level down.
+ * **The file set comes from `git ls-files`, not from a list of directories.** A
+ * named list (`src`, `scripts`, `test`) is a requirement about a set guarded by
+ * three examples: a `bin/`, a `tools/`, or a `.ts` at the repository root is
+ * invisible to it and carries whatever header somebody copied.
+ *
+ * Walking the filesystem instead is the obvious repair and it is wrong in the
+ * other direction — it sweeps whatever happens to be lying in the working
+ * directory. This test was written that way first and CI failed on
+ * `dist-tag.env`, a file the pipeline writes into the checkout before the suite
+ * runs: a guard about the repository, answering about a job's scratch. The
+ * repository's own answer to "what is a file of this repository" is the index,
+ * so that is what is asked.
  *
  * The published half of this rule is not here: `dist/` is what a consumer
  * receives, `tsc` drops the header from declaration emit, and
@@ -33,50 +39,39 @@ const HEADER = '// SPDX-License-Identifier: Apache-2.0'
 const ROOT = new URL('..', import.meta.url).pathname
 
 /**
- * Not source, and excluded by name so that anything else is swept. Generated
- * output (`dist`, `artifacts`), dependencies, VCS metadata, and the agent
- * scratch directory that is not part of the package.
+ * Tracked but generated: `artifacts/` is committed JSON produced by
+ * `scripts/export-schemas.ts`, and `dist/` is emitted (and stamped by
+ * `scripts/stamp-dist.mjs`, asserted in `scripts/verify-pack.mjs`). Neither is
+ * a source file somebody writes a header into.
  */
-const NOT_SOURCE = new Set(['node_modules', 'dist', 'artifacts', '.git', '.superpowers', 'coverage', '.nuxt'])
-
-const DIRS = readdirSync(ROOT, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && !NOT_SOURCE.has(e.name))
-  .map((e) => e.name)
-  .sort()
-
-/** Files at the repository root itself — a `.ts` there is source like any other. */
-const ROOT_FILES = readdirSync(ROOT, { withFileTypes: true })
-  .filter((e) => e.isFile())
-  .map((e) => e.name)
+const GENERATED = ['artifacts/', 'dist/']
 
 /** Extensions that carry `//` comments and therefore must carry the header. */
 const SOURCE = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs']
 
 /**
- * Files in those directories that are NOT source and are exempt by name. Kept
- * as a literal list rather than as a pattern: a new non-source file has to be
- * added here deliberately, which is the moment somebody asks whether it should
- * have been source instead.
+ * Extensions and names that are NOT source. Kept as literal lists rather than
+ * as a catch-all: a file type nobody has classified lands in `unclassified`
+ * below and fails, which is the moment somebody asks whether it should have
+ * been source instead.
  */
-const EXEMPT = new Set([
-  'tsconfig.json',
-  // Root files that are not source and are not this rule's business.
-  'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.gitignore',
-  '.gitlab-ci.yml', 'LICENSE', 'NOTICE', 'README.md', 'CHANGELOG.md',
-  'CONTRIBUTING.md', 'SECURITY.md', 'CODE_OF_CONDUCT.md',
-])
+const NOT_SOURCE_EXT = ['.md', '.json', '.yaml', '.yml', '.txt']
+const NOT_SOURCE_NAME = new Set(['LICENSE', 'NOTICE', '.gitignore'])
 
-function walk(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
-    const rel = `${dir}/${entry.name}`
-    if (entry.isDirectory()) out.push(...walk(rel))
-    else out.push(rel)
-  }
-  return out
-}
+/**
+ * The repository's own answer to "what is a file of this repository": the git
+ * index. It excludes `node_modules/`, every build output and anything a CI job
+ * drops into the checkout, without this test having to enumerate those.
+ *
+ * `-z` and a NUL split, because a path with a space or a quote in it is
+ * something git escapes in its default output and a naive newline split would
+ * then mangle — silently dropping exactly the file whose name was unusual.
+ */
+const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
+  .split('\0')
+  .filter(Boolean)
 
-const all = [...DIRS.flatMap(walk), ...ROOT_FILES]
+const all = tracked.filter((f) => !GENERATED.some((d) => f.startsWith(d)))
 const sources = all.filter((f) => SOURCE.some((ext) => f.endsWith(ext)))
 
 describe('SPDX headers', () => {
@@ -86,17 +81,22 @@ describe('SPDX headers', () => {
     // a `.tsx` or a `.yaml` dropped into `src/` fails here rather than passing
     // unnoticed because the extension list did not know about it.
     const unclassified = all.filter(
-      (f) => !sources.includes(f) && !EXEMPT.has(f.split('/').pop()!),
+      (f) =>
+        !sources.includes(f) &&
+        !NOT_SOURCE_EXT.some((ext) => f.endsWith(ext)) &&
+        !NOT_SOURCE_NAME.has(f.split('/').pop()!),
     )
     expect(unclassified).toEqual([])
   })
 
-  it('finds the repository\'s source files, not an empty directory', () => {
-    // Anti-vacuity. `src/` alone has 20 files and `test/` has 38; a sweep that
-    // returns 3, or 0, has stopped measuring what this test is named for and
+  it('finds the repository\'s source files, not an empty listing', () => {
+    // Anti-vacuity. `src/` alone has 20 files and `test/` has 38; a listing
+    // that returns 3, or 0 — a `git ls-files` that failed, a `cwd` pointing
+    // somewhere else — has stopped measuring what this test is named for and
     // every assertion below it becomes free.
+    expect(tracked.length).toBeGreaterThan(60)
     expect(sources.length).toBeGreaterThan(40)
-    for (const dir of DIRS) {
+    for (const dir of ['src', 'scripts', 'test']) {
       expect(
         sources.filter((f) => f.startsWith(`${dir}/`)).length,
         `no source files found under ${dir}/`,
@@ -104,14 +104,16 @@ describe('SPDX headers', () => {
     }
   })
 
-  it('derives the directory set from the repository rather than a literal list', () => {
-    // The three that must always be there, asserted so the derivation cannot
-    // quietly return fewer — an exclude set that grew a typo would otherwise
-    // shrink the swept set and every assertion with it.
-    expect(DIRS).toEqual(expect.arrayContaining(['src', 'scripts', 'test']))
-    // And a new top-level source directory is swept without anybody editing
-    // this file: it is in DIRS by construction unless it is in NOT_SOURCE.
-    for (const name of DIRS) expect(NOT_SOURCE.has(name)).toBe(false)
+  it('sweeps the whole repository, not three named directories', () => {
+    // The point of taking the set from git: a source file OUTSIDE src/,
+    // scripts/ and test/ is swept without anybody editing this file. Asserted
+    // by construction — every tracked, non-generated source path is in
+    // `sources`, whatever directory it sits in.
+    const outside = sources.filter((f) => !/^(src|scripts|test)\//.test(f))
+    for (const f of outside) expect(sources).toContain(f)
+    // And the generated trees, which ARE tracked, are the only exclusions.
+    expect(tracked.some((f) => f.startsWith('artifacts/'))).toBe(true)
+    expect(all.some((f) => f.startsWith('artifacts/'))).toBe(false)
   })
 
   it('every source file opens with the SPDX header', () => {
