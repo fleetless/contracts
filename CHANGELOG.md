@@ -5,10 +5,14 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html) over
 the wire shapes.
 
-## [1.0.1] — 2026-09-07
+## [1.0.2] — 2026-09-07
 
-A documentation and packaging release. **No wire shape changes**, and nothing
-generated from a schema changes either — `artifacts/schema/` and
+A documentation and packaging release. (1.0.1 was tagged and never published:
+its `verify` job went red on a licence-header guard that swept the pipeline's
+own scratch file. The tag pattern is protected and cannot be moved, so the
+release carries the next number. Nothing was ever served as 1.0.1.)
+
+**No wire shape changes**, and nothing generated from a schema changes either — `artifacts/schema/` and
 `artifacts/schema-outgoing/` are byte-identical to 1.0.0. What changes is what
 the package says about itself.
 
@@ -64,7 +68,7 @@ bridge for as long as those have existed. What changes is who can read them —
 until now this package was resolvable only from a private git URL, so nobody
 outside the project could build a Fleetless client from source.
 
-**Corrected in 1.0.1:** this entry originally said these were "exactly the
+**Corrected in 1.0.2:** this entry originally said these were "exactly the
 shapes the Fleetless cloud serves at release 0.17.0". They are not. This package
 tracks the cloud's `main` branch, not its releases, and 1.0.0 was cut from a
 commit that already carried the MCP consent-withdrawal change — so the route
