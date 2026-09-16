@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "details": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "maxLength": 4096
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "array",
+            "items": {}
+          },
+          {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        ]
+      },
+      "description": "The stored `robot_details` document, which is the one that was just sent — this route **replaces** the document rather than merging into it. Keys are the developer's own, lowercase and at most 64 characters; a value is a string of at most 4096 characters, a number, a boolean, an array or an object."
+    }
+  },
+  "required": [
+    "details"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The datapoint these buckets summarise."
+    },
+    "kind": {
+      "type": "string",
+      "const": "buckets",
+      "description": "Says this is the aggregated shape, which the query asked for by naming a `window`. A separate shape rather than the sample shape with nulls in it, so a client knows by type what it received rather than by inspection."
+    },
+    "window_ms": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The bucket width actually used, in milliseconds — the query's `window` resolved to a number, so a rendered chart can say what it is drawing without re-parsing the expression it sent."
+    },
+    "agg": {
+      "type": "string",
+      "enum": [
+        "min",
+        "max",
+        "avg"
+      ],
+      "description": "How each bucket reduced the samples inside it, echoed back from the query."
+    },
+    "buckets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bucket_start_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "The instant this bucket opens, as a unix timestamp in milliseconds. Buckets are half-open and `window_ms` wide, so this one covers up to but not including `bucket_start_ms + window_ms`."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The aggregate over this bucket's **numeric** samples, or `null` when none of them were numeric — which is **not** the same as the bucket being empty. `sample_count` separates those: `null` with a count of `0` is a gap a chart should draw as a break, `null` with a count above `0` is data that simply has no height."
+          },
+          "sample_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Every sample that landed in this bucket and inside the queried range, whether or not it contributed to `value` — only a count of *all* samples can prove a bucket empty rather than merely unplottable. Two consequences: `value * sample_count` is **not** a sum, and on a first or last bucket the count reflects the range rather than the bucket, so a low edge count is a boundary effect and not a quiet period."
+          }
+        },
+        "required": [
+          "bucket_start_ms",
+          "value",
+          "sample_count"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The buckets covering the queried window, oldest first. A range and window that would produce more than `limit` buckets is refused before the query runs, because this shape carries no `truncated` field and a refusal is then the only honest answer."
+    }
+  },
+  "required": [
+    "slug",
+    "kind",
+    "window_ms",
+    "agg",
+    "buckets"
+  ],
+  "additionalProperties": false
+}

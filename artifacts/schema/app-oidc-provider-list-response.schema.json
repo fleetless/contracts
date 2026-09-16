@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The provider row, as listed, patched and deleted by the developer."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app this provider signs users in to."
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+            "description": "The stable handle in the sign-in URL (`/api/client/oidc/:slug/start`) and on the developer's own button. Unique per app, lowercase and hyphen-separated — **not** the underscore-separated grammar `identifier` uses. Immutable: linked identities are keyed by it."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "What the developer's sign-in page calls this provider, e.g. \"Sign in with Azure AD\". Free text; the only field of this shape the public `GET /api/client/providers` reveals besides the slug."
+          },
+          "issuer": {
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri",
+            "description": "The provider's issuer URL, from which discovery and the JWKS are read. http(s) only, with no credentials, query or fragment — RFC 8414 §3 builds the discovery URL from the issuer's path, so a query there is meaningless and an `@` is a redirect trick. **This is not the SSRF defence**: it cannot tell a loopback dev provider from a loopback database, and the real check refuses loopback, link-local and private ranges at the fetch."
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The OAuth client the developer registered at their provider for Fleetless."
+          },
+          "scopes": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60
+            },
+            "description": "The scopes requested at the provider. At least one — a request that asks for nothing learns nothing — and bounded, because an unbounded array on a stored, logged and rendered shape is a size nobody chose."
+          },
+          "link_verified_emails": {
+            "type": "boolean",
+            "description": "Whether a federated login may join an **existing** app user with the same address. It needs the provider to assert `email_verified` as well: either condition alone is account takeover, since a provider that lets anyone type any address into a profile would otherwise hand over every matching account, and a developer who connects a provider for a subset of their users would otherwise silently merge strangers."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this provider is offered. A disabled provider disappears from `GET /api/client/providers` and refuses a start with `provider_disabled`, without the row and its linked identities being deleted."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the provider was configured, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "slug",
+          "name",
+          "issuer",
+          "client_id",
+          "scopes",
+          "link_verified_emails",
+          "enabled",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every provider configured on this app, disabled ones included — this is the developer's management view, unlike the public `GET /api/client/providers`, which lists only what a user can actually press."
+    }
+  },
+  "required": [
+    "providers"
+  ],
+  "additionalProperties": false
+}

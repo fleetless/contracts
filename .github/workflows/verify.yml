@@ -1,0 +1,144 @@
+# The suite on every push and every pull request, and the same file a release
+# calls: a release is never verified by a different pipeline than a push.
+#
+# Hosted runners, because this repository is public — a pull request is a
+# stranger's code, and hosted minutes are free here.
+name: verify
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history, and the commit-message check is why. It resolves the
+          # pushed range from the two shas below, but only after asking git
+          # whether the older one is actually in the object database. A shallow
+          # clone has not fetched it, so the answer is no, and the script falls
+          # back to `head~1..head` — one commit. The job stays green having
+          # read a fraction of what was pushed. The staleness gate below also
+          # needs a real work tree.
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          # v5 caches for the package manager named in package.json by
+          # default, and runs pnpm to work out the cache key — one step
+          # before corepack installs pnpm. Measured: "Unable to locate
+          # executable file: pnpm". v4, which this replaces, cached nothing
+          # unless asked; neither does this.
+          package-manager-cache: false
+      - run: corepack enable && corepack prepare pnpm@11.20.0 --activate
+      # pnpm's own postinstall check honours the `minimumReleaseAgeExclude`
+      # entries in pnpm-workspace.yaml — nothing in this workflow weakens
+      # that cooldown, and nothing here needs to.
+      - run: pnpm install --frozen-lockfile
+      # First, and deliberately: on a tag run the cheapest check is the one
+      # guarding the release, so a tag whose version disagrees with
+      # package.json fails before the suite spends a minute agreeing with
+      # itself. The script also decides `latest` vs `next` and refuses a tag
+      # that would move npm's `latest` backwards.
+      #
+      # `dist-tag.env` is how that decision reaches the publish job, which
+      # never checks the repository out. On a branch push it is written with a
+      # comment and no DIST_TAG — publish reads that as "this should not have
+      # run" and refuses, rather than guessing a dist-tag.
+      #
+      # `> dist-tag.env`, never `| tee`: a pipeline's status is the last
+      # command's, so tee would hand this guard its own success and make it
+      # unable to fail in the one case it exists for.
+      #
+      # $GITHUB_REF_TYPE and $GITHUB_REF_NAME are read from the runner's
+      # environment, not interpolated into the script with `${{ }}`. The
+      # difference matters: interpolation pastes the ref's text into the shell
+      # before bash parses it, so a tag named to contain shell syntax would
+      # run as a command. Through the environment it stays a value.
+      - name: version-tag check (tags only)
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            node scripts/verify-version-tag.mjs "$GITHUB_REF_NAME" > dist-tag.env
+          else
+            echo '# not a tag run: nothing to publish' > dist-tag.env
+          fi
+          cat dist-tag.env
+      # The messages of the commits being pushed, before anything else spends
+      # time: a message is public the moment it is pushed, and there is no
+      # sweep afterwards. The two env vars are the range — GitHub's names for
+      # them differ from the script's, so they are mapped here rather than in
+      # the script.
+      - run: pnpm run verify:commits
+        env:
+          CI_COMMIT_BEFORE_SHA: ${{ github.event.before }}
+          CI_COMMIT_SHA: ${{ github.sha }}
+      - run: pnpm typecheck
+      # Build BEFORE the suite: `test/published-prose.test.ts` greps the
+      # built `dist/` for internal prose, and `pnpm test` does not build — on
+      # a stale or absent `dist/` it would be answering about the wrong bytes.
+      - run: pnpm build
+      - run: pnpm test
+      # The staleness gate, and it belongs in verify rather than anywhere
+      # else. `artifacts/` is generated from the zod schemas AND committed,
+      # and it is what every non-TypeScript consumer validates against — the
+      # bridge vendors it, the docs site reads it. `pnpm artifacts`
+      # regenerates it; a dirty `artifacts/` afterwards means somebody edited
+      # a schema and did not regenerate, so the package would ship a schema
+      # that disagrees with its own source. A local test catches that too, but
+      # only if somebody runs it. This is the copy that runs on every push,
+      # and it is the reason the tarball packed below can be trusted.
+      #
+      # `--porcelain` and not `git diff`: `git diff` exits 0 on an UNTRACKED
+      # new schema, which is exactly what a newly registered export produces.
+      #
+      # And the gate asks git whether it WORKED before asking what it said.
+      # Command substitution swallows a failure: with git missing, or the
+      # checkout not a work tree, DIRTY comes back empty and the step would
+      # announce "artifacts/ is current" about a measurement that never ran.
+      # That is the one way a gate like this fails — green, reporting on
+      # nothing, with nobody prompted to look. Hence the two guards before
+      # the comparison, and neither is dead weight.
+      - run: pnpm artifacts
+      - name: artifact staleness gate
+        run: |
+          if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            echo "FATAL: not inside a git work tree; the artifact staleness gate cannot run." >&2
+            exit 1
+          fi
+          if ! DIRTY="$(git status --porcelain artifacts/)"; then
+            echo "FATAL: \`git status --porcelain artifacts/\` failed; the staleness gate did not run." >&2
+            exit 1
+          fi
+          if [ -n "$DIRTY" ]; then
+            echo "FATAL: the committed artifacts are stale. \`pnpm artifacts\` changed:" >&2
+            echo "$DIRTY" >&2
+            echo "Run \`pnpm artifacts\` locally and commit artifacts/ with the schema change." >&2
+            git --no-pager diff -- artifacts/ | head -200 >&2
+            exit 1
+          fi
+          echo "artifacts/ is current"
+      # Both directions: what the tarball must contain, and what it must not.
+      - run: pnpm run test:pack
+      # The bytes `publish` ships. `npm pack` runs `prepare` (tsc) itself, so
+      # the tarball is built from this tree, not from whatever `pnpm build`
+      # left — and the release publishes THIS file, unrebuilt. Nothing between
+      # here and npm can change what was checked.
+      - run: npm pack --pack-destination .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          # Fail here, where the pack did. Warning instead would send an empty
+          # artifact on to publish, which notices after the tag exists and
+          # blames a missing tarball rather than the step that failed to make
+          # one.
+          if-no-files-found: error
+          path: |
+            fleetless-contracts-*.tgz
+            dist-tag.env

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": [
+        "bridge"
+      ],
+      "description": "Where the bytes come from. `bridge` is the only value today: the connected bridge reads them from the robot's own workspace. Validated rather than ignored, so a caller naming an unknown source is told so instead of silently getting a bridge sync."
+    }
+  },
+  "required": [
+    "source"
+  ],
+  "additionalProperties": false
+}

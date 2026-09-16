@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "access_token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
+    },
+    "refresh_token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
+    },
+    "expires_in": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991,
+      "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
+    }
+  },
+  "required": [
+    "access_token",
+    "refresh_token",
+    "expires_in"
+  ],
+  "additionalProperties": false
+}

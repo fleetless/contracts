@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "org": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The organisation. Every developer route is scoped to the caller's org already, so a client rarely has to send this anywhere."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "The organisation's display name. Free text, changed through `PATCH /api/org`."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "When the organisation was created, as an ISO 8601 timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The Fleetless user in the API, assigned by the cloud and stable for the life of the account."
+        },
+        "org_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The organisation this person belongs to. Every developer route is already scoped to the caller's org, so this confirms what a client is looking at, not a filter it applies."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+          "description": "The address the account is identified by, **globally unique** across every organisation. Immutable after creation: it is what every invitation, reset link and audit line names."
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional human name, shown by the console instead of the address where present. Self-service through `PATCH /api/auth/me`; never used for authentication. `null` when the person never supplied one."
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "developer"
+          ],
+          "description": "The console powers this person holds. **Required** — every Fleetless user has a tier; it was optional only while the org also held people with no console powers to grade, and that pool is gone."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "When the account was created, as an ISO 8601 timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "org_id",
+        "email",
+        "display_name",
+        "tier",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
+        },
+        "refresh_token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
+        },
+        "expires_in": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
+        }
+      },
+      "required": [
+        "access_token",
+        "refresh_token",
+        "expires_in"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "org",
+    "user",
+    "tokens"
+  ],
+  "additionalProperties": false
+}

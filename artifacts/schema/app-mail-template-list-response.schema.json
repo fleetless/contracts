@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "templates": {
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invite",
+              "verify",
+              "reset"
+            ],
+            "description": "Which of the three mails this template replaces."
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+          },
+          "html": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The optional HTML body, a Liquid template. `null` means this template is text-only, which is a complete mail and not a half-configured one."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the template was last written, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "kind",
+          "subject",
+          "text",
+          "html",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The app's custom templates. A kind that does not appear is one using the Fleetless default text — an ordinary state, not a missing row."
+    }
+  },
+  "required": [
+    "templates"
+  ],
+  "additionalProperties": false
+}

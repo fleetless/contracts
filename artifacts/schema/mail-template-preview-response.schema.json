@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "The rendered subject line."
+    },
+    "text": {
+      "type": "string",
+      "description": "The rendered plain-text body."
+    },
+    "html": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The rendered HTML body, or `null` when the template is text-only."
+    }
+  },
+  "required": [
+    "subject",
+    "text",
+    "html"
+  ],
+  "additionalProperties": false
+}

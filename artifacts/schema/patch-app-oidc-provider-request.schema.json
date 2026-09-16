@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "A new display name for the provider.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "issuer": {
+      "description": "A new issuer URL. Changing it re-runs discovery; identities linked under the old one keep their `(provider, subject)` key.",
+      "type": "string",
+      "maxLength": 500,
+      "format": "uri"
+    },
+    "client_id": {
+      "description": "A new client id.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "client_secret": {
+      "description": "A replacement client secret. **Absent means keep the stored one**, so a routine edit need not put the secret back on the wire; it is never echoed back by any route.",
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 500
+    },
+    "scopes": {
+      "description": "A replacement scope list. A replace, not a merge.",
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60
+      }
+    },
+    "link_verified_emails": {
+      "description": "Whether a federated login may join an existing app user by verified address.",
+      "type": "boolean"
+    },
+    "enabled": {
+      "description": "Turn the provider off or back on without deleting it or its linked identities.",
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

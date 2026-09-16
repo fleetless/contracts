@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "robot_id": {
+      "description": "Narrows the report to one robot. Omit it for every robot in the org. Malformed is `400 invalid_uuid` and a robot of another org is `404 not_found` — the same two answers an MCP caller gets, because the check lives in the shared service rather than on the route.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "description": "The optional robot filter of `GET /api/org/health`."
+}

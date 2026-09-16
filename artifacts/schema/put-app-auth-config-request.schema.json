@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "self_registration": {
+      "type": "boolean",
+      "description": "Whether a stranger may create an account in this app. Off refuses `POST /api/client/register` with `403 registration_closed`, and refuses an unknown identity at an OIDC callback with the same reasoning — one switch for one decision, whichever door the person arrives at."
+    },
+    "allowed_domains": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+      },
+      "description": "The email domains self-registration accepts, lowercase. An empty list means no domain restriction, not \"nobody\" — the switch above is what closes the door. **An invitation always bypasses this**, by password and through a provider alike."
+    },
+    "allowed_origins": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "description": "The origins the client auth API answers CORS for, and the only origins an OIDC `redirect_uri` may name. Bare origins: scheme, host and port, with no path — a browser sends nothing longer, so an entry carrying one could never match."
+    },
+    "mcp_enabled": {
+      "type": "boolean",
+      "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
+    },
+    "invite_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point."
+    },
+    "verify_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate."
+    },
+    "reset_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page that takes a new password, with `{token}` where the token goes."
+    },
+    "mcp_login_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+    }
+  },
+  "required": [
+    "self_registration",
+    "allowed_domains",
+    "allowed_origins",
+    "mcp_enabled",
+    "invite_url",
+    "verify_url",
+    "reset_url",
+    "mcp_login_url"
+  ],
+  "additionalProperties": false
+}

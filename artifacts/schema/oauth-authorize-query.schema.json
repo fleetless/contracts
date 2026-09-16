@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "response_type": {
+      "type": "string",
+      "const": "code",
+      "description": "Always `code`. RFC 6749 §4.1.2.1 names `unsupported_response_type` for any other value, but `oauthErrorCode` has no such member — this server issues no other grant from this endpoint — so an unsupported value comes back on the callback as `invalid_request`."
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The OAuth client, self-registered or the one well-known central client — **not** the app identifier. Unknown, expired-dynamic and mismatched clients all collapse into the same `400 invalid_client`, answered without a redirect."
+    },
+    "redirect_uri": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One of the client's registered redirect URIs, compared **exactly** — string equality against the registered list, never a prefix or a host match. Both the shape (`redirectUri`) and the registration are checked, and a failure of either is a `400 invalid_request` with no redirect."
+    },
+    "code_challenge": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The PKCE challenge; the verifier is presented at the token endpoint. Only non-emptiness is checked here — length and alphabet are not — since the verifier is what has to match."
+    },
+    "code_challenge_method": {
+      "type": "string",
+      "const": "S256",
+      "description": "Only `S256`. `plain` is refused: a challenge equal to its verifier defends against nothing."
+    },
+    "state": {
+      "description": "Returned unchanged on the callback, and on the error redirect too, so a client can bind either answer to its own request.",
+      "type": "string"
+    },
+    "resource": {
+      "description": "RFC 8707 resource indicator: the API origin or the MCP endpoint the token is for. Checked against the resources this server issues tokens for **on behalf of this client's app**; a mismatch is `invalid_target` on the callback.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "response_type",
+    "client_id",
+    "redirect_uri",
+    "code_challenge",
+    "code_challenge_method"
+  ],
+  "description": "The authorization request an MCP client sends, per RFC 6749 §4.1.1 with mandatory PKCE. The handler reads it parameter by parameter rather than through one parse, because the answers differ: `client_id` and `redirect_uri` are refused flat, with no redirect, since until both are confirmed there is no trusted target to bounce a browser to, and everything after them is reported to the client's own callback as query parameters."
+}

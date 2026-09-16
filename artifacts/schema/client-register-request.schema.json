@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app_identifier": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app to register with. An identifier no app carries is `404 not_found` — an identifier is public, so naming it is no disclosure, and collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. The **address** is never the subject of a refusal."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256,
+      "description": "The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around."
+    },
+    "display_name": {
+      "description": "An optional human name for the account. The developer's own UI decides whether to ask for it.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "app_identifier",
+    "email",
+    "password"
+  ],
+  "additionalProperties": false
+}

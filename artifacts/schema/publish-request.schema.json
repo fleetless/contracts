@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {},
+      "description": "The values to publish, keyed by the **parameter names** the publisher declares — the same flat form an invoke takes for `params`. They are checked against the declared bounds in the cloud before anything reaches the robot, and a slug another caller is still holding is refused with the remaining wait."
+    }
+  },
+  "required": [
+    "message"
+  ]
+}

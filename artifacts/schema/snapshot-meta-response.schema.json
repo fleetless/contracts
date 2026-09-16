@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The camera this snapshot belongs to."
+    },
+    "timestamp_ms": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When the stored frame was captured, as a unix timestamp in milliseconds. `null` means nothing has been captured yet, which is an answer rather than an error."
+    },
+    "age_ms": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "How old the stored frame is right now, in milliseconds; `null` when there is none. Snapshots are deliberately cheap and therefore deliberately old, and a cached frame served without its age is indistinguishable from a live one."
+    },
+    "width": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Width of the stored frame in pixels, or `null` when nothing has been captured yet."
+    },
+    "height": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Height of the stored frame in pixels, or `null` when nothing has been captured yet."
+    },
+    "mime": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The media type of the stored frame, such as `image/jpeg`, or `null` when nothing has been captured yet."
+    }
+  },
+  "required": [
+    "slug",
+    "timestamp_ms",
+    "age_ms",
+    "width",
+    "height",
+    "mime"
+  ],
+  "additionalProperties": false
+}

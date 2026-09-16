@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app_identifier": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app whose enabled providers to list."
+    }
+  },
+  "required": [
+    "app_identifier"
+  ],
+  "description": "The one parameter of the public provider listing."
+}

@@ -1,0 +1,67 @@
+{
+  "name": "@fleetless/contracts",
+  "version": "1.0.5",
+  "description": "Fleetless wire contracts: the bridge-cloud protocol, the REST API schemas and the error codes, as zod schemas with generated JSON Schema and OpenAPI artifacts.",
+  "license": "Apache-2.0",
+  "author": "Dehne Robotik GmbH",
+  "homepage": "https://docs.fleetless.dev/reference/api",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fleetless/contracts"
+  },
+  "bugs": {
+    "url": "https://github.com/fleetless/contracts/issues",
+    "email": "security@fleetless.dev"
+  },
+  "keywords": [
+    "fleetless",
+    "ros2",
+    "robotics",
+    "json-schema",
+    "openapi"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./artifacts/*": "./artifacts/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "artifacts",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
+    "build": "tsc && node scripts/stamp-dist.mjs",
+    "prepare": "tsc && node scripts/stamp-dist.mjs",
+    "test": "vitest run",
+    "artifacts": "tsx scripts/export-schemas.ts",
+    "test:pack": "node scripts/verify-pack.mjs",
+    "verify:commits": "node scripts/verify-commit-messages.mjs",
+    "prepublishOnly": "node scripts/refuse-manual-publish.mjs"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

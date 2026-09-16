@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The asset's id in the store."
+    },
+    "robot_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The robot this asset belongs to."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "urdf",
+        "mesh",
+        "texture",
+        "other"
+      ],
+      "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what to pre-fetch."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "What the robot called it — for a mesh, the `package://` URI the URDF references, verbatim, the only string a developer can match against their own workspace. A file the URDF never names (an image a `.dae` loads for itself) is named by joining the mesh's own directory with that internal reference."
+    },
+    "media_type": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "The media type of the stored bytes, as the producer reported it."
+    },
+    "size_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "How large the stored file is, in bytes."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "The content hash, lowercase hex. Exposed because it is the only way a client can tell \"this is the same mesh I already have\" across robots — the reason two robots sharing a mesh cost one copy."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the asset was first stored, as an ISO 8601 timestamp."
+    }
+  },
+  "required": [
+    "id",
+    "robot_id",
+    "kind",
+    "name",
+    "media_type",
+    "size_bytes",
+    "sha256",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

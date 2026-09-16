@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256,
+      "description": "The password the new account will use."
+    },
+    "display_name": {
+      "description": "An optional name, overriding whatever the invitation pre-filled.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "token",
+    "password"
+  ],
+  "additionalProperties": false
+}

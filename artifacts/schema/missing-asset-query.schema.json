@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "The unresolved reference, as the URDF spelled it, echoed into the `404 asset_missing` message. Omitted, the message names `unknown` instead. It never changes the status.",
+      "type": "string"
+    }
+  },
+  "description": "The one optional parameter of the missing-asset placeholder; it names the reference in the refusal."
+}

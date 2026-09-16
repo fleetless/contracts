@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "params": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {},
+      "description": "The values this call needs, keyed by **parameter name** rather than by field path — so a name survives the field moving inside the message. Every parameter without a default must be present, and the bounds the configuration declares are enforced in the cloud, before anything reaches the robot."
+    },
+    "patience_ms": {
+      "description": "How long **this call** is worth waiting for, in milliseconds; absent means the platform default. The number travels to the robot too, so one deadline governs both sides. Above the maximum the call is refused rather than quietly clamped, because a caller given less than they asked for would read the timeout as the robot's failure.",
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 120000
+    }
+  },
+  "required": [
+    "params"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The address, unique per app case-insensitively. An address this app already knows is refused with `email_taken` — a developer-authenticated route may say so, unlike the public registration route."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256,
+      "description": "The initial password. At least 12 characters: length only, because a rule a user cannot predict is a rule they work around."
+    },
+    "display_name": {
+      "description": "Optional human name. Absent leaves it unset; an explicit `null` is the same end state.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "role_id": {
+      "description": "The role the new user holds. Absent means the app's `default_role_id`, and `409 target_state_conflict` when the app has none or its default no longer resolves; a role belonging to another app is `404 not_found`, the same refusal a role that never existed gets.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    }
+  },
+  "required": [
+    "email",
+    "password"
+  ],
+  "additionalProperties": false
+}

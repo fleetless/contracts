@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app_identifier": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app being logged in to: its globally unique, lowercase, underscore-separated identifier, chosen by the developer at creation. There is no organisation context at login, so this is what decides which app the credentials are checked for."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The app user's address. Addresses are unique **per app**, not across Fleetless: the same address may be an unrelated account in another app of the same organisation, so this pair is what identifies a person here."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The app user's password. A wrong pair is refused without saying which half was wrong — and a `blocked` or not-yet-verified account is refused identically, so a failed login is not an account-enumeration oracle in any of its three forms."
+    }
+  },
+  "required": [
+    "app_identifier",
+    "email",
+    "password"
+  ]
+}

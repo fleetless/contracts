@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The address to invite. Globally unique across Fleetless users, so an address already on another org's team is refused with `email_taken`."
+    },
+    "display_name": {
+      "description": "An optional name to pre-fill the account with; the invitee can change it afterwards.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "developer"
+      ],
+      "description": "The tier the invitee holds on acceptance. **Required, not defaulted** — \"I did not think about it\" and \"I meant developer\" would otherwise be the same request, on the field that decides who can remove whom. Inviting an owner requires the owner tier."
+    },
+    "send_mail": {
+      "type": "boolean",
+      "description": "Whether Fleetless mails the invitation. The link in the answer is the primary path either way: a deployment with no SMTP still issues invitations and says so through `mail`."
+    }
+  },
+  "required": [
+    "email",
+    "tier",
+    "send_mail"
+  ],
+  "additionalProperties": false
+}

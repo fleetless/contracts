@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "This viewer's hold, and the only thing a release should be given. Two tabs of one logged-in user are two holds; releasing without an id lets go of both and leaves the other tab rendering a stream the robot has already stopped producing."
+    },
+    "url": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The LiveKit server to connect to, as a WebSocket URL."
+    },
+    "room": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The LiveKit room carrying this camera. Every viewer of one camera on one robot joins the same room, which is what makes the refcount hold meaningful."
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The LiveKit access token to join `room` with. It is checked when the participant connects and **not again afterwards** — which is not the same as irrevocable: the cloud can still disconnect a participant after the fact, and does when membership, a role or a key changes."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "The deadline for **joining**, as an ISO 8601 timestamp — not a session backstop. A viewer who has already joined keeps receiving video past this moment, so cleanup belongs in an explicit release, never in a timer built on this value."
+    }
+  },
+  "required": [
+    "session_id",
+    "url",
+    "room",
+    "token",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

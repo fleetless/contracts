@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "description": "The handle for this provider, unique per app. Immutable once created — identities are keyed by it, so a rename would orphan every linked account."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "What the developer's sign-in page calls this provider."
+    },
+    "issuer": {
+      "type": "string",
+      "maxLength": 500,
+      "format": "uri",
+      "description": "The provider's issuer URL. Shape-checked here (http(s), no credentials, query or fragment); the authoritative SSRF defence is at the discovery fetch."
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The OAuth client registered at the provider for Fleetless."
+    },
+    "client_secret": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 500,
+      "description": "The client secret, **write-only**: it is stored encrypted and comes back through nothing — not the read, not this route's own answer, not an audit detail. Required on create, since a provider with no secret cannot exchange a code; the minimum length refuses a value that is a misconfiguration rather than a secret."
+    },
+    "scopes": {
+      "default": [
+        "openid",
+        "email",
+        "profile"
+      ],
+      "description": "The scopes to request. Defaults to `openid email profile`, which is what account linking actually reads: the subject, the address and its verified flag, and a name.",
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 60
+      }
+    },
+    "link_verified_emails": {
+      "default": false,
+      "description": "Whether a federated login may join an existing app user by verified address. **Defaults to off**, because relaxing later is additive and admitting duplicates now and tightening afterwards is not.",
+      "type": "boolean"
+    },
+    "enabled": {
+      "default": true,
+      "description": "Whether the provider is offered immediately. Defaults to on: a developer who just typed a client secret is configuring a provider they mean to use.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "slug",
+    "name",
+    "issuer",
+    "client_id",
+    "client_secret"
+  ],
+  "additionalProperties": false
+}

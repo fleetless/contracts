@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The role, and what an app user's `role_id` and an app's `default_role_id` refer to."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "The role's name, shown wherever a user's access is chosen. The two roles every app starts with are named `observe` and `operate`."
+          },
+          "builtin": {
+            "type": "boolean",
+            "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable — no route does that for any role."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "name",
+          "builtin"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The app's roles, built-in and custom alike, ordered by `created_at` and then by `name`. The tie-break is not cosmetic — the two built-in roles are inserted in one statement and share a creation time to the microsecond, so never read a role by position."
+    }
+  },
+  "required": [
+    "roles"
+  ],
+  "additionalProperties": false
+}

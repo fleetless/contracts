@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "present": {
+      "type": "boolean",
+      "description": "Whether a URDF has been synced at all. Whether one *could* be synced is a different question, answered by `urdf_available`."
+    },
+    "mesh_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "How many distinct meshes the URDF references."
+    },
+    "missing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "The reference, verbatim, that no stored asset answers — a `package://` URI the workspace does not hold, or an absolute or bare relative path nothing will ever fetch."
+          },
+          "element": {
+            "type": "string",
+            "enum": [
+              "mesh",
+              "texture"
+            ],
+            "description": "Which kind of reference it was: geometry the URDF names as a `mesh`, or a `texture` a surface paints with. Without it a client reports a missing texture as a missing mesh, contradicting `mesh_count` beside it."
+          }
+        },
+        "required": [
+          "uri",
+          "element"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The references nothing in the store answers, each with the element that asked for it. A bare count would send a developer hunting through the workspace by hand; the references are what they can act on."
+    }
+  },
+  "required": [
+    "present",
+    "mesh_count",
+    "missing"
+  ],
+  "additionalProperties": false
+}

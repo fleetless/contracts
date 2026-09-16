@@ -1,0 +1,26 @@
+{
+  // **Nothing in `test/` was typechecked here until 2026-08-19
+  // and it took a witness that could not fail to notice.**
+  //
+  // The root tsconfig is `include: ["src"]` with `rootDir: "src"`, because
+  // `pnpm build`'s emitted `dist/` has to mirror `src/` exactly. So `tsc
+  // --noEmit` collected zero files from here — `--listFiles | grep -c test/`
+  // measured 0 — and a type-level assertion in a test compiled nowhere. The
+  // break test for one such assertion reported success with the export it
+  // depended on removed.
+  //
+  // The two applications already carry this second project; the package whose
+  // whole purpose is to be the one place a shape is written down did not.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    // The test project needs what the build project does not: node
+    // (`node:fs`, `process`). `vite/client` would be the usual way to get
+    // `import.meta.glob`, but `vite` is not a package here — vitest brings it
+    // in transitively only. Rather than add a dependency nobody else needs,
+    // `test/vite-env.d.ts` declares the one function `barrel.test.ts` uses.
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../src/**/*.ts"]
+}

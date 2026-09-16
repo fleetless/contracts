@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The subject line, a Liquid template. Bounded because a subject is rendered into a header."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20000,
+      "description": "The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML."
+    },
+    "html": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "subject",
+    "text"
+  ],
+  "additionalProperties": false
+}

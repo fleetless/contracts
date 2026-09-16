@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: Apache-2.0
+import { describe, expect, it } from 'vitest'
+import {
+  fleetlessUser,
+  patchOrgRequest,
+  tierChangeRequest,
+  patchAuthMeRequest,
+} from '../src/identity.js'
+import { patchRobotRequest, renameSlugRequest } from '../src/rest.js'
+
+const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
+const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
+const NOW = '2026-08-10T20:00:00.000Z'
+
+describe('org, member and robot patches; slug rename', () => {
+  it('patchOrgRequest: strict, and pins the 120-char org-name bound', () => {
+    expect(patchOrgRequest.safeParse({ name: 'a'.repeat(120) }).success).toBe(true)
+    expect(patchOrgRequest.safeParse({ name: 'a'.repeat(121) }).success).toBe(false)
+    expect(patchOrgRequest.safeParse({ name: '' }).success).toBe(false)
+    // Extra key alongside a valid one: this measures strictness, not the
+    // required field — a lone typo would fail either way (see
+    // federation-and-grants.test.ts's note on the same trap).
+    expect(patchOrgRequest.safeParse({ name: 'Dehne Robotik', nam: 'x' }).success).toBe(false)
+  })
+
+  // `patchOrgMemberRequest` became `tierChangeRequest` on 2026-08-29: same
+  // act (owner-only, last-owner guard), new field name and new tier names.
+  it('tierChangeRequest: strict, and only the two known tiers', () => {
+    expect(tierChangeRequest.safeParse({ tier: 'owner' }).success).toBe(true)
+    expect(tierChangeRequest.safeParse({ tier: 'developer' }).success).toBe(true)
+    expect(tierChangeRequest.safeParse({ tier: 'admin' }).success).toBe(false)
+    expect(tierChangeRequest.safeParse({ tier: 'owner', tiers: ['owner'] }).success).toBe(false)
+  })
+
+  it('patchAuthMeRequest: strict, nullable, and pins the 120-char display_name bound', () => {
+    expect(patchAuthMeRequest.safeParse({ display_name: 'a'.repeat(120) }).success).toBe(true)
+    expect(patchAuthMeRequest.safeParse({ display_name: 'a'.repeat(121) }).success).toBe(false)
+    expect(patchAuthMeRequest.safeParse({ display_name: '' }).success).toBe(false)
+    expect(patchAuthMeRequest.safeParse({ display_name: null }).success).toBe(true)
+    expect(patchAuthMeRequest.safeParse({ display_name: null, display_nam: 'x' }).success).toBe(false)
+  })
+
+  it('patchRobotRequest: strict, and pins the 63-char robot-name bound', () => {
+    expect(patchRobotRequest.safeParse({ name: 'a'.repeat(63) }).success).toBe(true)
+    expect(patchRobotRequest.safeParse({ name: 'a'.repeat(64) }).success).toBe(false)
+    expect(patchRobotRequest.safeParse({ name: '' }).success).toBe(false)
+    expect(patchRobotRequest.safeParse({ name: 'ranger', names: 'ranger' }).success).toBe(false)
+  })
+
+  it('renameSlugRequest: strict, and refuses a non-slug `to`', () => {
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'rear_camera' }).success).toBe(true)
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'rear_camera', note: 'x' }).success).toBe(false)
+    // Shape only — not whether `to` collides with an existing slug on this
+    // robot or a built-in. That check lives once, behind the cloud's
+    // validation door, not duplicated here (see the doc comment on
+    // `renameSlugRequest`).
+    expect(renameSlugRequest.safeParse({ from: 'front_camera', to: 'Not A Slug' }).success).toBe(false)
+  })
+
+  /**
+   * **The design's main defence, pinned explicitly.** `fleetlessUser.display_name`
+   * (`orgMember`, then `orgUser`, now the team's own shape) is required
+   * (nullable, not optional) so a mapper from a database row to this shape
+   * must carry the column across — `.optional()`/`.nullish()` would let a
+   * mapper that forgot the column pass anyway, silently dropping it. This
+   * test goes red the moment requiredness is loosened; the fix report has
+   * the break-test run that confirmed it does.
+   */
+  it('fleetlessUser: display_name is required (nullable, not optional) — parsing without the key fails', () => {
+    const withKey = {
+      id: UUID,
+      org_id: UUID2,
+      email: 'a@b.de',
+      display_name: null,
+      tier: 'owner',
+      created_at: NOW,
+    }
+    expect(fleetlessUser.safeParse(withKey).success).toBe(true)
+
+    const { display_name: _drop, ...withoutKey } = withKey
+    expect(fleetlessUser.safeParse(withoutKey).success).toBe(false)
+  })
+})

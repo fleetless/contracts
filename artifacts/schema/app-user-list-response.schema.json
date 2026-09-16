@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app user in the API, assigned by the cloud and stable for the life of the account."
+          },
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app this user belongs to, and the whole of their scope. An app user of one app is nobody at another, even inside the same organisation."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address the account is identified by. Unique **per app**, case-insensitively — the same address may exist as an unrelated account in another app of the same organisation."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
+          },
+          "role_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The role that decides what this user may reach. Roles are the only visibility filter: what a role does not grant does not exist for that user."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_verification",
+              "active",
+              "blocked"
+            ],
+            "description": "Where the account is in its lifecycle. Only `active` may log in; `pending_verification` and `blocked` are both refused with the same `invalid_credentials` a wrong password gets, so a failed login is not an account-enumeration oracle."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether this account has a Fleetless-held password. `false` is an identity-provider-only account, or an invitation not yet accepted — it does not mean blocked and it does not mean without access. No hash, no algorithm and no \"last changed\" travels here, and nothing on the wire can say whether a password is strong or already known to somebody else."
+          },
+          "providers": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            },
+            "description": "The slugs of the identity providers this account is linked to, empty for a password-only user. Lets a developer's user list say where an account came from without a second request."
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When this user last signed in, or `null` if they never have. Required and nullable rather than optional, so *never logged in* stays distinguishable from *this field was not loaded*."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the account was created, as an ISO 8601 timestamp."
+          }
+        },
+        "required": [
+          "id",
+          "app_id",
+          "email",
+          "display_name",
+          "role_id",
+          "status",
+          "has_password",
+          "providers",
+          "last_login_at",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every user of this app. An app with no users answers an empty array, not an absent key."
+    }
+  },
+  "required": [
+    "users"
+  ],
+  "additionalProperties": false
+}

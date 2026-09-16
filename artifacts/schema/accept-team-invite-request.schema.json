@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The opaque invitation token from the link. Unknown, expired and already-accepted all collapse into `410 token_spent` — telling them apart would say whether a token ever existed."
+    },
+    "password": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 256,
+      "description": "The password the new Fleetless account will use. At least 12 characters."
+    }
+  },
+  "required": [
+    "token",
+    "password"
+  ],
+  "additionalProperties": false
+}

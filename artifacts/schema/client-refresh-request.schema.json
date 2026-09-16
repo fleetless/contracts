@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "refresh_token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The refresh token from the last login or refresh. Refresh tokens rotate on every use, so the value sent here is spent — keep the one that comes back, and presenting a spent one is treated as theft and ends the whole family."
+    }
+  },
+  "required": [
+    "refresh_token"
+  ]
+}

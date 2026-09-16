@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "propertyNames": {
+    "type": "string",
+    "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+  },
+  "additionalProperties": {
+    "anyOf": [
+      {
+        "type": "string",
+        "maxLength": 4096
+      },
+      {
+        "type": "number"
+      },
+      {
+        "type": "boolean"
+      },
+      {
+        "type": "array",
+        "items": {}
+      },
+      {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    ]
+  }
+}

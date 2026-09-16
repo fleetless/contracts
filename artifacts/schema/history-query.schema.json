@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "from": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "description": "The start of the window: either a relative expression — `now-30s`, `now-5m`, `now-1h` — or absolute unix milliseconds. A chart asks the first way and a report asks the second, and making a client convert would be making it guess our clock."
+    },
+    "to": {
+      "description": "The end of the window, in the same two spellings as `from`; absent means now. The window is half-open, `[from, to)`, so a sample landing exactly on `to` belongs to the next window and adjacent windows tile without double-counting.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "window": {
+      "description": "The bucket width, such as `10s` or `1m`. Absent means raw samples. It is meaningless without `agg`, and the pair is refused apart rather than defaulted — a silently chosen aggregation is a chart that lies quietly.",
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 16
+    },
+    "agg": {
+      "description": "How each bucket reduces the samples inside it. Valid only together with `window`.",
+      "type": "string",
+      "enum": [
+        "min",
+        "max",
+        "avg"
+      ]
+    },
+    "field": {
+      "description": "A dotted path to a numeric field inside an object value, such as `pose.x`. Without it the datapoint's value is used whole, which only works when it is already a number.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "limit": {
+      "description": "The most samples or buckets to return, from `1` to `10000`. It arrives as text on the query string, so both a numeric string and a number are accepted; the ceiling is enforced after parsing rather than by the published shape.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,5}$",
+          "description": "Positive integer, 1-10000. The pattern only bounds digit count; the real ceiling is enforced after parsing."
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "Positive integer, 1-10000. The ceiling is enforced after parsing, not by this type."
+        }
+      ]
+    }
+  },
+  "required": [
+    "from"
+  ]
+}

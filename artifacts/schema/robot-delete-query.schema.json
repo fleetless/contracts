@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "force": {
+      "description": "Pass `true` to delete a robot that has a live session open; without it that is `409 robot_in_use`. **`true` and nothing else** — any other value is `400 validation_error`, reported against the field `force` with rule `invalid_value`, so a caller is never left believing they forced a deletion they did not. The deletion is a full cascade, which is why saying it is the whole decision.",
+      "type": "string",
+      "const": "true"
+    }
+  },
+  "description": "The one optional parameter of `DELETE /api/robots/:id`, and it is the difference between a refusal and a cascade. It accepts the exact string `true`, or its own absence, and refuses everything else."
+}

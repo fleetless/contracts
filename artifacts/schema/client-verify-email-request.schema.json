@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The opaque token from the verification link, valid 24 hours. Unknown, expired and already-spent all answer `410 token_spent` — telling them apart would say whether a token ever existed."
+    }
+  },
+  "required": [
+    "token"
+  ],
+  "additionalProperties": false
+}

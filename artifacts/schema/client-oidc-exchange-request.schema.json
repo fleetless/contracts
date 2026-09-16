@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The one-time code from the callback redirect. Valid 60 seconds, single-use, and bound to the PKCE challenge the start step carried."
+    },
+    "code_verifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.~-]{43,128}$",
+      "description": "The verifier for the challenge sent at `start`. RFC 7636 §4.1's alphabet and length."
+    }
+  },
+  "required": [
+    "code",
+    "code_verifier"
+  ],
+  "additionalProperties": false
+}
