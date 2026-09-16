@@ -7,6 +7,10 @@ the wire shapes.
 
 ## [Unreleased]
 
+## [1.0.6] — 2026-09-16
+
+- Published from GitHub Actions by npm trusted publishing: no publish token exists anywhere, and every version from this one on carries a provenance attestation linking it to the commit and the run that built it. `npm audit signatures` checks it.
+
 - **The README is a lobby now.** Who the package is for, what is in the box, the two schema directories and which one to validate against, versioning, and links into docs.fleetless.dev. No wire shape changes.
 - The prose guard treats a path into the company-site repository the way it treats every other sibling repository's path. No wire shape changes.
 
