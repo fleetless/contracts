@@ -528,6 +528,8 @@ export type {
   McpConsentGrantListResponse,
   ClientIdentity,
 } from './client-auth.js'
+export { clientRobotListItem, clientRobotListResponse } from './client-robots.js'
+export type { ClientRobotListItem, ClientRobotListResponse } from './client-robots.js'
 // The per-app identity space.
 export {
   APP_USER_DISPLAY_NAME_MAX,

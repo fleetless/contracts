@@ -127,6 +127,7 @@ import {
   mcpConsentGrantListResponse,
   clientIdentity,
 } from '../src/client-auth.js'
+import { clientRobotListItem, clientRobotListResponse } from '../src/client-robots.js'
 import {
   appUser,
   appUserListResponse,
@@ -399,6 +400,11 @@ export const exportedSchemas = {
   'mcp-consent-grant': mcpConsentGrant,
   'mcp-consent-grant-list-response': mcpConsentGrantListResponse,
   'client-identity': clientIdentity,
+  // The robots an app user reaches, as `GET /api/client/robots` lists them —
+  // the REST twin of `robots_list`. Its datasheet twin answers
+  // `mcp-robot-datasheet`, registered above with the MCP shapes.
+  'client-robot-list-item': clientRobotListItem,
+  'client-robot-list-response': clientRobotListResponse,
   'audit-actor': auditActor,
   'audit-event': auditEvent,
   'audit-list-response': auditListResponse,
@@ -713,6 +719,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'client-mcp-interaction-decision-response',
   'mcp-consent-grant', 'mcp-consent-grant-list-response',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',
+  'client-robot-list-item', 'client-robot-list-response',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
