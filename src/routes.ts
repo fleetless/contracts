@@ -62,6 +62,7 @@ import {
   clientVerifyEmailRequest,
   mcpConsentGrantListResponse,
 } from './client-auth.js'
+import { clientRobotListResponse } from './client-robots.js'
 import {
   appAuthConfig,
   appInvitation,
@@ -107,7 +108,7 @@ import {
   waitlistRequest,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
-import { MCP_APP_PATHS, mcpRolePreviewResponse } from './mcp.js'
+import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
   dynamicClientRegistrationRequest,
@@ -2121,6 +2122,36 @@ export const ROUTES: readonly RouteEntry[] = [
       'a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is ' +
       '`404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs ' +
       'told apart. The plane built-ins (`bridge_state`, `robot_details`) answer here too, without appearing in any document.',
+  },
+
+  /* ------------------------------------------ discovery: the REST twins of the two MCP tools a session starts from */
+  {
+    method: 'GET', path: '/api/client/robots', section: 'robots',
+    summary: 'Lists the robots the caller reaches, with bridge state and the published configuration version.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: clientRobotListResponse,
+    errors: [...CLIENT_GUARD], transport: 'http',
+    notes:
+      '**The REST twin of the MCP tool `robots_list`**, and the one robot question no robot-scoped route can answer: which robots may I name ' +
+      'at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees ' +
+      'every robot its app attaches; a developer bearer sees the organisation\'s robots. Name order, id as the tiebreak. A robot on which the ' +
+      'role grants nothing is absent rather than listed empty — the same answer `robots_list` gives, for the same reason: reach is a grant, ' +
+      'not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`.',
+  },
+  {
+    method: 'GET', path: '/api/robots/:id/datasheet', section: 'robots',
+    summary: 'Describes everything the caller\'s role lets them do on one robot, with parameter schemas.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as `GET /api/client/robots` lists it.' }],
+    query: null, request: null, response: mcpRobotDatasheet,
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      '**The REST twin of the MCP tool `robot_describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
+      'role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, ' +
+      '`action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller ' +
+      'does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that ' +
+      'does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, ' +
+      'services, publishers and capabilities, which is what an app needs before it can draw a screen.',
   },
 
   /* ------------------------------------------------- config (draft/publish) */

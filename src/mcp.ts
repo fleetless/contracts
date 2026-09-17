@@ -189,7 +189,12 @@ export const mcpCapabilities = z.object({
 })
 export type McpCapabilities = z.infer<typeof mcpCapabilities>
 
-/** What one caller may do on one robot — the answer to `robot_describe`. */
+/**
+ * What one caller may do on one robot — the answer to `robot_describe`, and
+ * since 1.1.0 to `GET /api/robots/:id/datasheet` as well. One schema for both
+ * surfaces on purpose: an app and an AI tool read the same description of the
+ * same grant. The `mcp` prefix is history, not scope.
+ */
 export const mcpRobotDatasheet = z.object({
   robot_id: z.uuid(),
   robot_name: z.string().min(1).max(200),

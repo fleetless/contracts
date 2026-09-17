@@ -5446,6 +5446,104 @@
         "description": "For a client caller the grant check runs **before** any existence lookup, with no extra query on either path to time: a denied slug and a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is `404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs told apart. The plane built-ins (`bridge_state`, `robot_details`) answer here too, without appearing in any document."
       }
     },
+    "/api/client/robots": {
+      "get": {
+        "operationId": "get_api_client_robots",
+        "summary": "Lists the robots the caller reaches, with bridge state and the published configuration version.",
+        "tags": [
+          "robots"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          },
+          {
+            "clientToken": []
+          },
+          {
+            "serverKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/client-robot-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The REST twin of the MCP tool `robots_list`**, and the one robot question no robot-scoped route can answer: which robots may I name at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees every robot its app attaches; a developer bearer sees the organisation's robots. Name order, id as the tiebreak. A robot on which the role grants nothing is absent rather than listed empty — the same answer `robots_list` gives, for the same reason: reach is a grant, not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`."
+      }
+    },
+    "/api/robots/{id}/datasheet": {
+      "get": {
+        "operationId": "get_api_robots_id_datasheet",
+        "summary": "Describes everything the caller's role lets them do on one robot, with parameter schemas.",
+        "tags": [
+          "robots"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          },
+          {
+            "clientToken": []
+          },
+          {
+            "serverKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The robot's uuid, as `GET /api/client/robots` lists it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/mcp-robot-datasheet"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**The REST twin of the MCP tool `robot_describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
+      }
+    },
     "/api/robots/{id}/config/draft": {
       "get": {
         "operationId": "get_api_robots_id_config_draft",
@@ -10395,6 +10493,88 @@
         ],
         "additionalProperties": false
       },
+      "client-robot-list-response": {
+        "type": "object",
+        "properties": {
+          "robots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot, and what every robot-scoped route takes as its `:id`."
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 63,
+                  "description": "The robot's display name, at most 63 characters. Free text, changed through `PATCH /api/robots/:id`."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the robot was created, as an ISO 8601 timestamp."
+                },
+                "bridge_state": {
+                  "type": "object",
+                  "properties": {
+                    "online": {
+                      "type": "boolean"
+                    },
+                    "latency_ms": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "online",
+                    "latency_ms"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The built-in `bridge_state` datapoint as the cloud observes it right now: whether the bridge is connected, and its latency when it is."
+                },
+                "published_version": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The published configuration version, or `null` when nothing has been published yet. A robot with nothing published is still listed — \"not configured yet\" is a real state, and the caller is entitled to it — and its datasheet answers an empty exposure list."
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "created_at",
+                "bridge_state",
+                "published_version"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Every robot the caller reaches, in name order with the id as the tiebreak. An app user reaches the robots their app attaches on which their role grants at least one slug or capability; a server key reaches every robot its app attaches; a developer reaches every robot of the organisation."
+          }
+        },
+        "required": [
+          "robots"
+        ],
+        "additionalProperties": false
+      },
       "client-verify-email-request": {
         "type": "object",
         "properties": {
@@ -14443,6 +14623,120 @@
         },
         "required": [
           "grants"
+        ],
+        "additionalProperties": false
+      },
+      "mcp-robot-datasheet": {
+        "type": "object",
+        "properties": {
+          "robot_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "robot_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "action_history": {
+                "type": "boolean"
+              },
+              "assets": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "action_history",
+              "assets"
+            ],
+            "additionalProperties": false
+          },
+          "exposures": {
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 63,
+                  "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "datapoint",
+                    "service",
+                    "action",
+                    "publisher",
+                    "camera"
+                  ]
+                },
+                "description": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unit": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "decimals": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "input_schema": {
+                  "anyOf": [
+                    {},
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "slug",
+                "kind",
+                "description",
+                "unit",
+                "decimals",
+                "input_schema"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "robot_id",
+          "robot_name",
+          "capabilities",
+          "exposures"
         ],
         "additionalProperties": false
       },

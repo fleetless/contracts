@@ -7,6 +7,12 @@ the wire shapes.
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-17
+
+### Added
+
+- **Two discovery routes for app users**, the REST twins of the MCP tools every session starts from: `GET /api/client/robots` lists the robots the caller reaches (`clientRobotListResponse`, new), and `GET /api/robots/:id/datasheet` answers the same `mcpRobotDatasheet` that `robot_describe` does — every granted slug with its kind, unit, decimals and parameter JSON Schema, plus the `action_history` and `assets` capabilities. No existing wire shape changes.
+
 ## [1.0.6] — 2026-09-16
 
 - Published from GitHub Actions by npm trusted publishing: no publish token exists anywhere, and every version from this one on carries a provenance attestation linking it to the commit and the run that built it. `npm audit signatures` checks it.
