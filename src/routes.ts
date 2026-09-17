@@ -445,6 +445,15 @@ export const ROUTES: readonly RouteEntry[] = [
       'and splitting them here would tell a stranger which tokens ever existed. No rate limiter: the GET changes nothing, and the POST it ' +
       'leads to is limited per IP.',
   },
+  {
+    method: 'GET', path: '/favicon.svg', section: 'client-auth',
+    summary: 'Serves the Fleetless icon for the auth portal\'s and the MCP welcome page\'s browser tab.',
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
+    notes:
+      'An SVG, not JSON. Those pages carry a Content-Security-Policy that admits no `data:` image, so the icon is a file on their own ' +
+      'origin — the one source `img-src \'self\'` names. Cached for a day: the bytes change when the brand does, not per deploy.',
+  },
 
   {
     method: 'POST', path: '/api/auth/password/reset/confirm', section: 'developer-auth',
