@@ -230,18 +230,20 @@ describe('the token endpoint', () => {
     code_verifier: 'a'.repeat(43),
   }
 
-  it('accepts the one grant either server serves, and refuses every other', () => {
+  it('accepts both grants either MCP server serves, and refuses every other', () => {
     expect(oauthTokenRequest.safeParse(code).success).toBe(true)
-    // **`refresh_token` was a branch of this schema and had no producer.**
-    // `exchangeMcpAuthorizationCode` refuses anything but `authorization_code`
-    // before a lookup happens, and both token endpoints go through it; an app
-    // user's refresh is `POST /api/client/refresh` with `refreshRequest`, a
-    // different wire on a different route. Documenting the branch told every
-    // reader of `/openapi.json` that a grant works which answers
-    // `unsupported_grant_type`.
+    // **`refresh_token` is back, with a producer this time**: both MCP token
+    // endpoints rotate a refresh token (cloud 0.20.0). `client_id` is
+    // required because a refresh token is bound to the client it was minted
+    // for; `resource` is RFC 8707's and optional, as on the code exchange.
+    const refreshed = oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r', client_id: 'c_abc' })
+    expect(refreshed.success).toBe(true)
+    expect(refreshed.success && refreshed.data.grant_type).toBe('refresh_token')
     expect(
-      oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r', client_id: 'c_abc' }).success,
-    ).toBe(false)
+      oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r', client_id: 'c_abc', resource: 'https://api.example.test/mcp' }).success,
+    ).toBe(true)
+    expect(oauthTokenRequest.safeParse({ grant_type: 'refresh_token', client_id: 'c_abc' }).success).toBe(false)
+    expect(oauthTokenRequest.safeParse({ grant_type: 'refresh_token', refresh_token: 'r' }).success).toBe(false)
     // OAuth 2.1 removes the password grant. A shape that admits it is a shape
     // that will be handed one.
     expect(

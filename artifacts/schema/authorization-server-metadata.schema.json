@@ -39,7 +39,7 @@
           "refresh_token"
         ]
       },
-      "description": "The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here."
+      "description": "The grants this server offers: `authorization_code` and `refresh_token`. OAuth 2.1 removes the implicit and password grants, so neither appears here."
     },
     "code_challenge_methods_supported": {
       "type": "array",

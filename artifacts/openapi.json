@@ -3382,7 +3382,7 @@
             }
           }
         },
-        "description": "RFC 7591. **The request schema is what this endpoint accepts, not what it parses**: the handler reads the body field by field, because §3.2.2 distinguishes `invalid_redirect_uri` from `invalid_client_metadata` and one `safeParse` failure cannot say which of the two a caller earned. The shape is deliberately **not** strict, which is the schema agreeing with §3.1 rather than a gap in it — a conforming client sends `client_uri`, `logo_uri` and `software_id`, and both the schema and the server ignore them. `client_name` and `redirect_uris` are the two fields read; `grant_types`, `response_types` and `scope` are accepted and ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — this authorization server issues `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`.",
+        "description": "RFC 7591. **The request schema is what this endpoint accepts, not what it parses**: the handler reads the body field by field, because §3.2.2 distinguishes `invalid_redirect_uri` from `invalid_client_metadata` and one `safeParse` failure cannot say which of the two a caller earned. The shape is deliberately **not** strict, which is the schema agreeing with §3.1 rather than a gap in it — a conforming client sends `client_uri`, `logo_uri` and `software_id`, and both the schema and the server ignore them. `client_name` and `redirect_uris` are the two fields read; `grant_types`, `response_types` and `scope` are accepted and ignored. What comes back is what was actually granted, which §3.2.1 allows a server to substitute — this authorization server grants `authorization_code` and `refresh_token` to every registration. The registration carries a TTL. Refusals are `oauthError`; the rate limiter answers `apiError`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3522,7 +3522,7 @@
             }
           }
         },
-        "description": "Only `authorization_code` is supported — there is no refresh grant here, so a session ends when its token expires and the client signs in again. Refusals are RFC 6749 §5.2's `oauthError`, so this route emits none of the codes in this reference. The response carries no `refresh_token`; the shape is the same `oauthTokenResponse` the app flow answers, whose refresh field is optional. The code is single-use, PKCE-verified, and its `resource` must match the audience it was authorized for.",
+        "description": "`authorization_code` mints an `mcp_session` access token bound to the central resource and a refresh token; `refresh_token` rotates that pair, and the presented refresh token is consumed — a second presentation revokes the session, as on `/api/auth/refresh`. The refresh token lives ninety days from its last use and is bound to the `client_id` it was issued to. A refresh re-reads the Fleetless user, so a removed account cannot refresh. Refusals are RFC 6749 §5.2's `oauthError`, so this route emits none of the codes in this reference. The code is single-use, PKCE-verified, and its `resource` must match the audience it was authorized for; a `resource` on a refresh must match the session's audience, and is checked before the token is consumed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3814,7 +3814,7 @@
             }
           }
         },
-        "description": "RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — one implementation, because a second answer to \"is this redirect URI acceptable\" would agree with the first only by luck. The request schema is what the endpoint accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, and what comes back is what was actually granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here authorizes at this app's endpoint and nowhere else, so a client registered against one app cannot walk into another's authorize with it, and a developer who switches MCP off is not left with strangers' registrations valid somewhere adjacent. \n\nRefusals are `oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the switch off, mirroring the two metadata documents this endpoint is discovered from — a client that could not read those has no business registering here, and giving it a third distinct answer would only tell it something the documents deliberately do not.",
+        "description": "RFC 7591, the same wire and the same handler as `POST /mcp/oauth/register` — one implementation, because a second answer to \"is this redirect URI acceptable\" would agree with the first only by luck. The request schema is what the endpoint accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, and what comes back is what was actually granted, which §3.2.1 allows — this authorization server grants `authorization_code` and `refresh_token` to every registration. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here authorizes at this app's endpoint and nowhere else, so a client registered against one app cannot walk into another's authorize with it, and a developer who switches MCP off is not left with strangers' registrations valid somewhere adjacent. \n\nRefusals are `oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the switch off, mirroring the two metadata documents this endpoint is discovered from — a client that could not read those has no business registering here, and giving it a third distinct answer would only tell it something the documents deliberately do not.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3973,7 +3973,7 @@
             }
           }
         },
-        "description": "Only `authorization_code`, PKCE-verified and single-use. There is no refresh grant here either, so a session ends when its token expires and the client signs in again; the shape is the same `oauthTokenResponse` the central endpoint answers, whose refresh field is optional and stays empty. **The `aud` is this app's endpoint URL on the canonical public base**, and the code's `resource` must match it — that is the whole of what stops a token minted for one app being spent at another's endpoint. \n\n**Every refusal is RFC 6749 §5.2's `oauthError`, so this route emits none of the codes in this reference — including the ones about the app.** An unknown identifier and a switched-off app are `invalid_client` here, not the `404` and `403` the authorize route beside it answers. The difference is who reads the answer: authorize is walked by a browser and its refusal is read by a person, while this endpoint is called by a client's own code in the middle of a flow, and handing that code an envelope its OAuth library cannot parse turns a clean refusal into an unexplained crash.",
+        "description": "`authorization_code`, PKCE-verified and single-use, and `refresh_token`, which rotates the pair the exchange minted; the refresh token lives ninety days from its last use, is bound to its client and to this app, and a refresh re-reads the app user's status and their standing consent to the client, so a block or a withdrawn consent ends the session at its next refresh at the latest. **The `aud` is this app's endpoint URL on the canonical public base**, and the code's `resource` must match it — that is the whole of what stops a token minted for one app being spent at another's endpoint. \n\n**Every refusal is RFC 6749 §5.2's `oauthError`, so this route emits none of the codes in this reference — including the ones about the app.** An unknown identifier and a switched-off app are `invalid_client` here, not the `404` and `403` the authorize route beside it answers. The difference is who reads the answer: authorize is walked by a browser and its refusal is read by a person, while this endpoint is called by a client's own code in the middle of a flow, and handing that code an envelope its OAuth library cannot parse turns a clean refusal into an unexplained crash.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9953,7 +9953,7 @@
                 "refresh_token"
               ]
             },
-            "description": "The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here."
+            "description": "The grants this server offers: `authorization_code` and `refresh_token`. OAuth 2.1 removes the implicit and password grants, so neither appears here."
           },
           "code_challenge_methods_supported": {
             "type": "array",
@@ -13200,7 +13200,7 @@
             ]
           },
           "grant_types": {
-            "description": "Accepted for conformance with RFC 7591 and then **ignored**. What comes back is what was actually granted, which §3.2.1 permits a server to substitute: `authorization_code` and nothing else, so a client that asks for `refresh_token` is registered and told plainly that it did not get one.",
+            "description": "Accepted for conformance with RFC 7591 and then **ignored**: both MCP authorization servers grant `authorization_code` and `refresh_token` to every registration, and the answer states what was granted (§3.2.1) rather than what was asked.",
             "type": "array",
             "items": {
               "type": "string",
@@ -13260,7 +13260,7 @@
             "items": {
               "type": "string"
             },
-            "description": "The grants this client may use. Always exactly `[\"authorization_code\"]` — a client that asked for `refresh_token` is registered and told here that it did not get one, which is the substitution RFC 7591 §3.2.1 permits."
+            "description": "The grants this client may use. Always exactly `[\"authorization_code\", \"refresh_token\"]` — an exchange mints a refresh token and the token endpoint rotates it."
           },
           "response_types": {
             "type": "array",
@@ -14874,50 +14874,88 @@
         "additionalProperties": false
       },
       "oauth-token-request": {
-        "type": "object",
-        "properties": {
-          "grant_type": {
-            "type": "string",
-            "const": "authorization_code",
-            "description": "Always `authorization_code`: this request exchanges the code from the authorize redirect for tokens. Any other value — `refresh_token` included — is `unsupported_grant_type`, refused before the code is looked up."
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "grant_type": {
+                "type": "string",
+                "const": "authorization_code",
+                "description": "`authorization_code`: this request exchanges the code from the authorize redirect for an access token and a refresh token."
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "description": "The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets."
+              },
+              "redirect_uri": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
+              },
+              "client_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "The client making the exchange, as registered."
+              },
+              "code_verifier": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
+                "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
+              },
+              "resource": {
+                "description": "The resource the token is requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code's own audience stands. It becomes the token's `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app's endpoint.",
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "grant_type",
+              "code",
+              "redirect_uri",
+              "client_id",
+              "code_verifier"
+            ],
+            "description": "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too."
           },
-          "code": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500,
-            "description": "The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets."
-          },
-          "redirect_uri": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000,
-            "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
-          },
-          "client_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "The client making the exchange, as registered."
-          },
-          "code_verifier": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
-            "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
-          },
-          "resource": {
-            "description": "The resource the token is requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code's own audience stands. It becomes the token's `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app's endpoint.",
-            "type": "string",
-            "format": "uri"
+          {
+            "type": "object",
+            "properties": {
+              "grant_type": {
+                "type": "string",
+                "const": "refresh_token",
+                "description": "`refresh_token`: this request rotates a refresh token into a new access token and a new refresh token. The presented token is consumed; presenting it again revokes the whole session."
+              },
+              "refresh_token": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "description": "The refresh token from the last token response. Bound to the client that received it and to one identity space: presented by another client, or at the other MCP server, it is `invalid_grant` and stays unconsumed."
+              },
+              "client_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "The client the refresh token was issued to, as registered. A refresh token is not transferable between clients."
+              },
+              "resource": {
+                "description": "The resource the new token is for, per RFC 8707. Optional; when named it must be the audience the session was issued for, or the answer is `invalid_target` and the refresh token is left untouched. The successor carries the same audience either way.",
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "grant_type",
+              "refresh_token",
+              "client_id"
+            ],
+            "description": "RFC 6749 §6's refresh, as either MCP authorization server reads it. Every use rotates: the answer carries a new refresh token and the presented one is dead."
           }
-        },
-        "required": [
-          "grant_type",
-          "code",
-          "redirect_uri",
-          "client_id",
-          "code_verifier"
         ],
-        "description": "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too."
+        "description": "What an MCP token endpoint accepts: the authorization-code exchange, or a refresh. Any other `grant_type` is `unsupported_grant_type`, refused before a lookup happens."
       },
       "oauth-token-response": {
         "type": "object",
@@ -14939,7 +14977,7 @@
             "description": "How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds."
           },
           "refresh_token": {
-            "description": "The refresh token, when one was issued. It rotates on every use.",
+            "description": "The refresh token. Both MCP token endpoints issue one on every exchange and every refresh; it rotates on every use, lives ninety days from its last use, and dies with the account's sessions — a block, a password change, a withdrawn consent. The console's own OAuth portal issues none.",
             "type": "string",
             "minLength": 1
           },

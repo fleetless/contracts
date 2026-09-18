@@ -1250,8 +1250,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'caller earned. The shape is deliberately **not** strict, which is the schema agreeing with §3.1 rather than a gap in it — a conforming ' +
       'client sends `client_uri`, `logo_uri` and `software_id`, and both the schema and the server ignore them. `client_name` and ' +
       '`redirect_uris` are the two fields read; `grant_types`, `response_types` and `scope` are accepted and ignored. What comes back is what ' +
-      'was actually granted, which §3.2.1 allows a server to substitute — this authorization server issues `authorization_code` only, so a ' +
-      'client that asked for `refresh_token` is registered and told plainly that it did not get one. The registration carries a TTL. Refusals ' +
+      'was actually granted, which §3.2.1 allows a server to substitute — this authorization server grants `authorization_code` and ' +
+      '`refresh_token` to every registration. The registration carries a TTL. Refusals ' +
       'are `oauthError`; the rate limiter answers `apiError`.',
   },
   {
@@ -1332,10 +1332,11 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
     errors: [], transport: 'http',
     notes:
-      'Only `authorization_code` is supported — there is no refresh grant here, so a session ends when its token expires and the client signs ' +
-      'in again. Refusals are RFC 6749 §5.2\'s `oauthError`, so this route emits none of the codes in this reference. The response carries no ' +
-      '`refresh_token`; the shape is the same `oauthTokenResponse` the app flow answers, whose refresh field is optional. The code is ' +
-      'single-use, PKCE-verified, and its `resource` must match the audience it was authorized for.',
+      '`authorization_code` mints an `mcp_session` access token bound to the central resource and a refresh token; `refresh_token` rotates that pair, ' +
+      'and the presented refresh token is consumed — a second presentation revokes the session, as on `/api/auth/refresh`. The refresh token lives ninety days ' +
+      'from its last use and is bound to the `client_id` it was issued to. A refresh re-reads the Fleetless user, so a removed account cannot refresh. ' +
+      'Refusals are RFC 6749 §5.2\'s `oauthError`, so this route emits none of the codes in this reference. The code is single-use, PKCE-verified, and its ' +
+      '`resource` must match the audience it was authorized for; a `resource` on a refresh must match the session\'s audience, and is checked before the token is consumed.',
   },
 
   /* ------------------------------- developer auth (the console\'s OAuth portal) */
@@ -1577,8 +1578,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'accepts rather than what it parses, for the reason that row gives: §3.2.2 needs two distinguishable refusals and one `safeParse` ' +
       'failure offers one. `client_name` and `redirect_uris` are read; `grant_types`, `response_types` and `scope` are accepted and ignored, ' +
       'and what comes back is what was actually ' +
-      'granted, which §3.2.1 allows — `authorization_code` only, so a client that asked for `refresh_token` is registered and told plainly ' +
-      'that it did not get one. The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here ' +
+      'granted, which §3.2.1 allows — this authorization server grants `authorization_code` and `refresh_token` to every registration. ' +
+      'The registration carries a TTL. \n\n**The registration is scoped to this app.** A `client_id` minted here ' +
       'authorizes at this app\'s endpoint and nowhere else, so a client registered against one app cannot walk into another\'s authorize with ' +
       'it, and a developer who switches MCP off is not left with strangers\' registrations valid somewhere adjacent. \n\nRefusals are ' +
       '`oauthError`; the rate limiter and `404 not_found` answer `apiError`. That `404` covers an unknown identifier **and** an app with the ' +
@@ -1619,9 +1620,8 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [APP_IDENTIFIER], query: null, request: oauthTokenRequest, response: oauthTokenResponse,
     errors: [], transport: 'http',
     notes:
-      'Only `authorization_code`, PKCE-verified and single-use. There is no refresh grant here either, so a session ends when its token ' +
-      'expires and the client signs in again; the shape is the same `oauthTokenResponse` the central endpoint answers, whose refresh field is ' +
-      'optional and stays empty. **The `aud` is this app\'s endpoint URL on the canonical public base**, and the code\'s `resource` must match ' +
+      '`authorization_code`, PKCE-verified and single-use, and `refresh_token`, which rotates the pair the exchange minted; the refresh token lives ninety days from its last use, is bound to its client and to this app, and a refresh re-reads the app user\'s status and their standing consent to the client, so a block or a withdrawn consent ends the session at its next refresh at the latest. ' +
+      '**The `aud` is this app\'s endpoint URL on the canonical public base**, and the code\'s `resource` must match ' +
       'it — that is the whole of what stops a token minted for one app being spent at another\'s endpoint. \n\n**Every refusal is RFC 6749 ' +
       '§5.2\'s `oauthError`, so this route emits none of the codes in this reference — including the ones about the app.** An unknown ' +
       'identifier and a switched-off app are `invalid_client` here, not the `404` and `403` the authorize route beside it answers. The ' +

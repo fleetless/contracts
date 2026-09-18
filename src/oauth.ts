@@ -197,7 +197,7 @@ export const dynamicClientRegistrationRequest = z
       description: '`none`, RFC 7591\'s value for a public client, and the only value either server registers. Any other value is **refused rather than silently downgraded**: a client that believes it holds a secret and does not has a wrong mental model of its own security. There is no client secret to hold — mandatory PKCE (`S256`) is the defence.',
     }),
     grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional().meta({
-      description: 'Accepted for conformance with RFC 7591 and then **ignored**. What comes back is what was actually granted, which §3.2.1 permits a server to substitute: `authorization_code` and nothing else, so a client that asks for `refresh_token` is registered and told plainly that it did not get one.',
+      description: 'Accepted for conformance with RFC 7591 and then **ignored**: both MCP authorization servers grant `authorization_code` and `refresh_token` to every registration, and the answer states what was granted (§3.2.1) rather than what was asked.',
     }),
     response_types: z.array(z.enum(['code'])).optional().meta({
       description: 'Accepted for conformance and then **ignored**; the response names `code`, which is the only response type OAuth 2.1 leaves, the implicit grant having been removed.',
@@ -222,7 +222,7 @@ export const dynamicClientRegistrationResponse = z.object({
     description: 'The redirect URIs this registration was accepted for. A code is returned to one of these and nowhere else.',
   }),
   grant_types: z.array(z.string()).meta({
-    description: 'The grants this client may use. Always exactly `["authorization_code"]` — a client that asked for `refresh_token` is registered and told here that it did not get one, which is the substitution RFC 7591 §3.2.1 permits.',
+    description: 'The grants this client may use. Always exactly `["authorization_code", "refresh_token"]` — an exchange mints a refresh token and the token endpoint rotates it.',
   }),
   response_types: z.array(z.string()).meta({
     description: 'The response types this client may ask for: `code`.',
@@ -240,26 +240,20 @@ export const dynamicClientRegistrationResponse = z.object({
 export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegistrationResponse>
 
 /**
- * **The MCP token endpoint's request — one grant, because the servers serve
- * one.**
+ * **The MCP token endpoint's request — two grants, one per half of a
+ * session.**
  *
- * Both authorization servers, central and per-app, exchange through one
- * implementation, whose first act is to refuse anything but
- * `authorization_code` before a single lookup happens. There is no refresh grant here: a session ends when its token
- * expires and the client signs in again.
+ * `authorization_code` mints the first access token and a refresh token;
+ * `refresh_token` rotates that refresh token into a new pair. Both MCP
+ * authorization servers, central and per-app, answer both; the console's own
+ * OAuth portal answers the code grant only.
  *
- * **This was a `discriminatedUnion` with a `refresh_token` branch, and that
- * branch had no producer left.** It described the app-level OAuth surface,
- * which is deleted; an app user's refresh runs through `POST
- * /api/client/refresh` and `refreshRequest`, a different wire on a different
- * route. Keeping it would have published, to every MCP client author reading
- * `/openapi.json`, a grant the endpoint answers `unsupported_grant_type` to.
- * The argument the branch carried is worth keeping even though the branch is
- * not: **RFC 8707's `resource` has to survive rotation**, because a refresh
- * that drops the audience mints a successor with no `aud`, and the validating
- * resource then refuses a token the caller obtained legitimately — one token
- * lifetime after a login that worked, to somebody who did nothing wrong. If a
- * refresh grant is ever added here, it carries `resource`.
+ * **RFC 8707's `resource` has to survive rotation**: a refresh that drops the
+ * audience mints a successor with no `aud`, and the validating resource then
+ * refuses a token the caller obtained legitimately. So the server keeps the
+ * audience on the refresh token's own row, and a `resource` named here must
+ * match it or the answer is `invalid_target` — before the token is consumed,
+ * so a typo costs nothing.
  *
  * `code_verifier`'s bounds are RFC 7636 §4.1's, charset included. A verifier
  * is compared, not parsed, so a length nobody checks is a length an attacker
@@ -273,10 +267,10 @@ export type DynamicClientRegistrationResponse = z.infer<typeof dynamicClientRegi
  * **stripped**, which bit the test for this schema: `safeParse().success`
  * cannot tell a present field from an absent one. Assert on the parsed value.
  */
-export const oauthTokenRequest = z
+export const oauthCodeTokenRequest = z
   .object({
     grant_type: z.literal('authorization_code').meta({
-      description: 'Always `authorization_code`: this request exchanges the code from the authorize redirect for tokens. Any other value — `refresh_token` included — is `unsupported_grant_type`, refused before the code is looked up.',
+      description: '`authorization_code`: this request exchanges the code from the authorize redirect for an access token and a refresh token.',
     }),
     code: z.string().min(1).max(500).meta({
       description: 'The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets.',
@@ -297,6 +291,31 @@ export const oauthTokenRequest = z
   .meta({
     description: "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too.",
   })
+export type OauthCodeTokenRequest = z.infer<typeof oauthCodeTokenRequest>
+
+export const oauthRefreshTokenRequest = z
+  .object({
+    grant_type: z.literal('refresh_token').meta({
+      description: '`refresh_token`: this request rotates a refresh token into a new access token and a new refresh token. The presented token is consumed; presenting it again revokes the whole session.',
+    }),
+    refresh_token: z.string().min(1).max(500).meta({
+      description: 'The refresh token from the last token response. Bound to the client that received it and to one identity space: presented by another client, or at the other MCP server, it is `invalid_grant` and stays unconsumed.',
+    }),
+    client_id: z.string().min(1).max(200).meta({
+      description: 'The client the refresh token was issued to, as registered. A refresh token is not transferable between clients.',
+    }),
+    resource: z.url().optional().meta({
+      description: 'The resource the new token is for, per RFC 8707. Optional; when named it must be the audience the session was issued for, or the answer is `invalid_target` and the refresh token is left untouched. The successor carries the same audience either way.',
+    }),
+  })
+  .meta({
+    description: "RFC 6749 §6's refresh, as either MCP authorization server reads it. Every use rotates: the answer carries a new refresh token and the presented one is dead.",
+  })
+export type OauthRefreshTokenRequest = z.infer<typeof oauthRefreshTokenRequest>
+
+export const oauthTokenRequest = z.discriminatedUnion('grant_type', [oauthCodeTokenRequest, oauthRefreshTokenRequest]).meta({
+  description: 'What an MCP token endpoint accepts: the authorization-code exchange, or a refresh. Any other `grant_type` is `unsupported_grant_type`, refused before a lookup happens.',
+})
 export type OauthTokenRequest = z.infer<typeof oauthTokenRequest>
 
 /**
@@ -326,7 +345,7 @@ export const oauthTokenResponse = z.object({
     description: 'How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds.',
   }),
   refresh_token: z.string().min(1).optional().meta({
-    description: 'The refresh token, when one was issued. It rotates on every use.',
+    description: 'The refresh token. Both MCP token endpoints issue one on every exchange and every refresh; it rotates on every use, lives ninety days from its last use, and dies with the account\'s sessions — a block, a password change, a withdrawn consent. The console\'s own OAuth portal issues none.',
   }),
   scope: z.string().max(500).optional().meta({
     description: 'The scopes the issued token actually carries, space-separated.',
@@ -352,7 +371,7 @@ export const authorizationServerMetadata = z.object({
     description: 'The response types this server offers: `code` only, the implicit grant being gone with OAuth 2.1.',
   }),
   grant_types_supported: z.array(z.enum(['authorization_code', 'refresh_token'])).meta({
-    description: 'The grants this server offers. OAuth 2.1 removes the implicit and password grants, so neither appears here.',
+    description: 'The grants this server offers: `authorization_code` and `refresh_token`. OAuth 2.1 removes the implicit and password grants, so neither appears here.',
   }),
   code_challenge_methods_supported: z.array(codeChallengeMethod).meta({
     description: 'The PKCE challenge methods accepted: `S256` only. `plain` is not offered — a challenge equal to its verifier defends against nothing, and offering it would make a downgrade negotiable.',

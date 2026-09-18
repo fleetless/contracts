@@ -1,47 +1,85 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "grant_type": {
-      "type": "string",
-      "const": "authorization_code",
-      "description": "Always `authorization_code`: this request exchanges the code from the authorize redirect for tokens. Any other value — `refresh_token` included — is `unsupported_grant_type`, refused before the code is looked up."
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "grant_type": {
+          "type": "string",
+          "const": "authorization_code",
+          "description": "`authorization_code`: this request exchanges the code from the authorize redirect for an access token and a refresh token."
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets."
+        },
+        "redirect_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000,
+          "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The client making the exchange, as registered."
+        },
+        "code_verifier": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
+          "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
+        },
+        "resource": {
+          "description": "The resource the token is requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code's own audience stands. It becomes the token's `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app's endpoint.",
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "grant_type",
+        "code",
+        "redirect_uri",
+        "client_id",
+        "code_verifier"
+      ],
+      "description": "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too."
     },
-    "code": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 500,
-      "description": "The authorization code from the redirect. It may be exchanged once; a second presentation is `invalid_grant`, the same answer a fabricated code gets."
-    },
-    "redirect_uri": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2000,
-      "description": "The same redirect URI the authorize request used. It is compared, not merely recorded."
-    },
-    "client_id": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "The client making the exchange, as registered."
-    },
-    "code_verifier": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9\\-._~]{43,128}$",
-      "description": "The PKCE verifier whose `S256` hash was sent as the challenge at the authorize step. Between `43` and `128` unreserved characters, per RFC 7636 §4.1 — it is compared rather than parsed, so a length nobody checks is a length an attacker chooses. PKCE is mandatory for every client under OAuth 2.1."
-    },
-    "resource": {
-      "description": "The resource the token is requested for, per RFC 8707. It must match the audience the code was authorized for, or the answer is `invalid_target`; omitted, the code's own audience stands. It becomes the token's `aud`, and a resource refuses a token whose audience names something else — which is what keeps a token minted for one app out of another app's endpoint.",
-      "type": "string",
-      "format": "uri"
+    {
+      "type": "object",
+      "properties": {
+        "grant_type": {
+          "type": "string",
+          "const": "refresh_token",
+          "description": "`refresh_token`: this request rotates a refresh token into a new access token and a new refresh token. The presented token is consumed; presenting it again revokes the whole session."
+        },
+        "refresh_token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "The refresh token from the last token response. Bound to the client that received it and to one identity space: presented by another client, or at the other MCP server, it is `invalid_grant` and stays unconsumed."
+        },
+        "client_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The client the refresh token was issued to, as registered. A refresh token is not transferable between clients."
+        },
+        "resource": {
+          "description": "The resource the new token is for, per RFC 8707. Optional; when named it must be the audience the session was issued for, or the answer is `invalid_target` and the refresh token is left untouched. The successor carries the same audience either way.",
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "grant_type",
+        "refresh_token",
+        "client_id"
+      ],
+      "description": "RFC 6749 §6's refresh, as either MCP authorization server reads it. Every use rotates: the answer carries a new refresh token and the presented one is dead."
     }
-  },
-  "required": [
-    "grant_type",
-    "code",
-    "redirect_uri",
-    "client_id",
-    "code_verifier"
   ],
-  "description": "RFC 6749 §4.1.3's authorization-code exchange with PKCE, as either MCP authorization server reads it. Sent as `application/x-www-form-urlencoded`, per §4.1.3, though the server accepts a JSON body too."
+  "description": "What an MCP token endpoint accepts: the authorization-code exchange, or a refresh. Any other `grant_type` is `unsupported_grant_type`, refused before a lookup happens."
 }

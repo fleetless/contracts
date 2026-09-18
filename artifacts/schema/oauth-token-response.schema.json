@@ -19,7 +19,7 @@
       "description": "How long the access token is valid, in **seconds**, per RFC 6749 §5.1. Not a timestamp, and not milliseconds."
     },
     "refresh_token": {
-      "description": "The refresh token, when one was issued. It rotates on every use.",
+      "description": "The refresh token. Both MCP token endpoints issue one on every exchange and every refresh; it rotates on every use, lives ninety days from its last use, and dies with the account's sessions — a block, a password change, a withdrawn consent. The console's own OAuth portal issues none.",
       "type": "string",
       "minLength": 1
     },

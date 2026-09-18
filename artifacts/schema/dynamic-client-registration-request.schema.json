@@ -27,7 +27,7 @@
       ]
     },
     "grant_types": {
-      "description": "Accepted for conformance with RFC 7591 and then **ignored**. What comes back is what was actually granted, which §3.2.1 permits a server to substitute: `authorization_code` and nothing else, so a client that asks for `refresh_token` is registered and told plainly that it did not get one.",
+      "description": "Accepted for conformance with RFC 7591 and then **ignored**: both MCP authorization servers grant `authorization_code` and `refresh_token` to every registration, and the answer states what was granted (§3.2.1) rather than what was asked.",
       "type": "array",
       "items": {
         "type": "string",
