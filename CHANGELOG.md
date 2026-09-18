@@ -7,6 +7,12 @@ the wire shapes.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-18
+
+### Added
+
+- **The MCP token request has its refresh grant back.** `oauthTokenRequest` is a discriminated union again: `oauthCodeTokenRequest` (unchanged) or the new `oauthRefreshTokenRequest` — `grant_type: refresh_token`, `refresh_token`, a required `client_id` and an optional RFC 8707 `resource`. Both MCP authorization servers answer it from cloud 0.20.0: every exchange issues a refresh token, every refresh rotates it, and it lives ninety days from its last use. The registration, token-response and metadata descriptions and the four route notes stop promising there is no refresh grant. Nothing previously valid becomes invalid.
+
 ## [1.1.0] — 2026-09-17
 
 ### Added
