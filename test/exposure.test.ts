@@ -234,6 +234,7 @@ describe('REST shapes', () => {
     created_at: '2026-08-10T12:00:00.000Z',
     bridge_state: { online: true, latency_ms: 2 },
     exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
+    protocol_status: 'current',
   }
   const CONFIG_STATE = {
     published_version: 1,
@@ -251,6 +252,8 @@ describe('REST shapes', () => {
         bridge_version: '1.1.0',
         last_hello_error: null,
         config: CONFIG_STATE,
+        protocol_version: 2,
+        protocol: { status: 'current', sunset_at: null },
       }).success,
     ).toBe(true)
     expect(
@@ -263,6 +266,8 @@ describe('REST shapes', () => {
           at: '2026-08-10T11:00:00.000Z',
         },
         config: CONFIG_STATE,
+        protocol_version: null,
+        protocol: { status: 'refused', sunset_at: null },
       }).success,
     ).toBe(true)
   })

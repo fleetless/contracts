@@ -8,6 +8,7 @@ import {
   createRobotRequest,
   createRobotResponse,
   robotListItem,
+  robotDetailResponse,
   datapointValue,
   clientSubscribe,
   subscribeError,
@@ -56,9 +57,33 @@ describe('REST shapes', () => {
         ...ROBOT,
         bridge_state: { online: false, latency_ms: null },
         exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
+        protocol_status: 'current',
       }).success,
     ).toBe(true)
     expect(robotListItem.safeParse(ROBOT).success).toBe(false)
+  })
+
+  it('a listed robot carries protocol_status and the detail carries version and window', () => {
+    const item = {
+      id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b',
+      name: 'edge-bot',
+      created_at: '2026-09-21T00:00:00.000Z',
+      bridge_state: { online: true, latency_ms: 12 },
+      exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
+      protocol_status: 'deprecated',
+    }
+    expect(robotListItem.safeParse(item).success).toBe(true)
+    expect(robotListItem.safeParse({ ...item, protocol_status: 'old' }).success).toBe(false)
+    expect(
+      robotDetailResponse.safeParse({
+        ...item,
+        bridge_version: '3.0.0',
+        last_hello_error: null,
+        config: { published_version: null, published_at: null, draft_updated_at: null, applied_version: null, applied_ok: null, applied_errors: null },
+        protocol_version: 2,
+        protocol: { status: 'deprecated', sunset_at: '2026-12-20' },
+      }).success,
+    ).toBe(true)
   })
 
   it('datapoint reads always carry slug, value, timestamp_ms', () => {

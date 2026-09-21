@@ -16378,6 +16378,14 @@
             ],
             "additionalProperties": false
           },
+          "protocol_status": {
+            "type": "string",
+            "enum": [
+              "current",
+              "deprecated",
+              "refused"
+            ]
+          },
           "bridge_version": {
             "anyOf": [
               {
@@ -16388,6 +16396,48 @@
                 "type": "null"
               }
             ]
+          },
+          "protocol_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protocol": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "deprecated",
+                  "refused"
+                ]
+              },
+              "sunset_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "sunset_at"
+            ],
+            "additionalProperties": false
           },
           "last_hello_error": {
             "anyOf": [
@@ -16550,7 +16600,10 @@
           "created_at",
           "bridge_state",
           "exposes",
+          "protocol_status",
           "bridge_version",
+          "protocol_version",
+          "protocol",
           "last_hello_error",
           "config"
         ],
@@ -16761,6 +16814,14 @@
                     "cameras"
                   ],
                   "additionalProperties": false
+                },
+                "protocol_status": {
+                  "type": "string",
+                  "enum": [
+                    "current",
+                    "deprecated",
+                    "refused"
+                  ]
                 }
               },
               "required": [
@@ -16768,7 +16829,8 @@
                 "name",
                 "created_at",
                 "bridge_state",
-                "exposes"
+                "exposes",
+                "protocol_status"
               ],
               "additionalProperties": false
             }

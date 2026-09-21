@@ -80,12 +80,22 @@ export const exposureCounts = z.object({
 })
 export type ExposureCounts = z.infer<typeof exposureCounts>
 
+/**
+ * Where a robot's bridge stands against the protocol window.
+ * `refused`: its last hello was refused for its version — it is offline
+ * until upgraded. Computed by the cloud from `protocol_version` and
+ * `last_hello_error`, never stored.
+ */
+export const protocolStatusValue = z.enum(['current', 'deprecated', 'refused'])
+export type ProtocolStatusValue = z.infer<typeof protocolStatusValue>
+
 /** A robot as listed, with its current built-in `bridge_state`. */
 export const robotListItem = z.object({
   ...robot.shape,
   bridge_state: bridgeState,
   /** Required, not optional: "we did not look" and "it exposes nothing" must not render the same. */
   exposes: exposureCounts,
+  protocol_status: protocolStatusValue,
 })
 export type RobotListItem = z.infer<typeof robotListItem>
 
@@ -123,6 +133,13 @@ export type DatapointValue = z.infer<typeof datapointValue>
 export const robotDetailResponse = z.object({
   ...robotListItem.shape,
   bridge_version: z.string().min(1).nullable(),
+  /** The protocol version the bridge announced in its last accepted hello; null before the first. */
+  protocol_version: z.number().int().positive().nullable(),
+  protocol: z.object({
+    status: protocolStatusValue,
+    /** ISO date the announced version stops being served, null when current or unknown. */
+    sunset_at: z.iso.date().nullable(),
+  }),
   /**
    * Cleared (set back to null) by the next successful hello from this
    * robot's bridge — a warning that outlives the condition it warns

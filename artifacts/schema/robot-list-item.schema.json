@@ -81,6 +81,14 @@
         "cameras"
       ],
       "additionalProperties": false
+    },
+    "protocol_status": {
+      "type": "string",
+      "enum": [
+        "current",
+        "deprecated",
+        "refused"
+      ]
     }
   },
   "required": [
@@ -88,7 +96,8 @@
     "name",
     "created_at",
     "bridge_state",
-    "exposes"
+    "exposes",
+    "protocol_status"
   ],
   "additionalProperties": false
 }

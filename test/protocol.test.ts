@@ -4,7 +4,10 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   PROTOCOL_VERSION,
+  PROTOCOL_VERSIONS,
+  LATEST_BRIDGE_VERSION,
   bridgeHello,
+  cloudHelloOk,
   datapointFrame,
   bridgeState,
   bridgePressure,
@@ -146,6 +149,33 @@ describe('contracts v1', () => {
       apiError.safeParse({ code: 'robot_offline', message: 'The robot is offline.' }).success,
     ).toBe(true)
     expect(apiError.safeParse({ message: 'nope' }).success).toBe(false)
+  })
+
+  it('hello_ok may carry the protocol status and the latest bridge version, and still parses without them', () => {
+    expect(cloudHelloOk.safeParse({ type: 'hello_ok', robot_id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b' }).success).toBe(true)
+    expect(
+      cloudHelloOk.safeParse({
+        type: 'hello_ok',
+        robot_id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b',
+        protocol: { status: 'deprecated', sunset_at: '2026-12-20' },
+        bridge: { latest_version: '3.2.0' },
+      }).success,
+    ).toBe(true)
+    expect(
+      cloudHelloOk.safeParse({
+        type: 'hello_ok',
+        robot_id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b',
+        protocol: { status: 'unsupported', sunset_at: null },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('exports the version window into constants.json for the bridge', () => {
+    const constants = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'artifacts', 'constants.json'), 'utf8'))
+    expect(constants.PROTOCOL_VERSION).toBe(PROTOCOL_VERSION)
+    expect(constants.PROTOCOL_SUNSET_DAYS).toBe(90)
+    expect(constants.PROTOCOL_VERSIONS).toEqual(PROTOCOL_VERSIONS)
+    expect(constants.LATEST_BRIDGE_VERSION).toBe(LATEST_BRIDGE_VERSION)
   })
 })
 

@@ -35,6 +35,7 @@ import {
   cloudCameraStop,
   bridgeCameraState,
 } from '../src/protocol.js'
+import { PROTOCOL_VERSION, PROTOCOL_VERSIONS, PROTOCOL_SUNSET_DAYS, LATEST_BRIDGE_VERSION } from '../src/protocol.js'
 import { applyError } from '../src/common.js'
 import { MCP_APP_PATHS } from '../src/mcp.js'
 import {
@@ -571,6 +572,15 @@ export const exportedSchemas = {
 export const exportedConstants = {
   // So the cloud does not derive the retention window a second time.
   AUDIT_RETENTION_DAYS,
+
+  /**
+   * The protocol window, so the bridge reads the same table the cloud does
+   * instead of carrying `2` as a Python literal (it did until 2026-09).
+   */
+  PROTOCOL_VERSION,
+  PROTOCOL_VERSIONS,
+  PROTOCOL_SUNSET_DAYS,
+  LATEST_BRIDGE_VERSION,
 
   ASSET_UPLOAD_HEADERS,
   /**

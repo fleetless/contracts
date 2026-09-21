@@ -196,10 +196,23 @@ export const bridgeHello = z.object({
 })
 export type BridgeHello = z.infer<typeof bridgeHello>
 
-/** Cloud accepts the bridge: the robot is online from here on. */
+/**
+ * Cloud accepts the bridge: the robot is online from here on.
+ *
+ * `protocol` and `bridge` are optional so that a bridge parsing `hello_ok`
+ * strictly still parses one from an older cloud. `status` here is never
+ * `unsupported`: an unsupported version gets `hello_error`, not this frame.
+ */
 export const cloudHelloOk = z.object({
   type: z.literal('hello_ok'),
   robot_id: z.uuid(),
+  protocol: z
+    .object({
+      status: z.enum(['current', 'deprecated']),
+      sunset_at: z.iso.date().nullable(),
+    })
+    .optional(),
+  bridge: z.object({ latest_version: z.string().min(1) }).optional(),
 })
 export type CloudHelloOk = z.infer<typeof cloudHelloOk>
 
