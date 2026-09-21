@@ -44,7 +44,7 @@ export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '3.1.0'
+export const LATEST_BRIDGE_VERSION = '3.2.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
@@ -63,7 +63,15 @@ export function sunsetOf(entry: ProtocolVersionEntry): string | null {
   return isoDate(new Date(Date.parse(entry.deprecated_at + 'T00:00:00Z') + PROTOCOL_SUNSET_DAYS * DAY_MS))
 }
 
-/** Exported for tests that need a table with a deprecated entry. */
+/**
+ * The window rule itself: `protocolStatus` and `minimumProtocolVersion` are
+ * this function over `PROTOCOL_VERSIONS`, and the cloud calls it directly.
+ *
+ * The table is a parameter because callers pass one with a deprecated entry —
+ * tests, and any caller reasoning about a sunset. The real table has none
+ * until the first bump, so a hard-coded `PROTOCOL_VERSIONS` would leave the
+ * deprecated and unsupported branches unreachable.
+ */
 export function statusFromTable(
   table: readonly ProtocolVersionEntry[],
   version: number,
