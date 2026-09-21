@@ -10,16 +10,81 @@ import { rosTypeName } from './common.js'
 /**
  * Bridge <-> cloud protocol, version 2.
  *
- * The version is exchanged in the hello handshake; the cloud refuses an
- * incompatible bridge: `protocol_mismatch`, which names both versions and
- * reaches the robot's detail view as `last_hello_error`.
+ * The version is exchanged in the hello handshake. Since 2026-09 the cloud
+ * serves a **window** of versions, not one: every entry of
+ * `PROTOCOL_VERSIONS` whose sunset has not passed. A version is deprecated
+ * by the cloud release that supersedes it and sunset `PROTOCOL_SUNSET_DAYS`
+ * later. Outside the window the cloud refuses with `protocol_mismatch`,
+ * which names the window and reaches the robot's detail view as
+ * `last_hello_error`.
  *
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
- * beside `message`. The check is `!==`, not a floor, so a bridge that is not
- * exactly this version is refused entirely. That is deliberate: a cloud and a
- * bridge that disagree about the wire should not pretend otherwise.
+ * beside `message`.
  */
 export const PROTOCOL_VERSION = 2
+
+/** Days between a version's deprecation and its sunset. */
+export const PROTOCOL_SUNSET_DAYS = 90
+
+export interface ProtocolVersionEntry {
+  version: number
+  /** The first bridge package version that speaks this protocol. */
+  bridge_from: string
+  /** ISO date of the cloud release that superseded it; null while current. */
+  deprecated_at: string | null
+}
+
+/**
+ * Every protocol version the cloud has served, oldest first. A test keeps
+ * exactly one entry current and equal to `PROTOCOL_VERSION`; the release
+ * guard requires the CHANGELOG to name a bump and the sunset it starts.
+ */
+export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
+  { version: 2, bridge_from: '3.0.0', deprecated_at: null },
+]
+
+/** The newest bridge package. The cloud mails organisations still below it. */
+export const LATEST_BRIDGE_VERSION = '3.1.0'
+
+export interface ProtocolStatus {
+  status: 'current' | 'deprecated' | 'unsupported'
+  /** ISO date, or null for a current or unknown version. */
+  sunset_at: string | null
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+export function sunsetOf(entry: ProtocolVersionEntry): string | null {
+  if (entry.deprecated_at === null) return null
+  return isoDate(new Date(Date.parse(entry.deprecated_at + 'T00:00:00Z') + PROTOCOL_SUNSET_DAYS * DAY_MS))
+}
+
+/** Exported for tests that need a table with a deprecated entry. */
+export function statusFromTable(
+  table: readonly ProtocolVersionEntry[],
+  version: number,
+  today: Date,
+): ProtocolStatus {
+  const entry = table.find((candidate) => candidate.version === version)
+  if (!entry) return { status: 'unsupported', sunset_at: null }
+  const sunset = sunsetOf(entry)
+  if (sunset === null) return { status: 'current', sunset_at: null }
+  return { status: isoDate(today) < sunset ? 'deprecated' : 'unsupported', sunset_at: sunset }
+}
+
+export function protocolStatus(version: number, today: Date = new Date()): ProtocolStatus {
+  return statusFromTable(PROTOCOL_VERSIONS, version, today)
+}
+
+/** The lowest version still inside its window today. */
+export function minimumProtocolVersion(today: Date = new Date()): number {
+  const alive = PROTOCOL_VERSIONS.filter((entry) => statusFromTable(PROTOCOL_VERSIONS, entry.version, today).status !== 'unsupported')
+  return alive[0]?.version ?? PROTOCOL_VERSION
+}
 
 /**
  * The bridge socket close code for "this robot no longer exists".

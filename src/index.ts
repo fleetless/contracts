@@ -39,6 +39,13 @@ export type {
 } from './mcp.js'
 export {
   PROTOCOL_VERSION,
+  PROTOCOL_VERSIONS,
+  PROTOCOL_SUNSET_DAYS,
+  LATEST_BRIDGE_VERSION,
+  protocolStatus,
+  minimumProtocolVersion,
+  sunsetOf,
+  statusFromTable,
   bridgeHello,
   cloudHelloOk,
   cloudHelloError,
@@ -76,6 +83,8 @@ export {
   MIN_PATIENCE_MS,
 } from './protocol.js'
 export type {
+  ProtocolVersionEntry,
+  ProtocolStatus,
   BridgeHello,
   CloudHelloOk,
   CloudHelloError,
