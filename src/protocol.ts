@@ -21,7 +21,11 @@ import { rosTypeName } from './common.js'
  * **3 (2026-09-21):** the ping carries `latency_ms` and `lag_ms`, the bridge
  * sends `link_mode`, `bridge_state` gains `low_bandwidth`, and the
  * `bridge_pressure` datapoint is gone. A protocol-2 bridge is served until
- * its sunset; the cloud drops its pressure datapoints on the way in.
+ * its sunset, and the cloud's protocol-2 adapter owes it two translations on
+ * the way in: it drops its pressure datapoints, and it rewrites an
+ * `asset_progress` failure of kind `too_large` — a kind protocol 3 no longer
+ * has — to `refused` with `details: null`, because a 2.0.0 `bridgeAssetProgress`
+ * refuses the frame outright otherwise.
  *
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
  * beside `message`.
@@ -41,8 +45,10 @@ export interface ProtocolVersionEntry {
 
 /**
  * Every protocol version the cloud has served, oldest first. A test keeps
- * exactly one entry current and equal to `PROTOCOL_VERSION`; the release
- * guard requires the CHANGELOG to name a bump and the sunset it starts.
+ * exactly one entry current and equal to `PROTOCOL_VERSION`; `test/changelog.test.ts`
+ * requires the CHANGELOG's current section to name the newest `bridge_from`
+ * and the previous entry's `sunsetOf(...)` date, and `scripts/verify-version-tag.mjs`
+ * requires a dated heading for the tag being released.
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
   { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-21' },
@@ -302,7 +308,7 @@ export const cloudPing = z.object({
   type: z.literal('ping'),
   ts_ms: z.number().int().nonnegative(),
   latency_ms: z.number().nonnegative().nullable().meta({ description: 'Round trip of the last pong in milliseconds; null before the first.' }),
-  lag_ms: z.number().nonnegative().nullable().meta({ description: 'Datapoint lag over the link: median of the last five seconds minus the ten-minute minimum, in milliseconds; null until a sample exists.' }),
+  lag_ms: z.number().nonnegative().nullable().meta({ description: 'Datapoint lag over the link: median of the last five seconds minus the ten-minute minimum, in milliseconds; null until a sample exists, and null again whenever no live sample arrived in the last five seconds, because a stale median would be a lie.' }),
 })
 export type CloudPing = z.infer<typeof cloudPing>
 

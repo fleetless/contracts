@@ -15,7 +15,8 @@ the wire shapes.
 
 ### Changed
 
-- **Protocol 3 — the bridge decides its own low-bandwidth mode.** `cloudPing` carries `latency_ms` and `lag_ms`; the bridge sends `link_mode`; `bridge_state` gains `low_bandwidth`. `fleetless.yaml` gains an optional top-level `low_bandwidth` section and a per-datapoint `low_bandwidth: keep`; `LOW_BANDWIDTH_DEFAULTS` ships in `constants.json`. `datapointFrame` gains an optional `backfill` flag, so a replayed sample carrying its original capture time is not read as lag on the link. Protocol 2 is deprecated as of this release and served until 2026-12-20.
+- **Protocol 3 — the bridge decides its own low-bandwidth mode.** `cloudPing` carries `latency_ms` and `lag_ms`; the bridge sends `link_mode`; `bridge_state` gains `low_bandwidth`. `fleetless.yaml` gains an optional top-level `low_bandwidth` section and a per-datapoint `low_bandwidth: keep`; `LOW_BANDWIDTH_DEFAULTS` ships in `constants.json`. `datapointFrame` gains an optional `backfill` flag, so a replayed sample carrying its original capture time is not read as lag on the link. Protocol 2 is deprecated as of this release and served until 2026-12-20; its cloud adapter owes it two translations on the way in — it drops the pressure datapoints, and it rewrites an `asset_progress` failure of kind `too_large` (a kind protocol 3 no longer has) to `refused` with `details: null`.
+- **Required, not merely present.** `assetListResponse.store`, `assetListResponse.joint_state_slug` and `bridgeState.low_bandwidth` are required keys now, not optional-by-absence; `cloudPing.latency_ms` and `cloudPing.lag_ms` are required (nullable) on protocol 3. `LATEST_BRIDGE_VERSION` is `4.0.0`. Deploy the cloud before any consumer pins `2.0.0` — a response from a 0.2x cloud no longer parses these shapes.
 
 ### Removed
 

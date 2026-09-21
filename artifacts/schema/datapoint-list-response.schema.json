@@ -51,7 +51,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
+      "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
     }
   },
   "required": [

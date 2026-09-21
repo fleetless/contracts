@@ -11852,7 +11852,7 @@
                         ]
                       },
                       "enter_lag_ms": {
-                        "description": "Lag or queue dwell above this enters the mode.",
+                        "description": "Lag or queue dwell above this enters the mode. Checked against exit_lag_ms only when both are in this document; a lone key composes with the bridge's parameter or the default on the robot, and a crossed pair is refused there when the configuration is applied, so name both when you change either.",
                         "type": "integer",
                         "minimum": 100,
                         "maximum": 9007199254740991
@@ -11864,7 +11864,7 @@
                         "maximum": 9007199254740991
                       },
                       "exit_lag_ms": {
-                        "description": "Lag and dwell both at or below this leave the mode.",
+                        "description": "Lag and dwell both at or below this leave the mode. Must be at or below enter_lag_ms: a crossed pair is a mode that leaves as it arrives. Checked here only when both keys are present; a lone key is checked on the robot against the parameter or default it composes with.",
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 9007199254740991
@@ -13014,7 +13014,7 @@
                     ]
                   },
                   "enter_lag_ms": {
-                    "description": "Lag or queue dwell above this enters the mode.",
+                    "description": "Lag or queue dwell above this enters the mode. Checked against exit_lag_ms only when both are in this document; a lone key composes with the bridge's parameter or the default on the robot, and a crossed pair is refused there when the configuration is applied, so name both when you change either.",
                     "type": "integer",
                     "minimum": 100,
                     "maximum": 9007199254740991
@@ -13026,7 +13026,7 @@
                     "maximum": 9007199254740991
                   },
                   "exit_lag_ms": {
-                    "description": "Lag and dwell both at or below this leave the mode.",
+                    "description": "Lag and dwell both at or below this leave the mode. Must be at or below enter_lag_ms: a crossed pair is a mode that leaves as it arrives. Checked here only when both keys are present; a lone key is checked on the robot against the parameter or default it composes with.",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 9007199254740991
@@ -13502,7 +13502,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
+            "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
           }
         },
         "required": [
@@ -16667,7 +16667,8 @@
           "asset_bytes_freed": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "What the robot's store gives back: every distinct mesh or texture blob it holds, counted once, URDF excluded; a blob another robot also references stays in the object store but is still credited here, because each robot's counter carries it."
           },
           "job_run_count": {
             "type": "integer",

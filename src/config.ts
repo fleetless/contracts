@@ -1977,9 +1977,9 @@ export const lowBandwidthSection = strictObject({
       off: 'The mode never engages, whatever the link is doing. The robot then sends at its configured rates over a link that cannot carry them, which is a choice and not a default.',
     }),
   }),
-  enter_lag_ms: z.number().int().min(100).optional().meta({ description: 'Lag or queue dwell above this enters the mode.' }),
+  enter_lag_ms: z.number().int().min(100).optional().meta({ description: 'Lag or queue dwell above this enters the mode. Checked against exit_lag_ms only when both are in this document; a lone key composes with the bridge\'s parameter or the default on the robot, and a crossed pair is refused there when the configuration is applied, so name both when you change either.' }),
   enter_after_s: z.number().int().min(1).optional().meta({ description: 'The entry condition must hold this long.' }),
-  exit_lag_ms: z.number().int().min(0).optional().meta({ description: 'Lag and dwell both at or below this leave the mode.' }),
+  exit_lag_ms: z.number().int().min(0).optional().meta({ description: 'Lag and dwell both at or below this leave the mode. Must be at or below enter_lag_ms: a crossed pair is a mode that leaves as it arrives. Checked here only when both keys are present; a lone key is checked on the robot against the parameter or default it composes with.' }),
   exit_after_s: z.number().int().min(1).optional().meta({ description: 'The exit condition must hold this long.' }),
   datapoint_max_hz: z.number().gt(0).max(20).optional().meta({ description: 'Ceiling for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`.' }),
   camera: lowBandwidthCamera.optional().meta({

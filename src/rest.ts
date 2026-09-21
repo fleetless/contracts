@@ -361,7 +361,7 @@ export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 
 export const datapointListResponse = z.object({
   datapoints: z.array(datapointDescriptor).meta({
-    description: 'Everything a client may read on this robot: the three built-ins, plus every datapoint the published configuration exposes and the caller\'s role grants.',
+    description: 'Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller\'s role grants.',
   }),
 })
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
@@ -1405,22 +1405,25 @@ export const robotDeletionSummary = z.object({
   bytes_freed: z.number().int().nonnegative(),
   cameras: z.array(slug),
   /**
-   * Assets destroyed with the robot, and **`asset_bytes_freed` is what
-   * this org actually gets back** — not the sum of the assets' sizes.
+   * Assets destroyed with the robot, and **`asset_bytes_freed` is what the
+   * robot's own store gives back** — every distinct mesh or texture blob it
+   * holds, counted once, URDF excluded.
    *
-   * Storage is content-addressed, so a mesh two robots share survives the
-   * deletion of one of them and frees nothing. Reporting the total would tell
-   * a developer they are about to recover 400 MB and hand back 4, on the one
-   * screen whose entire justification is naming what an irreversible click
-   * destroys. Same reasoning that keeps `cameras` out of `slug_count`: this
-   * summary is read aloud to a human, and a number that is nearly right is
-   * worse here than an absent one.
+   * Storage is content-addressed, but the store and its 1 GB ceiling are now
+   * per robot: a blob another robot also references stays in the object
+   * store but is still credited here, because each robot's counter carries
+   * it regardless of what else points at the same bytes. Same reasoning that
+   * keeps `cameras` out of `slug_count`: this summary is read aloud to a
+   * human, and a number that is nearly right is worse here than an absent
+   * one.
    *
    * `asset_count` is the plain count of the robot's asset rows, all of which
    * do go away.
    */
   asset_count: z.number().int().nonnegative(),
-  asset_bytes_freed: z.number().int().nonnegative(),
+  asset_bytes_freed: z.number().int().nonnegative().meta({
+    description: 'What the robot\'s store gives back: every distinct mesh or texture blob it holds, counted once, URDF excluded; a blob another robot also references stays in the object store but is still credited here, because each robot\'s counter carries it.',
+  }),
   /**
    * How many rows of run history go with the robot — every recorded
    * invocation of one of its actions or services, up to
