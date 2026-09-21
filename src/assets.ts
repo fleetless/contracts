@@ -80,7 +80,7 @@ export const asset = z.object({
   id: z.uuid().meta({ description: 'The asset\'s id in the store.' }),
   robot_id: z.uuid().meta({ description: 'The robot this asset belongs to.' }),
   kind: assetKind.meta({
-    description: 'What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what to pre-fetch.',
+    description: 'What the file is: the `urdf` itself, a `mesh` it references, or a `texture` a mesh or the URDF paints with. A renderer decides from this alone, before fetching anything, what to pre-fetch.',
   }),
   /**
    * What the robot called it — for a mesh, the `package://` URI the URDF

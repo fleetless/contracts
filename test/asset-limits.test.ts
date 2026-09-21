@@ -152,3 +152,16 @@ describe('missing names what is missing AND of what', () => {
     expect(uc([{ uri: 'x', element: 'collision' }]).success).toBe(false)
   })
 })
+
+describe('the kind describes itself to whoever reads the schema', () => {
+  it('names the three it has and no fourth, in the bytes an integrator gets', () => {
+    // A description outliving the value it describes is worse than none: it
+    // is published, hovered in an editor, and read as the contract. This one
+    // said "or `other`" for a whole commit after the value went.
+    const published = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'artifacts', 'schema', 'asset.schema.json'), 'utf8'))
+    const kind = published.properties.kind
+    expect(kind.enum).toEqual([...assetKind.options])
+    for (const k of assetKind.options) expect(kind.description, `the description omits ${k}`).toContain(`\`${k}\``)
+    expect(kind.description).not.toContain('`other`')
+  })
+})
