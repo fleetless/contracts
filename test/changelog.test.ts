@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * The one upkeep test `protocol.ts:44-46` used to claim already existed: a
- * protocol bump is worthless to a bridge maintainer who reads the CHANGELOG
- * and finds neither the new bridge floor nor the date the old version stops
- * being served. `scripts/verify-version-tag.mjs` only checks that a dated
- * heading exists for the tagged version — nothing reads its *contents*.
- * This does.
+ * The upkeep test `protocol.ts:44-46` names: a protocol bump is worthless to
+ * a bridge maintainer who reads the CHANGELOG and finds neither the new
+ * bridge floor nor the date the old version stops being served.
+ * `scripts/verify-version-tag.mjs` only checks that a dated heading exists
+ * for the tagged version — nothing reads its *contents*. This does.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
