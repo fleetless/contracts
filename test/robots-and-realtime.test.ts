@@ -74,6 +74,8 @@ describe('REST shapes', () => {
     }
     expect(robotListItem.safeParse(item).success).toBe(true)
     expect(robotListItem.safeParse({ ...item, protocol_status: 'old' }).success).toBe(false)
+    const { protocol_status: _omit, ...withoutStatus } = item
+    expect(robotListItem.safeParse(withoutStatus).success).toBe(true)
     expect(
       robotDetailResponse.safeParse({
         ...item,

@@ -266,6 +266,7 @@ describe('REST shapes', () => {
           at: '2026-08-10T11:00:00.000Z',
         },
         config: CONFIG_STATE,
+        protocol_status: 'refused',
         protocol_version: null,
         protocol: { status: 'refused', sunset_at: null },
       }).success,

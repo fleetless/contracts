@@ -95,7 +95,11 @@ export const robotListItem = z.object({
   bridge_state: bridgeState,
   /** Required, not optional: "we did not look" and "it exposes nothing" must not render the same. */
   exposes: exposureCounts,
-  protocol_status: protocolStatusValue,
+  /**
+   * Optional in 1.3.0 so a response from an older cloud still parses; a
+   * consumer reads absence as `current`. Required from the next major.
+   */
+  protocol_status: protocolStatusValue.optional(),
 })
 export type RobotListItem = z.infer<typeof robotListItem>
 
@@ -133,13 +137,24 @@ export type DatapointValue = z.infer<typeof datapointValue>
 export const robotDetailResponse = z.object({
   ...robotListItem.shape,
   bridge_version: z.string().min(1).nullable(),
-  /** The protocol version the bridge announced in its last accepted hello; null before the first. */
-  protocol_version: z.number().int().positive().nullable(),
-  protocol: z.object({
-    status: protocolStatusValue,
-    /** ISO date the announced version stops being served, null when current or unknown. */
-    sunset_at: z.iso.date().nullable(),
-  }),
+  /**
+   * The protocol version the bridge announced in its last accepted hello;
+   * null before the first. Optional in 1.3.0 so a response from an older
+   * cloud still parses; a consumer reads absence as `current`. Required
+   * from the next major.
+   */
+  protocol_version: z.number().int().positive().nullable().optional(),
+  /**
+   * Optional in 1.3.0 so a response from an older cloud still parses; a
+   * consumer reads absence as `current`. Required from the next major.
+   */
+  protocol: z
+    .object({
+      status: protocolStatusValue,
+      /** ISO date the announced version stops being served, null when current or unknown. */
+      sunset_at: z.iso.date().nullable(),
+    })
+    .optional(),
   /**
    * Cleared (set back to null) by the next successful hello from this
    * robot's bridge — a warning that outlives the condition it warns

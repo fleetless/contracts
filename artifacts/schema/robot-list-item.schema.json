@@ -96,8 +96,7 @@
     "name",
     "created_at",
     "bridge_state",
-    "exposes",
-    "protocol_status"
+    "exposes"
   ],
   "additionalProperties": false
 }

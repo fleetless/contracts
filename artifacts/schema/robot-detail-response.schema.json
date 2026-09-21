@@ -304,10 +304,7 @@
     "created_at",
     "bridge_state",
     "exposes",
-    "protocol_status",
     "bridge_version",
-    "protocol_version",
-    "protocol",
     "last_hello_error",
     "config"
   ],

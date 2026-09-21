@@ -11,7 +11,7 @@ the wire shapes.
 
 ### Added
 
-- **A protocol version window.** `PROTOCOL_VERSIONS` lists every protocol version with the bridge that introduced it and the date it was deprecated; `PROTOCOL_SUNSET_DAYS` (90) says how long a deprecated version is still served; `LATEST_BRIDGE_VERSION` names the newest bridge package. `protocolStatus()` and `minimumProtocolVersion()` answer for a date. All four reach `constants.json` for the bridge. `cloudHelloOk` may now carry `protocol { status, sunset_at }` and `bridge { latest_version }`. `robotListItem` gains `protocol_status`; `robotDetailResponse` gains `protocol_version` and `protocol`. Protocol 2 stays current; nothing previously valid becomes invalid.
+- **A protocol version window.** `PROTOCOL_VERSIONS` lists every protocol version with the bridge that introduced it and the date it was deprecated; `PROTOCOL_SUNSET_DAYS` (90) says how long a deprecated version is still served; `LATEST_BRIDGE_VERSION` names the newest bridge package. `protocolStatus()` and `minimumProtocolVersion()` answer for a date. All four reach `constants.json` for the bridge. `cloudHelloOk` may now carry `protocol { status, sunset_at }` and `bridge { latest_version }`. `robotListItem` gains `protocol_status`; `robotDetailResponse` gains `protocol_version` and `protocol`. All three are optional in this release, so a response from an older cloud still parses; a consumer reads their absence as `current`. Protocol 2 stays current; nothing previously valid becomes invalid.
 
 ## [1.2.0] — 2026-09-18
 
