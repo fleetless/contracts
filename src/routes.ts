@@ -2679,13 +2679,14 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: assetsClearResponse,
-    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'busy'], transport: 'http',
     notes:
       'The store\'s escape hatch: a full store is never a dead end, and this is the blunt third of the three answers to it — the URDF upload ' +
       'is exempt from the gate, reconcile after a sync already frees what the new URDF stopped referencing, and this route lets an Owner clear ' +
       'the robot outright. Owner tier, unconditionally, like starting a sync. Removes every asset of the robot and resets its store to `0`; ' +
       "the next sync fills it again. It does not touch the bridge's availability report — `urdf_available` still answers from the connected " +
-      'robot, unrelated to what this cloud happens to have stored.',
+      'robot, unrelated to what this cloud happens to have stored. A clear while a sync is running is `409 busy` naming that sync\'s ' +
+      'details, the same refusal starting a second sync gets, because deleting under a running upload would leave the store counter wrong.',
   },
 
   /* ------------------------------------------------ org (quotas and fleet reads) */
