@@ -183,7 +183,7 @@ import {
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
 import { missingAssetQuery } from '../src/assets.js'
 import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
-import { ASSET_UPLOAD_MAX_BYTES } from '../src/assets.js'
+import { ROBOT_ASSET_STORE_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
@@ -218,9 +218,12 @@ import {
   configVersionsResponse,
   fetchTypesRequest,
   fetchTypesResponse,
+  jointStatePutRequest,
+  jointStatePutResponse,
   putConfigDraftRequest,
   putRobotDetailsRequest,
   rateLimitDetails,
+  robotTokenRotateResponse,
   releaseLiveQuery,
   robotJobsResponse,
   typesResponse,
@@ -491,6 +494,7 @@ export const exportedSchemas = {
   'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
   'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource/mcp
   'put-robot-details-request': putRobotDetailsRequest, // PUT /api/robots/:id/details
+  'joint-state-put-request': jointStatePutRequest, // PUT /api/robots/:id/urdf/joint-state
   'put-config-draft-request': putConfigDraftRequest, // PUT /api/robots/:id/config/draft
   'config-versions-response': configVersionsResponse, // GET /api/robots/:id/config/versions
   'config-version-response': configVersionResponse, // GET /api/robots/:id/config/versions/:v
@@ -529,6 +533,8 @@ export const exportedSchemas = {
   'patch-org-response': patchOrgResponse, // PATCH /api/org
   'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
   'put-robot-details-response': putRobotDetailsResponse, // PUT /api/robots/:id/details
+  'joint-state-put-response': jointStatePutResponse, // PUT /api/robots/:id/urdf/joint-state
+  'robot-token-rotate-response': robotTokenRotateResponse, // POST /api/robots/:id/token/rotate
   // The other half of `invoke-or-service-response`. `invokeResponse` was
   // already registered in its own right and this one was not, so the union
   // named a member the reference could not link to — the documented absence
@@ -584,7 +590,7 @@ export const exportedConstants = {
 
   ASSET_UPLOAD_HEADERS,
   /**
-   * **The upload ceiling belongs here, or the bridge has to guess it.**
+   * **The store belongs here, or the bridge has to guess it.**
    *
    * The contract says "one number the cloud and the bridge both read". That is
    * immediately true for a TypeScript consumer and not for the bridge, which
@@ -592,7 +598,7 @@ export const exportedConstants = {
    * header name without the number leaves **a limit one side cannot read,
    * which is two numbers again.**
    */
-  ASSET_UPLOAD_MAX_BYTES,
+  ROBOT_ASSET_STORE_BYTES,
   SNAPSHOT_HEADERS,
   URDF_ASSET_NAME,
   /**
@@ -601,8 +607,8 @@ export const exportedConstants = {
    *
    * `assetKind` generates no standalone artifact, `asset.schema.json` is not
    * among the schemas the bridge vendors, and none of the vendored schemas
-   * constrains `kind` — so `"urdf"`, `"mesh"` and `"texture"` would live on the
-   * other side as string literals with nothing to check them against. Same
+   * constrains `kind` — so all three would live on the other side as string
+   * literals with nothing to check them against. Same
    * wire, same enum, and one line refusing an unknown kind is enough to break
    * every consumer of it.
    */
@@ -690,7 +696,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'refresh-request', 'password-change-request', 'password-reset-request', 'password-reset-confirm',
   'update-app-request',
   'oauth-token-request', 'dynamic-client-registration-request',
-  'put-robot-details-request', 'put-config-draft-request',
+  'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
@@ -752,7 +758,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'invoke-or-service-response', 'history-response',
   'app-list-response', 'role-list-response', 'server-key-list-response',
   'patch-org-response', 'patch-robot-response',
-  'put-robot-details-response', 'service-call-response',
+  'put-robot-details-response', 'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
   // Every one of these appears only inside a response, which is what makes

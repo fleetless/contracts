@@ -3053,6 +3053,66 @@
       "notes": "`token` is the only moment the raw bridge token exists outside the caller's hands — the cloud stores a hash, so nothing can read it back and a caller who loses it rotates rather than recovers. Audited: this mints a credential that can speak for the org from anywhere, and the event carries no `details`, because the one interesting value here is the token. `max_robots` is checked before anything is created, which is only safe because robot deletion exists."
     },
     {
+      "method": "POST",
+      "path": "/api/robots/:id/token/rotate",
+      "section": "robots",
+      "summary": "Mints a new bridge token for the robot and invalidates the old one.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": true,
+      "status": 201,
+      "params": [
+        {
+          "name": "id",
+          "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": "robot-token-rotate-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "Owner tier, behind the org-scoped lookup, so a developer-tier admin sees the `404` a stranger would for a robot outside their org rather than a tier refusal that confirms the id exists. `token` is the only moment the new secret exists outside the caller's hands — the cloud stores a hash — so a caller who loses it rotates again. Audited as `robot.token_rotated`, with no `details`: the one interesting value here is the token. \n\n**It stops the bridge that is connected right now.** The old secret is gone the instant the hash is replaced, so the cloud closes that socket with `CLOSE_TOKEN_ROTATED` rather than leaving a bridge speaking on a credential nothing would accept again. A bridge that does not know the code reconnects and is refused at hello as `invalid_token`, which is the honest answer and ends the same way. **The robot is offline until somebody puts the new token on it** — this is a deliberate interruption, not a background rekey, and a fleet cannot be rotated without a visit to each robot."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/robots/:id/urdf/joint-state",
+      "section": "robots",
+      "summary": "Chooses the datapoint whose joint positions move the robot's URDF, or clears it.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`."
+        }
+      ],
+      "query": null,
+      "request": "joint-state-put-request",
+      "response": "joint-state-put-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "not_found",
+        "validation_error"
+      ],
+      "transport": "http",
+      "notes": "**What qualifies**: a datapoint of the **published** configuration whose ROS type is `sensor_msgs/msg/JointState` and which carries no `field` — the whole message, because positions and names arrive together and a single extracted field is half of a pose. Anything else is a `validation_error` naming that rule rather than a stored mapping that renders a battery reading as a robot. `{ \"slug\": null }` clears it, which is why the field is required and nullable rather than optional. \n\n**The mapping cannot outlive what it points at.** Every successful publish re-checks it against the new document and clears it when it no longer qualifies, recording `robot.joint_state_cleared` with the version that did it; a slug rename rewrites it like every other reference the editor already rewrites; deleting the robot takes it along. The stored value reads back on `GET /api/robots/:id/assets` as `joint_state_slug`, so a renderer fetches the URDF, the meshes and the mapping from one place."
+    },
+    {
       "method": "GET",
       "path": "/api/robots",
       "section": "robots",
@@ -4622,14 +4682,13 @@
       "errors": [
         "unauthorized",
         "rate_limited",
-        "asset_too_large",
         "validation_error",
         "not_found",
         "quota_exceeded",
         "bad_request"
       ],
       "transport": "http",
-      "notes": "The body is the **raw file bytes**, not JSON, so it has no request schema; everything about the file — its kind, its name, its sync id and its announced size — rides in the `x-fleetless-asset-*` headers `ASSET_UPLOAD_HEADERS` names. The credential is a short-lived upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than following it: a `preHandler` would already have buffered the whole file. The announced size is refused there too, before a single byte is read — it is an announcement and not a proof, so it only ever rejects early and never accepts early, and a body that lies small is still caught by the real length check. Past both, the server's own body limit answers a bare `413 bad_request` with neither ceiling nor size in it. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route."
+      "notes": "The body is the **raw file bytes**, not JSON, so it has no request schema; everything about the file — its kind, its name, its sync id and its announced size — rides in the `x-fleetless-asset-*` headers `ASSET_UPLOAD_HEADERS` names. The credential is a short-lived upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than following it: a `preHandler` would already have buffered the whole file. **Nothing is refused for its own size** — the robot's asset store is the only limit, so the announced size is checked there against `ROBOT_ASSET_STORE_BYTES` and a file with no room left answers `409 quota_exceeded` carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Past that, the server's own body limit answers a bare `413 bad_request` with none of those numbers in it. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route."
     },
     {
       "method": "GET",

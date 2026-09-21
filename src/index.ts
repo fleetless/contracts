@@ -71,6 +71,7 @@ export {
   bridgeCameraState,
   SNAPSHOT_MAX_BYTES,
   CLOSE_ROBOT_DELETED,
+  CLOSE_TOKEN_ROTATED,
   // Assets.
   bridgeAssetsAvailable,
   cloudAssetRequest,
@@ -215,6 +216,9 @@ export {
   robotToken,
   createRobotRequest,
   createRobotResponse,
+  robotTokenRotateResponse,
+  jointStatePutRequest,
+  jointStatePutResponse,
   exposureCounts,
   protocolStatusValue,
   robotListItem,
@@ -314,6 +318,9 @@ export type {
   PatchRobotResponse,
   CreateRobotRequest,
   CreateRobotResponse,
+  RobotTokenRotateResponse,
+  JointStatePutRequest,
+  JointStatePutResponse,
   ExposureCounts,
   ProtocolStatusValue,
   RobotListItem,
@@ -615,9 +622,9 @@ export {
   assetSyncStatus,
   assetFailure,
   assetFailureKind,
-  assetTooLargeDetails,
+  assetStoreRefusedDetails,
   assetSyncBusyDetails,
-  ASSET_UPLOAD_MAX_BYTES,
+  ROBOT_ASSET_STORE_BYTES,
 } from './assets.js'
 export type {
   AssetKind,
@@ -631,7 +638,7 @@ export type {
   AssetSyncStatus,
   AssetFailure,
   AssetFailureKind,
-  AssetTooLargeDetails,
+  AssetStoreRefusedDetails,
   AssetSyncBusyDetails,
 } from './assets.js'
 export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS } from './audit.js'

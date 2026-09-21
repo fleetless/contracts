@@ -7,6 +7,9 @@ import {
   robotToken,
   createRobotRequest,
   createRobotResponse,
+  robotTokenRotateResponse,
+  jointStatePutRequest,
+  jointStatePutResponse,
   robotListItem,
   robotDetailResponse,
   datapointValue,
@@ -156,5 +159,30 @@ describe('realtime client protocol', () => {
         timestamp_ms: 1,
       }).success,
     ).toBe(false)
+  })
+})
+
+
+describe('the two robot-detail routes', () => {
+  const TOKEN = 'frt_' + 'a'.repeat(32)
+
+  it('rotate hands back one token, in the shape the bridge already takes', () => {
+    // The same regex `createRobotResponse` uses: a rotated token that parsed
+    // by a looser rule would reach the bridge and fail at hello instead.
+    expect(robotTokenRotateResponse.safeParse({ token: TOKEN }).success).toBe(true)
+    expect(robotTokenRotateResponse.safeParse({ token: 'nope' }).success).toBe(false)
+    expect(robotTokenRotateResponse.safeParse({}).success).toBe(false)
+  })
+
+  it('the joint-state mapping is set and cleared through one required field', () => {
+    // `null` clears it, so the field cannot be optional: an absent `slug` and
+    // a cleared one would be the same request and mean different things.
+    expect(jointStatePutRequest.safeParse({ slug: null }).success).toBe(true)
+    expect(jointStatePutRequest.safeParse({ slug: 'joints' }).success).toBe(true)
+    expect(jointStatePutRequest.safeParse({}).success).toBe(false)
+    expect(jointStatePutRequest.safeParse({ slug: 'Not A Slug' }).success).toBe(false)
+    expect(jointStatePutResponse.safeParse({ joint_state_slug: null }).success).toBe(true)
+    expect(jointStatePutResponse.safeParse({ joint_state_slug: 'joints' }).success).toBe(true)
+    expect(jointStatePutResponse.safeParse({}).success).toBe(false)
   })
 })

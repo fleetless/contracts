@@ -5022,6 +5022,112 @@
         }
       }
     },
+    "/api/robots/{id}/token/rotate": {
+      "post": {
+        "operationId": "post_api_robots_id_token_rotate",
+        "summary": "Mints a new bridge token for the robot and invalidates the old one.",
+        "tags": [
+          "robots"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/robot-token-rotate-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Owner tier, behind the org-scoped lookup, so a developer-tier admin sees the `404` a stranger would for a robot outside their org rather than a tier refusal that confirms the id exists. `token` is the only moment the new secret exists outside the caller's hands — the cloud stores a hash — so a caller who loses it rotates again. Audited as `robot.token_rotated`, with no `details`: the one interesting value here is the token. \n\n**It stops the bridge that is connected right now.** The old secret is gone the instant the hash is replaced, so the cloud closes that socket with `CLOSE_TOKEN_ROTATED` rather than leaving a bridge speaking on a credential nothing would accept again. A bridge that does not know the code reconnects and is refused at hello as `invalid_token`, which is the honest answer and ends the same way. **The robot is offline until somebody puts the new token on it** — this is a deliberate interruption, not a background rekey, and a fleet cannot be rotated without a visit to each robot."
+      }
+    },
+    "/api/robots/{id}/urdf/joint-state": {
+      "put": {
+        "operationId": "put_api_robots_id_urdf_joint_state",
+        "summary": "Chooses the datapoint whose joint positions move the robot's URDF, or clears it.",
+        "tags": [
+          "robots"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/joint-state-put-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**What qualifies**: a datapoint of the **published** configuration whose ROS type is `sensor_msgs/msg/JointState` and which carries no `field` — the whole message, because positions and names arrive together and a single extracted field is half of a pose. Anything else is a `validation_error` naming that rule rather than a stored mapping that renders a battery reading as a robot. `{ \"slug\": null }` clears it, which is why the field is required and nullable rather than optional. \n\n**The mapping cannot outlive what it points at.** Every successful publish re-checks it against the new document and clears it when it no longer qualifies, recording `robot.joint_state_cleared` with the version that did it; a slug rename rewrites it like every other reference the editor already rewrites; deleting the robot takes it along. The stored value reads back on `GET /api/robots/:id/assets` as `joint_state_slug`, so a renderer fetches the URDF, the meshes and the mapping from one place.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/joint-state-put-request"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/robots/{id}": {
       "get": {
         "operationId": "get_api_robots_id",
@@ -9244,8 +9350,7 @@
                   "enum": [
                     "urdf",
                     "mesh",
-                    "texture",
-                    "other"
+                    "texture"
                   ],
                   "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what to pre-fetch."
                 },
@@ -9348,32 +9453,38 @@
                           "enum": [
                             "unresolvable",
                             "upload_failed",
-                            "refused",
-                            "too_large"
+                            "refused"
                           ],
-                          "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
+                          "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, and `refused` means it was never attempted, either because the robot's asset store had no room — then `details` carries the three numbers — or because a producer-side ceiling was hit."
                         },
                         "details": {
-                          "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
+                          "description": "The three numbers behind a `refused` entry the robot's store had no room for, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. A `refused` entry may also carry no details: the producer's own ceiling is the other half of that kind, and no store number describes it.",
                           "anyOf": [
                             {
                               "type": "object",
                               "properties": {
-                                "limit_bytes": {
+                                "store_bytes": {
                                   "type": "integer",
                                   "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
-                                  "description": "The upload ceiling, in bytes."
+                                  "description": "The robot's store, in bytes."
+                                },
+                                "used_bytes": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991,
+                                  "description": "Bytes the robot's assets occupy before this upload."
                                 },
                                 "size_bytes": {
                                   "type": "integer",
                                   "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
-                                  "description": "How large the refused file is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
+                                  "description": "The refused upload, in bytes."
                                 }
                               },
                               "required": [
-                                "limit_bytes",
+                                "store_bytes",
+                                "used_bytes",
                                 "size_bytes"
                               ],
                               "additionalProperties": false
@@ -9496,13 +9607,52 @@
               }
             ],
             "description": "What the connected bridge says it *could* transfer — deliberately separate from what has been transferred. `null` when no bridge is connected, distinct from `false`: \"no robot is online to ask\" and \"the robot has no URDF\" send a developer to different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here."
+          },
+          "store": {
+            "type": "object",
+            "properties": {
+              "bytes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "The robot's asset store, `ROBOT_ASSET_STORE_BYTES`."
+              },
+              "used_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Bytes its assets occupy."
+              }
+            },
+            "required": [
+              "bytes",
+              "used_bytes"
+            ],
+            "additionalProperties": false,
+            "description": "How full this robot's store is."
+          },
+          "joint_state_slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The whole-message `sensor_msgs/msg/JointState` datapoint that drives the console's URDF viewer; null when none is chosen or a publish removed it. Set through `PUT /api/robots/:id/urdf/joint-state`."
           }
         },
         "required": [
           "assets",
           "active_sync",
           "urdf",
-          "urdf_available"
+          "urdf_available",
+          "store",
+          "joint_state_slug"
         ],
         "additionalProperties": false
       },
@@ -9590,32 +9740,38 @@
                   "enum": [
                     "unresolvable",
                     "upload_failed",
-                    "refused",
-                    "too_large"
+                    "refused"
                   ],
-                  "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
+                  "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, and `refused` means it was never attempted, either because the robot's asset store had no room — then `details` carries the three numbers — or because a producer-side ceiling was hit."
                 },
                 "details": {
-                  "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
+                  "description": "The three numbers behind a `refused` entry the robot's store had no room for, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. A `refused` entry may also carry no details: the producer's own ceiling is the other half of that kind, and no store number describes it.",
                   "anyOf": [
                     {
                       "type": "object",
                       "properties": {
-                        "limit_bytes": {
+                        "store_bytes": {
                           "type": "integer",
                           "exclusiveMinimum": 0,
                           "maximum": 9007199254740991,
-                          "description": "The upload ceiling, in bytes."
+                          "description": "The robot's store, in bytes."
+                        },
+                        "used_bytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Bytes the robot's assets occupy before this upload."
                         },
                         "size_bytes": {
                           "type": "integer",
                           "exclusiveMinimum": 0,
                           "maximum": 9007199254740991,
-                          "description": "How large the refused file is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
+                          "description": "The refused upload, in bytes."
                         }
                       },
                       "required": [
-                        "limit_bytes",
+                        "store_bytes",
+                        "used_bytes",
                         "size_bytes"
                       ],
                       "additionalProperties": false
@@ -14587,6 +14743,51 @@
         ],
         "additionalProperties": false
       },
+      "joint-state-put-request": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The datapoint to read joint positions from, or `null` to choose none. It must name a whole-message `sensor_msgs/msg/JointState` datapoint of the published configuration; anything else is a `validation_error` naming the rule."
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      },
+      "joint-state-put-response": {
+        "type": "object",
+        "properties": {
+          "joint_state_slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored mapping after the call, `null` when none is chosen. The same value `assetListResponse.joint_state_slug` carries."
+          }
+        },
+        "required": [
+          "joint_state_slug"
+        ],
+        "additionalProperties": false
+      },
       "live-session-response": {
         "type": "object",
         "properties": {
@@ -15464,11 +15665,6 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
-              },
-              "max_asset_storage_bytes": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -15477,8 +15673,7 @@
               "max_end_users",
               "max_retention_bytes",
               "max_retention_writes_per_minute",
-              "max_realtime_connections",
-              "max_asset_storage_bytes"
+              "max_realtime_connections"
             ],
             "additionalProperties": false
           },
@@ -15501,11 +15696,6 @@
                 "maximum": 9007199254740991
               },
               "max_retention_bytes": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              },
-              "max_asset_storage_bytes": {
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 9007199254740991
@@ -16985,6 +17175,20 @@
         },
         "required": [
           "robots"
+        ],
+        "additionalProperties": false
+      },
+      "robot-token-rotate-response": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^frt_[0-9a-f]{32}$",
+            "description": "The robot's new bridge token. Returned exactly once; the previous token stops working at the bridge's next hello."
+          }
+        },
+        "required": [
+          "token"
         ],
         "additionalProperties": false
       },

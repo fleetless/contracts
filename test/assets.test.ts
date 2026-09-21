@@ -4,7 +4,7 @@ import {
   asset,
   assetListResponse,
   assetSyncStatus,
-  assetTooLargeDetails,
+  assetStoreRefusedDetails,
   urdfCompleteness,
   rolePermissions,
   bridgeAssetsAvailable,
@@ -89,9 +89,12 @@ describe('completeness distinguishes three different unhappy answers', () => {
       assets: [],
       urdf: { present: false, mesh_count: 0, missing: [] },
       // In the FIXTURE, not the assertion: the last line claims `body`
-      // without `urdf_available` is refused. Without `active_sync` here it
-      // would fail for TWO reasons and pass for the wrong one.
+      // without `urdf_available` is refused. Without every other required
+      // field here it would fail for several reasons and pass for the wrong
+      // one.
       active_sync: null,
+      store: { bytes: 1_000_000_000, used_bytes: 0 },
+      joint_state_slug: null,
     }
     expect(assetListResponse.safeParse({ ...body, urdf_available: null }).success).toBe(true)
     expect(assetListResponse.safeParse({ ...body, urdf_available: false }).success).toBe(true)
@@ -149,20 +152,22 @@ describe('the availability frame reports what it cannot resolve', () => {
   })
 })
 
-describe('a size refusal carries both numbers', () => {
-  it('refuses a limit without a size and a size without a limit', () => {
-    // Same discipline as `job_queue_full`: the limit alone doesn't say how
-    // far over the caller is, and the size alone is unreadable without it.
-    expect(assetTooLargeDetails.safeParse({ limit_bytes: 100 }).success).toBe(false)
-    expect(assetTooLargeDetails.safeParse({ size_bytes: 200 }).success).toBe(false)
-    expect(assetTooLargeDetails.safeParse({ limit_bytes: 100, size_bytes: 200 }).success).toBe(true)
+describe('a store refusal carries all three numbers', () => {
+  it('refuses a pair where the caller needs a triple', () => {
+    // Same discipline as `job_queue_full`: the store alone doesn't say how
+    // full it is, and what did not fit is unreadable without both.
+    expect(assetStoreRefusedDetails.safeParse({ store_bytes: 100, used_bytes: 90 }).success).toBe(false)
+    expect(assetStoreRefusedDetails.safeParse({ used_bytes: 90, size_bytes: 20 }).success).toBe(false)
+    expect(assetStoreRefusedDetails.safeParse({ store_bytes: 100, used_bytes: 90, size_bytes: 20 }).success).toBe(true)
   })
 })
 
 describe('the asset store declares its codes', () => {
-  it('carries asset_missing and asset_too_large', () => {
+  it('carries asset_missing and refuses an overfull store as quota_exceeded', () => {
     expect(ERROR_CODES).toContain('asset_missing')
-    expect(ERROR_CODES).toContain('asset_too_large')
+    expect(ERROR_CODES).toContain('quota_exceeded')
+    // Nothing is refused for its own size any more; there is no ceiling to hit.
+    expect(ERROR_CODES).not.toContain('asset_too_large')
   })
 })
 

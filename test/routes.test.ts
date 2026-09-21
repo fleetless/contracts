@@ -7,6 +7,7 @@ import {
   ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH,
   clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
+  robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -1878,5 +1879,45 @@ describe('openapi hygiene', () => {
       const keys = Object.keys(r)
       expect(keys.indexOf('contentType'), `${r.method} ${r.path}`).toBe(keys.indexOf('response') + 1)
     }
+  })
+})
+
+describe('the robot-detail routes phase 4 adds', () => {
+  const find = (method: string, path: string) => ROUTES.find((r) => r.method === method && r.path === path)
+
+  it('rotates a bridge token behind the Owner tier, answering 201 once', () => {
+    // A credential that speaks for the org from anywhere is minted here, so
+    // it sits behind the same gate as robot deletion and the asset sync.
+    const r = find('POST', '/api/robots/:id/token/rotate')
+    expect(r, 'the rotate route is not in the manifest').toBeDefined()
+    expect(r!.ownerTier).toBe(true)
+    expect(r!.auth).toBe('developer')
+    expect(r!.status).toBe(201)
+    expect(r!.response).toBe(robotTokenRotateResponse)
+    expect(r!.errors).toContain('tier_required')
+    expect(r!.errors).toContain('not_found')
+    expect(r!.notes?.length ?? 0, 'a route that stops a running bridge says so').toBeGreaterThan(80)
+  })
+
+  it('sets the joint-state mapping for any developer, and says what qualifies', () => {
+    const r = find('PUT', '/api/robots/:id/urdf/joint-state')
+    expect(r, 'the joint-state route is not in the manifest').toBeDefined()
+    expect(r!.ownerTier).toBe(false)
+    expect(r!.status).toBe(200)
+    expect(r!.request).toBe(jointStatePutRequest)
+    expect(r!.response).toBe(jointStatePutResponse)
+    // A slug that is not a whole-message JointState is refused naming the
+    // rule, and a robot outside the org is `404` as everywhere else.
+    expect(r!.errors).toContain('validation_error')
+    expect(r!.errors).toContain('not_found')
+  })
+
+  it('no longer lets any route refuse an upload for its own size', () => {
+    // The per-file ceiling is gone; the robot's store is what refuses now,
+    // and it refuses as `quota_exceeded`.
+    const upload = find('POST', '/api/bridge/assets')
+    expect(upload!.errors).not.toContain('asset_too_large')
+    expect(upload!.errors).toContain('quota_exceeded')
+    for (const r of ROUTES) expect(r.errors, key(r)).not.toContain('asset_too_large')
   })
 })

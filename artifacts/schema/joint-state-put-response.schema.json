@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "joint_state_slug": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 63,
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The stored mapping after the call, `null` when none is chosen. The same value `assetListResponse.joint_state_slug` carries."
+    }
+  },
+  "required": [
+    "joint_state_slug"
+  ],
+  "additionalProperties": false
+}

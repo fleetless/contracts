@@ -215,6 +215,6 @@ export const AUDIT_CSV_COLUMNS = ['seq', 'at', 'actor_kind', 'actor_id', 'action
  * The audit log is kept for **90 days**.
  *
  * A constant here so no consumer derives it a second time — the same reasoning
- * as `ASSET_UPLOAD_MAX_BYTES`.
+ * as `ROBOT_ASSET_STORE_BYTES`.
  */
 export const AUDIT_RETENTION_DAYS = 90

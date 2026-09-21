@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 
+import { slug } from './common.js'
+
 /**
  * The asset store.
  *
@@ -27,20 +29,24 @@ import { z } from 'zod'
  *
  * ---
  *
- * **`texture` is its own member of `assetKind` and not `other`.**
+ * **Three kinds, and every one of them is a thing a renderer does something
+ * with.**
  *
- * Filing textures under `other` costs a real capability: a client that
- * renders a robot must know, from the asset list alone and before fetching
- * anything, which bytes it has to pre-fetch. Every load in the browser goes
- * through the SDK with the bearer token — there is no lazy second fetch a
- * renderer can make on its own account — so "what must be in memory before
- * anything renders" is a question the list has to be able to answer.
+ * A `urdf` is the description, a `mesh` is geometry, a `texture` is an image
+ * referenced by the URDF's own `<material><texture>` **or** by a mesh file
+ * internally (a `.dae`'s `<init_from>`). A client that renders a robot must
+ * know, from the asset list alone and before fetching anything, which bytes
+ * it has to pre-fetch. Every load in the browser goes through the SDK with
+ * the bearer token — there is no lazy second fetch a renderer can make on its
+ * own account — so "what must be in memory before anything renders" is a
+ * question the list has to be able to answer, and a kind meaning *something
+ * else* answers it for nothing.
  *
- * A `texture` is an image referenced by the URDF's own `<material><texture>`
- * **or** by a mesh file internally (a `.dae`'s `<init_from>`). Both are
- * surfaces; neither is geometry; both must be resolvable by name.
+ * There was a fourth, `other`, and **no producer ever sent it**: the bridge
+ * classifies what it uploads and has only these three to choose from. It was
+ * a slot for a file nobody had, which every consumer still had to branch on.
  */
-export const assetKind = z.enum(['urdf', 'mesh', 'texture', 'other'])
+export const assetKind = z.enum(['urdf', 'mesh', 'texture'])
 export type AssetKind = z.infer<typeof assetKind>
 
 /**
@@ -246,37 +252,48 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
  * field is additive; adding an enum member is not.
  */
 /**
- * **The upload ceiling both sides read.**
+ * **How much asset storage a robot has: one number, the same for every robot.**
  *
- * It is stated once, here, rather than once in the producer and once in the
- * cloud. A limit the sender guesses and the receiver enforces is not a limit;
- * it is two numbers that agree until one of them changes.
+ * It replaces two dials that answered neither question well — a per-file
+ * ceiling, which refused a single large mesh while saying nothing about the
+ * robot's total, and a per-organisation quota, which said nothing about any
+ * one robot. A developer syncing a robot asks *will this robot's description
+ * fit*, and only this number answers it.
  *
- * The bridge reads it **before** it reads a file into memory, and the cloud
- * enforces it. Without a shared number a producer cannot refuse an oversized
- * mesh without first buffering the whole of it.
+ * **Content addressing still stores a shared blob once, and each robot's
+ * counter still carries it.** Two robots referencing the same mesh cost one
+ * object and count against both stores, so a robot's number never depends on
+ * another robot's — which is the only way "used of 1 GB" means anything on a
+ * page about one robot.
  *
- * **It applies per file, not per sync.** Eight meshes of 30 MiB each pass; one
- * file of 65 MiB does not. Reading it as a ceiling on a whole transfer means
- * planning against a bound that does not exist — the total of a sync counts
- * against the organisation's storage quota, which is a different number in a
- * different place.
- *
- * A robot whose meshes exceed this is not a contract question but a question
- * about storage, transfer time and quota, and it is answered by raising the
- * number here, in one place, for both sides.
+ * Stated here, and in `constants.json`, because the bridge cannot import this
+ * package and the cloud enforces the check: a limit the sender guesses and
+ * the receiver enforces is two numbers that agree until one of them moves.
  */
-export const ASSET_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
+export const ROBOT_ASSET_STORE_BYTES = 1_000_000_000
 
-export const assetTooLargeDetails = z.object({
-  limit_bytes: z.number().int().positive().meta({
-    description: 'The upload ceiling, in bytes.',
+/**
+ * What a full store tells the caller — the same discipline as `job_queue_full`
+ * and `publisher_busy`: a refusal that names a state and no number leaves the
+ * caller unable to decide anything.
+ *
+ * Three numbers, because two of them answer different questions. `store_bytes`
+ * and `used_bytes` say how much room there is; `size_bytes` says what did not
+ * fit. Without the pair a developer cannot tell whether to delete something or
+ * to shrink the mesh, and "the store is full" answers neither.
+ */
+export const assetStoreRefusedDetails = z.object({
+  store_bytes: z.number().int().positive().meta({
+    description: 'The robot\'s store, in bytes.',
+  }),
+  used_bytes: z.number().int().nonnegative().meta({
+    description: 'Bytes the robot\'s assets occupy before this upload.',
   }),
   size_bytes: z.number().int().positive().meta({
-    description: 'How large the refused file is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; "too large" alone answers neither.',
+    description: 'The refused upload, in bytes.',
   }),
 })
-export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
+export type AssetStoreRefusedDetails = z.infer<typeof assetStoreRefusedDetails>
 
 /**
  * Why one reference did not make it into the store.
@@ -291,15 +308,22 @@ export type AssetTooLargeDetails = z.infer<typeof assetTooLargeDetails>
  *   reconciliation may treat as gone.
  * - **`upload_failed`** — the bytes exist and the transfer did not succeed.
  *   **Transient.** The asset is still wanted; a later sync will carry it.
- * - **`refused`** — never attempted, because a producer-side ceiling was hit
- *   (for example a `.dae` carrying more internal references than one file or
- *   one sync will report). **Transient in the same sense**: nothing is known
- *   to be missing, only unexamined.
+ * - **`refused`** — never attempted. Either the robot's asset store had no
+ *   room for it, in which case `details` carries the three numbers, or a
+ *   producer-side ceiling was hit (a `.dae` carrying more internal references
+ *   than one file or one sync will report), in which case it does not.
+ *   **Transient in the same sense**: nothing is known to be missing, only
+ *   unexamined.
+ *
+ * There was a fourth, `too_large`, for a file over a per-file ceiling. That
+ * ceiling is gone — a robot has one store and nothing is refused for its own
+ * size — so the kind had no producer left and one fewer thing to branch on is
+ * the whole of the gain.
  *
  * A consumer that cannot act on the distinction may still print `reference`
  * alone and lose nothing it had before.
  */
-export const assetFailureKind = z.enum(['unresolvable', 'upload_failed', 'refused', 'too_large'])
+export const assetFailureKind = z.enum(['unresolvable', 'upload_failed', 'refused'])
 export type AssetFailureKind = z.infer<typeof assetFailureKind>
 
 export const assetFailure = z.object({
@@ -314,35 +338,30 @@ export const assetFailure = z.object({
     description: 'What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one.',
   }),
   kind: assetFailureKind.meta({
-    description: 'Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`.',
+    description: 'Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, and `refused` means it was never attempted, either because the robot\'s asset store had no room — then `details` carries the three numbers — or because a producer-side ceiling was hit.',
   }),
   /**
-   * **The two numbers, and why `too_large` is a kind of its own.**
+   * **The three numbers behind a full store.**
    *
-   * `refused` means *never attempted, because a producer-side ceiling was
-   * hit*. That fits a file skipped for its size **and** the single collective
-   * entry a sync emits when it stops naming individual failures. Filing both
-   * under one kind puts two facts on one key, each overwriting the other.
+   * A reason without numbers is not one a caller can act on. *"Refused"* does
+   * not answer whether to delete an old sync or shrink the mesh;
+   * `store_bytes`, `used_bytes` and `size_bytes` do.
    *
-   * A reason without numbers is not one a caller can act on. *"Too large"*
-   * does not answer whether to shrink the mesh or raise the limit;
-   * `limit_bytes` and `size_bytes` do.
-   *
-   * Absent for every other kind — a forced `details: null` on every
-   * `unresolvable` buys nothing. The pairing is **enforced** below, not merely
-   * described: a field whose rule lives only in a comment is a request.
+   * **Present only on `refused`, and not on every `refused`.** The other half
+   * of that kind is the single collective entry a sync emits when it stops
+   * naming individual failures, and no store number describes it — requiring
+   * details there would mean inventing them. So the enforcement below is the
+   * half that can be enforced: details belong to `refused` and to nothing
+   * else. A forced `details: null` on every `unresolvable` buys nothing.
    */
-  details: assetTooLargeDetails.nullish().meta({
-    description: 'The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.',
+  details: assetStoreRefusedDetails.nullish().meta({
+    description: 'The three numbers behind a `refused` entry the robot\'s store had no room for, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. A `refused` entry may also carry no details: the producer\'s own ceiling is the other half of that kind, and no store number describes it.',
   }),
 }).superRefine((f, ctx) => {
   // Enforced here, not merely described above — a rule that lives only in a
   // comment gets filled with something else.
-  if (f.kind === 'too_large' && f.details == null) {
-    ctx.addIssue({ code: 'custom', path: ['details'], message: '`too_large` without limit_bytes/size_bytes says nothing a developer can act on' })
-  }
-  if (f.kind !== 'too_large' && f.details != null) {
-    ctx.addIssue({ code: 'custom', path: ['details'], message: 'size details belong to `too_large` only' })
+  if (f.kind !== 'refused' && f.details != null) {
+    ctx.addIssue({ code: 'custom', path: ['details'], message: 'store details belong to `refused` only' })
   }
 })
 export type AssetFailure = z.infer<typeof assetFailure>
@@ -439,6 +458,35 @@ export const assetListResponse = z.object({
   urdf_available: z.boolean().nullable().meta({
     description: 'What the connected bridge says it *could* transfer — deliberately separate from what has been transferred. `null` when no bridge is connected, distinct from `false`: "no robot is online to ask" and "the robot has no URDF" send a developer to different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here.',
   }),
+  /**
+   * **How full this robot's store is, on the list that already names what is
+   * in it.** A page showing assets is the page where "will the next sync fit"
+   * is asked, and a second round trip to some quota endpoint would answer it
+   * about the organisation instead — which is a different number about a
+   * different thing.
+   */
+  store: z.object({
+    bytes: z.number().int().positive().meta({
+      description: 'The robot\'s asset store, `ROBOT_ASSET_STORE_BYTES`.',
+    }),
+    used_bytes: z.number().int().nonnegative().meta({
+      description: 'Bytes its assets occupy.',
+    }),
+  }).meta({ description: 'How full this robot\'s store is.' }),
+  /**
+   * The datapoint that moves the joints in a renderer, chosen by a developer
+   * and stored on the robot. It rides on this list because a client that has
+   * just fetched the URDF and the meshes needs exactly one more thing to
+   * animate them, and asking a second endpoint for one slug is a round trip
+   * that buys nothing.
+   *
+   * `null` is an ordinary answer: none was ever chosen, or a publish removed
+   * the datapoint it named and the cloud cleared the mapping rather than
+   * leave it pointing at something that no longer qualifies.
+   */
+  joint_state_slug: slug.nullable().meta({
+    description: 'The whole-message `sensor_msgs/msg/JointState` datapoint that drives the console\'s URDF viewer; null when none is chosen or a publish removed it. Set through `PUT /api/robots/:id/urdf/joint-state`.',
+  }),
 })
 export type AssetListResponse = z.infer<typeof assetListResponse>
 
@@ -460,12 +508,6 @@ export const missingAssetQuery = z
   })
   .meta({ description: 'The one optional parameter of the missing-asset placeholder; it names the reference in the refusal.' })
 export type MissingAssetQuery = z.infer<typeof missingAssetQuery>
-
-/**
- * What an `asset_too_large` refusal tells the caller — the same discipline as
- * `publisher_busy` and `job_queue_full`: a refusal that names a state and no
- * number leaves the caller unable to decide anything.
- */
 
 /**
  * What a `busy` refusal on an asset sync has to carry.

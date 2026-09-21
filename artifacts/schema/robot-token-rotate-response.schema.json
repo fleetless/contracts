@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^frt_[0-9a-f]{32}$",
+      "description": "The robot's new bridge token. Returned exactly once; the previous token stops working at the bridge's next hello."
+    }
+  },
+  "required": [
+    "token"
+  ],
+  "additionalProperties": false
+}

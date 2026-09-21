@@ -333,13 +333,6 @@ export const ERROR_CODES = [
    * cause, in somebody else's application.
    */
   'asset_missing',
-  /**
-   * The asset exceeds the per-file ceiling. Carries `assetTooLargeDetails`
-   * with both numbers, for the reason `job_queue_full` carries both: the limit
-   * alone does not tell the caller how far over they are, and the size alone
-   * cannot be read without the limit.
-   */
-  'asset_too_large',
   // The hosted authorization server.
   //
   // **This comment was wrong in its first form and a teammate followed it
@@ -372,7 +365,7 @@ export const ERROR_CODES = [
   'dynamic_registration_disabled',
   /**
    * The per-app ceiling on dynamically-registered clients is reached. Carries
-   * both numbers for the same reason `asset_too_large` does.
+   * both numbers for the same reason `job_queue_full` does.
    */
   'client_limit_reached',
   /**

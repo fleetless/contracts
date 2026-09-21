@@ -1,8 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { ASSET_UPLOAD_HEADERS } from '../src/rest.js'
-import { ASSET_UPLOAD_MAX_BYTES, assetListResponse, assetSyncBusyDetails, assetSyncStatus, assetFailure, assetFailureKind, urdfCompleteness } from '../src/assets.js'
+import { ASSET_UPLOAD_HEADERS, orgQuotas } from '../src/rest.js'
+import { ERROR_CODES } from '../src/errors.js'
+import {
+  ROBOT_ASSET_STORE_BYTES,
+  assetFailure,
+  assetFailureKind,
+  assetKind,
+  assetListResponse,
+  assetStoreRefusedDetails,
+  assetSyncBusyDetails,
+  assetSyncStatus,
+  urdfCompleteness,
+} from '../src/assets.js'
 
 const runningSync = {
   sync_id: '33333333-3333-4333-8333-333333333333',
@@ -16,25 +29,80 @@ const runningSync = {
   updated_at: '2026-08-19T10:00:03.000Z',
 }
 
-describe('the upload ceiling both sides read', () => {
-  it('is one number in the contract, not two in two repositories', () => {
-    // A limit the sender guesses and the receiver enforces is not a limit; it
-    // is two numbers that agree until one of them changes.
-    expect(ASSET_UPLOAD_MAX_BYTES).toBe(64 * 1024 * 1024)
-    expect(Number.isInteger(ASSET_UPLOAD_MAX_BYTES)).toBe(true)
+const listBase = {
+  assets: [],
+  active_sync: null,
+  urdf: { present: false, mesh_count: 0, missing: [] },
+  urdf_available: null,
+}
+
+describe('assets after the per-robot store', () => {
+  it('knows three kinds and three failure kinds', () => {
+    // `other` never reached the wire and `too_large` has no producer left:
+    // nothing is refused for its own size any more, only for the store.
+    expect(assetKind.options).toEqual(['urdf', 'mesh', 'texture'])
+    expect(assetFailureKind.options).toEqual(['unresolvable', 'upload_failed', 'refused'])
   })
 
-  it('is a per-file ceiling a real robot description can exceed', () => {
-    // A single mesh can run several times over this ceiling while a sibling
-    // mesh sits comfortably under it — the ceiling is per file, so one
-    // oversized mesh doesn't stop the rest of a sync.
-    expect(193_886_766).toBeGreaterThan(ASSET_UPLOAD_MAX_BYTES)
-    expect(39_525_034).toBeLessThan(ASSET_UPLOAD_MAX_BYTES)
+  it('the store is one gigabyte per robot and a refusal names all three numbers', () => {
+    // Two numbers say how full it is; the third says what did not fit. A
+    // caller missing any of them cannot tell whether to shrink or to delete.
+    expect(ROBOT_ASSET_STORE_BYTES).toBe(1_000_000_000)
+    expect(assetStoreRefusedDetails.safeParse({ store_bytes: 1_000_000_000, used_bytes: 999_000_000, size_bytes: 2_000_000 }).success).toBe(true)
+    expect(assetStoreRefusedDetails.safeParse({ store_bytes: 1_000_000_000, used_bytes: 0 }).success).toBe(false)
   })
 
-  it('announces the size in its own header, so the refusal can precede the body', () => {
-    // A server-side body limit is applied by the content-type parser, before
-    // the handler runs, so a structured refusal would have no producer.
+  it('asset_too_large is no error code and max_asset_storage_bytes no quota', () => {
+    // A code with no producer is a refusal a consumer still has to branch on.
+    expect(ERROR_CODES).not.toContain('asset_too_large')
+    expect(Object.keys(orgQuotas.shape)).not.toContain('max_asset_storage_bytes')
+  })
+
+  it('the list response carries the store and the joint-state slug', () => {
+    expect(assetListResponse.safeParse({ ...listBase, store: { bytes: 1_000_000_000, used_bytes: 0 }, joint_state_slug: null }).success).toBe(true)
+    expect(assetListResponse.safeParse({ ...listBase, store: { bytes: 1_000_000_000, used_bytes: 0 }, joint_state_slug: 'joints' }).success).toBe(true)
+    // Required, both of them: a server that says nothing about the store is
+    // indistinguishable from one reporting an empty store.
+    expect(assetListResponse.safeParse(listBase).success).toBe(false)
+  })
+
+  it('constants.json follows, because the bridge reads only that', () => {
+    const c = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'artifacts', 'constants.json'), 'utf8'))
+    expect(c.ASSET_UPLOAD_MAX_BYTES).toBeUndefined()
+    expect(c.ROBOT_ASSET_STORE_BYTES).toBe(ROBOT_ASSET_STORE_BYTES)
+    expect(c.ASSET_KINDS).toEqual(['urdf', 'mesh', 'texture'])
+  })
+})
+
+describe('a failure entry after the ceiling went', () => {
+  const at = (kind: string, details?: unknown) => assetFailure.safeParse({ reference: 'package://p/base.dae', kind, details })
+  const full = { store_bytes: ROBOT_ASSET_STORE_BYTES, used_bytes: 999_000_000, size_bytes: 2_000_000 }
+
+  it('takes the three kinds and nothing else', () => {
+    expect(at('unresolvable').success).toBe(true)
+    expect(at('upload_failed').success).toBe(true)
+    expect(at('refused').success).toBe(true)
+    expect(at('too_large').success).toBe(false)
+  })
+
+  it('lets `refused` carry the store numbers, and lets it carry none', () => {
+    // Both halves of the kind are real: a file the store had no room for,
+    // and the one collective entry a producer emits at its own ceiling. The
+    // second has no store numbers to give, so details cannot be required.
+    expect(at('refused', full).success).toBe(true)
+    expect(at('refused').success).toBe(true)
+  })
+
+  it('refuses store numbers on a kind they do not describe', () => {
+    expect(at('unresolvable', full).success).toBe(false)
+    expect(at('upload_failed', full).success).toBe(false)
+  })
+})
+
+describe('the upload still announces its size', () => {
+  it('names the size header, so the store check precedes the body', () => {
+    // The check moved from a per-file ceiling to the robot's store; it still
+    // has to happen before a byte is buffered, so the header stays.
     expect(ASSET_UPLOAD_HEADERS.size).toBe('x-fleetless-asset-size')
     expect(new Set(Object.values(ASSET_UPLOAD_HEADERS)).size).toBe(Object.values(ASSET_UPLOAD_HEADERS).length)
   })
@@ -53,45 +121,13 @@ describe('a running sync is addressable', () => {
   it('the asset list carries the running sync — the case a reload creates', () => {
     // A page that loads fresh presses no button; it asks this list. The busy
     // details alone are therefore not enough.
-    const body = { assets: [], urdf: { present: false, mesh_count: 0, missing: [] }, urdf_available: null }
+    const body = { ...listBase, store: { bytes: ROBOT_ASSET_STORE_BYTES, used_bytes: 0 }, joint_state_slug: null }
     expect(assetListResponse.safeParse({ ...body, active_sync: assetSyncStatus.parse(runningSync) }).success).toBe(true)
     expect(assetListResponse.safeParse({ ...body, active_sync: null }).success).toBe(true)
     // Required, with no default: a server that says nothing would be
     // indistinguishable from one saying no sync is running.
-    expect(assetListResponse.safeParse(body).success).toBe(false)
-  })
-})
-
-describe('the ceiling reaches the side that cannot read npm', () => {
-  it('is in the artifact, not only in the TypeScript export', async () => {
-    // The bridge can't import this package — it reads only
-    // `artifacts/constants.json`. A TypeScript-only export is a limit one
-    // side can't read. Two numbers again.
-    const { readFileSync } = await import('node:fs')
-    const artifact = JSON.parse(readFileSync(new URL('../artifacts/constants.json', import.meta.url), 'utf8'))
-    expect(artifact.ASSET_UPLOAD_MAX_BYTES).toBe(ASSET_UPLOAD_MAX_BYTES)
-  })
-})
-
-describe('a refusal that says how big, and how big it was allowed to be', () => {
-  const at = (kind: string, details?: unknown) => assetFailure.safeParse({ reference: 'package://p/base.dae', kind, details })
-
-  it('is its own kind, because `refused` already carries the collective sentinel', () => {
-    // Filing both under `refused` would put two facts on one key, each
-    // overwriting the other.
-    expect(assetFailureKind.options).toContain('too_large')
-    expect(assetFailureKind.options).toContain('refused')
-  })
-
-  it('cannot be published without the two numbers a developer would act on', () => {
-    expect(at('too_large').success).toBe(false)
-    expect(at('too_large', null).success).toBe(false)
-    expect(at('too_large', { limit_bytes: ASSET_UPLOAD_MAX_BYTES, size_bytes: 193_886_766 }).success).toBe(true)
-  })
-
-  it('refuses size details on a kind they do not describe', () => {
-    expect(at('unresolvable', { limit_bytes: 1, size_bytes: 2 }).success).toBe(false)
-    expect(at('unresolvable').success).toBe(true)
+    const { active_sync: _gone, ...withoutSync } = body
+    expect(assetListResponse.safeParse(withoutSync).success).toBe(false)
   })
 })
 

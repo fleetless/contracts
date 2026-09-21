@@ -19,8 +19,7 @@
       "enum": [
         "urdf",
         "mesh",
-        "texture",
-        "other"
+        "texture"
       ],
       "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what to pre-fetch."
     },

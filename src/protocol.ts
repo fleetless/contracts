@@ -113,6 +113,21 @@ export function minimumProtocolVersion(today: Date = new Date()): number {
 export const CLOSE_ROBOT_DELETED = 4004
 
 /**
+ * The bridge socket close code for "the token you connected with is gone".
+ *
+ * The cloud closes a robot's live socket with this after the robot's token was
+ * rotated. A 4.0.0 bridge reads it the way it reads `invalid_token` — stop,
+ * exit 2 — because the secret it holds is no longer a secret anyone accepts,
+ * and no amount of reconnecting produces the new one. A 3.x bridge does not
+ * know the code, reconnects, and is refused at hello; that ends the same way,
+ * one round trip later.
+ *
+ * Its own code rather than `CLOSE_ROBOT_DELETED`, which would tell an operator
+ * their robot had been deleted when it very much still exists.
+ */
+export const CLOSE_TOKEN_ROTATED = 4005
+
+/**
  * How long a command waits for its answer when the caller names no patience
  * of its own.
  *

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 63,
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The datapoint to read joint positions from, or `null` to choose none. It must name a whole-message `sensor_msgs/msg/JointState` datapoint of the published configuration; anything else is a `validation_error` naming the rule."
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}

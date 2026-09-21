@@ -21,7 +21,7 @@ import {
   RESOURCE_HEALTH_STATES,
 } from '../src/rest.js'
 import { resourceHealthEvent } from '../src/realtime.js'
-import { bridgeCameraState, CLOSE_ROBOT_DELETED } from '../src/protocol.js'
+import { bridgeCameraState, CLOSE_ROBOT_DELETED, CLOSE_TOKEN_ROTATED } from '../src/protocol.js'
 
 const health = {
   robot_id: '11111111-1111-4111-8111-111111111111',
@@ -93,6 +93,14 @@ describe('deletion', () => {
     // one unless the cloud says which — and without that, a deleted robot
     // reconnects forever.
     expect(CLOSE_ROBOT_DELETED).toBe(4004)
+  })
+
+  it('gives a rotated token its own code, beside the deleted robot', () => {
+    // The two codes answer different questions — "this robot is gone" and
+    // "this secret is". Sharing one would send a rotated bridge into the
+    // reconnect loop a deleted one is told to leave.
+    expect(CLOSE_TOKEN_ROTATED).toBe(4005)
+    expect(CLOSE_TOKEN_ROTATED).not.toBe(CLOSE_ROBOT_DELETED)
   })
 })
 

@@ -50,6 +50,48 @@ export const createRobotResponse = z.object({
 export type CreateRobotResponse = z.infer<typeof createRobotResponse>
 
 /**
+ * What a rotation hands back: the new token, once.
+ *
+ * The same shape as the creation response minus the robot, because nothing
+ * about the robot changed — only its credential. `createRobotResponse`'s own
+ * rule applies unchanged: the cloud stores a hash, so this is the only moment
+ * the raw token exists outside the caller's hands.
+ */
+export const robotTokenRotateResponse = z.object({
+  token: robotToken.meta({
+    description: 'The robot\'s new bridge token. Returned exactly once; the previous token stops working at the bridge\'s next hello.',
+  }),
+})
+export type RobotTokenRotateResponse = z.infer<typeof robotTokenRotateResponse>
+
+/**
+ * Which datapoint drives the joints of this robot's URDF, or none.
+ *
+ * `null` is the clearing value, which is why `slug` is required rather than
+ * optional: an absent field and a cleared mapping would be the same request
+ * and mean different things, and the one a client sends by accident is the
+ * first.
+ *
+ * The cloud refuses a slug that is not a whole-message
+ * `sensor_msgs/msg/JointState` datapoint of the **published** document — a
+ * mapping that may point anywhere is a viewer animating a battery reading.
+ */
+export const jointStatePutRequest = z.object({
+  slug: slug.nullable().meta({
+    description: 'The datapoint to read joint positions from, or `null` to choose none. It must name a whole-message `sensor_msgs/msg/JointState` datapoint of the published configuration; anything else is a `validation_error` naming the rule.',
+  }),
+})
+export type JointStatePutRequest = z.infer<typeof jointStatePutRequest>
+
+/** The mapping as it now stands — the same field `GET /api/robots/:id/assets` reports. */
+export const jointStatePutResponse = z.object({
+  joint_state_slug: slug.nullable().meta({
+    description: 'The stored mapping after the call, `null` when none is chosen. The same value `assetListResponse.joint_state_slug` carries.',
+  }),
+})
+export type JointStatePutResponse = z.infer<typeof jointStatePutResponse>
+
+/**
  * How many things a robot exposes, per kind.
  *
  * **Five numbers, never a sum.** `robotDeletionSummary.slug_count` makes the
@@ -910,22 +952,21 @@ export const ASSET_UPLOAD_HEADERS = {
   nameEncoded: 'x-fleetless-asset-name-encoded',
   syncId: 'x-fleetless-sync-id',
   /**
-   * **The announced size, and it is what makes `asset_too_large` reachable at
-   * all.**
+   * **The announced size, and it is what makes a structured store refusal
+   * reachable at all.**
    *
    * A server-side body limit is applied by the content-type parser, before the
-   * handler runs, so an oversized upload can only be refused with a bare
-   * `413` carrying neither `limit_bytes` nor `size_bytes` — and the structured
-   * refusal `assetTooLargeDetails` describes would have no producer.
+   * handler runs, so an upload with no room left can only be refused with a
+   * bare `413` carrying none of the three numbers — and the refusal
+   * `assetStoreRefusedDetails` describes would have no producer.
    *
-   * With the size announced in a header the refusal can be made where it can
-   * say something: before a byte is buffered, with both numbers. It also lets
-   * a producer discover its own limit without first reading the whole file
-   * into memory.
+   * With the size announced in a header the cloud can check `used + size`
+   * against `ROBOT_ASSET_STORE_BYTES` where it can still say something: before
+   * a byte is buffered, with all three numbers.
    *
    * The header is an **announcement, not a proof**: a sender can lie. The
-   * ceiling still applies to the body — this does not replace enforcement, it
-   * only makes the refusal answerable.
+   * store still applies to the bytes that arrive — this does not replace
+   * enforcement, it only makes the refusal answerable.
    */
   size: 'x-fleetless-asset-size',
 } as const
@@ -1602,31 +1643,6 @@ export const orgQuotas = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().positive(),
-  /**
-   * Asset storage — **its own dial, not part of `max_retention_bytes`.** A
-   * sync grows storage in jumps and time series grow steadily; one dial would
-   * let the first crowd out the second, and the org that hit its limit would be
-   * told to look at the wrong thing.
-   *
-   * **Counted per distinct blob *this org references* — not per asset row, and
-   * not per object the platform stores on its behalf.** The two readings are
-   * indistinguishable from the number alone and a customer is entitled to know
-   * which one they are being charged for.
-   *
-   * Within an org, sharing is free: two robots referencing the same mesh cost
-   * one copy, which is what dedup means to a customer, and anything else
-   * charges an org twice for a fleet of identical robots — the normal case.
-   *
-   * **Across orgs, sharing is not free.** Storage stays globally
-   * content-addressed (one object per sha256; that efficiency is real), but
-   * accounting is per-org: an org is charged for each distinct blob it
-   * references and credited when its own last reference goes, whether or not
-   * the blob survives for somebody else. Global refcounting would make the
-   * first org to sync a blob pay for it forever while every later org stored it
-   * free — a quota evadable by anyone whose mesh someone else had already
-   * uploaded, and an org's own number would depend on who got there first.
-   */
-  max_asset_storage_bytes: z.number().int().nonnegative(),
 })
 export type OrgQuotas = z.infer<typeof orgQuotas>
 
@@ -1650,7 +1666,6 @@ export const orgQuotaUsageCounts = z.object({
   max_apps: z.number().int().nonnegative(),
   max_end_users: z.number().int().nonnegative(),
   max_retention_bytes: z.number().int().nonnegative(),
-  max_asset_storage_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().nonnegative(),
 }).partial()
@@ -1846,11 +1861,10 @@ export const USAGE_WINDOW_MAX_DAYS = 366
 /**
  * The five things the meter records.
  *
- * Storage is two metrics and not one summed byte count, for
- * `org_quotas.max_asset_storage_bytes`'s own reason applied to billing: a sync
- * grows storage in jumps and time series grow steadily, and one number would
- * let the first crowd out the second on the invoice the same way it would on
- * the quota.
+ * Storage is two metrics and not one summed byte count: a sync grows storage
+ * in jumps and time series grow steadily, and one number would let the first
+ * crowd out the second on the invoice. The org that outgrew its bill would be
+ * told to look at the wrong thing.
  */
 export const usageMetric = z.enum(['api_calls', 'live_session_ms', 'retention_bytes', 'asset_bytes', 'robot_online_ms'])
 export type UsageMetric = z.infer<typeof usageMetric>

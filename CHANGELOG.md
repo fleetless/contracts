@@ -7,12 +7,19 @@ the wire shapes.
 
 ## [Unreleased]
 
+### Added
+
+- **A robot's own asset store.** `ROBOT_ASSET_STORE_BYTES` (1 GB) is what every robot gets, in `constants.json` too, so the bridge reads the same number the cloud enforces. `assetStoreRefusedDetails` carries `store_bytes`, `used_bytes` and `size_bytes` behind the `409 quota_exceeded` an upload with no room left answers, and rides on a `refused` entry in `assetFailure.details`. `assetListResponse` gains `store { bytes, used_bytes }`, so the page that lists a robot's assets can say how full it is without asking a second endpoint about the organisation.
+- **Two robot-detail routes.** `POST /api/robots/:id/token/rotate` (Owner tier, `201`, `robotTokenRotateResponse`) mints a new bridge token and stops the socket speaking on the old one; `CLOSE_TOKEN_ROTATED` (4005) is the code it closes with, distinct from `CLOSE_ROBOT_DELETED` because the robot very much still exists. `PUT /api/robots/:id/urdf/joint-state` (`jointStatePutRequest`/`jointStatePutResponse`) chooses the whole-message `sensor_msgs/msg/JointState` datapoint that moves the URDF's joints, or clears it; `assetListResponse.joint_state_slug` reads it back.
+
 ### Changed
 
 - **Protocol 3 — the bridge decides its own low-bandwidth mode.** `cloudPing` carries `latency_ms` and `lag_ms`; the bridge sends `link_mode`; `bridge_state` gains `low_bandwidth`. `fleetless.yaml` gains an optional top-level `low_bandwidth` section and a per-datapoint `low_bandwidth: keep`; `LOW_BANDWIDTH_DEFAULTS` ships in `constants.json`. `datapointFrame` gains an optional `backfill` flag, so a replayed sample carrying its original capture time is not read as lag on the link. Protocol 2 is deprecated as of this release and served until 2026-12-20.
 
 ### Removed
 
+- **The per-file upload ceiling, and the organisation's storage dial.** `ASSET_UPLOAD_MAX_BYTES`, `assetTooLargeDetails`, the error code `asset_too_large` and the `assetFailureKind` member `too_large` are gone: nothing is refused for its own size any more, only for the robot's store. `orgQuotas.max_asset_storage_bytes` and its usage twin go with them — a robot has 1 GB; the organisation dial is gone.
+- **`assetKind` member `other`.** No producer ever sent it. The bridge classifies what it uploads and has only `urdf`, `mesh` and `texture` to choose from, so `other` was a slot for a file nobody had that every consumer still had to branch on.
 - **`bridge_pressure`.** The datapoint, `bridgePressure`, `PRESSURE_SLUG` and the reserved slug are gone; an app that read it reads `bridge_state.low_bandwidth` instead. This is the break that makes this release a major.
 
 ## [1.3.0] — 2026-09-21

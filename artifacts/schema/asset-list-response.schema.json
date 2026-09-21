@@ -24,8 +24,7 @@
             "enum": [
               "urdf",
               "mesh",
-              "texture",
-              "other"
+              "texture"
             ],
             "description": "What the file is: the `urdf` itself, a `mesh` it references, a `texture` a mesh or the URDF paints with, or `other`. A renderer decides from this alone, before fetching anything, what to pre-fetch."
           },
@@ -128,32 +127,38 @@
                     "enum": [
                       "unresolvable",
                       "upload_failed",
-                      "refused",
-                      "too_large"
+                      "refused"
                     ],
-                    "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, `refused` means it was never attempted because a producer-side ceiling was hit, and `too_large` means it exceeds the upload limit and carries both numbers in `details`."
+                    "description": "Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, and `refused` means it was never attempted, either because the robot's asset store had no room — then `details` carries the three numbers — or because a producer-side ceiling was hit."
                   },
                   "details": {
-                    "description": "The two numbers behind a `too_large` failure, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. The pairing is enforced, not merely described.",
+                    "description": "The three numbers behind a `refused` entry the robot's store had no room for, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. A `refused` entry may also carry no details: the producer's own ceiling is the other half of that kind, and no store number describes it.",
                     "anyOf": [
                       {
                         "type": "object",
                         "properties": {
-                          "limit_bytes": {
+                          "store_bytes": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
                             "maximum": 9007199254740991,
-                            "description": "The upload ceiling, in bytes."
+                            "description": "The robot's store, in bytes."
+                          },
+                          "used_bytes": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991,
+                            "description": "Bytes the robot's assets occupy before this upload."
                           },
                           "size_bytes": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
                             "maximum": 9007199254740991,
-                            "description": "How large the refused file is, in bytes. With `limit_bytes` beside it a developer can tell whether to shrink the mesh or raise the limit; \"too large\" alone answers neither."
+                            "description": "The refused upload, in bytes."
                           }
                         },
                         "required": [
-                          "limit_bytes",
+                          "store_bytes",
+                          "used_bytes",
                           "size_bytes"
                         ],
                         "additionalProperties": false
@@ -276,13 +281,52 @@
         }
       ],
       "description": "What the connected bridge says it *could* transfer — deliberately separate from what has been transferred. `null` when no bridge is connected, distinct from `false`: \"no robot is online to ask\" and \"the robot has no URDF\" send a developer to different places. After a publisher is killed rather than shut down this can read `true` for some seconds, on the underlying DDS liveliness timeout rather than on any check made here."
+    },
+    "store": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "description": "The robot's asset store, `ROBOT_ASSET_STORE_BYTES`."
+        },
+        "used_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Bytes its assets occupy."
+        }
+      },
+      "required": [
+        "bytes",
+        "used_bytes"
+      ],
+      "additionalProperties": false,
+      "description": "How full this robot's store is."
+    },
+    "joint_state_slug": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 63,
+          "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The whole-message `sensor_msgs/msg/JointState` datapoint that drives the console's URDF viewer; null when none is chosen or a publish removed it. Set through `PUT /api/robots/:id/urdf/joint-state`."
     }
   },
   "required": [
     "assets",
     "active_sync",
     "urdf",
-    "urdf_available"
+    "urdf_available",
+    "store",
+    "joint_state_slug"
   ],
   "additionalProperties": false
 }
