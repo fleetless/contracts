@@ -16,7 +16,7 @@
           },
           "builtin": {
             "type": "boolean",
-            "description": "`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds."
+            "description": "`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds."
           },
           "unit": {
             "anyOf": [

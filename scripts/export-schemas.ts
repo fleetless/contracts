@@ -19,9 +19,9 @@ import {
   cloudHelloError,
   cloudPing,
   bridgePong,
+  bridgeLinkMode,
   datapointFrame,
   bridgeState,
-  bridgePressure,
   cloudConfig,
   bridgeConfigApplied,
   cloudIntrospectRequest,
@@ -283,9 +283,9 @@ export const exportedSchemas = {
   'cloud-hello-error': cloudHelloError,
   'cloud-ping': cloudPing,
   'bridge-pong': bridgePong,
+  'bridge-link-mode': bridgeLinkMode,
   'datapoint-frame': datapointFrame,
   'bridge-state': bridgeState,
-  'bridge-pressure': bridgePressure,
   'cloud-config': cloudConfig,
   'bridge-config-applied': bridgeConfigApplied,
   // Registered on its own, unlike `parameterViolation` (embedded once, in
@@ -640,8 +640,8 @@ export const exportedConstants = {
 const SCHEMA_IO_INPUT: readonly string[] = [
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
-  'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong',
-  'datapoint-frame', 'bridge-state', 'bridge-pressure', 'cloud-config', 'bridge-config-applied', 'apply-error',
+  'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong', 'bridge-link-mode',
+  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
   'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
   'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',
@@ -814,7 +814,7 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
  * never reach the wire and no consumer generates from them.
  */
 export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
-  'bridge-hello', 'bridge-pong', 'bridge-config-applied', 'bridge-introspect',
+  'bridge-hello', 'bridge-pong', 'bridge-link-mode', 'bridge-config-applied', 'bridge-introspect',
   'bridge-type-definitions', 'datapoint-frame', 'bridge-job-update', 'bridge-job-lost',
   'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
 ]

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   PROTOCOL_VERSION,
@@ -10,8 +10,9 @@ import {
   cloudHelloOk,
   datapointFrame,
   bridgeState,
-  bridgePressure,
-  PRESSURE_SLUG,
+  bridgeLinkMode,
+  cloudPing,
+  sunsetOf,
   apiError,
   slug,
 } from '../src/index.js'
@@ -60,88 +61,31 @@ describe('contracts v1', () => {
     }
   })
 
-  it('bridge-state carries online flag and nullable latency', () => {
-    expect(bridgeState.safeParse({ online: true, latency_ms: 42 }).success).toBe(true)
-    expect(bridgeState.safeParse({ online: false, latency_ms: null }).success).toBe(true)
-    expect(bridgeState.safeParse({ online: false }).success).toBe(false)
+  it('protocol 3 is current, protocol 2 is deprecated with a sunset', () => {
+    expect(PROTOCOL_VERSION).toBe(3)
+    const two = PROTOCOL_VERSIONS.find((e) => e.version === 2)!
+    expect(two.deprecated_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(sunsetOf(two)).toBe('2026-12-20')
+    expect(PROTOCOL_VERSIONS.find((e) => e.version === 3)).toEqual({ version: 3, bridge_from: '4.0.0', deprecated_at: null })
   })
 
-  it('bridge-pressure accepts a full sample and rejects an unknown tier or a negative link rate', () => {
-    const TIER = { sent: 10, bytes: 2048, drops: 0, high_water: 3 }
-    const FULL = {
-      link: { rate_bps: 12_500, snapshot_max_bytes: 65_536 },
-      tiers: { '0': TIER, '1': TIER, '2': TIER, '3': TIER, '4': TIER, '5': TIER },
-      video: {
-        active_streams: 1,
-        bitrate_sum_kbps: 800,
-        uplink_kbps: 2000,
-        override_kbps: null,
-        video_budget_kbps: 1500,
-        reserve_kbps: 500,
-      },
-    }
-    expect(bridgePressure.safeParse(FULL).success).toBe(true)
-
-    // a missing tier key reads as zeros — the schema does not require all six
-    const { '3': _dropped, ...partialTiers } = FULL.tiers
-    expect(bridgePressure.safeParse({ ...FULL, tiers: partialTiers }).success).toBe(true)
-    expect(bridgePressure.safeParse({ ...FULL, tiers: {} }).success).toBe(true)
-
-    // an unknown tier key is refused, not silently accepted
-    expect(
-      bridgePressure.safeParse({ ...FULL, tiers: { ...FULL.tiers, '7': TIER } }).success,
-    ).toBe(false)
-
-    // link.rate_bps is nonnegative (nullable, but never negative)
-    expect(
-      bridgePressure.safeParse({ ...FULL, link: { ...FULL.link, rate_bps: -1 } }).success,
-    ).toBe(false)
-    expect(
-      bridgePressure.safeParse({ ...FULL, link: { ...FULL.link, rate_bps: null } }).success,
-    ).toBe(true)
+  it('ping carries the round trip and the lag, both nullable', () => {
+    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1, latency_ms: 42, lag_ms: 1200 }).success).toBe(true)
+    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1, latency_ms: null, lag_ms: null }).success).toBe(true)
+    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1 }).success).toBe(false)
+    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1, latency_ms: -1, lag_ms: null }).success).toBe(false)
   })
 
-  it('bridge-pressure accepts the zeros a real bridge sends — no-video uplink and a floored snapshot target', () => {
-    // Both fields were `.positive()` once. `FLEETLESS_UPLINK_KBPS=0` is a
-    // documented no-video setting, and `snapshot_max_bytes` floors to 0
-    // under a 0.5 B/s link — so `.positive()` rejected legit video-less or
-    // struggling robots, not bad producers, and the console read the frame
-    // as "no feed": a bridge too old to report pressure.
-    const TIER = { sent: 10, bytes: 2048, drops: 0, high_water: 3 }
-    const ZEROED = {
-      link: { rate_bps: 0, snapshot_max_bytes: 0 },
-      tiers: { '2': TIER },
-      video: {
-        active_streams: 0,
-        bitrate_sum_kbps: 0,
-        uplink_kbps: 0,
-        override_kbps: null,
-        video_budget_kbps: 0,
-        reserve_kbps: 0,
-      },
-    }
-    const parsed = bridgePressure.safeParse(ZEROED)
-    expect(parsed.success).toBe(true)
-    // Parsed, not merely "not rejected": a zero that survives as a zero is
-    // what the console reads, and `null` would mean something else entirely.
-    expect(parsed.success && parsed.data.video.uplink_kbps).toBe(0)
-    expect(parsed.success && parsed.data.link.snapshot_max_bytes).toBe(0)
-
-    // `null` still means "not set" for uplink, and negatives are still out
-    // on both — nonnegative widened the floor, it did not remove it.
-    expect(
-      bridgePressure.safeParse({ ...ZEROED, video: { ...ZEROED.video, uplink_kbps: null } }).success,
-    ).toBe(true)
-    expect(
-      bridgePressure.safeParse({ ...ZEROED, video: { ...ZEROED.video, uplink_kbps: -1 } }).success,
-    ).toBe(false)
-    expect(
-      bridgePressure.safeParse({ ...ZEROED, link: { ...ZEROED.link, snapshot_max_bytes: -1 } }).success,
-    ).toBe(false)
+  it('link_mode names the state, a reason and the bridge time', () => {
+    expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: true, reason: 'lag', at_ms: 1754800000000 }).success).toBe(true)
+    expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: false, reason: 'recovered', at_ms: 1 }).success).toBe(true)
+    expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: true, reason: 'tired', at_ms: 1 }).success).toBe(false)
   })
 
-  it('PRESSURE_SLUG names the reserved slug bridge_pressure rides on', () => {
-    expect(PRESSURE_SLUG).toBe('bridge_pressure')
+  it('bridge-state carries online, latency and the low-bandwidth flag', () => {
+    expect(bridgeState.safeParse({ online: true, latency_ms: 42, low_bandwidth: false }).success).toBe(true)
+    expect(bridgeState.safeParse({ online: false, latency_ms: null, low_bandwidth: false }).success).toBe(true)
+    expect(bridgeState.safeParse({ online: true, latency_ms: 42 }).success).toBe(false)
   })
 
   it('api errors carry stable code + message', () => {
@@ -202,16 +146,15 @@ describe('schema artifacts', () => {
    * **The never-registered guard.** `pnpm artifacts` reporting no diff
    * cannot tell "already current" from "never registered for export" — a
    * schema left out of `exportedSchemas` produces no artifact and no
-   * failing test, since there is nothing on disk to compare. This checks
-   * what the staleness guard above cannot: that `bridge-pressure` is a key
-   * of `exportedSchemas`, and its file carries the schema's own shape, not
-   * an empty stand-in.
+   * failing test, since there is nothing on disk to compare. The other half
+   * is the same blindness in reverse: the export never deletes, so a schema
+   * that left the map keeps its artifact on disk forever.
    */
-  it('bridge-pressure is registered for export and produces a real artifact', () => {
-    expect(Object.keys(exportedSchemas)).toContain('bridge-pressure')
-    const path = join(import.meta.dirname, '..', 'artifacts', 'schema', 'bridge-pressure.schema.json')
-    const contents = readFileSync(path, 'utf8')
-    expect(contents).toContain('bitrate_sum_kbps')
+  it('bridge-link-mode is registered for export as a bridge-sent frame; bridge-pressure is gone', () => {
+    expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-link-mode')
+    expect(Object.keys(exportedSchemas)).not.toContain('bridge-pressure')
+    expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema', 'bridge-pressure.schema.json'))).toBe(false)
+    expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing', 'bridge-link-mode.schema.json'))).toBe(true)
   })
 
   /**

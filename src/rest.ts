@@ -58,18 +58,17 @@ export type CreateRobotResponse = z.infer<typeof createRobotResponse>
  *
  * **Counted from the published configuration, and excluding the built-ins.**
  * `GET /api/robots/:id/exposures` answers *which* slugs and prepends the
- * three built-in datapoints — `bridge_state`, `robot_details` and
- * `bridge_pressure` — as `builtin: true`; this answers *how many* and counts
- * only what somebody configured. So a robot with an empty published config
- * reports `datapoints: 0` here and three entries there. That is intentional,
- * and it is written on both sides so the disagreement is never mistaken for a
- * bug.
+ * built-in datapoints — `bridge_state` and `robot_details` — as
+ * `builtin: true`; this answers *how many* and counts only what somebody
+ * configured. So a robot with an empty published config reports
+ * `datapoints: 0` here and two entries there. That is intentional, and it is
+ * written on both sides so the disagreement is never mistaken for a bug.
  *
- * The number is "three" and not "two" as of `bridge_pressure`; the cloud
- * builds that prefix from `PLANE_BUILTIN_DATAPOINTS` rather than a literal,
- * so a further built-in moves this count again. Read the count off that set,
- * not off this sentence, before filing the bug this comment exists to
- * prevent.
+ * The number was "three" while `bridge_pressure` existed and is "two" since
+ * protocol 3 dropped it; the cloud builds that prefix from its own built-in
+ * set rather than a literal, so the next built-in moves this count again.
+ * Read the count off that set, not off this sentence, before filing the bug
+ * this comment exists to prevent.
  */
 export const exposureCounts = z.object({
   datapoints: z.number().int().nonnegative(),
@@ -300,7 +299,7 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
 export const datapointDescriptor = z.object({
   slug: slug.meta({ description: 'The name a client reads this datapoint by.' }),
   builtin: z.boolean().meta({
-    description: '`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds.',
+    description: '`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds.',
   }),
   unit: z.string().nullable().meta({
     description: 'The unit the value carries **after** any scale and offset, shown beside the number so nobody has to guess whether `15` means percent, volts or minutes. `null` when the configuration names none.',

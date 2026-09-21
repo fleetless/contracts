@@ -24,7 +24,7 @@ describe('exposure counts', () => {
       id: '11111111-1111-4111-8111-111111111111',
       name: 'gate-bot',
       created_at: '2026-08-21T00:00:00.000Z',
-      bridge_state: { online: false, latency_ms: null },
+      bridge_state: { online: false, latency_ms: null, low_bandwidth: false },
     }
     expect(robotListItem.safeParse(withoutExposes).success).toBe(false)
   })
@@ -84,8 +84,8 @@ describe('structured apply errors', () => {
     expect(bridgeConfigApplied.safeParse({ type: 'config_applied', version: 3, ok: false, errors: [noMessage] }).success).toBe(false)
   })
 
-  it('announces protocol 2, because the wire changed', () => {
-    expect(PROTOCOL_VERSION).toBe(2)
+  it('announces protocol 3, because the wire changed again', () => {
+    expect(PROTOCOL_VERSION).toBe(3)
   })
 })
 

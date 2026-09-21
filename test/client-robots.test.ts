@@ -6,7 +6,7 @@ const ITEM = {
   id: '4f2c1a90-7b3e-4d51-9c86-0a1b2c3d4e5f',
   name: 'gate-bot',
   created_at: '2026-09-17T08:00:00.000Z',
-  bridge_state: { online: false, latency_ms: null },
+  bridge_state: { online: false, latency_ms: null, low_bandwidth: false },
   published_version: 3,
 }
 

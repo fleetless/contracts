@@ -10535,11 +10535,16 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "low_bandwidth": {
+                      "type": "boolean",
+                      "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
                     }
                   },
                   "required": [
                     "online",
-                    "latency_ms"
+                    "latency_ms",
+                    "low_bandwidth"
                   ],
                   "additionalProperties": false,
                   "description": "The built-in `bridge_state` datapoint as the cloud observes it right now: whether the bridge is connected, and its latency when it is."
@@ -13102,7 +13107,7 @@
                 },
                 "builtin": {
                   "type": "boolean",
-                  "description": "`true` for the datapoints every robot has — `bridge_state`, `robot_details` and `bridge_pressure` — and `false` for everything the published configuration adds."
+                  "description": "`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds."
                 },
                 "unit": {
                   "anyOf": [
@@ -16332,11 +16337,16 @@
                     "type": "null"
                   }
                 ]
+              },
+              "low_bandwidth": {
+                "type": "boolean",
+                "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
               }
             },
             "required": [
               "online",
-              "latency_ms"
+              "latency_ms",
+              "low_bandwidth"
             ],
             "additionalProperties": false
           },
@@ -16771,11 +16781,16 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "low_bandwidth": {
+                      "type": "boolean",
+                      "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
                     }
                   },
                   "required": [
                     "online",
-                    "latency_ms"
+                    "latency_ms",
+                    "low_bandwidth"
                   ],
                   "additionalProperties": false
                 },

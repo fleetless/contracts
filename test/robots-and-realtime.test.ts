@@ -22,8 +22,8 @@ const ROBOT = {
 }
 
 describe('bridge protocol additions', () => {
-  it('ping and pong carry the cloud clock', () => {
-    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1754800000000 }).success).toBe(true)
+  it('ping and pong carry the cloud clock, and the ping what the cloud measured', () => {
+    expect(cloudPing.safeParse({ type: 'ping', ts_ms: 1754800000000, latency_ms: 30, lag_ms: 0 }).success).toBe(true)
     expect(bridgePong.safeParse({ type: 'pong', ts_ms: 1754800000000 }).success).toBe(true)
     expect(cloudPing.safeParse({ type: 'ping' }).success).toBe(false)
     expect(bridgePong.safeParse({ type: 'pong', ts_ms: -1 }).success).toBe(false)
@@ -55,7 +55,7 @@ describe('REST shapes', () => {
     expect(
       robotListItem.safeParse({
         ...ROBOT,
-        bridge_state: { online: false, latency_ms: null },
+        bridge_state: { online: false, latency_ms: null, low_bandwidth: false },
         exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
         protocol_status: 'current',
       }).success,
@@ -68,7 +68,7 @@ describe('REST shapes', () => {
       id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b',
       name: 'edge-bot',
       created_at: '2026-09-21T00:00:00.000Z',
-      bridge_state: { online: true, latency_ms: 12 },
+      bridge_state: { online: true, latency_ms: 12, low_bandwidth: false },
       exposes: { datapoints: 0, actions: 0, services: 0, publishers: 0, cameras: 0 },
       protocol_status: 'deprecated',
     }
@@ -92,7 +92,7 @@ describe('REST shapes', () => {
     expect(
       datapointValue.safeParse({
         slug: 'bridge_state',
-        value: { online: true, latency_ms: 12 },
+        value: { online: true, latency_ms: 12, low_bandwidth: false },
         timestamp_ms: 1754800000000,
       }).success,
     ).toBe(true)
@@ -144,7 +144,7 @@ describe('realtime client protocol', () => {
         type: 'datapoint',
         robot_id: ROBOT.id,
         slug: 'bridge_state',
-        value: { online: true, latency_ms: 8 },
+        value: { online: true, latency_ms: 8, low_bandwidth: true },
         timestamp_ms: 1754800000000,
       }).success,
     ).toBe(true)

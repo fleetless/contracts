@@ -8,7 +8,7 @@ import { jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
- * Bridge <-> cloud protocol, version 2.
+ * Bridge <-> cloud protocol, version 3.
  *
  * The version is exchanged in the hello handshake. Since 2026-09 the cloud
  * serves a **window** of versions, not one: every entry of
@@ -18,10 +18,15 @@ import { rosTypeName } from './common.js'
  * which names the window and reaches the robot's detail view as
  * `last_hello_error`.
  *
+ * **3 (2026-09-21):** the ping carries `latency_ms` and `lag_ms`, the bridge
+ * sends `link_mode`, `bridge_state` gains `low_bandwidth`, and the
+ * `bridge_pressure` datapoint is gone. A protocol-2 bridge is served until
+ * its sunset; the cloud drops its pressure datapoints on the way in.
+ *
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
  * beside `message`.
  */
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
 
 /** Days between a version's deprecation and its sunset. */
 export const PROTOCOL_SUNSET_DAYS = 90
@@ -40,11 +45,12 @@ export interface ProtocolVersionEntry {
  * guard requires the CHANGELOG to name a bump and the sunset it starts.
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
-  { version: 2, bridge_from: '3.0.0', deprecated_at: null },
+  { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-21' },
+  { version: 3, bridge_from: '4.0.0', deprecated_at: null },
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '3.2.0'
+export const LATEST_BRIDGE_VERSION = '4.0.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
@@ -260,10 +266,20 @@ export type DatapointFrame = z.infer<typeof datapointFrame>
  * Latency probe, cloud → bridge. The cloud sends its own clock in `ts_ms`;
  * the bridge echoes it back untouched and the cloud derives the round-trip
  * latency shown as `bridge_state.latency_ms`.
+ *
+ * Sent every `pingIntervalMs`; the bridge answers with `pong`. Since protocol
+ * 3 it also carries what the cloud measured about this link, so the bridge
+ * can decide on its low-bandwidth mode with an end-to-end number: the
+ * round trip of the last pong, and the datapoint lag — the median over the
+ * last five seconds of (receive time − `timestamp_ms`) minus the minimum of
+ * the last ten minutes, which cancels the robot's clock offset. `null` until
+ * the cloud has a sample. A protocol-2 bridge reads only `ts_ms`.
  */
 export const cloudPing = z.object({
   type: z.literal('ping'),
   ts_ms: z.number().int().nonnegative(),
+  latency_ms: z.number().nonnegative().nullable().meta({ description: 'Round trip of the last pong in milliseconds; null before the first.' }),
+  lag_ms: z.number().nonnegative().nullable().meta({ description: 'Datapoint lag over the link: median of the last five seconds minus the ten-minute minimum, in milliseconds; null until a sample exists.' }),
 })
 export type CloudPing = z.infer<typeof cloudPing>
 
@@ -273,6 +289,20 @@ export const bridgePong = z.object({
   ts_ms: z.number().int().nonnegative(),
 })
 export type BridgePong = z.infer<typeof bridgePong>
+
+/**
+ * The bridge's low-bandwidth mode changed. Sent on every transition and once
+ * after `hello_ok`, at tier 0 like the pong: the cloud folds it into
+ * `bridge_state.low_bandwidth`, and a frame that waited behind bulk would
+ * describe a state that is already over.
+ */
+export const bridgeLinkMode = z.object({
+  type: z.literal('link_mode'),
+  low_bandwidth: z.boolean().meta({ description: 'Whether the mode is active after this transition.' }),
+  reason: z.enum(['lag', 'dwell', 'forced', 'recovered']).meta({ description: '`lag`: the cloud-measured lag crossed the threshold; `dwell`: the bridge-measured queue dwell did; `forced`: `mode: on` or `off`; `recovered`: both measures stayed under the exit threshold.' }),
+  at_ms: z.number().int().nonnegative().meta({ description: 'Bridge time of the transition, epoch milliseconds.' }),
+})
+export type BridgeLinkMode = z.infer<typeof bridgeLinkMode>
 
 /**
  * The published configuration, cloud → bridge — the bridge applies the
@@ -491,93 +521,17 @@ export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
 /**
  * The built-in `bridge_state` datapoint every robot has: connection status
  * plus latency, the basis for offline-aware client UIs.
+ *
+ * `online` and `latency_ms` are cloud-observed (the socket, the pong);
+ * `low_bandwidth` is bridge-reported through `link_mode` and `false` for a
+ * bridge that never sends one.
  */
 export const bridgeState = z.object({
   online: z.boolean(),
   latency_ms: z.number().nonnegative().nullable(),
+  low_bandwidth: z.boolean().meta({ description: 'Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported.' }),
 })
 export type BridgeState = z.infer<typeof bridgeState>
-
-/** One tier's counters, `tiers` below carries six of these under string keys. */
-const bridgePressureTier = z.object({
-  sent: z.number().int().nonnegative(),
-  bytes: z.number().int().nonnegative(),
-  drops: z.number().int().nonnegative(),
-  high_water: z.number().int().nonnegative(),
-})
-
-/**
- * The built-in `bridge_pressure` datapoint: the bridge's own
- * bandwidth-shaping state, sent on the same reserved-slug path as
- * `bridge_state` so history, realtime, REST and MCP exposure fall out of the
- * ordinary datapoint machinery for free.
- */
-export const bridgePressure = z.object({
-  link: z.object({
-    /** bytes/s the socket demonstrably drains, from sends >= 64 KiB
-     *  only; null until the first large send of the session. */
-    rate_bps: z.number().nonnegative().nullable(),
-    /**
-     * the byte target snapshots are currently encoded to fit.
-     *
-     * `.nonnegative()`, not `.positive()`: the target is derived from
-     * `rate_bps`, and a link measured below 0.5 B/s floors to 0 here. A
-     * schema that rejects 0 does not prevent that link — it only makes the
-     * frame reporting it unparseable, and a console that cannot parse a
-     * pressure frame shows "no feed", i.e. reports a struggling robot as an
-     * *old* one. Zero is a legitimate reading and says something true.
-     */
-    snapshot_max_bytes: z.number().int().nonnegative(),
-  }),
-  /**
-   * String keys "0".."5" because JSON has no integer keys. Counters are
-   * cumulative per session and reset on reconnect; clients window by
-   * differencing two samples.
-   *
-   * **What this schema does not decide:** it does not guarantee all six
-   * keys are present (`z.record` over the six literals is exhaustive in
-   * zod 4 — tested here, it required every key and rejected none, the
-   * opposite of what a partial sample needs — so this is a
-   * `.strictObject().partial()` over the same six literal keys instead, a
-   * deliberate deviation from the originally sketched `z.record` shape with
-   * the same runtime behaviour). A missing tier key reads as zeros; the
-   * schema names what it cannot decide rather than implying a completeness
-   * it cannot check.
-   */
-  tiers: z
-    .strictObject({
-      '0': bridgePressureTier,
-      '1': bridgePressureTier,
-      '2': bridgePressureTier,
-      '3': bridgePressureTier,
-      '4': bridgePressureTier,
-      '5': bridgePressureTier,
-    })
-    .partial(),
-  video: z.object({
-    active_streams: z.number().int().nonnegative(),
-    bitrate_sum_kbps: z.number().int().nonnegative(),
-    /**
-     * The uplink budget the bridge was configured with
-     * (`FLEETLESS_UPLINK_KBPS`), or `null` when none was set.
-     *
-     * `.nonnegative()`, not `.positive()`: `FLEETLESS_UPLINK_KBPS=0` is a
-     * documented setting meaning "no video budget at all", and the bridge
-     * emits that 0 verbatim. `.positive()` made every frame from such a
-     * robot fail the console's `safeParse`, which renders an unparseable
-     * frame as "no pressure feed" — so the one robot that had *deliberately*
-     * turned video off was the one diagnosed as running a bridge too old to
-     * report pressure. A value the producer legitimately sends must parse;
-     * `null` is the only "not set" this field has.
-     */
-    uplink_kbps: z.number().int().nonnegative().nullable(),
-    override_kbps: z.number().int().nonnegative().nullable(),
-    video_budget_kbps: z.number().int().nonnegative().nullable(),
-    reserve_kbps: z.number().int().nonnegative(),
-  }),
-})
-export type BridgePressure = z.infer<typeof bridgePressure>
-export const PRESSURE_SLUG = 'bridge_pressure' as const
 
 /* ------------------------------------------------------------------------
  * Cameras.
