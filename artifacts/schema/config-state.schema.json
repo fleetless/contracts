@@ -77,7 +77,8 @@
                   "action",
                   "service",
                   "publisher",
-                  "camera"
+                  "camera",
+                  "low_bandwidth"
                 ]
               },
               "code": {

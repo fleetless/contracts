@@ -168,8 +168,23 @@ export const wireTimestampMs = z
  * (`credentialRef`, `robotConfigDoc`) — so `config.ts` importing back from
  * `protocol.ts` would be a cycle. One definition, reachable from both
  * without either importing the other.
+ *
+ * `low_bandwidth` is not an exposure kind — it names the `low_bandwidth`
+ * top-level section instead, for when that section itself fails to resolve
+ * (e.g. a lone `exit_lag_ms` above the effective `enter_lag_ms`) rather than
+ * any one datapoint, action, service, publisher or camera. An `applyError`
+ * of this kind always carries `slug: 'low_bandwidth'`, the section's own
+ * name — never `*`, which stays reserved for a whole exposure kind failing
+ * before any of its individual slugs were reached.
  */
-export const applyErrorKind = z.enum(['datapoint', 'action', 'service', 'publisher', 'camera'])
+export const applyErrorKind = z.enum([
+  'datapoint',
+  'action',
+  'service',
+  'publisher',
+  'camera',
+  'low_bandwidth',
+])
 export type ApplyErrorKind = z.infer<typeof applyErrorKind>
 
 /**
