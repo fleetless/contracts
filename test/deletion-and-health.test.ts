@@ -22,6 +22,7 @@ import {
 } from '../src/rest.js'
 import { resourceHealthEvent } from '../src/realtime.js'
 import { bridgeCameraState, CLOSE_ROBOT_DELETED, CLOSE_TOKEN_ROTATED } from '../src/protocol.js'
+import { exportedConstants } from '../scripts/export-schemas.js'
 
 const health = {
   robot_id: '11111111-1111-4111-8111-111111111111',
@@ -101,6 +102,14 @@ describe('deletion', () => {
     // reconnect loop a deleted one is told to leave.
     expect(CLOSE_TOKEN_ROTATED).toBe(4005)
     expect(CLOSE_TOKEN_ROTATED).not.toBe(CLOSE_ROBOT_DELETED)
+  })
+
+  it('reaches the bridge, which cannot import this package', () => {
+    // Same argument as ROBOT_ASSET_STORE_BYTES: a value the bridge needs and
+    // cannot import is two numbers the moment one of them moves, unless it
+    // is exported here and vendored into constants.json.
+    expect(exportedConstants.CLOSE_ROBOT_DELETED).toBe(CLOSE_ROBOT_DELETED)
+    expect(exportedConstants.CLOSE_TOKEN_ROTATED).toBe(CLOSE_TOKEN_ROTATED)
   })
 })
 

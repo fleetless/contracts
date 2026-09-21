@@ -35,7 +35,7 @@ import {
   cloudCameraStop,
   bridgeCameraState,
 } from '../src/protocol.js'
-import { PROTOCOL_VERSION, PROTOCOL_VERSIONS, PROTOCOL_SUNSET_DAYS, LATEST_BRIDGE_VERSION } from '../src/protocol.js'
+import { PROTOCOL_VERSION, PROTOCOL_VERSIONS, PROTOCOL_SUNSET_DAYS, LATEST_BRIDGE_VERSION, CLOSE_ROBOT_DELETED, CLOSE_TOKEN_ROTATED } from '../src/protocol.js'
 import { applyError } from '../src/common.js'
 import { MCP_APP_PATHS } from '../src/mcp.js'
 import {
@@ -588,6 +588,13 @@ export const exportedConstants = {
   PROTOCOL_VERSIONS,
   PROTOCOL_SUNSET_DAYS,
   LATEST_BRIDGE_VERSION,
+  /**
+   * The socket close codes the bridge has to tell apart from an ordinary
+   * drop, or it has to guess them — the same argument as `ROBOT_ASSET_STORE_BYTES`
+   * below. `4004` and `4005` were hand-copied Python literals until now.
+   */
+  CLOSE_ROBOT_DELETED,
+  CLOSE_TOKEN_ROTATED,
 
   ASSET_UPLOAD_HEADERS,
   /**
