@@ -15,6 +15,19 @@ describe('the low_bandwidth section', () => {
     expect(lowBandwidthSection.safeParse({ datapoint_max_hz: 0 }).success).toBe(false)
     expect(lowBandwidthSection.safeParse({ camera_bitrate_kbps: 10 }).success).toBe(false)
   })
+  it('refuses an exit threshold above the entry threshold — that is a flap', () => {
+    expect(lowBandwidthSection.safeParse({ enter_lag_ms: 1000, exit_lag_ms: 1500 }).success).toBe(false)
+    expect(lowBandwidthSection.safeParse({ enter_lag_ms: 1000, exit_lag_ms: 1000 }).success).toBe(true)
+    expect(lowBandwidthSection.safeParse({ enter_lag_ms: 1000, exit_lag_ms: 500 }).success).toBe(true)
+    // One without the other says nothing: the missing half comes from the ROS
+    // parameter or the defaults, which this document cannot see.
+    expect(lowBandwidthSection.safeParse({ exit_lag_ms: 9000 }).success).toBe(true)
+    const refused = lowBandwidthSection.safeParse({ enter_lag_ms: 1000, exit_lag_ms: 1500 })
+    expect(refused.success === false && refused.error.issues[0]!.message).toBe('low_bandwidth.exit_lag_ms must be at or below enter_lag_ms')
+    expect(refused.success === false && refused.error.issues[0]!.path).toEqual(['exit_lag_ms'])
+    // And the whole document refuses it too, not only the section on its own.
+    expect(robotConfigDoc.safeParse({ ...DOC, low_bandwidth: { enter_lag_ms: 1000, exit_lag_ms: 1500 } }).success).toBe(false)
+  })
   it('a datapoint may opt out of the cap with keep', () => {
     expect(datapointConfig.safeParse({ topic: '/t', type: 'std_msgs/msg/Float64', field: 'data', low_bandwidth: 'keep' }).success).toBe(true)
     expect(datapointConfig.safeParse({ topic: '/t', type: 'std_msgs/msg/Float64', field: 'data', low_bandwidth: 'drop' }).success).toBe(false)

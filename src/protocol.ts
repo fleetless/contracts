@@ -299,7 +299,7 @@ export type BridgePong = z.infer<typeof bridgePong>
 export const bridgeLinkMode = z.object({
   type: z.literal('link_mode'),
   low_bandwidth: z.boolean().meta({ description: 'Whether the mode is active after this transition.' }),
-  reason: z.enum(['lag', 'dwell', 'forced', 'recovered']).meta({ description: '`lag`: the cloud-measured lag crossed the threshold; `dwell`: the bridge-measured queue dwell did; `forced`: `mode: on` or `off`; `recovered`: both measures stayed under the exit threshold.' }),
+  reason: z.enum(['lag', 'dwell', 'forced', 'recovered']).meta({ description: '`lag`: the cloud-measured lag crossed the threshold; `dwell`: the bridge-measured queue dwell did; `forced`: `mode: on` or `off`; `recovered`: both measures stayed at or below the exit threshold.' }),
   at_ms: z.number().int().nonnegative().meta({ description: 'Bridge time of the transition, epoch milliseconds.' }),
 })
 export type BridgeLinkMode = z.infer<typeof bridgeLinkMode>

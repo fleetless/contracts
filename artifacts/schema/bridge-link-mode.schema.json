@@ -18,7 +18,7 @@
         "forced",
         "recovered"
       ],
-      "description": "`lag`: the cloud-measured lag crossed the threshold; `dwell`: the bridge-measured queue dwell did; `forced`: `mode: on` or `off`; `recovered`: both measures stayed under the exit threshold."
+      "description": "`lag`: the cloud-measured lag crossed the threshold; `dwell`: the bridge-measured queue dwell did; `forced`: `mode: on` or `off`; `recovered`: both measures stayed at or below the exit threshold."
     },
     "at_ms": {
       "type": "integer",

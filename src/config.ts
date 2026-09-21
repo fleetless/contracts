@@ -1947,20 +1947,27 @@ export const LOW_BANDWIDTH_DEFAULTS = {
 } as const
 
 /**
- * The bridge's low-bandwidth mode: what it does when the link degrades. Every
- * key is optional: a key present here overrides the bridge's ROS parameter
- * of the same name, an absent key falls through to it, and the parameter
- * falls through to `LOW_BANDWIDTH_DEFAULTS`. The document carries the
- * override rather than the whole setting so a fleet-wide launch file and a
- * per-robot YAML compose instead of competing.
- */
-/**
  * Named rather than inlined, for `chartStyle`'s reason: `describeValues` reads
  * `.options`, and the per-value sentences are then keyed by value.
  */
 const lowBandwidthMode = z.enum(['auto', 'on', 'off'])
 const lowBandwidthCamera = z.enum(['reduce', 'stop'])
 
+/**
+ * The bridge's low-bandwidth mode: what it does when the link degrades. Every
+ * key is optional: a key present here overrides the bridge's ROS parameter
+ * of the same name, an absent key falls through to it, and the parameter
+ * falls through to `LOW_BANDWIDTH_DEFAULTS`. The document carries the
+ * override rather than the whole setting so a fleet-wide launch file and a
+ * per-robot YAML compose instead of competing.
+ *
+ * The one rule between two keys is checked here, for `datapointChart`'s
+ * reason: nothing downstream catches it. An exit threshold above the entry
+ * threshold is a mode that leaves the moment it arrives and arrives again the
+ * moment it leaves — a flap, at whatever rate the measurements come in. It is
+ * ordered rather than clamped because there is no way to tell which of the two
+ * numbers the writer meant.
+ */
 export const lowBandwidthSection = strictObject({
   mode: lowBandwidthMode.optional().meta({
     description: '`auto` decides from the measured lag; `on` and `off` force the mode, for tests and for an operator who knows the link.',
@@ -1984,6 +1991,10 @@ export const lowBandwidthSection = strictObject({
   }),
   camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`.' }),
 })
+  .superRefine((s, ctx) => {
+    if (s.enter_lag_ms !== undefined && s.exit_lag_ms !== undefined && s.exit_lag_ms > s.enter_lag_ms)
+      ctx.addIssue({ code: 'custom', path: ['exit_lag_ms'], message: 'low_bandwidth.exit_lag_ms must be at or below enter_lag_ms' })
+  })
 export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
 
 /**
