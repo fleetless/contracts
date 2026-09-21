@@ -1679,7 +1679,7 @@
               "maximum": 9007199254740991
             },
             "datapoint_max_hz": {
-              "description": "Ceiling for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`.",
+              "description": "The long-run rate for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`. It is an average, not a minimum gap: after a quiet spell two samples may go out close together, and over any longer window the rate holds.",
               "type": "number",
               "exclusiveMinimum": 0,
               "maximum": 20

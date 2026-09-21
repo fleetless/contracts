@@ -1981,7 +1981,7 @@ export const lowBandwidthSection = strictObject({
   enter_after_s: z.number().int().min(1).optional().meta({ description: 'The entry condition must hold this long.' }),
   exit_lag_ms: z.number().int().min(0).optional().meta({ description: 'Lag and dwell both at or below this leave the mode. Must be at or below enter_lag_ms: a crossed pair is a mode that leaves as it arrives. Checked here only when both keys are present; a lone key is checked on the robot against the parameter or default it composes with.' }),
   exit_after_s: z.number().int().min(1).optional().meta({ description: 'The exit condition must hold this long.' }),
-  datapoint_max_hz: z.number().gt(0).max(20).optional().meta({ description: 'Ceiling for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`.' }),
+  datapoint_max_hz: z.number().gt(0).max(20).optional().meta({ description: 'The long-run rate for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`. It is an average, not a minimum gap: after a quiet spell two samples may go out close together, and over any longer window the rate holds.' }),
   camera: lowBandwidthCamera.optional().meta({
     description: 'What happens to a running stream in the mode. New streams are refused either way.',
     enumDescriptions: describeValues(lowBandwidthCamera.options, {
