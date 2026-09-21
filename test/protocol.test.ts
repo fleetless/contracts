@@ -52,6 +52,15 @@ describe('contracts v1', () => {
     ).toBe(false)
   })
 
+  it('a datapoint frame may say it is backfill, and says nothing when it is live', () => {
+    const FRAME = { type: 'datapoint', slug: 'battery', value: 87.5, timestamp_ms: 1754800000000 }
+    expect(datapointFrame.safeParse({ ...FRAME, backfill: true }).success).toBe(true)
+    expect(datapointFrame.safeParse({ ...FRAME, backfill: 'yes' }).success).toBe(false)
+    // Absent is the live case, and every bridge below protocol 3 sends only
+    // that — so a frame without the flag must keep parsing.
+    expect(datapointFrame.safeParse(FRAME).success).toBe(true)
+  })
+
   it('slugs are lowercase, underscore-separated, letter-initial', () => {
     for (const good of ['battery', 'front_cam', 'bridge_state', 'ab']) {
       expect(slug.safeParse(good).success).toBe(true)

@@ -253,12 +253,20 @@ export type CloudHelloError = z.infer<typeof cloudHelloError>
 /**
  * One datapoint sample. `timestamp_ms` is the capture time at the bridge —
  * never the receive time — so clients compute age themselves.
+ *
+ * Which is exactly why `backfill` has to be on the frame. A replayed sample
+ * carries the capture time it had during the outage, so a cloud that measures
+ * lag from every arriving frame reads a two-hour disconnect as two hours of
+ * lag the moment the bridge reconnects — and reports a healthy link as the
+ * worst one it has ever seen. Only the bridge knows which frames came out of
+ * its buffer, so only the bridge can say.
  */
 export const datapointFrame = z.object({
   type: z.literal('datapoint'),
   slug,
   value: z.unknown(),
   timestamp_ms: z.number().int().nonnegative(),
+  backfill: z.boolean().optional().meta({ description: 'true when the sample was captured while the bridge was disconnected and is being replayed after the reconnect. The cloud keeps such a sample out of its lag measure; absent means live.' }),
 })
 export type DatapointFrame = z.infer<typeof datapointFrame>
 
