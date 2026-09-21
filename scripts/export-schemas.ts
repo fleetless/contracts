@@ -43,7 +43,7 @@ import {
   liveSessionResponse,
   snapshotMetaResponse,
 } from '../src/rest.js'
-import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource } from '../src/config.js'
+import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS } from '../src/config.js'
 import { AUDIT_RETENTION_DAYS } from '../src/audit.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
@@ -607,6 +607,13 @@ export const exportedConstants = {
    * every consumer of it.
    */
   ASSET_KINDS: assetKind.options,
+
+  /**
+   * The low-bandwidth thresholds, because the bridge decides the mode and the
+   * document only overrides it. Two copies of "2000 ms" would be two
+   * thresholds the moment one of them moved.
+   */
+  LOW_BANDWIDTH_DEFAULTS,
 } as const
 
 /**

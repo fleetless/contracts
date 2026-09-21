@@ -706,7 +706,7 @@ export const parameterMap = slugKeyed(parameterSpec)
  * ships those sentences to readers who have only the JSON Schema, and
  * "here" would have promised them a refusal this parse does not make.
  */
-export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'bridge_pressure', 'history'] as const
+export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'history'] as const
 
 /**
  * When an alert fires and when it is ok again. There is no discriminator:
@@ -1042,6 +1042,9 @@ export const datapointConfig = strictObject({
     description: 'A ceiling on how often this datapoint is sent, in hertz. Omitted or `0` means no throttling. It is **a ceiling, not a clock**: a slow topic stays slow, a value is never repeated to manufacture a rate, and within a window the newest value wins. The bridge enforces it, so the robot\'s bandwidth is genuinely saved.',
     examples: [2, 0.5],
   }).optional(),
+  low_bandwidth: z.literal('keep').optional().meta({
+    description: '`keep` exempts this datapoint from the low-bandwidth rate cap; its backfill still pauses.',
+  }),
   description: serviceDescription.meta({
     description: 'Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.',
     /**
@@ -1928,6 +1931,62 @@ export const cameraConfig = strictObject({
 export type CameraConfig = z.infer<typeof cameraConfig>
 
 /**
+ * What the bridge falls back to when neither the document nor a ROS parameter
+ * names a setting. Exported into `constants.json` so the bridge reads these
+ * numbers rather than carrying a second copy that can drift.
+ */
+export const LOW_BANDWIDTH_DEFAULTS = {
+  mode: 'auto',
+  enter_lag_ms: 2000,
+  enter_after_s: 10,
+  exit_lag_ms: 500,
+  exit_after_s: 60,
+  datapoint_max_hz: 1,
+  camera: 'reduce',
+  camera_bitrate_kbps: 300,
+} as const
+
+/**
+ * The bridge's low-bandwidth mode: what it does when the link degrades. Every
+ * key is optional: a key present here overrides the bridge's ROS parameter
+ * of the same name, an absent key falls through to it, and the parameter
+ * falls through to `LOW_BANDWIDTH_DEFAULTS`. The document carries the
+ * override rather than the whole setting so a fleet-wide launch file and a
+ * per-robot YAML compose instead of competing.
+ */
+/**
+ * Named rather than inlined, for `chartStyle`'s reason: `describeValues` reads
+ * `.options`, and the per-value sentences are then keyed by value.
+ */
+const lowBandwidthMode = z.enum(['auto', 'on', 'off'])
+const lowBandwidthCamera = z.enum(['reduce', 'stop'])
+
+export const lowBandwidthSection = strictObject({
+  mode: lowBandwidthMode.optional().meta({
+    description: '`auto` decides from the measured lag; `on` and `off` force the mode, for tests and for an operator who knows the link.',
+    enumDescriptions: describeValues(lowBandwidthMode.options, {
+      auto: 'The bridge enters and leaves the mode on its own, from the lag the cloud reports and the dwell it measures in its own send queue. The setting to leave alone.',
+      on: 'The mode is held on, whatever the link is doing. For a robot on a link known to be poor, and for a test that would otherwise have to wait for a real one.',
+      off: 'The mode never engages, whatever the link is doing. The robot then sends at its configured rates over a link that cannot carry them, which is a choice and not a default.',
+    }),
+  }),
+  enter_lag_ms: z.number().int().min(100).optional().meta({ description: 'Lag or queue dwell above this enters the mode.' }),
+  enter_after_s: z.number().int().min(1).optional().meta({ description: 'The entry condition must hold this long.' }),
+  exit_lag_ms: z.number().int().min(0).optional().meta({ description: 'Lag and dwell both at or below this leave the mode.' }),
+  exit_after_s: z.number().int().min(1).optional().meta({ description: 'The exit condition must hold this long.' }),
+  datapoint_max_hz: z.number().gt(0).max(20).optional().meta({ description: 'Ceiling for every datapoint in the mode, unless the datapoint says `low_bandwidth: keep`.' }),
+  camera: lowBandwidthCamera.optional().meta({
+    description: 'What happens to a running stream in the mode. New streams are refused either way.',
+    enumDescriptions: describeValues(lowBandwidthCamera.options, {
+      reduce: 'A running stream is re-encoded at `camera_bitrate_kbps` and keeps running. A viewer sees a worse picture rather than none.',
+      stop: 'A running stream ends and the viewer is told why. The uplink is then free for datapoints, which is the right trade where video is the nice-to-have.',
+    }),
+  }),
+  camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`.' }),
+})
+export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
+
+/**
  * The format version of a `fleetless.yaml`. Deliberately not called
  * `version`: the console counts published states with "v12 → v13", and two
  * numbers called version would be the likeliest confusion in the format.
@@ -1957,28 +2016,42 @@ export const robotConfigDoc = strictObject({
     defaultSnippets: [underSlug('${1:drive}', SHARED_MESSAGE_SNIPPET)],
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
-    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all four are refused when the document is validated.',
+    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
     defaultSnippets: [
       underSlug('${1:battery_voltage}', DATAPOINT_SNIPPET),
       underSlug('${1:battery}', NUMERIC_DATAPOINT_SNIPPET),
     ],
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
-    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all four are refused when the document is validated.',
+    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:navigate}', ACTION_SNIPPET)],
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
-    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all four are refused when the document is validated.',
+    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:reset_odometry}', SERVICE_SNIPPET)],
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
-    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all four are refused when the document is validated.',
+    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:drive}', PUBLISHER_SNIPPET)],
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
-    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state`, `robot_details` and `bridge_pressure` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all four are refused when the document is validated.',
+    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:front}', CAMERA_SNIPPET)],
   }).optional(),
+  low_bandwidth: lowBandwidthSection.optional().meta({
+    description: 'Overrides for the bridge\'s low-bandwidth mode; see the section schema.',
+    /**
+     * The body is the three keys a developer actually reaches for — when the
+     * mode engages, how hard it caps, and what it does to video. The five
+     * timing keys stay out: they exist to be tuned once against a measured
+     * link, and a skeleton that pre-fills them reads as a recommendation.
+     */
+    defaultSnippets: [{
+      label: 'low-bandwidth mode, tuned',
+      description: 'Enters after ten seconds above two seconds of lag, caps every datapoint to 1 Hz and lets running streams continue at a reduced bitrate.',
+      body: { enter_lag_ms: 2000, datapoint_max_hz: 1, camera: 'reduce' },
+    }],
+  }),
 })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 

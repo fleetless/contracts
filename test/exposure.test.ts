@@ -66,13 +66,13 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'example/srv/AddTwoInts' }).success).toBe(true)
   })
 
-  it('names the reserved slugs, the three built-ins first', () => {
+  it('names the reserved slugs, the two built-ins first', () => {
     // `history` is not a built-in — nothing publishes it, no plane serves it.
     // Reserved because `GET /api/robots/:id/jobs/history` (see `routes.test.ts`)
     // is a literal sibling of `/jobs/:slug`, so an action of that name would be
     // unreachable. Order matters too: the console's built-in slug list
     // annotates against this union, so a reorder must not pass unremarked.
-    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'bridge_pressure', 'history'])
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'history'])
   })
 
   it('carries a whole configuration as one document', () => {

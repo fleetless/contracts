@@ -7,6 +7,14 @@ the wire shapes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Protocol 3 — the bridge decides its own low-bandwidth mode.** `cloudPing` carries `latency_ms` and `lag_ms`; the bridge sends `link_mode`; `bridge_state` gains `low_bandwidth`. `fleetless.yaml` gains an optional top-level `low_bandwidth` section and a per-datapoint `low_bandwidth: keep`; `LOW_BANDWIDTH_DEFAULTS` ships in `constants.json`. Protocol 2 is deprecated as of this release and served until 2026-12-20.
+
+### Removed
+
+- **`bridge_pressure`.** The datapoint, `bridgePressure`, `PRESSURE_SLUG` and the reserved slug are gone; an app that read it reads `bridge_state.low_bandwidth` instead. This is the break that makes this release a major.
+
 ## [1.3.0] — 2026-09-21
 
 ### Added

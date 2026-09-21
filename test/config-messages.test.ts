@@ -72,7 +72,7 @@ describe('the format explains its own rules', () => {
   // `.every()` over whatever is there.
   it('finds the patterns and enums this document has', () => {
     expect(found.patterns.length).toBe(24)
-    expect(found.enums.length).toBe(6)
+    expect(found.enums.length).toBe(8)
   })
 
   it('the keyword walker reached every one of them', () => {
