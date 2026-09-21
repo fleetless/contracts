@@ -208,11 +208,23 @@ export const cloudHelloOk = z.object({
   robot_id: z.uuid(),
   protocol: z
     .object({
-      status: z.enum(['current', 'deprecated']),
-      sunset_at: z.iso.date().nullable(),
+      status: z.enum(['current', 'deprecated']).meta({
+        description: '`current` or `deprecated` — never `unsupported`, which is a `hello_error`.',
+      }),
+      sunset_at: z.iso.date().nullable().meta({
+        description: 'ISO date a deprecated version stops being served; `null` when current.',
+      }),
     })
-    .optional(),
-  bridge: z.object({ latest_version: z.string().min(1) }).optional(),
+    .optional()
+    .meta({ description: "The cloud's verdict on the announced protocol version; absent from an older cloud." }),
+  bridge: z
+    .object({
+      latest_version: z.string().min(1).meta({
+        description: "The newest published fleetless-bridge package version, for the bridge's own upgrade hint.",
+      }),
+    })
+    .optional()
+    .meta({ description: 'What the cloud knows about bridge packages; absent from an older cloud.' }),
 })
 export type CloudHelloOk = z.infer<typeof cloudHelloOk>
 

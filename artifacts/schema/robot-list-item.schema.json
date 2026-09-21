@@ -83,6 +83,7 @@
       "additionalProperties": false
     },
     "protocol_status": {
+      "description": "Where this robot's bridge stands against the protocol window: `current`, `deprecated` (still served, sunset date on the detail), or `refused` (its last hello was refused for its version; offline until upgraded). Absent from a cloud older than 0.21.0; read absence as `current`.",
       "type": "string",
       "enum": [
         "current",
