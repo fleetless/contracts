@@ -191,7 +191,7 @@ import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse 
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
 import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
-import { assetSyncRequest, assetSyncResponse, urdfCompleteness } from '../src/assets.js'
+import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
 import { parameterInvalidDetails, parameterViolation } from '../src/errors.js'
 import {
@@ -514,6 +514,7 @@ export const exportedSchemas = {
   'history-response': historyResponse, // GET /api/robots/:id/datapoints/:slug/history
   'asset-sync-request': assetSyncRequest, // POST /api/robots/:id/assets/sync
   'asset-sync-response': assetSyncResponse, // POST /api/robots/:id/assets/sync
+  'assets-clear-response': assetsClearResponse, // DELETE /api/robots/:id/assets
 
   // --- Queries and envelopes the manifest names (2026-09-05 parked items) ---
   //
@@ -754,7 +755,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'oauth-redirect-response', 'oauth-token-response', 'dynamic-client-registration-response',
   'authorization-server-metadata', 'protected-resource-metadata',
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
-  'robot-jobs-response', 'asset-sync-response',
+  'robot-jobs-response', 'asset-sync-response', 'assets-clear-response',
   'invoke-or-service-response', 'history-response',
   'app-list-response', 'role-list-response', 'server-key-list-response',
   'patch-org-response', 'patch-robot-response',

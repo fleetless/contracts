@@ -7388,6 +7388,58 @@
           }
         },
         "description": "Needs the `assets` capability, refused as `403 capability_required` rather than a bare `forbidden`: the code says a capability is missing and the message says which, so a developer who switched the wrong toggle on is told what to switch. The capability is checked before existence, so a denied robot and an absent one read alike to a caller with no right to tell them apart. `urdf` reports whether a URDF is present and which of its mesh references have no stored asset."
+      },
+      "delete": {
+        "operationId": "delete_api_robots_id_assets",
+        "summary": "Empties a robot's asset store: every URDF, mesh and texture, gone at once.",
+        "tags": [
+          "assets"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          },
+          {
+            "clientToken": []
+          },
+          {
+            "serverKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/assets-clear-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `tier_required`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The store's escape hatch: a full store is never a dead end, and this is the blunt third of the three answers to it — the URDF upload is exempt from the gate, reconcile after a sync already frees what the new URDF stopped referencing, and this route lets an Owner clear the robot outright. Owner tier, unconditionally, like starting a sync. Removes every asset of the robot and resets its store to `0`; the next sync fills it again. It does not touch the bridge's availability report — `urdf_available` still answers from the connected robot, unrelated to what this cloud happens to have stored."
       }
     },
     "/api/robots/{id}/assets/{assetId}": {
@@ -9825,6 +9877,28 @@
           "reason",
           "started_at",
           "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "assets-clear-response": {
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "How many assets — URDF, meshes and textures together — were removed."
+          },
+          "bytes_freed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "The bytes the robot's store got back."
+          }
+        },
+        "required": [
+          "deleted",
+          "bytes_freed"
         ],
         "additionalProperties": false
       },

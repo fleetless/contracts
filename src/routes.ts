@@ -39,7 +39,7 @@ import {
   updateAppRequest,
 } from './apps.js'
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
-import { asset, assetListResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
+import { asset, assetListResponse, assetsClearResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
 import {
   CLIENT_OIDC_CALLBACK_PATH,
@@ -2673,6 +2673,20 @@ export const ROUTES: readonly RouteEntry[] = [
       'Developer sessions only, like starting a sync: the guard admits three caller kinds and the handler answers `401 unauthorized` to the ' +
       'other two. A sync belonging to another robot reads exactly like one that never existed, which is why the robot is resolved first.',
   },
+  {
+    method: 'DELETE', path: '/api/robots/:id/assets', section: 'assets',
+    summary: "Empties a robot's asset store: every URDF, mesh and texture, gone at once.",
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
+    query: null, request: null, response: assetsClearResponse,
+    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The store\'s escape hatch: a full store is never a dead end, and this is the blunt third of the three answers to it — the URDF upload ' +
+      'is exempt from the gate, reconcile after a sync already frees what the new URDF stopped referencing, and this route lets an Owner clear ' +
+      'the robot outright. Owner tier, unconditionally, like starting a sync. Removes every asset of the robot and resets its store to `0`; ' +
+      "the next sync fills it again. It does not touch the bridge's availability report — `urdf_available` still answers from the connected " +
+      'robot, unrelated to what this cloud happens to have stored.',
+  },
 
   /* ------------------------------------------------ org (quotas and fleet reads) */
   {
@@ -2762,7 +2776,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'store is the only limit, so the announced size is checked there against `ROBOT_ASSET_STORE_BYTES` and a file with no room left answers ' +
       '`409 quota_exceeded` carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Past that, ' +
       'the server\'s own body limit answers a bare `413 bad_request` with none of those numbers in it. Rate limited per robot inside that same ' +
-      'hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route.',
+      'hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route. The URDF itself is never ' +
+      'refused for the store; only meshes and textures are charged against it.',
   },
 
   /* ------------------------------------ realtime and bridge transports */

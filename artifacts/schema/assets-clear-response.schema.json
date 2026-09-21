@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "deleted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "How many assets — URDF, meshes and textures together — were removed."
+    },
+    "bytes_freed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The bytes the robot's store got back."
+    }
+  },
+  "required": [
+    "deleted",
+    "bytes_freed"
+  ],
+  "additionalProperties": false
+}

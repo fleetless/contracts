@@ -491,6 +491,26 @@ export const assetListResponse = z.object({
 export type AssetListResponse = z.infer<typeof assetListResponse>
 
 /**
+ * What `DELETE /api/robots/:id/assets` answers — the store's escape hatch.
+ *
+ * A full store is never a dead end: the URDF upload is exempt from the gate,
+ * reconcile after every sync already frees what the new URDF stopped
+ * referencing, and this route is the third leg — an Owner can empty the
+ * store outright and let the next sync refill it. `deleted` and
+ * `bytes_freed` are what changed, not the store's state afterward — that is
+ * `0` by construction and not worth a field of its own.
+ */
+export const assetsClearResponse = z.object({
+  deleted: z.number().int().nonnegative().meta({
+    description: 'How many assets — URDF, meshes and textures together — were removed.',
+  }),
+  bytes_freed: z.number().int().nonnegative().meta({
+    description: 'The bytes the robot\'s store got back.',
+  }),
+})
+export type AssetsClearResponse = z.infer<typeof assetsClearResponse>
+
+/**
  * The query of `GET /api/robots/:id/assets/missing`, the placeholder a
  * rewritten URDF points at for a mesh Fleetless does not hold.
  *

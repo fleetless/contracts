@@ -5,11 +5,13 @@ import {
   assetListResponse,
   assetSyncStatus,
   assetStoreRefusedDetails,
+  assetsClearResponse,
   urdfCompleteness,
   rolePermissions,
   bridgeAssetsAvailable,
   bridgeAssetProgress,
   ERROR_CODES,
+  ROUTES,
 } from '../src/index.js'
 
 const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
@@ -188,5 +190,27 @@ describe('a sync reason is not a mesh URI', () => {
     expect(assetSyncStatus.safeParse({ ...base, reason: 'another sync was already running' }).success).toBe(true)
     // Empty string is not a reason — an explanation nobody wrote is `null`.
     expect(assetSyncStatus.safeParse({ ...base, reason: '' }).success).toBe(false)
+  })
+})
+
+describe('a full store is never a dead end', () => {
+  it('parses a clear result and refuses a negative one', () => {
+    expect(assetsClearResponse.safeParse({ deleted: 0, bytes_freed: 0 }).success).toBe(true)
+    expect(assetsClearResponse.safeParse({ deleted: 3, bytes_freed: 1_048_576 }).success).toBe(true)
+    expect(assetsClearResponse.safeParse({ deleted: -1, bytes_freed: 0 }).success).toBe(false)
+    expect(assetsClearResponse.safeParse({ deleted: 0, bytes_freed: -1 }).success).toBe(false)
+    expect(assetsClearResponse.safeParse({ deleted: 0 }).success).toBe(false)
+  })
+
+  it('registers the escape hatch as an owner-tier developer route', () => {
+    const route = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/robots/:id/assets')
+    expect(route).toBeDefined()
+    expect(route?.section).toBe('assets')
+    expect(route?.audience).toBe('client')
+    expect(route?.auth).toBe('developer_or_client')
+    expect(route?.ownerTier).toBe(true)
+    expect(route?.status).toBe(200)
+    expect(route?.response).toBe(assetsClearResponse)
+    expect(route?.errors).toEqual(expect.arrayContaining(['unauthorized', 'tier_required', 'not_found']))
   })
 })
