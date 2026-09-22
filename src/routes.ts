@@ -983,7 +983,7 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/urls', section: 'apps',
-    summary: 'Replaces the three mailed-link templates in one write.',
+    summary: "Replaces the three pages Fleetless's mails point at.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: putAppAuthUrlsRequest, response: appAuthConfig,

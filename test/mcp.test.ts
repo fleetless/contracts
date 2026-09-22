@@ -180,9 +180,10 @@ describe('the app-level MCP switch, gone and back', () => {
 
   /**
    * The other half, so this is not a sweep asserting an empty world: the switch
-   * exists, on the shape that owns the app's auth settings.
+   * exists on `appAuthConfig`, and on `putAppAuthMcpRequest`, the one slice
+   * write that owns it alongside `mcp_login_url`.
    */
-  it('lives on the app auth config, where the rest of the auth settings are', () => {
+  it('lives on the app auth config, and on the slice that writes it', () => {
     expect('mcp_enabled' in contracts.appAuthConfig.shape).toBe(true)
     expect('mcp_enabled' in contracts.putAppAuthMcpRequest.shape).toBe(true)
   })
