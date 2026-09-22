@@ -1343,7 +1343,7 @@ export type HistoryResponse = z.infer<typeof historyResponse>
  * |---|---|---|
  * | `DELETE /api/robots/:id` | — | `204`. `?force=true` to proceed while a live session is open; without it, `409 robot_in_use` |
  * | `GET /api/robots/:id/deletion-preview` | — | `robotDeletionSummary` — the same shape the audit event carries |
- * | `DELETE /api/apps/:id` | — | `204`. No `?force=true` — an app has no open-session hazard to force past, so the preview is the only guard |
+ * | `DELETE /api/apps/:id` | — | `204`. No `force` parameter — an app has no open-session hazard to force past, so the preview is the guard |
  * | `GET /api/apps/:id/deletion-preview` | — | `appDeletionSummary` — the same shape the audit event carries |
  * | `GET /api/org/health` | — | `resourceHealthListResponse`; `?robot_id=` narrows it to one robot |
  *
