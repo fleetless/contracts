@@ -206,7 +206,7 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991,
-              "description": "How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing."
+              "description": "How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing, and also `0` until it has answered at all: read it beside `stored`, which stays `null` until the terminal frame."
             },
             "started_at": {
               "type": "string",

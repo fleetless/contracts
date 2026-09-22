@@ -439,7 +439,7 @@ export const assetSyncStatus = z.object({
     description: 'How many of the announced files the cloud\'s store actually holds. Counted once, after the robot reports the sync done, and `null` until then — nobody has looked yet. Read it against `announced`: `state` is what the robot reported, this is what arrived.',
   }),
   announced: z.number().int().nonnegative().meta({
-    description: 'How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing.',
+    description: 'How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing, and also `0` until it has answered at all: read it beside `stored`, which stays `null` until the terminal frame.',
   }),
   started_at: z.iso.datetime().meta({
     description: 'When the sync started, as an ISO 8601 timestamp.',
