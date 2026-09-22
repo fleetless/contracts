@@ -29,6 +29,7 @@
 import type { ZodType } from 'zod'
 import {
   appListResponse,
+  appDeletionSummary,
   createAppRequest,
   createServerKeyResponse,
   app as appSchema,
@@ -546,6 +547,34 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'A `default_role_id` naming a role of another app is refused: it is the one cross-app authorization check this shape can carry. ' +
       'Changing the robot set closes every live subscription the app\'s users hold, since a grant may no longer name a reachable robot.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/deletion-preview', section: 'apps',
+    summary: 'Reports what deleting the app would destroy, without destroying it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appDeletionSummary,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The same shape the delete\'s own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual ' +
+      'receipt agree by construction, and any difference between them is real drift rather than two estimates that quietly disagree. \n\n' +
+      '**No `force` parameter, unlike the robot pair this is modelled on.** A robot\'s open live session is a single nameable state whose ' +
+      'interruption is its own hazard, which is why that route makes the caller say `?force=true`. An app has no equivalent state to force ' +
+      'past, and inventing one would be a guess wearing a guard\'s clothes — this preview is the guard.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id', section: 'apps',
+    summary: 'Deletes an app and everything it produced.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
+      'for an app outside their org, rather than a tier refusal that confirms the id exists. A full cascade — its users, roles, server keys, ' +
+      'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
+      'Its robots are untouched: they belong to the org, not to the app. \n\n**No `?force=true`, and none is coming** — see ' +
+      '`GET /api/apps/:id/deletion-preview`.',
   },
   {
     method: 'POST', path: '/api/apps/:id/roles', section: 'apps',

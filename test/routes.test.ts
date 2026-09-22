@@ -8,6 +8,7 @@ import {
   clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
+  appDeletionSummary,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -771,6 +772,16 @@ describe('the app-user auth surface', () => {
       expect(r.status, k).toBe(202)
       expect(r.response, `${k} answers a body a stranger could read an account's existence out of`).toBeNull()
     }
+  })
+})
+
+describe('app deletion', () => {
+  it('offers a preview beside the delete, and the delete is Owner tier', () => {
+    const preview = ROUTES.find((r) => r.method === 'GET' && r.path === '/api/apps/:id/deletion-preview')
+    expect(preview?.response).toBe(appDeletionSummary)
+    const del = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/apps/:id')
+    expect(del?.status).toBe(204)
+    expect(del?.ownerTier).toBe(true)
   })
 })
 
@@ -1650,7 +1661,16 @@ describe('the parked-items round', () => {
     // route's parameter quoted inside this one's response. Listed with its
     // reason rather than pattern-matched away, because the next exemption
     // should have to be argued for too.
-    const quotesAnothersQuery = ['GET /.well-known/oauth-authorization-server/:appIdentifier']
+    //
+    // Two more, for the same reason: the app deletion pair's notes quote
+    // `?force=true` to say it does NOT exist here — it is the robot route's
+    // own parameter, named only to tell a reader who knows that route not to
+    // go looking for it on this one.
+    const quotesAnothersQuery = [
+      'GET /.well-known/oauth-authorization-server/:appIdentifier',
+      'GET /api/apps/:id/deletion-preview',
+      'DELETE /api/apps/:id',
+    ]
     const undeclared = ROUTES.filter(
       (r) =>
         r.audience !== 'internal' &&
