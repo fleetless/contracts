@@ -2056,8 +2056,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'clears it, which is why the field is required and nullable rather than optional. \n\n**The mapping cannot outlive what it points at.** ' +
       'Every successful publish re-checks it against the new document and clears it when it no longer qualifies, recording ' +
       '`robot.joint_state_cleared` with the version that did it; a slug rename rewrites it like every other reference the editor already ' +
-      'rewrites; deleting the robot takes it along. The stored value reads back on `GET /api/robots/:id/assets` as `joint_state_slug`, so a ' +
-      'renderer fetches the URDF, the meshes and the mapping from one place.',
+      'rewrites; deleting the robot takes it along. Every write through this route — a slug or `null` — is on the record too, as ' +
+      '`robot.joint_state_set` with the actor and the slug, so a clear a person made is never mistaken for one a publish made. The stored ' +
+      'value reads back on `GET /api/robots/:id/assets` as `joint_state_slug`, so a renderer fetches the URDF, the meshes and the mapping ' +
+      'from one place.',
   },
   {
     method: 'GET', path: '/api/robots', section: 'robots',
