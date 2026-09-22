@@ -7,7 +7,7 @@ import {
   ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, ERROR_CODES, mailOutcome, CLIENT_OIDC_CALLBACK_PATH,
   clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
-  robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse,
+  robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -573,7 +573,9 @@ describe('the app-user auth surface', () => {
     'POST /api/apps/:id/invitations/:invId/reissue',
     'DELETE /api/apps/:id/invitations/:invId',
     'GET /api/apps/:id/auth-config',
-    'PUT /api/apps/:id/auth-config',
+    'PUT /api/apps/:id/auth-config/registration',
+    'PUT /api/apps/:id/auth-config/urls',
+    'PUT /api/apps/:id/auth-config/mcp',
     'GET /api/apps/:id/mail-templates',
     'GET /api/apps/:id/mail-templates/:kind',
     'PUT /api/apps/:id/mail-templates/:kind',
@@ -614,6 +616,34 @@ describe('the app-user auth surface', () => {
       expect(r.errors, `${key(r)} takes :id and does not list invalid_uuid`).toContain('invalid_uuid')
       expect(r.errors, `${key(r)} cannot say the app does not exist`).toContain('not_found')
       expect(r.notes, `${key(r)} says nothing about what it does or what it refuses`).toBeTruthy()
+    }
+  })
+
+  /**
+   * **The auth-config write is three routes, the read is still one.** Three
+   * screens carving up one all-required request is how a field nobody's
+   * screen shows becomes a field somebody's save clears (see
+   * `putAppAuthRegistrationRequest`'s own doc comment in `app-users.ts`).
+   * A single `PUT` would either force every screen to round-trip every
+   * field, or go back to a partial merge — the thing `.strict()` exists to
+   * refuse.
+   */
+  it('offers three slice writes and no whole-document write', () => {
+    const paths = ROUTES.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/apps/:id/auth-config')).map((r) => r.path)
+    expect(paths).toEqual([
+      '/api/apps/:id/auth-config/registration',
+      '/api/apps/:id/auth-config/urls',
+      '/api/apps/:id/auth-config/mcp',
+    ])
+  })
+
+  it('still reads the whole document in one GET', () => {
+    expect(ROUTES.find((r) => r.method === 'GET' && r.path === '/api/apps/:id/auth-config')).toBeDefined()
+  })
+
+  it('answers every slice write with the whole document', () => {
+    for (const r of ROUTES.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/apps/:id/auth-config'))) {
+      expect(r.response).toBe(appAuthConfig)
     }
   })
 
