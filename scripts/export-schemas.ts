@@ -106,7 +106,7 @@ import {
   role,
   rolePermissions,
 } from '../src/apps.js'
-import { appListResponse, roleListResponse, serverKeyListResponse } from '../src/apps.js'
+import { appListResponse, appDeletionSummary, roleListResponse, serverKeyListResponse } from '../src/apps.js'
 import {
   clientLoginRequest,
   clientRefreshRequest,
@@ -280,6 +280,7 @@ export const exportedSchemas = {
   'org-quota-usage-counts': orgQuotaUsageCounts,
   // Deletion and the resource-health channel.
   'robot-deletion-summary': robotDeletionSummary,
+  'app-deletion-summary': appDeletionSummary,
   'resource-health-state': resourceHealthState,
   'resource-health-list-response': resourceHealthListResponse,
   'resource-health-event': resourceHealthEvent,
@@ -737,7 +738,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',
   'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',
   'org-quota-usage-counts',
-  'robot-deletion-summary', 'resource-health-state', 'resource-health-list-response',
+  'robot-deletion-summary', 'app-deletion-summary', 'resource-health-state', 'resource-health-list-response',
   'validation-issue', 'config-state', 'ros-graph', 'type-definition', 'robot',
   'create-robot-response', 'exposure-counts', 'robot-list-item', 'robot-list-response', 'datapoint-value',
   'robot-detail-response', 'config-draft-response', 'publish-config-response',

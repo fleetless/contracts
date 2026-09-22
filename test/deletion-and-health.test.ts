@@ -22,6 +22,7 @@ import {
 } from '../src/rest.js'
 import { resourceHealthEvent } from '../src/realtime.js'
 import { bridgeCameraState, CLOSE_ROBOT_DELETED, CLOSE_TOKEN_ROTATED } from '../src/protocol.js'
+import { appDeletionSummary } from '../src/apps.js'
 import { exportedConstants } from '../scripts/export-schemas.js'
 
 const health = {
@@ -110,6 +111,28 @@ describe('deletion', () => {
     // is exported here and vendored into constants.json.
     expect(exportedConstants.CLOSE_ROBOT_DELETED).toBe(CLOSE_ROBOT_DELETED)
     expect(exportedConstants.CLOSE_TOKEN_ROTATED).toBe(CLOSE_TOKEN_ROTATED)
+  })
+})
+
+describe('app deletion summary', () => {
+  const full = {
+    user_count: 5, role_count: 4, server_key_count: 3,
+    invitation_count: 2, oidc_provider_count: 2, mail_template_count: 1,
+  }
+
+  it('accepts the six counts', () => {
+    expect(appDeletionSummary.safeParse(full).success).toBe(true)
+  })
+
+  it('requires every one of them — an absent count would read as zero on the one screen that must not guess', () => {
+    for (const key of Object.keys(full) as (keyof typeof full)[]) {
+      const { [key]: _omitted, ...rest } = full
+      expect(appDeletionSummary.safeParse(rest).success).toBe(false)
+    }
+  })
+
+  it('refuses a negative count', () => {
+    expect(appDeletionSummary.safeParse({ ...full, user_count: -1 }).success).toBe(false)
   })
 })
 

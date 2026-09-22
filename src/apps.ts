@@ -86,6 +86,41 @@ export const appListResponse = z.object({
 export type AppListResponse = z.infer<typeof appListResponse>
 
 /**
+ * What deleting an app would destroy — read before the irreversible click,
+ * and carried again by the `app.deleted` audit event.
+ *
+ * **Six numbers, never a sum**, for the reason `robotDeletionSummary` states
+ * at length: the console reads this aloud as one sentence, and a total would
+ * describe six unrelated magnitudes with one figure on the one screen whose
+ * entire justification is naming what cannot be undone.
+ *
+ * Robots are not here because they do not go: they belong to the
+ * organization, not to the app. The audit trail is not here either — a record
+ * of what happened outlives the thing it happened to.
+ */
+export const appDeletionSummary = z.object({
+  user_count: z.number().int().nonnegative().meta({
+    description: 'App users deleted with the app. They are the developer\'s own customers, not Fleetless users, and exist in no other app.',
+  }),
+  role_count: z.number().int().nonnegative().meta({
+    description: 'Roles deleted with the app, each with its per-robot slug grants.',
+  }),
+  server_key_count: z.number().int().nonnegative().meta({
+    description: 'Server keys deleted with the app. A client still holding one is refused at its next request.',
+  }),
+  invitation_count: z.number().int().nonnegative().meta({
+    description: 'Outstanding invitations — unspent and unexpired — that will never be accepted.',
+  }),
+  oidc_provider_count: z.number().int().nonnegative().meta({
+    description: 'Identity providers configured for this app. The providers themselves are somebody else\'s; only this app\'s configuration of them goes.',
+  }),
+  mail_template_count: z.number().int().nonnegative().meta({
+    description: 'Custom mail templates, of at most three. A kind using the Fleetless default text is not counted — there is no row to lose.',
+  }),
+})
+export type AppDeletionSummary = z.infer<typeof appDeletionSummary>
+
+/**
  * **`robot_ids` is accepted here, and `.strict()` catches everything else.**
  * A create shape carrying `name` and `identifier` only would let zod strip an
  * offered `robot_ids`, so a caller creating an app *with* robots gets a `201`

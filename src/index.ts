@@ -481,6 +481,7 @@ export {
   appIdentifier,
   app,
   appListResponse,
+  appDeletionSummary,
   createAppRequest,
   updateAppRequest,
   serverKeyToken,
@@ -494,6 +495,7 @@ export {
 export type {
   App,
   AppListResponse,
+  AppDeletionSummary,
   CreateAppRequest,
   UpdateAppRequest,
   ServerKey,
