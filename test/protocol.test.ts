@@ -74,7 +74,7 @@ describe('contracts v1', () => {
     expect(PROTOCOL_VERSION).toBe(3)
     const two = PROTOCOL_VERSIONS.find((e) => e.version === 2)!
     expect(two.deprecated_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(sunsetOf(two)).toBe('2026-12-20')
+    expect(sunsetOf(two)).toBe('2026-12-21')
     expect(PROTOCOL_VERSIONS.find((e) => e.version === 3)).toEqual({ version: 3, bridge_from: '4.0.0', deprecated_at: null })
   })
 
@@ -110,7 +110,7 @@ describe('contracts v1', () => {
       cloudHelloOk.safeParse({
         type: 'hello_ok',
         robot_id: '3f2b6f0e-9b0c-4d1e-8a2f-1c2d3e4f5a6b',
-        protocol: { status: 'deprecated', sunset_at: '2026-12-20' },
+        protocol: { status: 'deprecated', sunset_at: '2026-12-21' },
         bridge: { latest_version: '3.2.0' },
       }).success,
     ).toBe(true)

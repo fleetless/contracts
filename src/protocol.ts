@@ -18,7 +18,7 @@ import { rosTypeName } from './common.js'
  * which names the window and reaches the robot's detail view as
  * `last_hello_error`.
  *
- * **3 (2026-09-21):** the ping carries `latency_ms` and `lag_ms`, the bridge
+ * **3 (2026-09-22):** the ping carries `latency_ms` and `lag_ms`, the bridge
  * sends `link_mode`, `bridge_state` gains `low_bandwidth`, and the
  * `bridge_pressure` datapoint is gone. A protocol-2 bridge is served until
  * its sunset, and the cloud's protocol-2 adapter owes it two translations on
@@ -51,7 +51,7 @@ export interface ProtocolVersionEntry {
  * requires a dated heading for the tag being released.
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
-  { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-21' },
+  { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },
   { version: 3, bridge_from: '4.0.0', deprecated_at: null },
 ]
 

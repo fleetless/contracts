@@ -86,7 +86,7 @@ describe('REST shapes', () => {
         last_hello_error: null,
         config: { published_version: null, published_at: null, draft_updated_at: null, applied_version: null, applied_ok: null, applied_errors: null },
         protocol_version: 2,
-        protocol: { status: 'deprecated', sunset_at: '2026-12-20' },
+        protocol: { status: 'deprecated', sunset_at: '2026-12-21' },
       }).success,
     ).toBe(true)
   })
