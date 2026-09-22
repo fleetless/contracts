@@ -559,8 +559,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'The same shape the delete\'s own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual ' +
       'receipt agree by construction, and any difference between them is real drift rather than two estimates that quietly disagree. \n\n' +
       '**No `force` parameter, unlike the robot pair this is modelled on.** A robot\'s open live session is a single nameable state whose ' +
-      'interruption is its own hazard, which is why that route makes the caller say `?force=true`. An app has no equivalent state to force ' +
-      'past, and inventing one would be a guess wearing a guard\'s clothes — this preview is the guard.',
+      'interruption is its own hazard, which is why that route makes the caller pass `force` explicitly. An app has no equivalent state to ' +
+      'force past, and inventing one would be a guess wearing a guard\'s clothes — this preview is the guard.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id', section: 'apps',
@@ -573,7 +573,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
       'for an app outside their org, rather than a tier refusal that confirms the id exists. A full cascade — its users, roles, server keys, ' +
       'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
-      'Its robots are untouched: they belong to the org, not to the app. \n\n**No `?force=true`, and none is coming** — see ' +
+      'Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
       '`GET /api/apps/:id/deletion-preview`.',
   },
   {
