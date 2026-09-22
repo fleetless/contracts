@@ -411,6 +411,32 @@ export const assetSyncStatus = z.object({
   reason: z.string().min(1).nullable().meta({
     description: 'Why the sync ended as it did, when that is not a per-reference fact. `null` when `failed` already says everything there is to say.',
   }),
+  /**
+   * **What the receiver counted, next to what the producer claimed.**
+   *
+   * `state` is the bridge's own terminal frame and nothing else. A dev stack
+   * with no object store answered `500` to every upload and the sync still
+   * read `succeeded` — the producer had genuinely sent every file, and no
+   * one had asked the store. These two numbers are the cloud's own count,
+   * taken after the terminal frame: how many of the announced files
+   * (`assets_available`'s URDF and mesh list) its store actually holds.
+   *
+   * They are a pair because neither alone answers anything. `stored` without
+   * `announced` cannot say whether four files is all of them or a tenth of
+   * them, and `announced` alone is what the producer said it had, which is
+   * the claim under examination.
+   *
+   * A partial store is still `succeeded`: some meshes were never going to
+   * resolve, and the per-reference `failed` entries say which. An empty one
+   * under a `succeeded` frame is `failed`, because no transport succeeds at
+   * nothing.
+   */
+  stored: z.number().int().nonnegative().meta({
+    description: 'How many of the announced files the cloud\'s store actually holds, counted after the sync ended. Read it against `announced`: `state` is what the robot reported, this is what arrived.',
+  }),
+  announced: z.number().int().nonnegative().meta({
+    description: 'How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing.',
+  }),
   started_at: z.iso.datetime().meta({
     description: 'When the sync started, as an ISO 8601 timestamp.',
   }),

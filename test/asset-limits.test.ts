@@ -25,6 +25,8 @@ const runningSync = {
   total: 10,
   failed: [],
   reason: null,
+  stored: 3,
+  announced: 10,
   started_at: '2026-08-19T10:00:00.000Z',
   updated_at: '2026-08-19T10:00:03.000Z',
 }

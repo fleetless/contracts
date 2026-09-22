@@ -137,6 +137,8 @@ describe('a sync cannot report success while having dropped something', () => {
       done: 5,
       total: 5,
       reason: null,
+      stored: 5,
+      announced: 5,
       started_at: NOW,
       updated_at: NOW,
     }
@@ -183,7 +185,7 @@ describe('a sync reason is not a mesh URI', () => {
     // anything that is not a URI goes.
     const base = {
       sync_id: UUID, robot_id: UUID, state: 'failed', done: 0, total: 3,
-      failed: [], started_at: NOW, updated_at: NOW,
+      failed: [], stored: 0, announced: 3, started_at: NOW, updated_at: NOW,
     }
     expect(assetSyncStatus.safeParse(base).success).toBe(false)
     expect(assetSyncStatus.safeParse({ ...base, reason: null }).success).toBe(true)
@@ -212,5 +214,42 @@ describe('a full store is never a dead end', () => {
     expect(route?.status).toBe(200)
     expect(route?.response).toBe(assetsClearResponse)
     expect(route?.errors).toEqual(expect.arrayContaining(['unauthorized', 'tier_required', 'not_found']))
+  })
+})
+
+describe('a sync says what the store actually holds', () => {
+  const base = {
+    sync_id: UUID,
+    robot_id: UUID,
+    state: 'succeeded',
+    done: 4,
+    total: 4,
+    failed: [],
+    reason: null,
+    started_at: NOW,
+    updated_at: NOW,
+  }
+
+  it('refuses a status that reports only the producer\'s own word', () => {
+    // A dev stack with no object store answered `500` to every upload and
+    // the sync still read `succeeded`: the state was the bridge's terminal
+    // frame and nothing had asked the store. `stored`/`announced` are what
+    // the receiver counted, so `succeeded` over an empty store is visible
+    // as a pair of numbers even where it is not yet a failure.
+    expect(assetSyncStatus.safeParse(base).success).toBe(false)
+    expect(assetSyncStatus.safeParse({ ...base, stored: 4, announced: 4 }).success).toBe(true)
+    expect(assetSyncStatus.safeParse({ ...base, stored: 0, announced: 4 }).success).toBe(true)
+  })
+
+  it('refuses a negative or fractional count', () => {
+    expect(assetSyncStatus.safeParse({ ...base, stored: -1, announced: 4 }).success).toBe(false)
+    expect(assetSyncStatus.safeParse({ ...base, stored: 1.5, announced: 4 }).success).toBe(false)
+    expect(assetSyncStatus.safeParse({ ...base, stored: 0, announced: -1 }).success).toBe(false)
+  })
+
+  it('describes both counts, so the generated reference says what they mean', () => {
+    const shape = assetSyncStatus.shape
+    expect(shape.stored.meta()?.description).toMatch(/store/i)
+    expect(shape.announced.meta()?.description).toMatch(/announc/i)
   })
 })

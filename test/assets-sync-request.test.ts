@@ -79,7 +79,8 @@ describe('creating an app with robots', () => {
 describe('failed says why, not just what', () => {
   const base = {
     sync_id: UUID, robot_id: UUID, state: 'failed' as const,
-    done: 0, total: 2, reason: null, started_at: NOW, updated_at: NOW,
+    done: 0, total: 2, reason: null, stored: 0, announced: 2,
+    started_at: NOW, updated_at: NOW,
   }
 
   it('refuses the bare string it used to carry', () => {
