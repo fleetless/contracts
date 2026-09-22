@@ -430,9 +430,13 @@ export const assetSyncStatus = z.object({
    * resolve, and the per-reference `failed` entries say which. An empty one
    * under a `succeeded` frame is `failed`, because no transport succeeds at
    * nothing.
+   *
+   * **`stored` is `null` while the sync is still running.** The count is
+   * taken once, after the robot's terminal frame; a `0` before then would
+   * say the store is empty when nobody has looked.
    */
-  stored: z.number().int().nonnegative().meta({
-    description: 'How many of the announced files the cloud\'s store actually holds, counted after the sync ended. Read it against `announced`: `state` is what the robot reported, this is what arrived.',
+  stored: z.number().int().nonnegative().nullable().meta({
+    description: 'How many of the announced files the cloud\'s store actually holds. Counted once, after the robot reports the sync done, and `null` until then — nobody has looked yet. Read it against `announced`: `state` is what the robot reported, this is what arrived.',
   }),
   announced: z.number().int().nonnegative().meta({
     description: 'How many files the robot announced for this sync — the URDF, if it has one, plus every mesh URI its description references. `0` when the robot announced nothing.',

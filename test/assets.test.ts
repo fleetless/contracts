@@ -241,6 +241,14 @@ describe('a sync says what the store actually holds', () => {
     expect(assetSyncStatus.safeParse({ ...base, stored: 0, announced: 4 }).success).toBe(true)
   })
 
+  it('leaves `stored` null while nobody has looked yet', () => {
+    // The count is taken once, after the terminal frame. A `0` before then
+    // would report an empty store on the strength of nobody having asked.
+    const running = { ...base, state: 'running', done: 1, total: 4 }
+    expect(assetSyncStatus.safeParse({ ...running, stored: null, announced: 4 }).success).toBe(true)
+    expect(assetSyncStatus.safeParse({ ...running, announced: 4 }).success).toBe(false)
+  })
+
   it('refuses a negative or fractional count', () => {
     expect(assetSyncStatus.safeParse({ ...base, stored: -1, announced: 4 }).success).toBe(false)
     expect(assetSyncStatus.safeParse({ ...base, stored: 1.5, announced: 4 }).success).toBe(false)
