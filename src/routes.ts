@@ -961,7 +961,9 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a ' +
       '`404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same ' +
-      'for every app and every provider, and is the value a developer registers at their identity provider.',
+      'for every app and every provider, and is the value a developer registers at their identity provider. It stays read-only on every slice ' +
+      'write below for the same reason: a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an ' +
+      'authorization code, at a host they own.',
   },
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/registration', section: 'apps',
@@ -972,7 +974,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
       '**A replace, not a merge, and `.strict()`**: `self_registration`, `allowed_domains` and `allowed_origins` all arrive or the write is ' +
-      'refused, so a client built against an older shape cannot silently clear a setting it does not know about. ' +
+      'refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and ' +
+      '`updated_at` are the server\'s, refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
       '\n\n`400 validation_error` is where the two field rules land: an entry in `allowed_domains` must be lowercase, since a capitalised one ' +
       'can never match a lowercased address, and an entry in `allowed_origins` must be a bare scheme-host-port with no path, since a browser ' +
       'sends nothing longer in its `Origin` header. Each refuses at configuration time rather than failing silently later. ' +
@@ -987,7 +990,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
       '**A replace, not a merge, and `.strict()`**: `invite_url`, `verify_url` and `reset_url` all arrive or the write is refused, so a ' +
-      'client built against an older shape cannot silently clear a setting it does not know about. ' +
+      'client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are ' +
+      'the server\'s, refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
       '\n\n`400 validation_error` is where the field rule lands: a URL template must be https (or `http` on `localhost`) and carry its ' +
       'placeholder exactly once — a second occurrence leaves one literal in a mailed link, refused here rather than failing silently once ' +
       'the mail is sent. ' +
@@ -1002,12 +1006,11 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
       '**A replace, not a merge, and `.strict()`**: `mcp_enabled` and `mcp_login_url` both arrive or the write is refused, so a client built ' +
-      'against an older shape cannot silently clear a setting it does not know about. ' +
+      'against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server\'s, ' +
+      'refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
       '\n\n`mcp_login_url` answers to the same rule as the mailed-link templates — https (or `http` on `localhost`), its placeholder exactly ' +
       'once — refused as `400 validation_error` rather than left to fail mid-OAuth, in a client\'s browser where no console screen is ' +
-      'watching. `oidc_callback_url` and `updated_at` are refused in the body: the callback URL is minted by the cloud from its own public ' +
-      'base URL and is not writable — a writable version would let a caller point the return leg of an OIDC sign-in, which carries an ' +
-      'authorization code, at a host they own. ' +
+      'watching. ' +
       '\n\nThe merge is server-side against the stored row, so this write never disturbs the registration or urls slice.',
   },
   {
