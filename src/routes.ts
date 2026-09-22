@@ -81,7 +81,9 @@ import {
   mailTemplatePreviewResponse,
   patchAppOidcProviderRequest,
   patchAppUserRequest,
-  putAppAuthConfigRequest,
+  putAppAuthMcpRequest,
+  putAppAuthRegistrationRequest,
+  putAppAuthUrlsRequest,
   putAppMailTemplateRequest,
 } from './app-users.js'
 import type { ErrorCode } from './errors.js'
@@ -962,20 +964,51 @@ export const ROUTES: readonly RouteEntry[] = [
       'for every app and every provider, and is the value a developer registers at their identity provider.',
   },
   {
-    method: 'PUT', path: '/api/apps/:id/auth-config', section: 'apps',
-    summary: "Replaces the app's auth settings in one write.",
+    method: 'PUT', path: '/api/apps/:id/auth-config/registration', section: 'apps',
+    summary: 'Replaces who may self-register, and from where.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: putAppAuthConfigRequest, response: appAuthConfig,
+    query: null, request: putAppAuthRegistrationRequest, response: appAuthConfig,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      '**A replace, not a merge, and `.strict()`**: every field arrives or the write is refused, so a client built against an older shape ' +
-      'cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are refused in the body — a writable ' +
-      'callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own. ' +
-      '\n\n`400 validation_error` is where the three field rules land: a URL template must be https (or `http` on `localhost`) and carry its ' +
-      'placeholder exactly once, an origin must be a bare scheme-host-port with no path, and a domain must be lowercase. Each refuses at ' +
-      'configuration time because each would otherwise fail silently later — a second placeholder leaves one occurrence literal in a mailed ' +
-      'link, an origin with a path can never equal a browser\'s `Origin` header, and a capitalised domain can never match a lowercased address.',
+      '**A replace, not a merge, and `.strict()`**: `self_registration`, `allowed_domains` and `allowed_origins` all arrive or the write is ' +
+      'refused, so a client built against an older shape cannot silently clear a setting it does not know about. ' +
+      '\n\n`400 validation_error` is where the two field rules land: an entry in `allowed_domains` must be lowercase, since a capitalised one ' +
+      'can never match a lowercased address, and an entry in `allowed_origins` must be a bare scheme-host-port with no path, since a browser ' +
+      'sends nothing longer in its `Origin` header. Each refuses at configuration time rather than failing silently later. ' +
+      '\n\nThe merge is server-side against the stored row, so this write never disturbs the urls or mcp slice.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config/urls', section: 'apps',
+    summary: 'Replaces the three mailed-link templates in one write.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: putAppAuthUrlsRequest, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**A replace, not a merge, and `.strict()`**: `invite_url`, `verify_url` and `reset_url` all arrive or the write is refused, so a ' +
+      'client built against an older shape cannot silently clear a setting it does not know about. ' +
+      '\n\n`400 validation_error` is where the field rule lands: a URL template must be https (or `http` on `localhost`) and carry its ' +
+      'placeholder exactly once — a second occurrence leaves one literal in a mailed link, refused here rather than failing silently once ' +
+      'the mail is sent. ' +
+      '\n\nThe merge is server-side against the stored row, so this write never disturbs the registration or mcp slice.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config/mcp', section: 'apps',
+    summary: 'Replaces the MCP switch and its login URL together.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: putAppAuthMcpRequest, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**A replace, not a merge, and `.strict()`**: `mcp_enabled` and `mcp_login_url` both arrive or the write is refused, so a client built ' +
+      'against an older shape cannot silently clear a setting it does not know about. ' +
+      '\n\n`mcp_login_url` answers to the same rule as the mailed-link templates — https (or `http` on `localhost`), its placeholder exactly ' +
+      'once — refused as `400 validation_error` rather than left to fail mid-OAuth, in a client\'s browser where no console screen is ' +
+      'watching. `oidc_callback_url` and `updated_at` are refused in the body: the callback URL is minted by the cloud from its own public ' +
+      'base URL and is not writable — a writable version would let a caller point the return leg of an OIDC sign-in, which carries an ' +
+      'authorization code, at a host they own. ' +
+      '\n\nThe merge is server-side against the stored row, so this write never disturbs the registration or urls slice.',
   },
   {
     method: 'GET', path: '/api/apps/:id/mail-templates', section: 'apps',

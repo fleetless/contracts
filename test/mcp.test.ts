@@ -184,7 +184,7 @@ describe('the app-level MCP switch, gone and back', () => {
    */
   it('lives on the app auth config, where the rest of the auth settings are', () => {
     expect('mcp_enabled' in contracts.appAuthConfig.shape).toBe(true)
-    expect('mcp_enabled' in contracts.putAppAuthConfigRequest.shape).toBe(true)
+    expect('mcp_enabled' in contracts.putAppAuthMcpRequest.shape).toBe(true)
   })
 })
 
