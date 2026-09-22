@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mcp_enabled": {
+      "type": "boolean",
+      "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
+    },
+    "mcp_login_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+    }
+  },
+  "required": [
+    "mcp_enabled",
+    "mcp_login_url"
+  ],
+  "additionalProperties": false
+}

@@ -5,6 +5,19 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html) over
 the wire shapes.
 
+## [3.0.0] — 2026-09-22
+
+The protocol window carries over unchanged: `LATEST_BRIDGE_VERSION` is still `4.0.0`, and protocol 2 still sunsets 2026-12-21. Everything below is the REST surface.
+
+### Added
+
+- **Auth-config as three slices, not one document.** `putAppAuthRegistrationRequest` (`self_registration`, `allowed_domains`, `allowed_origins`), `putAppAuthUrlsRequest` (`invite_url`, `verify_url`, `reset_url`) and `putAppAuthMcpRequest` (`mcp_enabled`, `mcp_login_url`) are three `.strict()` replaces behind three new routes — `PUT /api/apps/:id/auth-config/registration`, `/urls` and `/mcp` — each merged server-side against the stored row, so a write to one slice can no longer clear a field it never showed. `GET /api/apps/:id/auth-config` is unchanged and still answers the whole document.
+- **A deletion preview and a delete.** `appDeletionSummary` — six independent counts (`user_count`, `role_count`, `server_key_count`, `invitation_count`, `oidc_provider_count`, `mail_template_count`), deliberately not summed — is what `GET /api/apps/:id/deletion-preview` (`200`) answers and what the `app.deleted` audit event carries, computed by the same function so the confirmation dialog and the eventual receipt cannot quietly disagree. `DELETE /api/apps/:id` (Owner tier, `204`) runs the cascade: an app's users, roles, server keys, invitations, OIDC configuration and mail templates all go; its robots do not, since they belong to the org, not the app. **No `force` parameter** — unlike the robot deletion pair this is modelled on, an app has no open-session state to force past, and inventing one would be a guess wearing a guard's clothes.
+
+### Removed
+
+- **`putAppAuthConfigRequest` and `PUT /api/apps/:id/auth-config`.** Replaced by the three slice requests and routes above — `PUT /api/apps/:id/auth-config/registration`, `PUT /api/apps/:id/auth-config/urls` and `PUT /api/apps/:id/auth-config/mcp`. This is the break that makes this release a major: a caller still sending the old whole-document body finds no route left to send it to.
+
 ## [2.0.0] — 2026-09-22
 
 ### Added

@@ -488,6 +488,65 @@
       "notes": "A `default_role_id` naming a role of another app is refused: it is the one cross-app authorization check this shape can carry. Changing the robot set closes every live subscription the app's users hold, since a grant may no longer name a reachable robot."
     },
     {
+      "method": "GET",
+      "path": "/api/apps/:id/deletion-preview",
+      "section": "apps",
+      "summary": "Reports what deleting the app would destroy, without destroying it.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": "app-deletion-summary",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "The same shape the delete's own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual receipt agree by construction, and any difference between them is real drift rather than two estimates that quietly disagree. \n\n**No `force` parameter, unlike the robot pair this is modelled on.** A robot's open live session is a single nameable state whose interruption is its own hazard, which is why that route makes the caller pass `force` explicitly. An app has no equivalent state to force past, and inventing one would be a guess wearing a guard's clothes — this preview is the guard."
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/apps/:id",
+      "section": "apps",
+      "summary": "Deletes an app and everything it produced.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": true,
+      "status": 204,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required",
+        "invalid_uuid",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would for an app outside their org, rather than a tier refusal that confirms the id exists. A full cascade — its users, roles, server keys, invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see `GET /api/apps/:id/deletion-preview`."
+    },
+    {
       "method": "POST",
       "path": "/api/apps/:id/roles",
       "section": "apps",
@@ -1360,13 +1419,13 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a `404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same for every app and every provider, and is the value a developer registers at their identity provider."
+      "notes": "One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a `404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same for every app and every provider, and is the value a developer registers at their identity provider. It stays read-only on every slice write below for the same reason: a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own."
     },
     {
       "method": "PUT",
-      "path": "/api/apps/:id/auth-config",
+      "path": "/api/apps/:id/auth-config/registration",
       "section": "apps",
-      "summary": "Replaces the app's auth settings in one write.",
+      "summary": "Replaces who may self-register, and from where.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -1379,7 +1438,7 @@
         }
       ],
       "query": null,
-      "request": "put-app-auth-config-request",
+      "request": "put-app-auth-registration-request",
       "response": "app-auth-config",
       "errors": [
         "unauthorized",
@@ -1390,7 +1449,67 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "**A replace, not a merge, and `.strict()`**: every field arrives or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are refused in the body — a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own. \n\n`400 validation_error` is where the three field rules land: a URL template must be https (or `http` on `localhost`) and carry its placeholder exactly once, an origin must be a bare scheme-host-port with no path, and a domain must be lowercase. Each refuses at configuration time because each would otherwise fail silently later — a second placeholder leaves one occurrence literal in a mailed link, an origin with a path can never equal a browser's `Origin` header, and a capitalised domain can never match a lowercased address."
+      "notes": "**A replace, not a merge, and `.strict()`**: `self_registration`, `allowed_domains` and `allowed_origins` all arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`400 validation_error` is where the two field rules land: an entry in `allowed_domains` must be lowercase, since a capitalised one can never match a lowercased address, and an entry in `allowed_origins` must be a bare scheme-host-port with no path, since a browser sends nothing longer in its `Origin` header. Each refuses at configuration time rather than failing silently later. \n\nThe merge is server-side against the stored row, so this write never disturbs the urls or mcp slice."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/apps/:id/auth-config/urls",
+      "section": "apps",
+      "summary": "Replaces the three pages Fleetless's mails point at.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": "put-app-auth-urls-request",
+      "response": "app-auth-config",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "validation_error",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "**A replace, not a merge, and `.strict()`**: `invite_url`, `verify_url` and `reset_url` all arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`400 validation_error` is where the field rule lands: a URL template must be https (or `http` on `localhost`) and carry its placeholder exactly once — a second occurrence leaves one literal in a mailed link, refused here rather than failing silently once the mail is sent. \n\nThe merge is server-side against the stored row, so this write never disturbs the registration or mcp slice."
+    },
+    {
+      "method": "PUT",
+      "path": "/api/apps/:id/auth-config/mcp",
+      "section": "apps",
+      "summary": "Replaces the MCP switch and its login URL together.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`."
+        }
+      ],
+      "query": null,
+      "request": "put-app-auth-mcp-request",
+      "response": "app-auth-config",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "invalid_uuid",
+        "validation_error",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "**A replace, not a merge, and `.strict()`**: `mcp_enabled` and `mcp_login_url` both arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`mcp_login_url` answers to the same rule as the mailed-link templates — https (or `http` on `localhost`), its placeholder exactly once — refused as `400 validation_error` rather than left to fail mid-OAuth, in a client's browser where no console screen is watching. \n\nThe merge is server-side against the stored row, so this write never disturbs the registration or urls slice."
     },
     {
       "method": "GET",

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "self_registration": {
+      "type": "boolean",
+      "description": "Whether a stranger may create an account in this app. Off refuses `POST /api/client/register` with `403 registration_closed`, and refuses an unknown identity at an OIDC callback with the same reasoning — one switch for one decision, whichever door the person arrives at."
+    },
+    "allowed_domains": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+      },
+      "description": "The email domains self-registration accepts, lowercase. An empty list means no domain restriction, not \"nobody\" — the switch above is what closes the door. **An invitation always bypasses this**, by password and through a provider alike."
+    },
+    "allowed_origins": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "description": "The origins the client auth API answers CORS for, and the only origins an OIDC `redirect_uri` may name. Bare origins: scheme, host and port, with no path — a browser sends nothing longer, so an entry carrying one could never match."
+    }
+  },
+  "required": [
+    "self_registration",
+    "allowed_domains",
+    "allowed_origins"
+  ],
+  "additionalProperties": false
+}
