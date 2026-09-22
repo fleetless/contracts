@@ -924,6 +924,93 @@
             }
           }
         }
+      },
+      "delete": {
+        "operationId": "delete_api_apps_id",
+        "summary": "Deletes an app and everything it produced.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would for an app outside their org, rather than a tier refusal that confirms the id exists. A full cascade — its users, roles, server keys, invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see `GET /api/apps/:id/deletion-preview`."
+      }
+    },
+    "/api/apps/{id}/deletion-preview": {
+      "get": {
+        "operationId": "get_api_apps_id_deletion_preview",
+        "summary": "Reports what deleting the app would destroy, without destroying it.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-deletion-summary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The same shape the delete's own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual receipt agree by construction, and any difference between them is real drift rather than two estimates that quietly disagree. \n\n**No `force` parameter, unlike the robot pair this is modelled on.** A robot's open live session is a single nameable state whose interruption is its own hazard, which is why that route makes the caller pass `force` explicitly. An app has no equivalent state to force past, and inventing one would be a guess wearing a guard's clothes — this preview is the guard."
       }
     },
     "/api/apps/{id}/roles": {
@@ -2376,11 +2463,13 @@
             }
           }
         },
-        "description": "One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a `404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same for every app and every provider, and is the value a developer registers at their identity provider."
-      },
+        "description": "One row per app, created with the app and never absent — an app that has configured nothing reads back the defaults rather than a `404`. `oidc_callback_url` is in the answer and not in the request: it is minted by the cloud from its own public base URL, is the same for every app and every provider, and is the value a developer registers at their identity provider. It stays read-only on every slice write below for the same reason: a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own."
+      }
+    },
+    "/api/apps/{id}/auth-config/registration": {
       "put": {
-        "operationId": "put_api_apps_id_auth_config",
-        "summary": "Replaces the app's auth settings in one write.",
+        "operationId": "put_api_apps_id_auth_config_registration",
+        "summary": "Replaces who may self-register, and from where.",
         "tags": [
           "apps"
         ],
@@ -2422,13 +2511,129 @@
             }
           }
         },
-        "description": "**A replace, not a merge, and `.strict()`**: every field arrives or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are refused in the body — a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an authorization code, at a host they own. \n\n`400 validation_error` is where the three field rules land: a URL template must be https (or `http` on `localhost`) and carry its placeholder exactly once, an origin must be a bare scheme-host-port with no path, and a domain must be lowercase. Each refuses at configuration time because each would otherwise fail silently later — a second placeholder leaves one occurrence literal in a mailed link, an origin with a path can never equal a browser's `Origin` header, and a capitalised domain can never match a lowercased address.",
+        "description": "**A replace, not a merge, and `.strict()`**: `self_registration`, `allowed_domains` and `allowed_origins` all arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`400 validation_error` is where the two field rules land: an entry in `allowed_domains` must be lowercase, since a capitalised one can never match a lowercased address, and an entry in `allowed_origins` must be a bare scheme-host-port with no path, since a browser sends nothing longer in its `Origin` header. Each refuses at configuration time rather than failing silently later. \n\nThe merge is server-side against the stored row, so this write never disturbs the urls or mcp slice.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/put-app-auth-config-request"
+                "$ref": "#/components/schemas/put-app-auth-registration-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/auth-config/urls": {
+      "put": {
+        "operationId": "put_api_apps_id_auth_config_urls",
+        "summary": "Replaces the three pages Fleetless's mails point at.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-auth-config"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**A replace, not a merge, and `.strict()`**: `invite_url`, `verify_url` and `reset_url` all arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`400 validation_error` is where the field rule lands: a URL template must be https (or `http` on `localhost`) and carry its placeholder exactly once — a second occurrence leaves one literal in a mailed link, refused here rather than failing silently once the mail is sent. \n\nThe merge is server-side against the stored row, so this write never disturbs the registration or mcp slice.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/put-app-auth-urls-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/auth-config/mcp": {
+      "put": {
+        "operationId": "put_api_apps_id_auth_config_mcp",
+        "summary": "Replaces the MCP switch and its login URL together.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-auth-config"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**A replace, not a merge, and `.strict()`**: `mcp_enabled` and `mcp_login_url` both arrive or the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server's, refused in this body as in every slice's — see `GET`'s notes for why. \n\n`mcp_login_url` answers to the same rule as the mailed-link templates — https (or `http` on `localhost`), its placeholder exactly once — refused as `400 validation_error` rather than left to fail mid-OAuth, in a client's browser where no console screen is watching. \n\nThe merge is server-side against the stored row, so this write never disturbs the registration or urls slice.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/put-app-auth-mcp-request"
               }
             }
           }
@@ -8671,6 +8876,56 @@
           "mcp_login_url",
           "oidc_callback_url",
           "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-deletion-summary": {
+        "type": "object",
+        "properties": {
+          "user_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "App users deleted with the app. They are the developer's own customers, not Fleetless users, and exist in no other app."
+          },
+          "role_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Roles deleted with the app, each with its per-robot slug grants."
+          },
+          "server_key_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Server keys deleted with the app. A client still holding one is refused at its next request."
+          },
+          "invitation_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Outstanding invitations — unspent and unexpired — that will never be accepted."
+          },
+          "oidc_provider_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Identity providers configured for this app. The providers themselves are somebody else's; only this app's configuration of them goes."
+          },
+          "mail_template_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Custom mail templates, of at most three. A kind using the Fleetless default text is not counted — there is no row to lose."
+          }
+        },
+        "required": [
+          "user_count",
+          "role_count",
+          "server_key_count",
+          "invitation_count",
+          "oidc_provider_count",
+          "mail_template_count"
         ],
         "additionalProperties": false
       },
@@ -16318,7 +16573,33 @@
           "message"
         ]
       },
-      "put-app-auth-config-request": {
+      "put-app-auth-mcp-request": {
+        "type": "object",
+        "properties": {
+          "mcp_enabled": {
+            "type": "boolean",
+            "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
+          },
+          "mcp_login_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+          }
+        },
+        "required": [
+          "mcp_enabled",
+          "mcp_login_url"
+        ],
+        "additionalProperties": false
+      },
+      "put-app-auth-registration-request": {
         "type": "object",
         "properties": {
           "self_registration": {
@@ -16344,11 +16625,18 @@
               "maxLength": 200
             },
             "description": "The origins the client auth API answers CORS for, and the only origins an OIDC `redirect_uri` may name. Bare origins: scheme, host and port, with no path — a browser sends nothing longer, so an entry carrying one could never match."
-          },
-          "mcp_enabled": {
-            "type": "boolean",
-            "description": "Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token."
-          },
+          }
+        },
+        "required": [
+          "self_registration",
+          "allowed_domains",
+          "allowed_origins"
+        ],
+        "additionalProperties": false
+      },
+      "put-app-auth-urls-request": {
+        "type": "object",
+        "properties": {
           "invite_url": {
             "anyOf": [
               {
@@ -16384,29 +16672,12 @@
               }
             ],
             "description": "The page that takes a new password, with `{token}` where the token goes."
-          },
-          "mcp_login_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
           }
         },
         "required": [
-          "self_registration",
-          "allowed_domains",
-          "allowed_origins",
-          "mcp_enabled",
           "invite_url",
           "verify_url",
-          "reset_url",
-          "mcp_login_url"
+          "reset_url"
         ],
         "additionalProperties": false
       },

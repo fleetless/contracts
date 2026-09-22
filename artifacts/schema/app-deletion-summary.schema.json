@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "user_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "App users deleted with the app. They are the developer's own customers, not Fleetless users, and exist in no other app."
+    },
+    "role_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Roles deleted with the app, each with its per-robot slug grants."
+    },
+    "server_key_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Server keys deleted with the app. A client still holding one is refused at its next request."
+    },
+    "invitation_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Outstanding invitations — unspent and unexpired — that will never be accepted."
+    },
+    "oidc_provider_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Identity providers configured for this app. The providers themselves are somebody else's; only this app's configuration of them goes."
+    },
+    "mail_template_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Custom mail templates, of at most three. A kind using the Fleetless default text is not counted — there is no row to lose."
+    }
+  },
+  "required": [
+    "user_count",
+    "role_count",
+    "server_key_count",
+    "invitation_count",
+    "oidc_provider_count",
+    "mail_template_count"
+  ],
+  "additionalProperties": false
+}
