@@ -34,7 +34,9 @@ import {
   patchAppUserRequest,
   pendingAppInvitation,
   providerSlug,
-  putAppAuthConfigRequest,
+  putAppAuthMcpRequest,
+  putAppAuthRegistrationRequest,
+  putAppAuthUrlsRequest,
   putAppMailTemplateRequest,
 } from '../src/app-users.js'
 import { clientIdentity, clientOidcErrorCode, clientOidcStartQuery } from '../src/client-auth.js'
@@ -502,20 +504,6 @@ describe('appAuthConfig — what the developer may set, and the one field they m
     ).toBe(true)
   })
 
-  /**
-   * **The one callback URL a developer registers at every IdP is minted by
-   * the cloud, not chosen.** Writable, a caller could point the OIDC return
-   * leg — which carries an authorization code — at a host they own. Strict,
-   * so offering it is a `400`, not a silently ignored field.
-   */
-  it('putAppAuthConfigRequest refuses the callback URL and the timestamp', () => {
-    const { oidc_callback_url, updated_at, ...writable } = ROW
-    void updated_at
-    expect(putAppAuthConfigRequest.safeParse(writable).success).toBe(true)
-    expect(putAppAuthConfigRequest.safeParse({ ...writable, oidc_callback_url }).success).toBe(false)
-    expect(putAppAuthConfigRequest.safeParse({ ...writable, updated_at: ROW.updated_at }).success).toBe(false)
-  })
-
   it('refuses a plain-http invite URL through the template rule', () => {
     expect(appAuthConfig.safeParse({ ...ROW, invite_url: 'http://app.example.com/i/{token}' }).success).toBe(false)
   })
@@ -534,6 +522,49 @@ describe('appAuthConfig — what the developer may set, and the one field they m
     expect(
       appAuthConfig.safeParse({ ...ROW, allowed_origins: Array(21).fill('https://a.com') }).success,
     ).toBe(false)
+  })
+})
+
+describe('app auth config slices', () => {
+  it('each slice accepts exactly its own fields and refuses a neighbour\'s', () => {
+    expect(putAppAuthRegistrationRequest.safeParse({
+      self_registration: true, allowed_domains: ['example.com'], allowed_origins: ['https://app.example.com'],
+    }).success).toBe(true)
+
+    // A field from another slice is a 400, not a silent drop — that is the
+    // whole reason the document was split.
+    expect(putAppAuthRegistrationRequest.safeParse({
+      self_registration: true, allowed_domains: [], allowed_origins: [], mcp_enabled: true,
+    }).success).toBe(false)
+
+    expect(putAppAuthUrlsRequest.safeParse({
+      invite_url: 'https://app.example.com/invite/{token}', verify_url: null, reset_url: null,
+    }).success).toBe(true)
+
+    expect(putAppAuthMcpRequest.safeParse({
+      mcp_enabled: true, mcp_login_url: 'https://app.example.com/mcp-login/{interaction}',
+    }).success).toBe(true)
+  })
+
+  it('keeps every field of its slice required — a forgotten field is a refusal, not a clear', () => {
+    expect(putAppAuthRegistrationRequest.safeParse({ self_registration: true }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({ invite_url: null, verify_url: null }).success).toBe(false)
+    expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: false }).success).toBe(false)
+  })
+
+  it('refuses the server\'s own fields in any slice', () => {
+    expect(putAppAuthMcpRequest.safeParse({
+      mcp_enabled: false, mcp_login_url: null, oidc_callback_url: 'https://evil.example/cb',
+    }).success).toBe(false)
+  })
+
+  it('carries the URL placeholder rules into the slice that owns the field', () => {
+    expect(putAppAuthUrlsRequest.safeParse({
+      invite_url: 'https://app.example.com/invite', verify_url: null, reset_url: null,
+    }).success).toBe(false)
+    expect(putAppAuthMcpRequest.safeParse({
+      mcp_enabled: true, mcp_login_url: 'https://app.example.com/login/{token}',
+    }).success).toBe(false)
   })
 })
 

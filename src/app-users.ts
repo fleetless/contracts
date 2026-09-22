@@ -527,16 +527,38 @@ export const appAuthConfig = z.object({
 export type AppAuthConfig = z.infer<typeof appAuthConfig>
 
 /**
- * `PUT /api/apps/:id/auth-config` — a replace, not a merge, and `.strict()`.
+ * `PUT /api/apps/:id/auth-config/registration` — who may get in, and from
+ * where.
  *
- * `oidc_callback_url` and `updated_at` are omitted because both are the
- * server's: see the callback URL's own note for why a writable one would be a
- * redirect-target hole rather than a convenience.
+ * Three slices rather than one document, and each still a **replace** with
+ * every field of its slice required: three screens carving up one
+ * all-required request is how a field nobody's screen shows becomes a field
+ * somebody's save clears. The slice states its own ownership, so a new field
+ * lands in one schema and one screen.
+ *
+ * The merge is the server's, against the stored row — never the caller's,
+ * whose copy may be older than the row it would overwrite.
  */
-export const putAppAuthConfigRequest = appAuthConfig
-  .omit({ oidc_callback_url: true, updated_at: true })
+export const putAppAuthRegistrationRequest = appAuthConfig
+  .pick({ self_registration: true, allowed_domains: true, allowed_origins: true })
   .strict()
-export type PutAppAuthConfigRequest = z.infer<typeof putAppAuthConfigRequest>
+export type PutAppAuthRegistrationRequest = z.infer<typeof putAppAuthRegistrationRequest>
+
+/** `PUT /api/apps/:id/auth-config/urls` — the three pages Fleetless's mails point at. */
+export const putAppAuthUrlsRequest = appAuthConfig
+  .pick({ invite_url: true, verify_url: true, reset_url: true })
+  .strict()
+export type PutAppAuthUrlsRequest = z.infer<typeof putAppAuthUrlsRequest>
+
+/**
+ * `PUT /api/apps/:id/auth-config/mcp` — the switch and the login URL, which
+ * belong together: on without a URL refuses every sign-in, in the MCP
+ * client's browser mid-OAuth, where no console screen ever sees it.
+ */
+export const putAppAuthMcpRequest = appAuthConfig
+  .pick({ mcp_enabled: true, mcp_login_url: true })
+  .strict()
+export type PutAppAuthMcpRequest = z.infer<typeof putAppAuthMcpRequest>
 
 /**
  * The three mails a developer may replace with their own template.
