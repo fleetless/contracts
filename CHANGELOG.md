@@ -3,7 +3,11 @@
 All notable changes to `@fleetless/contracts` are recorded here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html) over
-the wire shapes.
+the wire shapes. A pull request that changes what a consumer sees adds its
+entry under `## [Unreleased]`; the release renames that heading to the
+version.
+
+## [Unreleased]
 
 ## [3.0.0] — 2026-09-22
 
