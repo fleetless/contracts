@@ -85,8 +85,9 @@ failure. The run reads code and reaches nothing else: it is granted
 `contents: read`, no secret is exposed to it, and publishing lives in a
 workflow only a maintainer's own **Run workflow** press can trigger.
 
-Run `pnpm typecheck && pnpm build && pnpm test && pnpm artifacts && pnpm run
-test:pack` yourself first and you've seen everything `verify` will tell you.
+Run `pnpm typecheck && pnpm build && pnpm test && node --test
+'.github/release/*.test.mjs' && pnpm artifacts && pnpm run test:pack`
+yourself first and you've seen everything `verify` will tell you.
 Mind `pnpm artifacts`: `artifacts/` is generated *and* committed, and CI
 fails if regenerating it changes a file — so commit whatever it writes
 together with the schema you changed. That is the single most common reason
@@ -162,7 +163,10 @@ registry to serve it, then finishes. Check `npm view
 @fleetless/contracts@<version>` first if you want to see for yourself before
 pressing anything.
 
-Removing a bad tag is an ordinary git operation here — nothing configures
-tag protection, so `git tag -d vX.Y.Z` locally and `git push origin
-:refs/tags/vX.Y.Z` remotely both just work. What that does *not* undo is a
-publish: the tag is retractable, the npm version is not.
+Creating or deleting a `v*` tag is restricted — the organisation ruleset
+`release-tags` allows only admins and the release App, which is how the
+workflow tags a release without a maintainer pushing one by hand. An admin
+can still remove a bad tag; ask one if you are not. What removing it does
+*not* undo is a publish: the tag is retractable, the npm version is not —
+and Release computes the next version from the newest tag, so deleting one
+changes what a later run proposes.

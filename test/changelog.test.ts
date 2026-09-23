@@ -11,32 +11,34 @@ import { readFileSync } from 'node:fs'
 import { PROTOCOL_VERSIONS, sunsetOf } from '../src/index.js'
 
 /**
- * The section a reader lands on for "what changed lately": `[Unreleased]`
- * while one is open, or the topmost dated heading once a release folded it
- * away — Keep a Changelog always keeps the newest section first.
- *
- * The release leaves `## [Unreleased]` behind empty, waiting for the next
- * pull request that changes something — that placeholder is not a section
- * with anything to report, so it is skipped in favour of the newest heading
- * that actually has a body.
+ * The newest **dated** heading — never `## [Unreleased]`. The release
+ * leaves that heading open between releases, and an ordinary feature pull
+ * request fills it with whatever it changed, which is almost never a
+ * protocol bump; reading it here would fail the first such pull request
+ * after every release for "not restating a bump nobody made". The release
+ * PR is what turns `[Unreleased]` into a dated heading and sets the version
+ * — its own `verify` run checks THIS function against the tree it is about
+ * to merge, so the dated section is exactly what the check needs to be
+ * looking at by the time a bump ships.
  */
-function topSection(changelog: string): string {
+function topDatedSection(changelog: string): string {
   const headings = [...changelog.matchAll(/^## \[.*$/gm)]
-  for (let i = 0; i < headings.length; i++) {
-    const start = headings[i].index ?? changelog.length
-    const end = headings[i + 1]?.index ?? changelog.length
-    const section = changelog.slice(start, end)
-    if (section.slice(section.indexOf('\n') + 1).trim()) return section
-  }
-  const start = headings[0]?.index ?? changelog.length
-  const end = headings[1]?.index ?? changelog.length
+  const i = headings.findIndex((h) => h[0] !== '## [Unreleased]')
+  if (i === -1) return ''
+  const start = headings[i].index ?? changelog.length
+  const end = headings[i + 1]?.index ?? changelog.length
   return changelog.slice(start, end)
 }
 
+/** The membership check both tests below share, so the real assertion and its own proof cannot drift apart. */
+function namesTheBump(section: string, bridgeFrom: string, sunset: string): boolean {
+  return section.includes(bridgeFrom) && section.includes(sunset)
+}
+
 describe('the CHANGELOG names a protocol bump and the sunset it starts', () => {
-  it('the current section mentions the newest bridge_from and the previous version\'s sunset date', () => {
+  it('the newest dated section mentions the newest bridge_from and the previous version\'s sunset date', () => {
     const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
-    const section = topSection(changelog)
+    const section = topDatedSection(changelog)
 
     const latest = PROTOCOL_VERSIONS[PROTOCOL_VERSIONS.length - 1]
     const previous = PROTOCOL_VERSIONS[PROTOCOL_VERSIONS.length - 2]
@@ -47,7 +49,28 @@ describe('the CHANGELOG names a protocol bump and the sunset it starts', () => {
     const sunset = sunsetOf(previous)
     expect(sunset).not.toBeNull()
 
-    expect(section).toContain(latest.bridge_from)
-    expect(section).toContain(sunset as string)
+    expect(namesTheBump(section, latest.bridge_from, sunset as string)).toBe(true)
+  })
+
+  it('would catch a dated section that renamed [Unreleased] without carrying the bump', () => {
+    const latest = PROTOCOL_VERSIONS[PROTOCOL_VERSIONS.length - 1]
+    const previous = PROTOCOL_VERSIONS[PROTOCOL_VERSIONS.length - 2]
+    if (!previous) return
+    const sunset = sunsetOf(previous)
+    expect(sunset).not.toBeNull()
+
+    // A release PR that forgot to say why: the heading is dated, the topic is
+    // real, and neither fact the bridge maintainer needs is in it.
+    const changelog = [
+      '## [Unreleased]',
+      '',
+      '## [9.9.9] — 2099-01-01',
+      '',
+      'Something unrelated changed.',
+      '',
+    ].join('\n')
+    const section = topDatedSection(changelog)
+    expect(section).toContain('9.9.9')
+    expect(namesTheBump(section, latest.bridge_from, sunset as string)).toBe(false)
   })
 })

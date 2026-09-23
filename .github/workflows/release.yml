@@ -157,6 +157,14 @@ jobs:
       ref: ${{ needs.release-commit.outputs.commit || github.sha }}
       version: ${{ needs.prepare.outputs.version }}
 
+  # **Trusted publishing.** There is no npm token: the job proves who it is
+  # with a short-lived OIDC credential, and npm signs a provenance statement
+  # linking this version to this commit and this run — shown on the package
+  # page, checked by `npm audit signatures`. It needs `id-token: write`,
+  # npm >= 11.5.1, node >= 22.14 and a cloud-hosted runner (self-hosted is
+  # not supported), and the publisher is configured on npmjs.com against
+  # this repository and this workflow's filename. Renaming this file breaks
+  # publishing until the publisher is updated there.
   publish:
     needs: [prepare, release-commit, verify]
     if: ${{ !cancelled() && needs.verify.result == 'success' }}
@@ -180,6 +188,10 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+          # Nothing to cache: this job never builds, only publishes the
+          # tarball verify packed. Off rather than left to detection,
+          # because the one run that exercises this job is a release, and
+          # npm refuses to republish a version.
           package-manager-cache: false
       - name: guard against a missing OIDC token
         run: |
