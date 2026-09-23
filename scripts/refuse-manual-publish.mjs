@@ -31,9 +31,12 @@ console.error(`
   artifact staleness gate and \`pnpm run test:pack\`. See "Releasing" in
   CONTRIBUTING.md.
 
-    1. bump the version in package.json and add a dated CHANGELOG.md heading
-    2. commit, push, let \`verify\` go green
-    3. tag vX.Y.Z and push the tag
+  Release is a button, not a tag you push: press "Run workflow" on
+  \`release\`, in the Actions tab, on main. A release PR writes the version
+  and the dated CHANGELOG.md heading and merges itself once \`verify\` is
+  green; the merge commit is what \`publish\` ships from. Check
+  \`prerelease\` among the workflow's inputs instead for X.Y.Z-next.N under
+  \`next\`, from any branch — no tag, no release PR, no changelog entry.
 
   If you are the workflow and you are seeing this, you are publishing a
   directory rather than the packed tarball, and the tarball is what the checks
