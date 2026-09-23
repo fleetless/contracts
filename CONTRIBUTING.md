@@ -73,8 +73,9 @@ an issue first — so we can say what else has to move with it.
 
 **CI runs on GitHub Actions**, in this repository
 (`.github/workflows/verify.yml`) — the suite, on every push and every pull
-request. `release.yml` publishes on a release tag and calls that same file
-first, so a release is never checked by a different pipeline than a push.
+request. `release.yml` (the **Release** button) calls that same file on the
+commit it publishes, so a release is never checked by a different pipeline
+than a push.
 
 **Your pull request is verified, a fork's included** — the same file, the
 same suite. The first run by a first-time contributor waits for a maintainer
@@ -82,7 +83,7 @@ to press approve on it; that is a button on your run, not a setting anybody
 has to change, so checks sitting idle for a while are the queue and not a
 failure. The run reads code and reaches nothing else: it is granted
 `contents: read`, no secret is exposed to it, and publishing lives in a
-workflow only a tag can trigger.
+workflow only a maintainer's own **Run workflow** press can trigger.
 
 Run `pnpm typecheck && pnpm build && pnpm test && pnpm artifacts && pnpm run
 test:pack` yourself first and you've seen everything `verify` will tell you.
@@ -123,22 +124,25 @@ is refused by a `prepublishOnly` script — the rule has a mechanism rather
 than only a sentence. (`publish` is unaffected: it publishes the tarball
 `verify` packed, and npm runs no prepare lifecycle for a tarball argument.)
 
-1. Update `CHANGELOG.md` and set the new version in `package.json`. **CI
-   checks both** (`scripts/verify-version-tag.mjs`): `package.json` must
-   equal the tag without its `v`, and `CHANGELOG.md` needs a dated heading
-   reading exactly `## [X.Y.Z] — YYYY-MM-DD`. `CHANGELOG.md` ships inside
-   the tarball — skip an entry and you've documented the wrong version to
-   every consumer, and npm won't take a version back.
+**Release is a button**, not a tag you push. Press **Run workflow** on
+`release` (the Actions tab), on `main`. The version comes from the
+Conventional Commits since the last tag; a release PR turns
+`CHANGELOG.md`'s `## [Unreleased]` into that version, dated, and sets it in
+`package.json` — the same two things `scripts/verify-version-tag.mjs` always
+checked, now written by the release PR instead of by hand. That PR merges
+itself once the required `verify` check passes; the merge commit is tagged,
+`verify.yml` runs again on it and packs the tarball, and `publish` ships
+exactly that tarball.
 
-   The same script refuses a release tag that would move npm's `latest`
-   backwards — a backported `v1.0.1` published while `latest` is `2.0.0`
-   would make `npm i @fleetless/contracts`, the command the README gives
-   outsiders, install a package a major version behind.
-2. Commit, push, and let the `verify` job go green on the branch (the
-   Actions tab).
-3. Tag `vX.Y.Z` (or `vX.Y.Z-beta.N` for a pre-release, which publishes to
-   the `next` dist-tag) and push the tag. The tag run's `verify` job runs
-   again and then `publish`.
+A person still writes the `## [Unreleased]` entries — in the feature's own
+pull request, as the change goes in — because the release only renames that
+heading to a version; it never writes prose. An empty `## [Unreleased]`
+refuses the release outright, before any branch or commit exists.
+
+For a pre-release — a branch elsewhere that must pin this change before it
+is final — check `prerelease` among the workflow's inputs: it publishes
+`X.Y.Z-next.N` under the `next` dist-tag, from any branch, with no tag, no
+release PR and no changelog entry.
 
 `publish` carries no npm token. It authenticates by **trusted publishing**:
 GitHub mints a short-lived credential for the job, npm checks it against the
@@ -150,10 +154,13 @@ The job refuses a missing credential by name, rather than failing on an opaque
 error from deep inside `npm publish`. There is no repository secret to add and
 no `.npmrc` anywhere.
 
-**If the publish job goes red after `npm publish` already ran, do not press
-retry.** npm refuses to republish a version — the resulting 403 reads like
-a broken run, not like a release that already happened. Check `npm view
-@fleetless/contracts@<version>` first.
+**If the publish job goes red after `npm publish` already ran, run Release
+again.** It sees that npm already has the version and does not publish
+twice — npm refuses to republish a version, and a second attempt would only
+read like a broken run. The rerun continues from there: it waits for the
+registry to serve it, then finishes. Check `npm view
+@fleetless/contracts@<version>` first if you want to see for yourself before
+pressing anything.
 
 Removing a bad tag is an ordinary git operation here — nothing configures
 tag protection, so `git tag -d vX.Y.Z` locally and `git push origin

@@ -14,9 +14,20 @@ import { PROTOCOL_VERSIONS, sunsetOf } from '../src/index.js'
  * The section a reader lands on for "what changed lately": `[Unreleased]`
  * while one is open, or the topmost dated heading once a release folded it
  * away — Keep a Changelog always keeps the newest section first.
+ *
+ * The release leaves `## [Unreleased]` behind empty, waiting for the next
+ * pull request that changes something — that placeholder is not a section
+ * with anything to report, so it is skipped in favour of the newest heading
+ * that actually has a body.
  */
 function topSection(changelog: string): string {
   const headings = [...changelog.matchAll(/^## \[.*$/gm)]
+  for (let i = 0; i < headings.length; i++) {
+    const start = headings[i].index ?? changelog.length
+    const end = headings[i + 1]?.index ?? changelog.length
+    const section = changelog.slice(start, end)
+    if (section.slice(section.indexOf('\n') + 1).trim()) return section
+  }
   const start = headings[0]?.index ?? changelog.length
   const end = headings[1]?.index ?? changelog.length
   return changelog.slice(start, end)

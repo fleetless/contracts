@@ -1,5 +1,7 @@
 # The suite on every push and every pull request, and the same file a release
-# calls: a release is never verified by a different pipeline than a push.
+# calls: a release is never verified by a different pipeline than a push. The
+# release passes the commit to check out and the version it is about to
+# publish; a push or pull request passes neither.
 #
 # Hosted runners, because this repository is public — a pull request is a
 # stranger's code, and hosted minutes are free here.
@@ -9,7 +11,17 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # The release calls this file on the commit it is about to publish, with
+  # that commit's version: this run packs the tarball npm receives.
   workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      version:
+        description: X.Y.Z (a release), or X.Y.Z-next.N (a pre-release)
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -20,6 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref || github.sha }}
           # Full history, and the commit-message check is why. It resolves the
           # pushed range from the two shas below, but only after asking git
           # whether the older one is actually in the object database. A shallow
@@ -42,49 +55,55 @@ jobs:
       # entries in pnpm-workspace.yaml — nothing in this workflow weakens
       # that cooldown, and nothing here needs to.
       - run: pnpm install --frozen-lockfile
-      # First, and deliberately: on a tag run the cheapest check is the one
-      # guarding the release, so a tag whose version disagrees with
-      # package.json fails before the suite spends a minute agreeing with
-      # itself. The script also decides `latest` vs `next` and refuses a tag
-      # that would move npm's `latest` backwards.
+      # First, and deliberately, on a release call: the cheapest check
+      # guarding a release. It writes `dist-tag.env`, the only thing telling
+      # publish whether this goes out as `latest` or `next`. A release's
+      # version is already in package.json (the release PR wrote it, with the
+      # dated `## [X.Y.Z] — YYYY-MM-DD` heading verify-version-tag.mjs also
+      # requires), and verify-version-tag.mjs checks both. A pre-release's
+      # version exists nowhere but here — it has no changelog heading to
+      # check — so it is set in this job's package.json, before the pack, and
+      # goes to `next` without calling that script at all. On a push or a
+      # pull request there is nothing to publish, and the file says so in a
+      # comment — `eval` of it leaves DIST_TAG unset, and publish refuses by
+      # name rather than guessing.
       #
-      # `dist-tag.env` is how that decision reaches the publish job, which
-      # never checks the repository out. On a branch push it is written with a
-      # comment and no DIST_TAG — publish reads that as "this should not have
-      # run" and refuses, rather than guessing a dist-tag.
-      #
-      # `> dist-tag.env`, never `| tee`: a pipeline's status is the last
-      # command's, so tee would hand this guard its own success and make it
-      # unable to fail in the one case it exists for.
-      #
-      # $GITHUB_REF_TYPE and $GITHUB_REF_NAME are read from the runner's
-      # environment, not interpolated into the script with `${{ }}`. The
-      # difference matters: interpolation pastes the ref's text into the shell
-      # before bash parses it, so a tag named to contain shell syntax would
-      # run as a command. Through the environment it stays a value.
-      - name: version-tag check (tags only)
+      # `>`, never `| tee`: a pipe would hand this step the pipe's exit
+      # status instead of the check's. The version comes in through env, not
+      # pasted into the script.
+      - name: the release's version (release calls only)
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            node scripts/verify-version-tag.mjs "$GITHUB_REF_NAME" > dist-tag.env
+          set -euo pipefail
+          if [ -z "$VERSION" ]; then
+            echo '# not a release run: nothing to publish' > dist-tag.env
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-next\.[0-9]+$ ]]; then
+            npm pkg set version="$VERSION"
+            echo 'DIST_TAG=next' > dist-tag.env
           else
-            echo '# not a tag run: nothing to publish' > dist-tag.env
+            node scripts/verify-version-tag.mjs "v$VERSION" > dist-tag.env
           fi
           cat dist-tag.env
       # The messages of the commits being pushed, before anything else spends
       # time: a message is public the moment it is pushed, and there is no
       # sweep afterwards. The two env vars are the range — GitHub's names for
       # them differ from the script's, so they are mapped here rather than in
-      # the script.
+      # the script. On a release call the event (`workflow_dispatch`) carries
+      # no `before`, so the script falls back to reading the one commit being
+      # released, `ref~1..ref`.
       - run: pnpm run verify:commits
         env:
           CI_COMMIT_BEFORE_SHA: ${{ github.event.before }}
-          CI_COMMIT_SHA: ${{ github.sha }}
+          CI_COMMIT_SHA: ${{ inputs.ref || github.sha }}
       - run: pnpm typecheck
       # Build BEFORE the suite: `test/published-prose.test.ts` greps the
       # built `dist/` for internal prose, and `pnpm test` does not build — on
       # a stale or absent `dist/` it would be answering about the wrong bytes.
       - run: pnpm build
       - run: pnpm test
+      # The release logic's own tests, the shared list every copy must pass.
+      - run: node --test '.github/release/*.test.mjs'
       # The staleness gate, and it belongs in verify rather than anywhere
       # else. `artifacts/` is generated from the zod schemas AND committed,
       # and it is what every non-TypeScript consumer validates against — the
