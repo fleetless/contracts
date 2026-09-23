@@ -1,6 +1,7 @@
-# Release: this repository's `main`, as the next version, on npm. The file
-# name is part of npm's trusted-publishing binding: rename it and publishing
-# stops until npm is told.
+# Release: this repository's `main`, as the next version, on npm (the
+# per-repository release design of 2026-09-23, in fleetless/fleetless).
+# The file name is part of npm's trusted-publishing binding: rename it and
+# publishing stops until npm is told.
 #
 # Press "Run workflow" on main. The version comes from the Conventional
 # Commits since the last tag (.github/release/release.mjs). A release PR
