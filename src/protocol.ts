@@ -46,9 +46,11 @@ export interface ProtocolVersionEntry {
 /**
  * Every protocol version the cloud has served, oldest first. A test keeps
  * exactly one entry current and equal to `PROTOCOL_VERSION`; `test/changelog.test.ts`
- * requires the CHANGELOG's current section to name the newest `bridge_from`
- * and the previous entry's `sunsetOf(...)` date, and `scripts/verify-version-tag.mjs`
- * requires a dated heading for the tag being released.
+ * requires some CHANGELOG section — `[Unreleased]` or a dated one — to name
+ * the newest `bridge_from` together with the previous entry's `sunsetOf(...)`
+ * date, so the pull request that moves this window is the one that fails
+ * without saying so; and `scripts/verify-version-tag.mjs` requires a dated
+ * heading for the tag being released.
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
   { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },

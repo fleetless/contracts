@@ -140,6 +140,12 @@ pull request, as the change goes in — because the release only renames that
 heading to a version; it never writes prose. An empty `## [Unreleased]`
 refuses the release outright, before any branch or commit exists.
 
+A pull request that moves the protocol window writes one of those entries
+too, and `test/changelog.test.ts` is red until it does: some section has to
+name the newest `bridge_from` together with the date the version before it
+sunsets. It need not be the newest section — a release that leaves the
+protocol alone has nothing true to restate about it.
+
 For a pre-release — a branch elsewhere that must pin this change before it
 is final — check `prerelease` among the workflow's inputs: it publishes
 `X.Y.Z-next.N` under the `next` dist-tag, from any branch, with no tag, no
