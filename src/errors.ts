@@ -170,7 +170,7 @@ export const ERROR_CODES = [
   'goal_send_failed',
   /** Asking the action server for its result raised; `job.error.code` on `failed`. */
   'result_failed',
-  /** A goal accepted after its own timeout could not then be cancelled; `job.error.code` on `failed`. */
+  /** A goal accepted after its own timeout could not then be cancelled; `job.error.code` on `lost`. */
   'goal_uncontrollable',
   /**
    * The robot stayed offline for longer than `JOB_OFFLINE_GRACE_MS` while a
