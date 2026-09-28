@@ -12,12 +12,12 @@ version.
 ### Added
 
 - **Protocol 4: a job heartbeat, and a vanished action server ends its job.**
-  Protocol bumped: bridges from `4.1.0`, and protocol 3 sunsets
+  Protocol bumped: bridges from `5.0.0`, and protocol 3 sunsets
   2026-12-27 (protocol 2 sunset 2026-12-21). The bridge now sends a
   `job_update` heartbeat every `JOB_HEARTBEAT_INTERVAL_MS` for every running
-  job; `job_lost` gains an optional `error`, so a bridge that finds its
-  action server gone can say `action_server_lost` instead of leaving the
-  cloud to guess. `JOB_HEARTBEAT_TIMEOUT_MS` bounds a protocol-4 job's
+  job, and ends a job whose action server vanished `lost` with
+  `action_server_lost` instead of leaving the cloud to guess; `job_lost`
+  gains an optional `error` that can say the same. `JOB_HEARTBEAT_TIMEOUT_MS` bounds a protocol-4 job's
   silence once it has been heard from at all; `patience_ms` now bounds only
   the acceptance gap on such a job (unchanged for protocol 3, which sends no
   heartbeat). `JOB_OFFLINE_GRACE_MS` (five minutes) replaces the informal
