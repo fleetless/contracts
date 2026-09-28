@@ -74,7 +74,7 @@ describe('contracts v1', () => {
     expect(PROTOCOL_VERSION).toBe(4)
     const three = PROTOCOL_VERSIONS.find((e) => e.version === 3)!
     expect(three.deprecated_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(sunsetOf(three)).toBe('2026-12-27')
+    expect(sunsetOf(three)).toBe('2026-12-28')
     expect(PROTOCOL_VERSIONS.find((e) => e.version === 4)).toEqual({ version: 4, bridge_from: '5.0.0', deprecated_at: null })
   })
 

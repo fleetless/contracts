@@ -18,7 +18,7 @@ import { rosTypeName } from './common.js'
  * which names the window and reaches the robot's detail view as
  * `last_hello_error`.
  *
- * **4 (2026-09-28):** the bridge sends a `job_update` heartbeat at
+ * **4 (2026-09-29):** the bridge sends a `job_update` heartbeat at
  * `JOB_HEARTBEAT_INTERVAL_MS` for every running job, whether or not the
  * action said anything new, and ends a job whose action server vanished
  * `lost` with `action_server_lost` (a terminal `job_update`; `job_lost`
@@ -67,7 +67,7 @@ export interface ProtocolVersionEntry {
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
   { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },
-  { version: 3, bridge_from: '4.0.0', deprecated_at: '2026-09-28' },
+  { version: 3, bridge_from: '4.0.0', deprecated_at: '2026-09-29' },
   { version: 4, bridge_from: '5.0.0', deprecated_at: null },
 ]
 
