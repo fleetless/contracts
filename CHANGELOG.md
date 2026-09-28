@@ -13,7 +13,7 @@ version.
 
 - **Protocol 4: a job heartbeat, and a vanished action server ends its job.**
   Protocol bumped: bridges from `5.0.0`, and protocol 3 sunsets
-  2026-12-27 (protocol 2 sunset 2026-12-21). The bridge now sends a
+  2026-12-28 (protocol 2 sunset 2026-12-21). The bridge now sends a
   `job_update` heartbeat every `JOB_HEARTBEAT_INTERVAL_MS` for every running
   job, and ends a job whose action server vanished `lost` with
   `action_server_lost` instead of leaving the cloud to guess; `job_lost`
