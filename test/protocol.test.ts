@@ -75,7 +75,7 @@ describe('contracts v1', () => {
     const three = PROTOCOL_VERSIONS.find((e) => e.version === 3)!
     expect(three.deprecated_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(sunsetOf(three)).toBe('2026-12-27')
-    expect(PROTOCOL_VERSIONS.find((e) => e.version === 4)).toEqual({ version: 4, bridge_from: '4.1.0', deprecated_at: null })
+    expect(PROTOCOL_VERSIONS.find((e) => e.version === 4)).toEqual({ version: 4, bridge_from: '5.0.0', deprecated_at: null })
   })
 
   it('ping carries the round trip and the lag, both nullable', () => {

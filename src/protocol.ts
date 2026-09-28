@@ -20,8 +20,9 @@ import { rosTypeName } from './common.js'
  *
  * **4 (2026-09-28):** the bridge sends a `job_update` heartbeat at
  * `JOB_HEARTBEAT_INTERVAL_MS` for every running job, whether or not the
- * action said anything new, and reports a vanished action server with
- * `job_lost`'s new optional `error`, `action_server_lost`. The cloud bounds
+ * action said anything new, and ends a job whose action server vanished
+ * `lost` with `action_server_lost` (a terminal `job_update`; `job_lost`
+ * gains an optional `error` for the same purpose). The cloud bounds
  * a protocol-4 job's silence by the heartbeat (`JOB_HEARTBEAT_TIMEOUT_MS`)
  * once it has heard from the job at all; `patience_ms` still bounds
  * acceptance, the same as before. Offline tolerance is
@@ -67,11 +68,11 @@ export interface ProtocolVersionEntry {
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
   { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },
   { version: 3, bridge_from: '4.0.0', deprecated_at: '2026-09-28' },
-  { version: 4, bridge_from: '4.1.0', deprecated_at: null },
+  { version: 4, bridge_from: '5.0.0', deprecated_at: null },
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '4.1.0'
+export const LATEST_BRIDGE_VERSION = '5.0.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
