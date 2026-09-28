@@ -21,6 +21,9 @@ import {
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
   MIN_PATIENCE_MS,
+  JOB_HEARTBEAT_INTERVAL_MS,
+  JOB_HEARTBEAT_TIMEOUT_MS,
+  JOB_OFFLINE_GRACE_MS,
 } from '../src/protocol.js'
 import { invokeRequest, liveSessionResponse, cancelRequest, releaseLiveQuery, robotJobsResponse } from '../src/rest.js'
 import { clientCancel, clientInvoke } from '../src/realtime.js'
@@ -191,6 +194,19 @@ describe('naming how long a caller will wait', () => {
       expect(invokeRequest.safeParse({ params: {}, patience_ms: bad }).success).toBe(false)
     }
     expect(invokeRequest.safeParse({ params: {}, patience_ms: MIN_PATIENCE_MS }).success).toBe(true)
+  })
+})
+
+describe('the protocol-4 heartbeat and offline bounds', () => {
+  it('names the three fixed windows a patience_ms no longer has to cover alone', () => {
+    // Heartbeat every second; five missed beats before the cloud gives up on
+    // a protocol-4 job's silence (patience_ms bounds acceptance only there);
+    // five minutes offline before it gives up on the robot altogether.
+    expect(JOB_HEARTBEAT_INTERVAL_MS).toBe(1_000)
+    expect(JOB_HEARTBEAT_TIMEOUT_MS).toBe(5_000)
+    expect(JOB_OFFLINE_GRACE_MS).toBe(300_000)
+    expect(JOB_HEARTBEAT_TIMEOUT_MS).toBeGreaterThan(JOB_HEARTBEAT_INTERVAL_MS)
+    expect(JOB_OFFLINE_GRACE_MS).toBeGreaterThan(JOB_HEARTBEAT_TIMEOUT_MS)
   })
 })
 

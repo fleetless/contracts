@@ -9,6 +9,24 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **Protocol 4: a job heartbeat, and a vanished action server ends its job.**
+  Protocol bumped: bridges from `4.1.0`, and protocol 3 sunsets
+  2026-12-27 (protocol 2 sunset 2026-12-21). The bridge now sends a
+  `job_update` heartbeat every `JOB_HEARTBEAT_INTERVAL_MS` for every running
+  job; `job_lost` gains an optional `error`, so a bridge that finds its
+  action server gone can say `action_server_lost` instead of leaving the
+  cloud to guess. `JOB_HEARTBEAT_TIMEOUT_MS` bounds a protocol-4 job's
+  silence once it has been heard from at all; `patience_ms` now bounds only
+  the acceptance gap on such a job (unchanged for protocol 3, which sends no
+  heartbeat). `JOB_OFFLINE_GRACE_MS` (five minutes) replaces the informal
+  one-minute disconnect grace a job got before. `errors.ts` documents
+  `action_server_lost` and every job error code already in use that had
+  never been written down: `action_failed`, `goal_rejected`,
+  `goal_send_failed`, `result_failed`, `goal_uncontrollable`,
+  `bridge_disconnected`, `config_changed`.
+
 ## [3.0.0] — 2026-09-22
 
 The protocol window carries over unchanged: `LATEST_BRIDGE_VERSION` is still `4.0.0`, and protocol 2 still sunsets 2026-12-21. Everything below is the REST surface.

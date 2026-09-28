@@ -81,6 +81,9 @@ export {
   DEFAULT_PATIENCE_MS,
   MAX_PATIENCE_MS,
   MIN_PATIENCE_MS,
+  JOB_HEARTBEAT_INTERVAL_MS,
+  JOB_HEARTBEAT_TIMEOUT_MS,
+  JOB_OFFLINE_GRACE_MS,
 } from './protocol.js'
 export type {
   ProtocolVersionEntry,

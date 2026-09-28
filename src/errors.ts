@@ -78,6 +78,13 @@ export const ERROR_CODES = [
   'no_data',
   // Talking to the robot.
   'robot_offline',
+  /**
+   * The cloud has heard nothing — heartbeat or real progress — from a
+   * running job for longer than it tolerates while the bridge is connected:
+   * `patience_ms` for a protocol-3 bridge, `JOB_HEARTBEAT_TIMEOUT_MS` for a
+   * protocol-4 one once it has heard from the job at all. `job.error.code`
+   * on `lost`.
+   */
   'bridge_timeout',
   // Identity and rights. `forbidden` is deliberately the answer both
   // for "your role does not grant this" and for "there is no such slug":
@@ -147,6 +154,37 @@ export const ERROR_CODES = [
   'parameter_invalid',
   /** The bridge could not account for this job after a restart. */
   'job_lost',
+  /**
+   * The robot's action server vanished mid-goal — the bridge's own liveness
+   * check found `server_is_ready()` false for three seconds straight and
+   * gave up waiting for it to come back. A `job.error.code` on `lost`: the
+   * outcome the goal actually reached is unknown, so `lost` — not `failed` —
+   * is the honest state, and this code says why.
+   */
+  'action_server_lost',
+  /** The action ended with a ROS status other than succeeded; `job.error.code` on `failed`. */
+  'action_failed',
+  /** The action server rejected the goal outright; `job.error.code` on `failed`. */
+  'goal_rejected',
+  /** Sending the goal to the action server itself raised; `job.error.code` on `failed`. */
+  'goal_send_failed',
+  /** Asking the action server for its result raised; `job.error.code` on `failed`. */
+  'result_failed',
+  /** A goal accepted after its own timeout could not then be cancelled; `job.error.code` on `failed`. */
+  'goal_uncontrollable',
+  /**
+   * The robot stayed offline for longer than `JOB_OFFLINE_GRACE_MS` while a
+   * job was running. A late real outcome, if the robot reconnects and the
+   * bridge still has it, corrects this — it is not final the way a genuine
+   * bridge report is. `job.error.code` on `lost`.
+   */
+  'bridge_disconnected',
+  /**
+   * The job's action or service no longer exists in the published
+   * configuration — a republish invalidated it while it was running.
+   * `job.error.code` on `cancelled`.
+   */
+  'config_changed',
   /** Another user holds this publisher and has not been quiet long enough. */
   'publisher_busy',
   /** A well-formed realtime frame this server does not know — the socket stays open. */

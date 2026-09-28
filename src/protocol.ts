@@ -8,7 +8,7 @@ import { jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
- * Bridge <-> cloud protocol, version 3.
+ * Bridge <-> cloud protocol, version 4.
  *
  * The version is exchanged in the hello handshake. Since 2026-09 the cloud
  * serves a **window** of versions, not one: every entry of
@@ -17,6 +17,18 @@ import { rosTypeName } from './common.js'
  * later. Outside the window the cloud refuses with `protocol_mismatch`,
  * which names the window and reaches the robot's detail view as
  * `last_hello_error`.
+ *
+ * **4 (2026-09-28):** the bridge sends a `job_update` heartbeat at
+ * `JOB_HEARTBEAT_INTERVAL_MS` for every running job, whether or not the
+ * action said anything new, and reports a vanished action server with
+ * `job_lost`'s new optional `error`, `action_server_lost`. The cloud bounds
+ * a protocol-4 job's silence by the heartbeat (`JOB_HEARTBEAT_TIMEOUT_MS`)
+ * once it has heard from the job at all; `patience_ms` still bounds
+ * acceptance, the same as before. Offline tolerance is
+ * `JOB_OFFLINE_GRACE_MS` (five minutes), up from the informal one minute a
+ * protocol-3 bridge got. A protocol-3 bridge sends no heartbeat and keeps
+ * today's behaviour exactly: `patience_ms` alone bounds the whole running
+ * job, silence included.
  *
  * **3 (2026-09-22):** the ping carries `latency_ms` and `lag_ms`, the bridge
  * sends `link_mode`, `bridge_state` gains `low_bandwidth`, and the
@@ -30,7 +42,7 @@ import { rosTypeName } from './common.js'
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
  * beside `message`.
  */
-export const PROTOCOL_VERSION = 3
+export const PROTOCOL_VERSION = 4
 
 /** Days between a version's deprecation and its sunset. */
 export const PROTOCOL_SUNSET_DAYS = 90
@@ -54,11 +66,12 @@ export interface ProtocolVersionEntry {
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
   { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },
-  { version: 3, bridge_from: '4.0.0', deprecated_at: null },
+  { version: 3, bridge_from: '4.0.0', deprecated_at: '2026-09-28' },
+  { version: 4, bridge_from: '4.1.0', deprecated_at: null },
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '4.0.0'
+export const LATEST_BRIDGE_VERSION = '4.1.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
@@ -178,6 +191,43 @@ export const MAX_PATIENCE_MS = 120_000
  * this end bounds what the caller can do to the robot.
  */
 export const MIN_PATIENCE_MS = 1_000
+
+/**
+ * How often a protocol-4 bridge sends a `job_update` heartbeat for every
+ * running job — the last known state, whether or not the action itself said
+ * anything new. One second: often enough that `JOB_HEARTBEAT_TIMEOUT_MS`
+ * can be a small multiple of it and still absorb a missed beat or two, rare
+ * enough that it costs nothing next to the datapoint traffic a busy robot
+ * already sends.
+ */
+export const JOB_HEARTBEAT_INTERVAL_MS = 1_000
+
+/**
+ * How long a protocol-4 job may go without a `job_update` — heartbeat or
+ * real progress, either counts — before the cloud settles it `lost` with
+ * `bridge_timeout`, once the bridge is connected. Five heartbeats: enough
+ * slack for an ordinary scheduling jitter, small next to `patience_ms`
+ * because it no longer has to cover the acceptance gap too. `patience_ms`
+ * bounds only the time from `invoke` to the *first* update on a protocol-4
+ * job; every rearm after that uses this constant instead. A protocol-3
+ * bridge sends no heartbeat, so this constant does not apply to it —
+ * `patience_ms` keeps bounding the whole running job there, exactly as
+ * before.
+ */
+export const JOB_HEARTBEAT_TIMEOUT_MS = 5_000
+
+/**
+ * How long a running job survives its robot going offline before the cloud
+ * gives up and settles it `lost` with `bridge_disconnected`. Five minutes:
+ * long enough that an ordinary Wi-Fi dead zone — the case this constant
+ * exists for — never costs a job, since a robot with no safety layer of its
+ * own (§ Fleetless is not a safety layer) keeps driving through one and the
+ * result the cloud is waiting for is often still coming. A robot connected
+ * the whole time never reaches this bound at all: while online, silence is
+ * `JOB_HEARTBEAT_TIMEOUT_MS`'s question (protocol 4) or `patience_ms`'s
+ * (protocol 3), never this one's.
+ */
+export const JOB_OFFLINE_GRACE_MS = 300_000
 
 /** Re-exported so consumers keep importing wire names from one place. */
 export { slug } from './common.js'
@@ -502,10 +552,20 @@ export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
  * left to enumerate, so it is `hello.active_job_ids` that closes that gap.
  * Both paths end in the same place — the cloud publishes `lost` rather than
  * leaving a job reading "running" because nobody contradicted it.
+ *
+ * **`error` (since protocol 4) is optional and, when present, applies to
+ * every job named in `job_ids`.** A vanished action server is discovered
+ * once, by the bridge's own liveness check on that one goal, so a frame
+ * naming several jobs at once — plausible if several goals shared the same
+ * server — always shares the same cause. Absent means today's behaviour:
+ * the cloud settles the job `lost` with no specific code, the same as a
+ * protocol-3 bridge's frame, which carries no `error` at all and still
+ * parses under this schema unchanged.
  */
 export const bridgeJobLost = z.object({
   type: z.literal('job_lost'),
   job_ids: z.array(z.uuid()),
+  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).optional(),
 })
 export type BridgeJobLost = z.infer<typeof bridgeJobLost>
 
