@@ -35,7 +35,17 @@ import {
   cloudCameraStop,
   bridgeCameraState,
 } from '../src/protocol.js'
-import { PROTOCOL_VERSION, PROTOCOL_VERSIONS, PROTOCOL_SUNSET_DAYS, LATEST_BRIDGE_VERSION, CLOSE_ROBOT_DELETED, CLOSE_TOKEN_ROTATED } from '../src/protocol.js'
+import {
+  PROTOCOL_VERSION,
+  PROTOCOL_VERSIONS,
+  PROTOCOL_SUNSET_DAYS,
+  LATEST_BRIDGE_VERSION,
+  CLOSE_ROBOT_DELETED,
+  CLOSE_TOKEN_ROTATED,
+  JOB_HEARTBEAT_INTERVAL_MS,
+  JOB_HEARTBEAT_TIMEOUT_MS,
+  JOB_OFFLINE_GRACE_MS,
+} from '../src/protocol.js'
 import { applyError } from '../src/common.js'
 import { MCP_APP_PATHS } from '../src/mcp.js'
 import {
@@ -600,6 +610,19 @@ export const exportedConstants = {
    */
   CLOSE_ROBOT_DELETED,
   CLOSE_TOKEN_ROTATED,
+
+  /**
+   * The job heartbeat and offline windows (since protocol 4), so the bridge
+   * reads the same numbers the cloud enforces instead of carrying them as
+   * Python literals. The bridge drives its own 1 Hz timer off
+   * `JOB_HEARTBEAT_INTERVAL_MS`; `JOB_HEARTBEAT_TIMEOUT_MS` and
+   * `JOB_OFFLINE_GRACE_MS` are the cloud's own bounds, vendored alongside it
+   * for the same reason every other number here is — one value, not two
+   * that happen to agree today.
+   */
+  JOB_HEARTBEAT_INTERVAL_MS,
+  JOB_HEARTBEAT_TIMEOUT_MS,
+  JOB_OFFLINE_GRACE_MS,
 
   ASSET_UPLOAD_HEADERS,
   /**

@@ -175,6 +175,22 @@ describe('bridge protocol', () => {
       }).success,
     ).toBe(true)
   })
+
+  it('a protocol-4 bridge may say why it lost a job; a protocol-3 frame with none still parses', () => {
+    // No `error` at all — a protocol-3 bridge's frame, unchanged shape.
+    expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [UUID] }).success).toBe(true)
+    // The vanished-action-server case this issue adds, applied to every listed job.
+    expect(
+      bridgeJobLost.safeParse({
+        type: 'job_lost',
+        job_ids: [UUID, UUID2],
+        error: { code: 'action_server_lost', message: "the action server for 'drive_to' is gone" },
+      }).success,
+    ).toBe(true)
+    // A code with no message, or a message with no code, is not the documented shape.
+    expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [UUID], error: { code: 'action_server_lost' } }).success).toBe(false)
+    expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [UUID], error: { message: 'gone' } }).success).toBe(false)
+  })
 })
 
 describe('type trees', () => {
