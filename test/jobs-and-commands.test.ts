@@ -232,8 +232,8 @@ describe('bridge protocol', () => {
     expect(bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [entry] }).success).toBe(false)
   })
 
-  it('a protocol-4 bridge may say why it lost a job; a protocol-3 frame with none still parses', () => {
-    // No `error` at all — a protocol-3 bridge's frame, unchanged shape.
+  it('a bridge may say why it lost a job, and a frame naming no cause still parses', () => {
+    // No `error` at all — the bridge names no specific cause.
     expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [UUID] }).success).toBe(true)
     // The vanished-action-server case this issue adds, applied to every listed job.
     expect(

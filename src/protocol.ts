@@ -626,7 +626,12 @@ export const cloudJobQuery = z.object({
 })
 export type CloudJobQuery = z.infer<typeof cloudJobQuery>
 
-/** One job the bridge recognises, in a `job_status` answer. Same fields as `job_update`'s. */
+/**
+ * One job the bridge recognises, in a `job_status` answer: its state, feedback,
+ * progress, result and error, as a `job_update` would carry them. No `slug`,
+ * `origin`, `goal_id` or `timestamp_ms` — the cloud asked about a job it
+ * already holds, so it knows the first three, and the answer is current.
+ */
 export const bridgeJobStatusEntry = z.object({
   job_id: z.uuid(),
   /** Never `unknown` — the bridge only ever states a definite fact about a job it recognises. */
