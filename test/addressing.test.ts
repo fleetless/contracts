@@ -197,11 +197,11 @@ describe('naming how long a caller will wait', () => {
   })
 })
 
-describe('the protocol-4 heartbeat and offline bounds', () => {
+describe('the heartbeat and offline bounds', () => {
   it('names the three fixed windows a patience_ms no longer has to cover alone', () => {
-    // Heartbeat every second; five missed beats before the cloud gives up on
-    // a protocol-4 job's silence (patience_ms bounds acceptance only there);
-    // five minutes offline before it gives up on the robot altogether.
+    // Heartbeat every second; five missed beats before the cloud marks a
+    // silent job `unknown` (patience_ms bounds acceptance only); five
+    // minutes offline before it marks the robot's jobs `unknown`.
     expect(JOB_HEARTBEAT_INTERVAL_MS).toBe(1_000)
     expect(JOB_HEARTBEAT_TIMEOUT_MS).toBe(5_000)
     expect(JOB_OFFLINE_GRACE_MS).toBe(300_000)
