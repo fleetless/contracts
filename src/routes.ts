@@ -2483,7 +2483,9 @@ export const ROUTES: readonly RouteEntry[] = [
       '`202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — ' +
       'two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): ' +
       'the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline ' +
-      'robot never learns their parameters were wrong. A service the robot reports as failed answers `502` carrying **the job\'s own error ' +
+      'robot never learns their parameters were wrong. A slug is `409 busy` while it holds a `running` job, an `unknown` one the robot has ' +
+      'not accounted for yet, or an `external` goal someone else started; the refusal\'s `details.running` names that job, `state` and ' +
+      '`origin` included. A service the robot reports as failed answers `502` carrying **the job\'s own error ' +
       'code**, which is an open set and not one of the codes above.',
   },
   {
@@ -2511,8 +2513,9 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'The body is optional: a bodyless `POST` was every caller\'s shape before `job_id` existed, and absent or `job_id: null` both mean ' +
       '"cancel whatever is running". A named `job_id` that is **not** what is running cancels nothing and answers `404` — the caller named an ' +
-      'id and thereby ruled the other one out. A service is `422 not_cancellable`: a service call has no goal to cancel. Nothing running is a ' +
-      '`200` with `job: null`.',
+      'id and thereby ruled the other one out. An `external` job is cancelled the same way, through its goal id. Cancelling an `unknown` job ' +
+      'also cancels every external goal on its action, since one of them may be that job. A service is `422 not_cancellable`: a service call ' +
+      'has no goal to cancel. Nothing running is a `200` with `job: null`.',
   },
   {
     method: 'POST', path: '/api/robots/:id/publishers/:slug', section: 'commands',

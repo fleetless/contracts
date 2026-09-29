@@ -30,12 +30,21 @@
               "type": "string",
               "enum": [
                 "running",
+                "unknown",
                 "succeeded",
                 "failed",
                 "cancelled",
                 "lost"
               ],
-              "description": "Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — stated rather than left reading `running` by default."
+              "description": "Where the job stands: `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`. `unknown` is not an outcome — the robot went offline or silent and the cloud does not know yet; the slug stays occupied and the bridge's next statement resolves it, `error` naming why the cloud lost sight of it. `lost` is final: the bridge stated it does not know the job and nothing else runs on its action, or the action server vanished mid-goal."
+            },
+            "origin": {
+              "type": "string",
+              "enum": [
+                "fleetless",
+                "external"
+              ],
+              "description": "Who started this job. `fleetless` for everything minted by the cloud; `external` for a goal the bridge found active on a published action without having sent it — no parameters, no starter, never written to `job_runs`."
             },
             "started_at": {
               "type": "string",
@@ -93,7 +102,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`."
+              "description": "Why the job failed, or why the cloud does not know how it stands: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. Set on `failed` and `lost`, and on `unknown` — where `code` is `bridge_disconnected` or `bridge_timeout`, the cloud's own reason for not knowing, cleared when the bridge reports the job running again."
             }
           },
           "required": [
@@ -101,6 +110,7 @@
             "robot_id",
             "slug",
             "state",
+            "origin",
             "started_at",
             "updated_at",
             "seq",

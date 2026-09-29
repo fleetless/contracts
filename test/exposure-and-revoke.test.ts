@@ -84,8 +84,8 @@ describe('structured apply errors', () => {
     expect(bridgeConfigApplied.safeParse({ type: 'config_applied', version: 3, ok: false, errors: [noMessage] }).success).toBe(false)
   })
 
-  it('announces protocol 4, because the wire changed again', () => {
-    expect(PROTOCOL_VERSION).toBe(4)
+  it('announces protocol 5, because the wire changed again', () => {
+    expect(PROTOCOL_VERSION).toBe(5)
   })
 })
 

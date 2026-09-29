@@ -65,6 +65,9 @@ export {
   cloudPublish,
   bridgeJobUpdate,
   bridgeJobLost,
+  cloudJobQuery,
+  bridgeJobStatusEntry,
+  bridgeJobStatus,
   snapshotHeader,
   cloudCameraStart,
   cloudCameraStop,
@@ -107,6 +110,9 @@ export type {
   CloudPublish,
   BridgeJobUpdate,
   BridgeJobLost,
+  CloudJobQuery,
+  BridgeJobStatusEntry,
+  BridgeJobStatus,
   SnapshotHeader,
   CloudCameraStart,
   CloudCameraStop,
@@ -116,9 +122,10 @@ export type {
   CloudAssetRequest,
   BridgeAssetProgress,
 } from './protocol.js'
-export { jobState, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
+export { jobState, jobOrigin, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
 export type {
   JobState,
+  JobOrigin,
   Job,
   JobEvent,
   BusyDetails,

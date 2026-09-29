@@ -94,3 +94,59 @@ describe('the CHANGELOG names a protocol bump and the sunset it starts', () => {
     expect(somewhereNamesTheBump(changelog, window.bridgeFrom, window.sunset)).toBe(true)
   })
 })
+
+/**
+ * **The hard cut the window check above cannot see.** Protocol 5 dropped 2, 3
+ * and 4 without a sunset, so `PROTOCOL_VERSIONS` has a single entry,
+ * `currentWindow()` has no previous one to read, and every test above returns
+ * early — a cut would go into a release with the changelog silent about it.
+ *
+ * A bridge maintainer then needs two facts instead of a date: that the older
+ * protocols are refused **now**, not after a window, and which bridge
+ * release is the floor. Some one section must state both, and say which
+ * protocol is the only one served. Only applies while the table holds one
+ * entry above protocol 1; the next ordinary bump restores a previous entry,
+ * and the window tests above take over again.
+ */
+function namesTheCut(section: string, version: number, bridgeFrom: string): boolean {
+  return (
+    section.includes(bridgeFrom) &&
+    section.includes(`protocol ${version}`) &&
+    /unsupported/i.test(section) &&
+    /no sunset/i.test(section)
+  )
+}
+
+function currentCut(): { version: number; bridgeFrom: string } | null {
+  if (PROTOCOL_VERSIONS.length !== 1) return null
+  const only = PROTOCOL_VERSIONS[0]
+  if (only.version <= 1) return null
+  return { version: only.version, bridgeFrom: only.bridge_from }
+}
+
+describe('the CHANGELOG names a hard protocol cut with no sunset', () => {
+  it('some section names the only served protocol, its bridge floor, and that the older ones are unsupported with no sunset', () => {
+    const cut = currentCut()
+    if (!cut) return
+    const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
+
+    expect(sections(changelog).some((s) => namesTheCut(s, cut.version, cut.bridgeFrom))).toBe(true)
+  })
+
+  it('applies to the table as it is today', () => {
+    // Without this, a table that grew a second entry would make the check
+    // above return early for ever without anyone noticing it had stopped.
+    // The day that is intended, this assertion goes with the next bump.
+    expect(currentCut()).toEqual({ version: 5, bridgeFrom: '6.0.0' })
+  })
+
+  it('would catch a cut that names the bridge floor but not that the older protocols are gone', () => {
+    const changelog = [
+      '## [Unreleased]',
+      '',
+      'Protocol 5: bridges from `6.0.0`.',
+      '',
+    ].join('\n')
+    expect(sections(changelog).some((s) => namesTheCut(s, 5, '6.0.0'))).toBe(false)
+  })
+})
