@@ -38,12 +38,13 @@
             "type": "string",
             "enum": [
               "running",
+              "unknown",
               "succeeded",
               "failed",
               "cancelled",
               "lost"
             ],
-            "description": "How the run ended, or `running` while it is still going. `lost` means the bridge restarted mid-run and the outcome is unknowable rather than unknown."
+            "description": "How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final: the bridge did not know the run and nothing else ran on its action, so the outcome is unknowable rather than unknown."
           },
           "started_at": {
             "type": "string",
@@ -62,7 +63,7 @@
                 "type": "null"
               }
             ],
-            "description": "When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` — a run has an end only once it has one."
+            "description": "When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` or `unknown` — a run has an end only once it has one."
           },
           "duration_ms": {
             "anyOf": [
@@ -75,7 +76,7 @@
                 "type": "null"
               }
             ],
-            "description": "How long the run took, in milliseconds. `null` while it is still `running`, never `0` standing in for \"nothing so far\"."
+            "description": "How long the run took, in milliseconds. `null` while it is still `running` or `unknown`, never `0` standing in for \"nothing so far\"."
           },
           "result": {
             "anyOf": [

@@ -12,7 +12,8 @@ import {
   bridgeState,
   bridgeLinkMode,
   cloudPing,
-  sunsetOf,
+  protocolStatus,
+  minimumProtocolVersion,
   apiError,
   slug,
 } from '../src/index.js'
@@ -70,12 +71,17 @@ describe('contracts v1', () => {
     }
   })
 
-  it('protocol 4 is current, protocol 3 is deprecated with a sunset', () => {
-    expect(PROTOCOL_VERSION).toBe(4)
-    const three = PROTOCOL_VERSIONS.find((e) => e.version === 3)!
-    expect(three.deprecated_at).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(sunsetOf(three)).toBe('2026-12-28')
-    expect(PROTOCOL_VERSIONS.find((e) => e.version === 4)).toEqual({ version: 4, bridge_from: '5.0.0', deprecated_at: null })
+  it('protocol 5 is the only version served; 2, 3 and 4 are cut without a sunset', () => {
+    expect(PROTOCOL_VERSION).toBe(5)
+    expect(PROTOCOL_VERSIONS).toEqual([{ version: 5, bridge_from: '6.0.0', deprecated_at: null }])
+    expect(LATEST_BRIDGE_VERSION).toBe('6.0.0')
+    // A cut, not a window: every older version is unsupported today, with no
+    // sunset date to wait for — which is exactly what an absent entry means.
+    for (const version of [2, 3, 4]) {
+      expect(protocolStatus(version, new Date('2026-09-29T12:00:00Z'))).toEqual({ status: 'unsupported', sunset_at: null })
+    }
+    expect(protocolStatus(5, new Date('2026-09-29T12:00:00Z'))).toEqual({ status: 'current', sunset_at: null })
+    expect(minimumProtocolVersion(new Date('2026-09-29T12:00:00Z'))).toBe(5)
   })
 
   it('ping carries the round trip and the lag, both nullable', () => {
@@ -159,6 +165,16 @@ describe('schema artifacts', () => {
    * is the same blindness in reverse: the export never deletes, so a schema
    * that left the map keeps its artifact on disk forever.
    */
+  it('job_query and job_status are registered for export, job_status as a bridge-sent frame', () => {
+    expect(Object.keys(exportedSchemas)).toContain('cloud-job-query')
+    expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-job-status')
+    expect(BRIDGE_SENT_SCHEMAS).not.toContain('cloud-job-query')
+    expect(schemaIo('cloud-job-query')).toBe('input')
+    expect(schemaIo('bridge-job-status')).toBe('input')
+    expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema', 'cloud-job-query.schema.json'))).toBe(true)
+    expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing', 'bridge-job-status.schema.json'))).toBe(true)
+  })
+
   it('bridge-link-mode is registered for export as a bridge-sent frame; bridge-pressure is gone', () => {
     expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-link-mode')
     expect(Object.keys(exportedSchemas)).not.toContain('bridge-pressure')

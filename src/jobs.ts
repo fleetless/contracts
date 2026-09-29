@@ -12,16 +12,39 @@ import { slug, wireSeqCursor, wireTimestampMs } from './common.js'
  * 1. **State is observed by slug, not by id.** The id is informative; a client
  *    watches `robot × slug` and sees whatever job is running there, which is
  *    also why every observer of a slug sees the same job.
- * 2. **`lost` is a real outcome and must be said out loud.** Job state
- *    lives only in the bridge's memory; if it restarts mid-job, the results
- *    are gone. The cloud then marks the job `lost` — never leaves it reading
- *    "running" because nobody contradicted it. A system that reports a
- *    machine is still working when it does not know is worse than one that
- *    admits it lost track.
+ * 2. **What the cloud does not know it calls `unknown`, and `lost` is final.**
+ *    A job whose robot went quiet — offline past `JOB_OFFLINE_GRACE_MS`, or
+ *    connected but silent past `JOB_HEARTBEAT_TIMEOUT_MS` — is `unknown`: not
+ *    terminal, the slug stays occupied, and only a statement of the bridge
+ *    resolves it (it is running, it ended, or the bridge does not know it and
+ *    nothing else runs on its action). `lost` is what that last statement
+ *    produces, and nothing ever leaves it. Neither is left reading "running"
+ *    because nobody contradicted it: a system that reports a machine is still
+ *    working when it does not know is worse than one that says so — and one
+ *    that declares work lost on a guess is wrong the moment the robot comes
+ *    back and says it finished.
  */
-export const jobState = z.enum(['running', 'succeeded', 'failed', 'cancelled', 'lost'])
+export const jobState = z.enum(['running', 'unknown', 'succeeded', 'failed', 'cancelled', 'lost'])
 export type JobState = z.infer<typeof jobState>
 
+/**
+ * Who started a job.
+ *
+ * `fleetless` for every job the cloud minted from an invocation. `external`
+ * for a goal the bridge found active on a published action without having
+ * sent it — started by anyone else on the robot's ROS graph, or the bridge's
+ * own goal after its mapping was lost. An external job has the same shape,
+ * states, live stream and cancel as any other, but no parameters (ROS 2
+ * publishes a goal's request nowhere), no starter, and it lives in memory
+ * only: it is never written to `job_runs` and never counts towards quotas.
+ */
+export const jobOrigin = z.enum(['fleetless', 'external'])
+export type JobOrigin = z.infer<typeof jobOrigin>
+
+/**
+ * One job, as the cloud tells every client about it — a Fleetless job or an
+ * external goal alike, told apart only by `origin`.
+ */
 export const job = z.object({
   id: z.uuid().meta({
     description: 'The job\'s id, minted by the cloud when the invocation is accepted. Informative — state is observed by slug; a cancel names this id to stop one specific job rather than whatever is running.',
@@ -31,7 +54,10 @@ export const job = z.object({
     description: 'The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one.',
   }),
   state: jobState.meta({
-    description: 'Where the job stands: `running`, `succeeded`, `failed`, `cancelled` or `lost`. `lost` is a real outcome — the bridge restarted mid-job and the result is gone — stated rather than left reading `running` by default.',
+    description: 'Where the job stands: `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`. `unknown` is not an outcome — the robot went offline or silent and the cloud does not know yet; the slug stays occupied and the bridge\'s next statement resolves it, `error` naming why the cloud lost sight of it. `lost` is final: the bridge stated it does not know the job and nothing else runs on its action, or the action server vanished mid-goal.',
+  }),
+  origin: jobOrigin.meta({
+    description: "Who started this job. `fleetless` for everything minted by the cloud; `external` for a goal the bridge found active on a published action without having sent it — no parameters, no starter, never written to `job_runs`.",
   }),
   started_at: z.iso.datetime().meta({
     description: 'When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge, this is **adoption time**, not the real start — the cloud never minted it.',
@@ -50,7 +76,7 @@ export const job = z.object({
    * exists for the same reason on the audit log.
    *
    * **Scoped honestly: per cloud process, per run.** Job state lives in memory
-   * — that is why `lost` exists at all — so this counter restarts when
+   * — that is why `unknown` and `lost` exist at all — so this counter restarts when
    * the cloud does, alongside the jobs it orders. Sound, because it only ever
    * orders jobs that coexist in one registry — and stated, because a reader
    * who assumed `auditEvent.seq`'s durable semantics would be wrong.
@@ -88,7 +114,7 @@ export const job = z.object({
     })
     .nullable()
     .meta({
-      description: 'Why the job failed: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. `null` unless `state` is `failed`.',
+      description: 'Why the job failed, or why the cloud does not know how it stands: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. Set on `failed` and `lost`, and on `unknown` — where `code` is `bridge_disconnected` or `bridge_timeout`, the cloud\'s own reason for not knowing, cleared when the bridge reports the job running again.',
     }),
 })
 export type Job = z.infer<typeof job>
@@ -118,6 +144,11 @@ export type JobEvent = z.infer<typeof jobEvent>
 /**
  * What a busy refusal tells the caller: what is already running. A refusal that
  * only says "busy" forces the caller to guess whether to wait or to give up.
+ *
+ * `running` is whatever occupies the slug — a `running` job, an `unknown` one
+ * the robot has not accounted for yet, or an `external` goal someone else
+ * started — and its `state` and `origin` say which, so a caller can tell
+ * "wait for it" from "cancel what someone else started".
  */
 export const busyDetails = z.object({
   running: job,
@@ -229,16 +260,16 @@ export const jobRun = z.object({
     description: 'Whether the slug was an `action` or a `service`.',
   }),
   state: jobState.meta({
-    description: 'How the run ended, or `running` while it is still going. `lost` means the bridge restarted mid-run and the outcome is unknowable rather than unknown.',
+    description: 'How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final: the bridge did not know the run and nothing else ran on its action, so the outcome is unknowable rather than unknown.',
   }),
   started_at: z.iso.datetime().meta({
     description: 'When the run started, as an ISO 8601 timestamp. Runs are listed and filtered by this instant.',
   }),
   ended_at: z.iso.datetime().nullable().meta({
-    description: 'When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` — a run has an end only once it has one.',
+    description: 'When the run finished, as an ISO 8601 timestamp. `null` while it is still `running` or `unknown` — a run has an end only once it has one.',
   }),
   duration_ms: z.number().int().nonnegative().nullable().meta({
-    description: 'How long the run took, in milliseconds. `null` while it is still `running`, never `0` standing in for "nothing so far".',
+    description: 'How long the run took, in milliseconds. `null` while it is still `running` or `unknown`, never `0` standing in for "nothing so far".',
   }),
   result: z.unknown().nullable().meta({
     description: 'What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise.',
@@ -299,7 +330,7 @@ export const jobRunQuery = z
       description: 'Only runs of this action or service.',
     }),
     state: jobState.optional().meta({
-      description: 'Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.',
+      description: 'Only runs in this state — `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`.',
     }),
     kind: jobRunKind.optional().meta({
       description: 'Only `action` runs, or only `service` runs.',

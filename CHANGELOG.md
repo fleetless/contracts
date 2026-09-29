@@ -9,6 +9,34 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **Protocol 5: `unknown` jobs, external goals, and a hard cut of protocols 3
+  and 4.** `PROTOCOL_VERSION` is 5 and the only version served: protocols 2,
+  3 and 4 are unsupported from this release on, with no sunset window, and
+  `PROTOCOL_VERSIONS` holds the single entry `{ version: 5, bridge_from:
+  '6.0.0' }`; `LATEST_BRIDGE_VERSION` is `6.0.0`. `jobState` gains `unknown`,
+  a non-terminal state for a job the cloud has lost sight of — its error
+  `bridge_disconnected` or `bridge_timeout`, both of which used to settle the
+  job `lost` — so `lost` is final and only ever follows a statement of the
+  bridge. `job` gains a required `origin` (`jobOrigin`: `fleetless` or
+  `external`), and `job_update` gains a required `origin` and `goal_id`
+  (the ROS 2 goal id, `null` for a service job), because the bridge now
+  reports every goal on a published action, including ones it did not send.
+  New frames `job_query` (`cloudJobQuery`) and `job_status`
+  (`bridgeJobStatus`, `bridgeJobStatusEntry`) let the cloud ask a connected
+  bridge how specific jobs stand. New error codes: `bridge_too_old`, the
+  `hello_error` for a bridge below protocol 5, naming bridge `6.0.0`; and
+  `job_unknown_to_bridge`, the final `lost` reason when the bridge does not
+  know a job and nothing it cannot attribute runs on the job's action.
+
+### Removed
+
+- **Protocols 2, 3 and 4, and an origin-less `job`; this is why the release
+  is a major.** A bridge below `6.0.0` is refused at `hello`, and a `job` or
+  `job_update` literal without `origin` (or a `job_update` without
+  `goal_id`) no longer parses.
+
 ## [4.0.0] — 2026-09-29
 
 ### Added

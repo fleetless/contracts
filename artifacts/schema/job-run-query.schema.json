@@ -44,10 +44,11 @@
       "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
     },
     "state": {
-      "description": "Only runs in this state — `running`, `succeeded`, `failed`, `cancelled` or `lost`.",
+      "description": "Only runs in this state — `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`.",
       "type": "string",
       "enum": [
         "running",
+        "unknown",
         "succeeded",
         "failed",
         "cancelled",

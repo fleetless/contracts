@@ -256,6 +256,7 @@ describe('the route artifacts', () => {
     const NOT_A_ROUTE_SHAPE: Record<string, string> = {
       'cloud-asset-request': 'a bridge protocol frame the cloud sends over the websocket, not an HTTP body',
       'cloud-introspect-request': 'a bridge protocol frame, as above',
+      'cloud-job-query': 'a bridge protocol frame, as above',
       'cloud-type-request': 'a bridge protocol frame, as above',
       'developer-login-request':
         "the auth portal's own login form. POST /console/oauth/login is audience:'internal' — a page the cloud serves to itself, never rendered in the published reference — and its handler reads the three fields by hand",

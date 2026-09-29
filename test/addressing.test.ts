@@ -139,7 +139,7 @@ describe('asking what a robot is doing without knowing what to ask', () => {
     // that the cloud has no row for, and one left on a slug a configuration
     // change removed.
     const j = {
-      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running' as const,
+      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running' as const, origin: 'fleetless' as const,
       started_at: NOW, updated_at: NOW,
     seq: 1, result: null, error: null,
     }
@@ -356,7 +356,7 @@ describe('bounding a queue, and ordering a log', () => {
     // sentence and lost. The console then rendered an alert from a shape
     // nothing produced, and its test built that shape by hand.
     const withDetails = {
-      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'failed' as const,
+      id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'failed' as const, origin: 'fleetless' as const,
       started_at: NOW, updated_at: NOW,
     seq: 1, result: null,
       error: { code: 'job_queue_full', message: '200 jobs are already queued', details: { limit: 200, queued: 200 } },

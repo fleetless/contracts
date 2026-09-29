@@ -58,6 +58,16 @@ export const ERROR_CODES = [
   'unknown_datapoint',
   'invalid_token',
   'protocol_mismatch',
+  /**
+   * The cloud's `hello_error` for a bridge whose `protocol_version` is below
+   * every version it serves — since protocol 5, anything below 5. Its message
+   * names the bridge release to install (`LATEST_BRIDGE_VERSION`, 6.0.0 at
+   * the cut), because "too old" alone leaves an operator guessing how far to
+   * upgrade. Distinct from `protocol_mismatch`, the generic refusal for a
+   * version the cloud cannot place: this one says which way the gap runs and
+   * what closes it. Reaches the robot's detail view as `last_hello_error`.
+   */
+  'bridge_too_old',
   'invalid_frame',
   // Configuration.
   'duplicate_slug',
@@ -81,9 +91,10 @@ export const ERROR_CODES = [
   /**
    * The cloud has heard nothing — heartbeat or real progress — from a
    * running job for longer than it tolerates while the bridge is connected:
-   * `patience_ms` for a protocol-3 bridge, `JOB_HEARTBEAT_TIMEOUT_MS` for a
-   * protocol-4 one once it has heard from the job at all. `job.error.code`
-   * on `lost`.
+   * `patience_ms` until the first report, `JOB_HEARTBEAT_TIMEOUT_MS` after
+   * it. `job.error.code` on `unknown`, not `lost`: silence is the cloud's
+   * guess, so it asks the bridge with `job_query` and the answer resolves the
+   * job — running again clears this code, an end replaces it.
    */
   'bridge_timeout',
   // Identity and rights. `forbidden` is deliberately the answer both
@@ -152,8 +163,26 @@ export const ERROR_CODES = [
   'busy',
   /** A parameter failed its declared rule; details name the field and the rule. */
   'parameter_invalid',
-  /** The bridge could not account for this job after a restart. */
+  /**
+   * The bridge's own statement, while connected, that it lost track of a job
+   * it still names — the vocabulary behind its `job_lost` frame. Distinct
+   * from `job_unknown_to_bridge`, the cloud's conclusion about a job the
+   * bridge does not name at all.
+   */
   'job_lost',
+  /**
+   * The bridge does not know this job — its `hello.active_jobs` or a
+   * `job_status` answer leaves it out — and, for an action, no goal the
+   * bridge cannot attribute is active on the job's action any more, so none
+   * of them can be it. A `job.error.code` on `lost`, final: how an `unknown`
+   * job the bridge has no word about ends. A service job, which has no goals to look
+   * at, gets it as soon as the bridge does not know it; so does a job whose
+   * persisted goal the action server no longer knows (its result expired).
+   * Distinct from `job_lost`, the bridge's own statement about a job it
+   * still names, and from `bridge_disconnected`/`bridge_timeout`, the
+   * cloud's guesses that make a job `unknown` in the first place.
+   */
+  'job_unknown_to_bridge',
   /**
    * The robot's action server vanished mid-goal — the bridge's own liveness
    * check found `server_is_ready()` false for three seconds straight and
@@ -174,9 +203,11 @@ export const ERROR_CODES = [
   'goal_uncontrollable',
   /**
    * The robot stayed offline for longer than `JOB_OFFLINE_GRACE_MS` while a
-   * job was running. A late real outcome, if the robot reconnects and the
-   * bridge still has it, corrects this — it is not final the way a genuine
-   * bridge report is. `job.error.code` on `lost`.
+   * job was running. `job.error.code` on `unknown`, not `lost`: the cloud
+   * does not know how the job stands, and the reconnecting bridge's
+   * `hello.active_jobs` resolves it — running again clears this code, an end
+   * replaces it, and a job the bridge does not know becomes `lost` with
+   * `job_unknown_to_bridge`.
    */
   'bridge_disconnected',
   /**

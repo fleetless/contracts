@@ -16,6 +16,9 @@ import {
   bridgeHello,
   bridgeJobUpdate,
   bridgeJobLost,
+  cloudJobQuery,
+  bridgeJobStatusEntry,
+  bridgeJobStatus,
   typeDefinition,
   parameterFieldsOf,
   exposureListResponse,
@@ -78,14 +81,26 @@ describe('config: three new kinds', () => {
 })
 
 describe('jobs', () => {
-  const J = { id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running', started_at: NOW, updated_at: NOW,
-    seq: 1, result: null, error: null }
+  const J = { id: UUID, robot_id: UUID2, slug: 'drive_to', state: 'running', origin: 'fleetless', started_at: NOW,
+    updated_at: NOW, seq: 1, result: null, error: null }
 
-  it('knows lost as a real outcome, not an absence of news', () => {
-    for (const state of ['running', 'succeeded', 'failed', 'cancelled', 'lost']) {
+  it('tells unknown from lost: not knowing yet is not a final outcome', () => {
+    for (const state of ['running', 'unknown', 'succeeded', 'failed', 'cancelled', 'lost']) {
       expect(job.safeParse({ ...J, state }).success).toBe(true)
     }
-    expect(job.safeParse({ ...J, state: 'unknown' }).success).toBe(false)
+    // `unknown` carries the cloud's reason for not knowing, the same shape as any job error.
+    expect(
+      job.safeParse({ ...J, state: 'unknown', error: { code: 'bridge_disconnected', message: 'the robot went offline' } }).success,
+    ).toBe(true)
+    expect(job.safeParse({ ...J, state: 'stale' }).success).toBe(false)
+  })
+
+  it('names who started a job, and requires it', () => {
+    expect(job.safeParse({ ...J, origin: 'external' }).success).toBe(true)
+    expect(job.safeParse({ ...J, origin: 'someone' }).success).toBe(false)
+    // Required: a job literal without an origin no longer parses — the reason this is a major.
+    const { origin: _origin, ...withoutOrigin } = J
+    expect(job.safeParse(withoutOrigin).success).toBe(false)
   })
 
   it('stamps job updates with bridge capture time, like any datapoint', () => {
@@ -103,6 +118,10 @@ describe('jobs', () => {
   it('makes a busy refusal say what is running', () => {
     // "busy" alone forces the caller to guess whether to wait or give up.
     expect(busyDetails.safeParse({ running: J }).success).toBe(true)
+    // An unknown job and an external goal occupy a slug too, and say so.
+    const parsed = busyDetails.parse({ running: { ...J, state: 'unknown', origin: 'external' } })
+    expect(parsed.running.state).toBe('unknown')
+    expect(parsed.running.origin).toBe('external')
   })
 })
 
@@ -170,10 +189,47 @@ describe('bridge protocol', () => {
     expect(bridgeJobLost.safeParse({ type: 'job_lost', job_ids: [] }).success).toBe(true)
     expect(
       bridgeJobUpdate.safeParse({
-        type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'succeeded',
+        type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'succeeded', origin: 'fleetless',
+        goal_id: 'b9e0a3c4-5f1d-4e2a-9c7b-1a2b3c4d5e6f',
         feedback: null, progress: 1, result: { ok: true }, error: null, timestamp_ms: 1786400000000,
       }).success,
     ).toBe(true)
+  })
+
+  it('reports every goal on an action, own or external, with its goal id', () => {
+    const U = {
+      type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'running', origin: 'external',
+      goal_id: 'b9e0a3c4-5f1d-4e2a-9c7b-1a2b3c4d5e6f',
+      feedback: { distance: 2.5 }, progress: null, result: null, error: null, timestamp_ms: 1786400000000,
+    }
+    expect(bridgeJobUpdate.safeParse(U).success).toBe(true)
+    // A service job has no goal.
+    expect(bridgeJobUpdate.safeParse({ ...U, origin: 'fleetless', goal_id: null }).success).toBe(true)
+    expect(bridgeJobUpdate.safeParse({ ...U, goal_id: '' }).success).toBe(false)
+    // Both required: protocol 5 has no older frame to stay compatible with.
+    const { origin: _origin, ...noOrigin } = U
+    const { goal_id: _goal, ...noGoal } = U
+    expect(bridgeJobUpdate.safeParse(noOrigin).success).toBe(false)
+    expect(bridgeJobUpdate.safeParse(noGoal).success).toBe(false)
+  })
+
+  it('lets the cloud ask how specific jobs stand, and the bridge answer', () => {
+    expect(cloudJobQuery.safeParse({ type: 'job_query', request_id: 'q1', job_ids: [UUID] }).success).toBe(true)
+    // Asking about nothing is not a question.
+    expect(cloudJobQuery.safeParse({ type: 'job_query', request_id: 'q1', job_ids: [] }).success).toBe(false)
+    expect(cloudJobQuery.safeParse({ type: 'job_query', request_id: '', job_ids: [UUID] }).success).toBe(false)
+    expect(cloudJobQuery.safeParse({ type: 'job_query', request_id: 'q1', job_ids: ['not-a-uuid'] }).success).toBe(false)
+
+    const entry = { job_id: UUID, state: 'running', feedback: null, progress: 0.5, result: null, error: null }
+    expect(bridgeJobStatusEntry.safeParse(entry).success).toBe(true)
+    expect(
+      bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [entry], unknown_job_ids: [UUID2] }).success,
+    ).toBe(true)
+    // "I do not know any of these" is an answer, not a failed frame.
+    expect(
+      bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [], unknown_job_ids: [UUID, UUID2] }).success,
+    ).toBe(true)
+    expect(bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [entry] }).success).toBe(false)
   })
 
   it('a protocol-4 bridge may say why it lost a job; a protocol-3 frame with none still parses', () => {
@@ -231,7 +287,9 @@ describe('exposures and errors', () => {
   })
 
   it('names the refusals the command path brings', () => {
-    for (const code of ['busy', 'parameter_invalid', 'job_lost', 'publisher_busy', 'unknown_command']) {
+    for (const code of [
+      'busy', 'parameter_invalid', 'job_lost', 'publisher_busy', 'unknown_command', 'bridge_too_old', 'job_unknown_to_bridge',
+    ]) {
       expect(ERROR_CODES).toContain(code)
     }
   })

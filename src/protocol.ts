@@ -4,19 +4,33 @@ import { assetFailure } from './assets.js'
 import { applyError, slug } from './common.js'
 import { robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
-import { jobState } from './jobs.js'
+import { jobOrigin, jobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
- * Bridge <-> cloud protocol, version 4.
+ * Bridge <-> cloud protocol, version 5.
  *
  * The version is exchanged in the hello handshake. Since 2026-09 the cloud
  * serves a **window** of versions, not one: every entry of
  * `PROTOCOL_VERSIONS` whose sunset has not passed. A version is deprecated
  * by the cloud release that supersedes it and sunset `PROTOCOL_SUNSET_DAYS`
- * later. Outside the window the cloud refuses with `protocol_mismatch`,
- * which names the window and reaches the robot's detail view as
- * `last_hello_error`.
+ * later. Outside the window the cloud refuses the hello, and the refusal
+ * reaches the robot's detail view as `last_hello_error`: `bridge_too_old`,
+ * naming the bridge version to install, for a version below the window.
+ *
+ * **5 (2026-09-29):** a hard cut, not a window — protocols 2, 3 and 4 are
+ * unsupported from this release on, with no sunset (André, 2026-09-29: "we
+ * are still building up and need not take care"), so `PROTOCOL_VERSIONS`
+ * holds one entry. The bridge tracks every goal on a published action by
+ * goal id — its own and anyone else's — and reports them through
+ * `job_update`, which gains a required `origin` and `goal_id`: a goal it did
+ * not send arrives as `origin: 'external'` under a job id the bridge derives
+ * itself. `jobState` gains `unknown`, the cloud's non-terminal "I lost sight
+ * of it" (`bridge_disconnected`, `bridge_timeout`) that replaces settling
+ * `lost` on a guess; `lost` is final. While connected, the cloud asks about
+ * specific jobs with `job_query` and the bridge answers `job_status`. Goal
+ * state is reported once per `JOB_HEARTBEAT_INTERVAL_MS`, newest only; the
+ * end of a Fleetless job goes at once.
  *
  * **4 (2026-09-29):** the bridge sends a `job_update` heartbeat at
  * `JOB_HEARTBEAT_INTERVAL_MS` for every running job, whether or not the
@@ -43,7 +57,7 @@ import { rosTypeName } from './common.js'
  * **2 (2026-08-21):** `config_applied.errors` entries gained `kind` and `code`
  * beside `message`.
  */
-export const PROTOCOL_VERSION = 4
+export const PROTOCOL_VERSION = 5
 
 /** Days between a version's deprecation and its sunset. */
 export const PROTOCOL_SUNSET_DAYS = 90
@@ -57,22 +71,27 @@ export interface ProtocolVersionEntry {
 }
 
 /**
- * Every protocol version the cloud has served, oldest first. A test keeps
+ * Every protocol version the cloud serves, oldest first. A test keeps
  * exactly one entry current and equal to `PROTOCOL_VERSION`; `test/changelog.test.ts`
  * requires some CHANGELOG section — `[Unreleased]` or a dated one — to name
  * the newest `bridge_from` together with the previous entry's `sunsetOf(...)`
  * date, so the pull request that moves this window is the one that fails
  * without saying so; and `scripts/verify-version-tag.mjs` requires a dated
  * heading for the tag being released.
+ *
+ * **One entry since protocol 5**, which cut 2, 3 and 4 without a sunset
+ * rather than deprecating them. A version absent from the table is
+ * `unsupported`, which is exactly what a cut means, so the dropped entries
+ * are gone rather than kept with a past date. The changelog test's window
+ * check has no previous entry to read then; its hard-cut sibling holds the
+ * changelog to naming the cut instead.
  */
 export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
-  { version: 2, bridge_from: '3.0.0', deprecated_at: '2026-09-22' },
-  { version: 3, bridge_from: '4.0.0', deprecated_at: '2026-09-29' },
-  { version: 4, bridge_from: '5.0.0', deprecated_at: null },
+  { version: 5, bridge_from: '6.0.0', deprecated_at: null },
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '5.0.0'
+export const LATEST_BRIDGE_VERSION = '6.0.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
@@ -194,9 +213,12 @@ export const MAX_PATIENCE_MS = 120_000
 export const MIN_PATIENCE_MS = 1_000
 
 /**
- * How often a protocol-4 bridge sends a `job_update` heartbeat for every
- * running job — the last known state, whether or not the action itself said
- * anything new. One second: often enough that `JOB_HEARTBEAT_TIMEOUT_MS`
+ * How often the bridge reports goal state: one `job_update` per active goal
+ * on a published action — its own and external ones — carrying the newest
+ * state and feedback, whether or not the action said anything new. Whatever
+ * happened in between is dropped, so an action that sends feedback at 100 Hz
+ * costs one frame a second; the end of a Fleetless job is the exception and
+ * goes at once. One second: often enough that `JOB_HEARTBEAT_TIMEOUT_MS`
  * can be a small multiple of it and still absorb a missed beat or two, rare
  * enough that it costs nothing next to the datapoint traffic a busy robot
  * already sends.
@@ -204,29 +226,32 @@ export const MIN_PATIENCE_MS = 1_000
 export const JOB_HEARTBEAT_INTERVAL_MS = 1_000
 
 /**
- * How long a protocol-4 job may go without a `job_update` — heartbeat or
- * real progress, either counts — before the cloud settles it `lost` with
+ * How long a running job may go without a `job_update` — heartbeat or real
+ * progress, either counts — before the cloud marks it `unknown` with
  * `bridge_timeout`, once the bridge is connected. Five heartbeats: enough
  * slack for an ordinary scheduling jitter, small next to `patience_ms`
- * because it no longer has to cover the acceptance gap too. `patience_ms`
- * bounds only the time from `invoke` to the *first* update on a protocol-4
- * job; every rearm after that uses this constant instead. A protocol-3
- * bridge sends no heartbeat, so this constant does not apply to it —
- * `patience_ms` keeps bounding the whole running job there, exactly as
- * before.
+ * because it does not have to cover the acceptance gap too. `patience_ms`
+ * bounds only the time from `invoke` to the *first* update; every rearm after
+ * that uses this constant instead.
+ *
+ * `unknown`, not `lost`: silence is the cloud's guess, not the bridge's
+ * statement. The cloud then asks with `job_query`, and asks again after the
+ * same interval for as long as no `job_status` answers and the bridge stays
+ * connected.
  */
 export const JOB_HEARTBEAT_TIMEOUT_MS = 5_000
 
 /**
  * How long a running job survives its robot going offline before the cloud
- * gives up and settles it `lost` with `bridge_disconnected`. Five minutes:
- * long enough that an ordinary Wi-Fi dead zone — the case this constant
- * exists for — never costs a job, since a robot with no safety layer of its
- * own (§ Fleetless is not a safety layer) keeps driving through one and the
- * result the cloud is waiting for is often still coming. A robot connected
- * the whole time never reaches this bound at all: while online, silence is
- * `JOB_HEARTBEAT_TIMEOUT_MS`'s question (protocol 4) or `patience_ms`'s
- * (protocol 3), never this one's.
+ * marks it `unknown` with `bridge_disconnected`. Five minutes: long enough
+ * that an ordinary Wi-Fi dead zone — the case this constant exists for —
+ * never touches a job, since a robot with no safety layer of its own
+ * (§ Fleetless is not a safety layer) keeps driving through one and the
+ * result the cloud is waiting for is often still coming. Past it the job is
+ * still not given up: `unknown` keeps the slug occupied until the
+ * reconnecting bridge says how the job stands. A robot connected the whole
+ * time never reaches this bound at all: while online, silence is
+ * `JOB_HEARTBEAT_TIMEOUT_MS`'s question, never this one's.
  */
 export const JOB_OFFLINE_GRACE_MS = 300_000
 
@@ -247,6 +272,8 @@ export { slug } from './common.js'
  * `state` is the bridge's own current answer, not a history. A bridge that
  * has a terminal result still in hand reports it here and the cloud writes it
  * down, instead of publishing `lost` over a job that in fact succeeded.
+ * Never `unknown`: that is the cloud's word for not having heard, and a
+ * bridge listing a job has, by definition, something to say about it.
  */
 export const activeJob = z.object({
   job_id: z.uuid(),
@@ -265,16 +292,14 @@ export const bridgeHello = z.object({
    * Every job this bridge still knows about, right now.
    *
    * A reconnect and a restart look **identical** on the wire — same token,
-   * same version, same frame — but must end differently: after a dropped
-   * connection the running jobs are still running, after a restart their
-   * results are gone forever. Enumerating what the bridge still has settles
-   * it without either side guessing: the cloud marks every job it believed
-   * running that is *not* named here as `lost`.
-   *
-   * Deliberately needs no persistence at the bridge: a live process lists its
-   * live jobs, a process that just started lists none — exactly the truth
-   * the cloud needs. A breadcrumb file would only add a window in which the
-   * crash beat the write.
+   * same version, same frame — so the bridge enumerates what it still has:
+   * its live jobs, and after a restart every job whose goal it recognised
+   * again from its persisted job-to-goal mapping. A job the cloud holds
+   * `running` or `unknown` that is *not* named here is "not known to the
+   * bridge"; it becomes `lost` (`job_unknown_to_bridge`) only once the
+   * bridge's goal reports show its action free of goals it cannot
+   * attribute — one of those may be that very job — and at once for a
+   * service job, which has no goals to look at.
    *
    * Defaulted, so a bridge that sends no such field still parses; no jobs
    * and no report both mean the same thing to the cloud: nothing to keep
@@ -527,12 +552,30 @@ export type CloudPublish = z.infer<typeof cloudPublish>
 /**
  * Progress on a job, bridge → cloud. `timestamp_ms` is capture time, so a
  * burst delivered late after a reconnect is visibly late.
+ *
+ * Since protocol 5 this frame reports **every goal active on a published
+ * action**, not only the ones the bridge sent. A goal the bridge cannot
+ * attribute to a job of its own arrives with `origin: 'external'` and a
+ * `job_id` the bridge derives from robot, slug and goal id, the same id on
+ * every report of that goal — the cloud mints an external job the first time
+ * it sees one and never recomputes the id itself. `goal_id` is the ROS 2
+ * goal id, so a cancel can name the goal; `null` for a service job, which
+ * has no goal.
+ *
+ * Sent once per `JOB_HEARTBEAT_INTERVAL_MS` per active goal, newest state
+ * only. The end of a Fleetless job is sent at once; an external goal's end at
+ * the next tick, and an external goal that started and ended between two
+ * ticks is never reported at all.
  */
 export const bridgeJobUpdate = z.object({
   type: z.literal('job_update'),
   job_id: z.uuid(),
   slug,
+  /** Never `unknown`: that is the cloud's word for not having heard. */
   state: jobState,
+  origin: jobOrigin,
+  /** The ROS 2 goal id; `null` for a service job, which has no goal. */
+  goal_id: z.string().min(1).nullable(),
   feedback: z.unknown().nullable(),
   progress: z.number().min(0).max(1).nullable(),
   result: z.unknown().nullable(),
@@ -545,23 +588,20 @@ export const bridgeJobUpdate = z.object({
 export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
 
 /**
- * Jobs the bridge can no longer account for **while connected** — a
- * tracker dropped, an action server that vanished mid-goal, anything where
- * the honest answer is "I lost this" rather than a state.
+ * The bridge's own, definite statement **while connected** that it no longer
+ * knows these jobs — an action server that vanished mid-goal, a goal the
+ * server no longer knows — where the honest answer is "I lost this" rather
+ * than a state. The cloud settles each named job `lost`, final.
  *
- * The restart case is not this frame's job: a restarted bridge has nothing
- * left to enumerate, so it is `hello.active_job_ids` that closes that gap.
- * Both paths end in the same place — the cloud publishes `lost` rather than
- * leaving a job reading "running" because nobody contradicted it.
+ * Only the bridge says `lost` now. The cloud's own guesses — offline past
+ * `JOB_OFFLINE_GRACE_MS`, silent past `JOB_HEARTBEAT_TIMEOUT_MS` — make a
+ * job `unknown` instead, and a restart is answered by `hello.active_jobs`.
  *
- * **`error` (since protocol 4) is optional and, when present, applies to
- * every job named in `job_ids`.** A vanished action server is discovered
- * once, by the bridge's own liveness check on that one goal, so a frame
- * naming several jobs at once — plausible if several goals shared the same
- * server — always shares the same cause. Absent means today's behaviour:
- * the cloud settles the job `lost` with no specific code, the same as a
- * protocol-3 bridge's frame, which carries no `error` at all and still
- * parses under this schema unchanged.
+ * **`error` is optional and, when present, applies to every job named in
+ * `job_ids`.** A vanished action server is discovered once, by the bridge's
+ * own liveness check on that one action, so a frame naming several jobs at
+ * once always shares the same cause. Absent, the cloud settles the job
+ * `lost` with no specific code.
  */
 export const bridgeJobLost = z.object({
   type: z.literal('job_lost'),
@@ -569,6 +609,56 @@ export const bridgeJobLost = z.object({
   error: z.object({ code: z.string().min(1), message: z.string().min(1) }).optional(),
 })
 export type BridgeJobLost = z.infer<typeof bridgeJobLost>
+
+/**
+ * The cloud asks the bridge how specific jobs stand, while connected;
+ * `request_id` correlates the `job_status` answer.
+ *
+ * Sent for a job that went `unknown` with `bridge_timeout`: the bridge is
+ * connected but the cloud has not heard about the job, so it asks instead of
+ * guessing. Unanswered within `JOB_HEARTBEAT_TIMEOUT_MS`, the job stays
+ * `unknown` and the cloud asks again after the same interval.
+ */
+export const cloudJobQuery = z.object({
+  type: z.literal('job_query'),
+  request_id: z.string().min(1).max(64),
+  job_ids: z.array(z.uuid()).min(1),
+})
+export type CloudJobQuery = z.infer<typeof cloudJobQuery>
+
+/** One job the bridge recognises, in a `job_status` answer. Same fields as `job_update`'s. */
+export const bridgeJobStatusEntry = z.object({
+  job_id: z.uuid(),
+  /** Never `unknown` — the bridge only ever states a definite fact about a job it recognises. */
+  state: jobState,
+  feedback: z.unknown().nullable(),
+  progress: z.number().min(0).max(1).nullable(),
+  result: z.unknown().nullable(),
+  /** Same shape as `job.error`, `details` included — see `jobs.ts`. */
+  error: z
+    .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
+    .nullable(),
+})
+export type BridgeJobStatusEntry = z.infer<typeof bridgeJobStatusEntry>
+
+/**
+ * The bridge's answer to a `job_query`. Every queried id lands in exactly
+ * one of the two lists.
+ *
+ * `unknown_job_ids` is an answer, not a failure — the same stance
+ * `type_definitions.unresolved` takes. It names the queried jobs the bridge
+ * does not recognise at all; the cloud settles one `lost` with
+ * `job_unknown_to_bridge` once no goal the bridge cannot attribute is active
+ * on its action (one of those may be that very job), and at once for a
+ * service job.
+ */
+export const bridgeJobStatus = z.object({
+  type: z.literal('job_status'),
+  request_id: z.string().min(1).max(64),
+  jobs: z.array(bridgeJobStatusEntry),
+  unknown_job_ids: z.array(z.uuid()),
+})
+export type BridgeJobStatus = z.infer<typeof bridgeJobStatus>
 
 /** Cloud asks for a fresh ROS graph; `request_id` correlates the answer. */
 export const cloudIntrospectRequest = z.object({
