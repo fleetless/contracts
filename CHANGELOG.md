@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-09-29
+
 ### Added
 
 - **Protocol 4: a job heartbeat, and a vanished action server ends its job.**
