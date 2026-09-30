@@ -40,6 +40,9 @@ version.
   caller is refused, not told the cancel succeeded. `reportedJobState`, every
   state but `unknown`, is what `job_update`, `job_status` entries and
   `hello.active_jobs` accept, so a bridge claiming `unknown` fails validation.
+  `POST /api/robots/:id/jobs/:slug/cancel` lists the answers this adds:
+  `409 cancel_rejected`, `504 bridge_timeout`, and `502` with the bridge's
+  own code (`unknown_slug`, `action_server_lost`, `internal_error`).
 
 ### Removed
 

@@ -7003,7 +7003,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `not_cancellable`, `robot_offline`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `not_cancellable`, `robot_offline`, `cancel_rejected`, `bridge_timeout`, `unknown_slug`, `action_server_lost`, `internal_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7013,7 +7013,7 @@
             }
           }
         },
-        "description": "The body is optional: a bodyless `POST` was every caller's shape before `job_id` existed, and absent or `job_id: null` both mean \"cancel whatever is running\". A named `job_id` that is **not** what is running cancels nothing and answers `404` — the caller named an id and thereby ruled the other one out. An `external` job is cancelled the same way, through its goal id. Cancelling an `unknown` job also cancels every external goal on its action, since one of them may be that job. A service is `422 not_cancellable`: a service call has no goal to cancel. Nothing running is a `200` with `job: null`.",
+        "description": "The body is optional: a bodyless `POST` was every caller's shape before `job_id` existed, and absent or `job_id: null` both mean \"cancel whatever is running\". A named `job_id` that is **not** what is running cancels nothing and answers `404` — the caller named an id and thereby ruled the other one out. An `external` job is cancelled the same way, through its goal id. Cancelling an `unknown` job also cancels every external goal on its action, since one of them may be that job. A service is `422 not_cancellable`: a service call has no goal to cancel. Nothing running is a `200` with `job: null`. The answer waits for the bridge's `cancel_result`: a `200` means the action server accepted the cancel request, not that the goal has ended — the job's end arrives as its own update. Any goal answered `ERROR_REJECTED` makes it `409 cancel_rejected`, with every goal and its `return_code` in `details.goals`; no answer within `JOB_HEARTBEAT_TIMEOUT_MS` is `504 bridge_timeout`; a cancel the bridge could not send at all is `502` carrying the bridge's own code (`unknown_slug`, `action_server_lost`, `internal_error`).",
         "requestBody": {
           "required": false,
           "content": {
