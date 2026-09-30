@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "secret": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The shared secret, base32, for an authenticator app that cannot scan a QR code. Shown once; the cloud stores it encrypted."
+    },
+    "otpauth_url": {
+      "type": "string",
+      "pattern": "^otpauth:\\/\\/totp\\/.*",
+      "description": "The same secret as an `otpauth://totp/` URL, to render as a QR code. It carries the secret: never log it."
+    }
+  },
+  "required": [
+    "secret",
+    "otpauth_url"
+  ],
+  "additionalProperties": false
+}

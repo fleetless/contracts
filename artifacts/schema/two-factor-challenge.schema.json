@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "two_factor_required",
+        "two_factor_setup_required"
+      ],
+      "description": "`two_factor_required`: ask for the authenticator code. `two_factor_setup_required`: the app requires two-factor and the person has none yet, so set one up before any session exists."
+    },
+    "challenge": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The handle the next step spends. Valid five minutes; afterwards it answers `410 token_spent` and the sign-in starts over."
+    }
+  },
+  "required": [
+    "status",
+    "challenge"
+  ],
+  "additionalProperties": false
+}

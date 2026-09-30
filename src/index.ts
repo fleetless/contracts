@@ -461,6 +461,12 @@ export {
   passwordResetRequest,
   passwordResetConfirm,
   idpIssuer,
+  // Codes and second factors, shared by both identity spaces.
+  loginCode,
+  totpCode,
+  recoveryCode,
+  recoveryCodesList,
+  twoFactorSetupResponse,
   // auth/me, org and member patches.
   authMeResponse,
   patchOrgRequest,
@@ -491,6 +497,7 @@ export type {
   PasswordResetRequest,
   PasswordResetConfirm,
   IdpIssuer,
+  TwoFactorSetupResponse,
   AuthMeResponse,
   PatchOrgRequest,
   PatchAuthMeRequest,
@@ -554,6 +561,15 @@ export {
   mcpConsentGrant,
   mcpConsentGrantListResponse,
   clientIdentity,
+  clientLoginCodeRequest,
+  clientLoginCodeVerifyRequest,
+  twoFactorChallenge,
+  clientSignInResult,
+  clientTwoFactorVerifyRequest,
+  clientTwoFactorSetupRequest,
+  clientTwoFactorSetupConfirmRequest,
+  clientTwoFactorSetupConfirmResponse,
+  clientTwoFactorDisableRequest,
 } from './client-auth.js'
 export type {
   ClientLoginRequest,
@@ -576,6 +592,15 @@ export type {
   McpConsentGrant,
   McpConsentGrantListResponse,
   ClientIdentity,
+  ClientLoginCodeRequest,
+  ClientLoginCodeVerifyRequest,
+  TwoFactorChallenge,
+  ClientSignInResult,
+  ClientTwoFactorVerifyRequest,
+  ClientTwoFactorSetupRequest,
+  ClientTwoFactorSetupConfirmRequest,
+  ClientTwoFactorSetupConfirmResponse,
+  ClientTwoFactorDisableRequest,
 } from './client-auth.js'
 export { clientRobotListItem, clientRobotListResponse } from './client-robots.js'
 export type { ClientRobotListItem, ClientRobotListResponse } from './client-robots.js'
@@ -714,8 +739,8 @@ export type {
   DatapointDisplay,
   PutDatapointDisplayRequest,
 } from './alerts.js'
-export { apiError, parameterViolation, parameterInvalidDetails, cancelRejectedDetails, ERROR_CODES } from './errors.js'
-export type { ApiError, ParameterViolation, ParameterInvalidDetails, CancelRejectedDetails, ErrorCode } from './errors.js'
+export { apiError, parameterViolation, parameterInvalidDetails, cancelRejectedDetails, invalidCodeDetails, ERROR_CODES } from './errors.js'
+export type { ApiError, ParameterViolation, ParameterInvalidDetails, CancelRejectedDetails, InvalidCodeDetails, ErrorCode } from './errors.js'
 export {
   oauthErrorCode,
   oauthError,

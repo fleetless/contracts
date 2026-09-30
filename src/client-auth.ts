@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { appIdentifier } from './apps.js'
-import { APP_USER_DISPLAY_NAME_MAX, providerSlug } from './app-users.js'
-import { password } from './identity.js'
+import { APP_USER_DISPLAY_NAME_MAX, appSignInMethods, providerSlug } from './app-users.js'
+import { loginCode, password, recoveryCode, recoveryCodesList, sessionTokens, totpCode } from './identity.js'
 
 /**
  * **The client auth API: the whole of what an app user's browser talks to.**
  *
- * Fleetless shows an app user **no page**. The developer's own UI owns
- * every screen — login, registration, verification, invitation acceptance,
+ * The developer's own UI owns every screen it wants to — login, emailed
+ * code, second factor, registration, verification, invitation acceptance,
  * password reset, the provider buttons, the MCP consent — and calls these
- * routes as JSON. The hosted, app-branded login and consent pages this file
- * used to describe are deleted.
+ * routes as JSON. **Where the app sets no URL, a Fleetless-hosted page on the
+ * auth portal stands in** (`appAuthConfig.hosted_pages`) and calls the same
+ * policy: one set of rules, whichever page drives it.
  *
  * Everything here is public: `app_identifier` travels in the body (in the
  * query for a GET), CORS is answered only for the app's `allowed_origins`, and
@@ -28,12 +29,19 @@ import { password } from './identity.js'
  * the SDK and the cloud cannot drift into disagreeing about it.
  *
  * **The enumeration discipline is deliberate, not a preference:**
- * `register`, `resend-verification` and `password/reset` answer `202` for every
- * policy-allowed request whether or not the address exists, and `login` answers
- * the identical `invalid_credentials` for a wrong password, a `blocked` account
- * and a `pending_verification` one. Policy refusals are honest —
- * `registration_closed` and `domain_not_allowed` say what they are, because
- * neither reveals whether a *person* exists.
+ * `register`, `resend-verification`, `password/reset` and `login/code` answer
+ * `202` for every policy-allowed request whether or not the address exists,
+ * and `login` answers the identical `invalid_credentials` for a wrong
+ * password, a `blocked` account and a `pending_verification` one. Policy
+ * refusals are honest — `registration_closed`, `domain_not_allowed` and
+ * `method_not_allowed` say what they are, because none reveals whether a
+ * *person* exists.
+ *
+ * **Every step that signs somebody in answers a `clientSignInResult`**:
+ * session tokens, or a two-factor challenge when the person has a confirmed
+ * authenticator or the app requires one. No path yields a session without the
+ * second factor then — except a sign-in through an identity provider, which
+ * owns that sign-in and answers tokens as before.
  */
 
 /* ------------------------------------------------------ password login -- */
@@ -79,6 +87,122 @@ export const clientLogoutRequest = z.object({
 })
 export type ClientLogoutRequest = z.infer<typeof clientLogoutRequest>
 
+/* -------------------------------------------------- emailed sign-in code -- */
+
+/**
+ * **Asking for a sign-in code.** A six-digit code, mailed, valid ten minutes;
+ * a new request expires the previous code for the same address. The answer is
+ * `202` whether or not the address names an account — a decoy, like
+ * `resend-verification` — so this is no enumeration oracle.
+ */
+export const clientLoginCodeRequest = z
+  .object({
+    app_identifier: appIdentifier.meta({ description: 'The app to sign in to. An identifier no app carries is `404 not_found`; the address is never the subject of a refusal.' }),
+    email: z.email().meta({
+      description: 'The address to mail the code to, trimmed and compared case-insensitively. `202` whether or not it names an account of this app.',
+    }),
+  })
+  .strict()
+export type ClientLoginCodeRequest = z.infer<typeof clientLoginCodeRequest>
+
+/** **Spending the code.** Five wrong attempts spend it; so does its tenth minute. */
+export const clientLoginCodeVerifyRequest = z
+  .object({
+    app_identifier: appIdentifier.meta({ description: 'The app the code was requested for.' }),
+    email: z.email().meta({ description: 'The address the code was mailed to, as typed when it was requested; trimmed and compared case-insensitively.' }),
+    code: loginCode.meta({ description: 'The six digits from the mail, exactly — leading zeros included, no spaces.' }),
+  })
+  .strict()
+export type ClientLoginCodeVerifyRequest = z.infer<typeof clientLoginCodeVerifyRequest>
+
+/* ---------------------------------------------------------- two-factor -- */
+
+/**
+ * **A sign-in that needs its second factor first.** No session exists yet:
+ * the `challenge` is a short-lived handle, five minutes, that the next call
+ * spends.
+ *
+ * - `two_factor_required` — the person has an authenticator; send a code or
+ *   a recovery code to `POST /api/client/two-factor/verify`.
+ * - `two_factor_setup_required` — the app requires two-factor and the person
+ *   has none; set one up with `POST /api/client/two-factor/setup` and
+ *   `…/setup/confirm`, which answers the session.
+ */
+export const twoFactorChallenge = z.object({
+  status: z.enum(['two_factor_required', 'two_factor_setup_required']).meta({
+    description: '`two_factor_required`: ask for the authenticator code. `two_factor_setup_required`: the app requires two-factor and the person has none yet, so set one up before any session exists.',
+  }),
+  challenge: z.string().min(1).meta({
+    description: 'The handle the next step spends. Valid five minutes; afterwards it answers `410 token_spent` and the sign-in starts over.',
+  }),
+})
+export type TwoFactorChallenge = z.infer<typeof twoFactorChallenge>
+
+/**
+ * **What every session-minting sign-in step answers**: password login, code
+ * verify, and spending an invitation, verification or reset token. Session
+ * tokens when the sign-in is complete; a `twoFactorChallenge` when a second
+ * factor comes first. Tell them apart by `status`, which only the challenge
+ * carries.
+ */
+export const clientSignInResult = z.union([sessionTokens, twoFactorChallenge])
+export type ClientSignInResult = z.infer<typeof clientSignInResult>
+
+/** **Answering a `two_factor_required` challenge**, with the authenticator's code or one recovery code — exactly one of the two. */
+export const clientTwoFactorVerifyRequest = z
+  .object({
+    challenge: z.string().min(1).meta({ description: 'The challenge the sign-in step answered.' }),
+    code: totpCode.optional().meta({ description: 'The six-digit code the authenticator shows now. A code already accepted once is refused, so a replay of a seen code does not sign anybody in.' }),
+    recovery_code: recoveryCode.optional().meta({ description: 'One of the ten recovery codes, `xxxxx-xxxxx`, in either case. Spent by its use.' }),
+  })
+  .strict()
+  .refine((b) => (b.code === undefined) !== (b.recovery_code === undefined), { message: 'Send exactly one of code and recovery_code.' })
+export type ClientTwoFactorVerifyRequest = z.infer<typeof clientTwoFactorVerifyRequest>
+
+/**
+ * **Starting an authenticator setup.** Either during sign-in, with the
+ * `two_factor_setup_required` challenge in the body, or from the app's own
+ * account settings, with the app user's bearer and no challenge.
+ */
+export const clientTwoFactorSetupRequest = z
+  .object({
+    challenge: z.string().min(1).optional().meta({
+      description: 'The `two_factor_setup_required` challenge, during sign-in. Absent when the call carries the app user\'s bearer instead.',
+    }),
+  })
+  .strict()
+export type ClientTwoFactorSetupRequest = z.infer<typeof clientTwoFactorSetupRequest>
+
+/** **Confirming the setup** with a code from the new authenticator. Only then is it on. */
+export const clientTwoFactorSetupConfirmRequest = z
+  .object({
+    challenge: z.string().min(1).optional().meta({ description: 'The same challenge as at `setup`, during sign-in; absent with a bearer.' }),
+    code: totpCode.meta({ description: 'A code the new authenticator shows now. It proves the secret was copied correctly before anything depends on it.' }),
+  })
+  .strict()
+export type ClientTwoFactorSetupConfirmRequest = z.infer<typeof clientTwoFactorSetupConfirmRequest>
+
+/**
+ * **The confirmed setup**: the ten recovery codes, shown this once, and a
+ * session — during sign-in the first one, from account settings a fresh one,
+ * since every other session of the account ends.
+ */
+export const clientTwoFactorSetupConfirmResponse = z.object({
+  recovery_codes: recoveryCodesList.meta({
+    description: 'The ten single-use recovery codes, lowercase, shown once. Any earlier set is void.',
+  }),
+  session: sessionTokens.meta({ description: 'The session the sign-in was waiting for, or a fresh one for the account settings.' }),
+})
+export type ClientTwoFactorSetupConfirmResponse = z.infer<typeof clientTwoFactorSetupConfirmResponse>
+
+/** **Turning the authenticator off**, from the app's own account settings. A current code proves the person still holds it. */
+export const clientTwoFactorDisableRequest = z
+  .object({
+    code: totpCode.meta({ description: 'A code the authenticator shows now.' }),
+  })
+  .strict()
+export type ClientTwoFactorDisableRequest = z.infer<typeof clientTwoFactorDisableRequest>
+
 /* ---------------------------------------------- registration and mails -- */
 
 /**
@@ -108,8 +232,8 @@ export const clientRegisterRequest = z
     email: z.email().meta({
       description: 'The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists.',
     }),
-    password: password.meta({
-      description: 'The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around.',
+    password: password.optional().meta({
+      description: 'The password for the new account, at least 12 characters. **Required while the app\'s password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app registers people without one.',
     }),
     display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
       description: 'An optional human name for the account. The developer\'s own UI decides whether to ask for it.',
@@ -190,7 +314,9 @@ export const clientAcceptInvitationRequest = z
     token: z.string().min(1).meta({
       description: 'The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`.',
     }),
-    password: password.meta({ description: 'The password the new account will use.' }),
+    password: password.optional().meta({
+      description: 'The password the new account will use, at least 12 characters. **Required while the app\'s password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app accepts invitations without one.',
+    }),
     display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
       description: 'An optional name, overriding whatever the invitation pre-filled.',
     }),
@@ -236,8 +362,8 @@ export const clientProviderListQuery = z
 export type ClientProviderListQuery = z.infer<typeof clientProviderListQuery>
 
 /**
- * What the developer's login page needs to draw its provider buttons, and
- * **nothing more**. This route is public and unauthenticated: the issuer, the
+ * What the developer's login page needs to draw its provider buttons and its
+ * password or code fields, and **nothing more**. This route is public and unauthenticated: the issuer, the
  * client id, the scopes and the linking policy are all management-side facts
  * that would tell a stranger how the app's federation is configured.
  *
@@ -253,8 +379,11 @@ export const clientProviderListResponse = z.object({
       }),
     )
     .meta({
-      description: 'The app\'s **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password login alone.',
+      description: 'The app\'s **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password or code sign-in alone.',
     }),
+  sign_in_methods: appSignInMethods.meta({
+    description: 'Which of password and emailed code the app accepts, so its sign-in page draws the right fields without guessing. The same value the developer set; public, like the provider buttons.',
+  }),
 })
 export type ClientProviderListResponse = z.infer<typeof clientProviderListResponse>
 
@@ -392,10 +521,11 @@ export type ClientOidcErrorCode = z.infer<typeof clientOidcErrorCode>
 /* ------------------------------------------------ MCP, delegated login -- */
 
 /**
- * **A pending MCP authorization, as the app's own consent screen reads it**
- * Fleetless renders no page here either: `authorize` redirects to the
- * app's `mcp_login_url` with an interaction id, the app authenticates the user
- * with its normal UI, shows this, and approves or denies through the API.
+ * **A pending MCP authorization, as the app's own consent screen reads it.**
+ * `authorize` redirects to the app's `mcp_login_url` with an interaction id,
+ * the app authenticates the user with its normal UI, shows this, and approves
+ * or denies through the API. An app with no `mcp_login_url` gets the hosted
+ * MCP sign-in instead, which reads and decides the same interaction.
  *
  * `client_name_verified` is `z.literal(false)`, and that is the whole point of
  * the field. The name comes from an **unauthenticated** dynamic registration —
@@ -529,6 +659,9 @@ export const clientIdentity = z.object({
   }),
   email: z.email().nullable().meta({
     description: 'The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person.',
+  }),
+  two_factor_enabled: z.boolean().nullable().meta({
+    description: 'Whether the app user has a confirmed authenticator, so the app\'s account settings can offer to turn it on or off. `null` unless `kind` is `app_user`.',
   }),
 })
 export type ClientIdentity = z.infer<typeof clientIdentity>

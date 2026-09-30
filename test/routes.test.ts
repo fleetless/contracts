@@ -486,6 +486,11 @@ describe('the app-user auth surface', () => {
    */
   const PUBLIC_CLIENT = [
     'POST /api/client/login',
+    // #98: the emailed code and the answer to a two-factor challenge. Both
+    // spend a credential a stranger could guess at, so both are limited.
+    'POST /api/client/login/code',
+    'POST /api/client/login/code/verify',
+    'POST /api/client/two-factor/verify',
     'POST /api/client/refresh',
     'POST /api/client/logout',
     'POST /api/client/register',

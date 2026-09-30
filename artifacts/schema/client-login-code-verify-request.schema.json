@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "app_identifier": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+      "description": "The app the code was requested for."
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "The address the code was mailed to, as typed when it was requested; trimmed and compared case-insensitively."
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^\\d{6}$",
+      "description": "The six digits from the mail, exactly — leading zeros included, no spaces."
+    }
+  },
+  "required": [
+    "app_identifier",
+    "email",
+    "code"
+  ],
+  "additionalProperties": false
+}

@@ -138,6 +138,15 @@ import {
   mcpConsentGrant,
   mcpConsentGrantListResponse,
   clientIdentity,
+  clientLoginCodeRequest,
+  clientLoginCodeVerifyRequest,
+  twoFactorChallenge,
+  clientSignInResult,
+  clientTwoFactorVerifyRequest,
+  clientTwoFactorSetupRequest,
+  clientTwoFactorSetupConfirmRequest,
+  clientTwoFactorSetupConfirmResponse,
+  clientTwoFactorDisableRequest,
 } from '../src/client-auth.js'
 import { clientRobotListItem, clientRobotListResponse } from '../src/client-robots.js'
 import {
@@ -213,12 +222,13 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
-import { cancelRejectedDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
 import {
   passwordChangeRequest,
   passwordResetConfirm,
   passwordResetRequest,
   refreshRequest,
+  twoFactorSetupResponse,
 } from '../src/identity.js'
 import { busyDetails, jobState } from '../src/jobs.js'
 import {
@@ -431,6 +441,17 @@ export const exportedSchemas = {
   'mcp-consent-grant': mcpConsentGrant,
   'mcp-consent-grant-list-response': mcpConsentGrantListResponse,
   'client-identity': clientIdentity,
+  // Email-code sign-in and TOTP two-factor for app users.
+  'client-login-code-request': clientLoginCodeRequest,
+  'client-login-code-verify-request': clientLoginCodeVerifyRequest,
+  'two-factor-challenge': twoFactorChallenge,
+  'client-sign-in-result': clientSignInResult,
+  'client-two-factor-verify-request': clientTwoFactorVerifyRequest,
+  'client-two-factor-setup-request': clientTwoFactorSetupRequest,
+  'two-factor-setup-response': twoFactorSetupResponse,
+  'client-two-factor-setup-confirm-request': clientTwoFactorSetupConfirmRequest,
+  'client-two-factor-setup-confirm-response': clientTwoFactorSetupConfirmResponse,
+  'client-two-factor-disable-request': clientTwoFactorDisableRequest,
   // The robots an app user reaches, as `GET /api/client/robots` lists them —
   // the REST twin of `robots_list`. Its datasheet twin answers
   // `mcp-robot-datasheet`, registered above with the MCP shapes.
@@ -595,6 +616,7 @@ export const exportedSchemas = {
   'parameter-invalid-details': parameterInvalidDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'invalid-code-details': invalidCodeDetails, // the details of invalid_code; re-exported by @fleetless/sdk as a type
 } as const
 
 /**
@@ -739,6 +761,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-password-reset-confirm-request', 'client-accept-invitation-request',
   'client-provider-list-query', 'client-oidc-start-query', 'client-oidc-callback-query',
   'client-oidc-exchange-request',
+  'client-login-code-request', 'client-login-code-verify-request',
+  'client-two-factor-verify-request', 'client-two-factor-setup-request',
+  'client-two-factor-setup-confirm-request', 'client-two-factor-disable-request',
   // The app-user management surface.
   'create-app-user-request', 'patch-app-user-request',
   'create-app-invitation-request',
@@ -805,6 +830,8 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'client-mcp-interaction-decision-response',
   'mcp-consent-grant', 'mcp-consent-grant-list-response',
   'create-server-key-response', 'role', 'client-identity', 'audit-actor',
+  'two-factor-challenge', 'client-sign-in-result', 'two-factor-setup-response',
+  'client-two-factor-setup-confirm-response',
   'client-robot-list-item', 'client-robot-list-response',
   'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
@@ -829,7 +856,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // send, with defaults already applied.
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
-  'cancel-rejected-details', 'role-in-use-details',
+  'cancel-rejected-details', 'role-in-use-details', 'invalid-code-details',
 
   // --- Responses the route manifest names (2026-09-30) ---------------------
   'feedback-response',
@@ -1052,6 +1079,11 @@ export const IN_HANDLER_SECURITY: Record<string, object[]> = {
   // alternative. Written as two entries rather than `[]`, which would say the
   // token is never read — it is, and `already_granted` is what it changes.
   'GET /api/client/mcp/interactions/:id': [{ clientToken: [] }, {}],
+  // Two-factor setup takes either the sign-in challenge in the body or the
+  // app user's bearer: the same "this scheme, or nothing" spelling, since the
+  // challenge is not a scheme OpenAPI can name.
+  'POST /api/client/two-factor/setup': [{ clientToken: [] }, {}],
+  'POST /api/client/two-factor/setup/confirm': [{ clientToken: [] }, {}],
   'GET /api/asset-links/:token': [],
   'GET /api/asset-links/missing': [],
 }
