@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [5.1.0] — 2026-09-30
+
 ### Added
 
 - **`cancelRejectedDetails`** (`CancelRejectedDetails`): the `details` of a
