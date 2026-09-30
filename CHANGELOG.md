@@ -9,6 +9,105 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **App sign-in methods, two-factor policy, hosted pages and look.**
+  `appAuthConfig` gains `sign_in_methods` (`appSignInMethods`: `password`
+  and/or `email_code`, at least one; default password only), `two_factor`
+  (`appTwoFactorPolicy`: `off`, `optional`, `required`; default `off`),
+  `app_url` (`appHomeUrl`), `hosted_accent` (`hostedAccent`, `#rrggbb`
+  lowercase), and the read-only `hosted_logo_url` and `hosted_pages`
+  (`appHostedPages`) — the Fleetless-hosted page each unset URL falls back
+  to. New slices `PUT /api/apps/:id/auth-config/sign-in`
+  (`putAppAuthSignInRequest`) and `…/look` (`putAppAuthLookRequest`), and
+  the logo as a raw PNG or SVG body at `PUT` and `DELETE
+  /api/apps/:id/auth-config/logo` (`HOSTED_LOGO_TYPES`,
+  `HOSTED_LOGO_MAX_BYTES`, 100 KB).
+- **App-user two-factor state and reset.** `appUser.two_factor` (`enabled`,
+  `enabled_at`, `recovery_codes_left`), and `DELETE
+  /api/apps/:id/users/:userId/two-factor` resets it and ends the user's
+  sessions.
+- **Email-code sign-in for app users.** `POST /api/client/login/code`
+  (`clientLoginCodeRequest`, a `202` decoy for every address) mails six
+  digits valid ten minutes; `POST /api/client/login/code/verify`
+  (`clientLoginCodeVerifyRequest`) spends them. The mail kind `login_code`
+  joins `mailTemplateKind`, with its default template and the variables
+  `code` and `expires_in_minutes`.
+- **TOTP two-factor for app users.** `clientSignInResult`, the union of
+  `sessionTokens` and `twoFactorChallenge`, is what every sign-in step
+  answers. `POST /api/client/two-factor/verify`
+  (`clientTwoFactorVerifyRequest`), `…/setup` (`clientTwoFactorSetupRequest`,
+  answering `twoFactorSetupResponse`), `…/setup/confirm`
+  (`clientTwoFactorSetupConfirmRequest`, answering
+  `clientTwoFactorSetupConfirmResponse`: ten recovery codes and the
+  session), and `DELETE /api/client/two-factor`
+  (`clientTwoFactorDisableRequest`). Shared by both identity spaces:
+  `loginCode`, `totpCode`, `recoveryCode` and `recoveryCodesList`.
+- **Developer sign-in by emailed code and passkey, with second factors.**
+  The portal steps for `/console/oauth` and `/mcp/oauth` —
+  `developerSignInRoutes(prefix)`: code, second step, recovery code,
+  passkey, and the setup when the org requires two-factor — and console
+  sign-up by email, code (`POST /console/oauth/signup/code`) and
+  organization. A developer manages their own passkeys, authenticator and
+  recovery codes at `GET /api/auth/two-factor` (`developerTwoFactor`),
+  `/api/auth/passkeys` (`webauthnOptionsResponse`, `createPasskeyRequest`,
+  `createPasskeyResponse`, `renamePasskeyRequest`, `developerPasskey`),
+  `/api/auth/totp` (`totpConfirmRequest`, `totpConfirmResponse`) and `POST
+  /api/auth/recovery-codes` (`recoveryCodesResponse`).
+- **An org can require two-factor.** `org.require_two_factor`, set by owners
+  through `PATCH /api/org`; `fleetlessUser.two_factor` reports each member's
+  factors, and `DELETE /api/org/users/:id/two-factor` lets an owner reset a
+  member's.
+- **The hosted app pages** under `/app/:appIdentifier` on the auth portal,
+  nineteen internal HTML routes: the MCP sign-in, the two-factor steps, the
+  invitation, reset, verification, forgot-password and sign-up pages, and
+  the app's logo.
+- **Error codes `invalid_code`** (details `invalidCodeDetails`:
+  `attempts_left`) **and `method_not_allowed`.**
+
+### Changed
+
+- **Nothing is refused for a missing app URL.** An unset `invite_url`,
+  `verify_url`, `reset_url` or `mcp_login_url` falls back to the hosted
+  page: mailed invitations, self-registration, resets and MCP sign-in work
+  before an app has pages of its own, and the per-app MCP authorize no
+  longer answers `409 target_state_conflict` for a missing
+  `mcp_login_url`.
+- **Every app-user sign-in step answers `clientSignInResult`.** `POST
+  /api/client/login`, `…/verify-email`, `…/password/reset/confirm` and
+  `…/invitations/accept` answer a `twoFactorChallenge` instead of tokens
+  when the person has an authenticator or the app requires one. `POST
+  /api/client/oidc/exchange` still answers tokens: the identity provider
+  owns that sign-in.
+- **`clientRegisterRequest.password` and
+  `clientAcceptInvitationRequest.password` are optional**: required while
+  the app's password method is on, refused while it is off.
+- **`mcp_login_url` moved from the `mcp` slice to the `urls` slice**, which
+  also takes `app_url`; `putAppAuthMcpRequest` is `mcp_enabled` alone.
+- `clientProviderListResponse` gains `sign_in_methods`, `clientIdentity`
+  gains `two_factor_enabled`, `patchOrgRequest` takes `name` and
+  `require_two_factor`, both optional and at least one, and
+  `acceptTeamInviteRequest` takes an optional `display_name` and no
+  password. The default invitation mail no longer asks the invitee to
+  choose a password.
+
+### Removed
+
+- **The developer password; this is why the release is a major.** The
+  schemas `developerLoginRequest`, `passwordResetRequest`,
+  `passwordResetConfirm`, `signUpRequest` and `signUpResponse`, and the
+  routes `POST /api/auth/signup`, `POST /api/auth/password/change`, `POST
+  /api/auth/password/reset`, `POST /api/auth/password/reset/confirm`, `GET
+  /reset-password`, `GET /reset-password/:token`, `POST
+  /console/oauth/login` and `POST /mcp/oauth/login`. Fleetless users sign
+  in by emailed code or passkey; the portal sign-up is the one way to
+  create an organisation. `passwordChangeRequest` stays, for `POST
+  /api/client/password/change`. Together with the newly required fields
+  above (`appUser.two_factor`, `org.require_two_factor`,
+  `fleetlessUser.two_factor`, `clientIdentity.two_factor_enabled`,
+  `clientProviderListResponse.sign_in_methods`) and the narrowed `mcp`
+  slice, this is why the release is a major.
+
 ## [5.3.0] — 2026-10-02
 
 ### Added
