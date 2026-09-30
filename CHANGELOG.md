@@ -9,6 +9,19 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **A cancel can be limited to the bridge's own job.** `cancel`
+  (`cloudCancel`) gains an optional `own_only: boolean`; absent means
+  `false`, today's meaning. With `true` the bridge cancels the named job
+  only if it started it itself: a `job_id` it does not hold — typically an
+  `unknown` job — cancels nothing, where without the flag it cancels every
+  external goal on the action. The cloud sets it on the cancels it sends on
+  its own (a republish's reset and its resend at the next hello), so a
+  republish never stops a goal Fleetless did not start; a user's cancel
+  never sets it. `LATEST_BRIDGE_VERSION` is `6.1.0`, the first bridge that
+  honours it. The protocol stays 5.
+
 ## [5.1.0] — 2026-09-30
 
 ### Added

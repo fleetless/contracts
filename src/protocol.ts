@@ -91,7 +91,7 @@ export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '6.0.0'
+export const LATEST_BRIDGE_VERSION = '6.1.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'
@@ -538,12 +538,24 @@ export type CloudInvoke = z.infer<typeof cloudInvoke>
  * `request_id` correlates the bridge's `cancel_result`, which carries each
  * goal's `CancelGoal` return code; the cloud answers its caller only from
  * that.
+ *
+ * `own_only` (fleetless#84) limits a cancel to a job the bridge started
+ * itself and holds. `true`: the bridge cancels the named job only if it is
+ * its own; a `job_id` it does not hold, or holds as an external goal,
+ * cancels **nothing** and is answered `goals: []`. The cloud sets it on the
+ * cancels it sends on its own — a republish's reset and that reset's resend
+ * at the next hello — so a republish never stops a goal Fleetless did not
+ * start. A user's cancel never sets it: only an explicit cancel may reach
+ * external goals. Absent means `false`, today's meaning. `true` needs a
+ * `job_id`: the bridge refuses `own_only: true` with `job_id: null` as
+ * unusable. Bridges before 6.1.0 ignore the key.
  */
 export const cloudCancel = z.object({
   type: z.literal('cancel'),
   request_id: z.string().min(1).max(64),
   slug,
   job_id: z.uuid().nullable(),
+  own_only: z.boolean().optional(),
 })
 export type CloudCancel = z.infer<typeof cloudCancel>
 
