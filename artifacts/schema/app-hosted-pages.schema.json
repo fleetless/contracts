@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "invite_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The hosted invitation page, `<portal>/app/<identifier>/invite/{token}`."
+    },
+    "verify_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The hosted email-confirmation page, `<portal>/app/<identifier>/verify/{token}`."
+    },
+    "reset_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The hosted new-password page, `<portal>/app/<identifier>/reset/{token}`."
+    },
+    "mcp_login_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "The hosted MCP sign-in, `<portal>/app/<identifier>/mcp/{interaction}`."
+    }
+  },
+  "required": [
+    "invite_url",
+    "verify_url",
+    "reset_url",
+    "mcp_login_url"
+  ],
+  "additionalProperties": false
+}

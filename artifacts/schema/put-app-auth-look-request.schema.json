@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "hosted_accent": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The accent colour of the hosted pages, `#rrggbb` in lowercase, or `null` for the neutral shell's own."
+    }
+  },
+  "required": [
+    "hosted_accent"
+  ],
+  "additionalProperties": false
+}

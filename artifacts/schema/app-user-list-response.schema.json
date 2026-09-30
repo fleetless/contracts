@@ -80,6 +80,41 @@
             ],
             "description": "When this user last signed in, or `null` if they never have. Required and nullable rather than optional, so *never logged in* stays distinguishable from *this field was not loaded*."
           },
+          "two_factor": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether the account has a confirmed authenticator app (TOTP). When it has, every sign-in that yields a session asks for a code as well — whatever the app's policy — except a sign-in through an identity provider, which owns that sign-in."
+              },
+              "enabled_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When the authenticator was confirmed, or `null` while `enabled` is `false`."
+              },
+              "recovery_codes_left": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10,
+                "description": "How many of the ten single-use recovery codes are still unspent. `0` while `enabled` is `false`."
+              }
+            },
+            "required": [
+              "enabled",
+              "enabled_at",
+              "recovery_codes_left"
+            ],
+            "additionalProperties": false,
+            "description": "The account's second factor, as a developer's user list shows it. No secret and no code travels here; resetting it is `DELETE /api/apps/:id/users/:userId/two-factor`."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -97,6 +132,7 @@
           "has_password",
           "providers",
           "last_login_at",
+          "two_factor",
           "created_at"
         ],
         "additionalProperties": false

@@ -2,6 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "app_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500,
+          "format": "uri"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The app's own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`."
+    },
     "invite_url": {
       "anyOf": [
         {
@@ -12,7 +25,7 @@
           "type": "null"
         }
       ],
-      "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point."
+      "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
     },
     "verify_url": {
       "anyOf": [
@@ -24,7 +37,7 @@
           "type": "null"
         }
       ],
-      "description": "The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate."
+      "description": "The page that confirms a new address, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
     },
     "reset_url": {
       "anyOf": [
@@ -36,13 +49,27 @@
           "type": "null"
         }
       ],
-      "description": "The page that takes a new password, with `{token}` where the token goes."
+      "description": "The page that takes a new password, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
+    },
+    "mcp_login_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it. `null` means the hosted MCP sign-in in `hosted_pages` is used."
     }
   },
   "required": [
+    "app_url",
     "invite_url",
     "verify_url",
-    "reset_url"
+    "reset_url",
+    "mcp_login_url"
   ],
   "additionalProperties": false
 }

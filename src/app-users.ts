@@ -16,19 +16,22 @@ import { idpIssuer, mailStatus, password } from './identity.js'
  * So there are now **two identity spaces and nothing joins them**:
  *
  * - *Fleetless users* (`identity.ts`) — the org's team. Email globally unique,
- *   tier `owner | developer`, Fleetless password, console access.
+ *   tier `owner | developer`, sign-in by emailed code or passkey, console
+ *   access.
  * - *app users* (this file) — one app each. Email unique **per app**,
  *   case-insensitively. The same address may exist in several apps of one org
  *   as unrelated accounts, and a Fleetless user who wants to use an app
  *   registers or is invited like anybody else.
  *
- * **Fleetless shows an app user no page**. The developer's own UI owns
- * every screen and calls the JSON client-auth API (`client-auth.ts`). The one
- * Fleetless-rendered surface an app user can reach is the problem page for an
- * OIDC callback whose state no longer resolves to a redirect URI — every other
- * error is redirected to the app to render. That is why the four URLs on
- * `appAuthConfig` exist: Fleetless mails a link, and the link points into the
- * app.
+ * **The developer's own UI owns every screen it wants to own**, and calls the
+ * JSON client-auth API (`client-auth.ts`). Fleetless mails a link, and the
+ * link points into the app — at the four URLs on `appAuthConfig`. **A URL the
+ * app leaves unset falls back to a Fleetless-hosted page** on the auth portal
+ * (`hosted_pages`), carrying the app's name, its optional logo and accent
+ * colour, so an app works from its first minute: with no web UI of its own,
+ * and while its pages point nowhere yet. A set URL always wins. The hosted
+ * pages cover mailed links and MCP sign-in only; they are not a hosted login
+ * for the app's own web UI.
  */
 
 /** App-user display names share the Fleetless-user bound, so a rename cannot be legal in one space and refused in the other. */
@@ -109,6 +112,21 @@ export const appUser = z.object({
   last_login_at: z.iso.datetime().nullable().meta({
     description: 'When this user last signed in, or `null` if they never have. Required and nullable rather than optional, so *never logged in* stays distinguishable from *this field was not loaded*.',
   }),
+  two_factor: z
+    .object({
+      enabled: z.boolean().meta({
+        description: 'Whether the account has a confirmed authenticator app (TOTP). When it has, every sign-in that yields a session asks for a code as well — whatever the app\'s policy — except a sign-in through an identity provider, which owns that sign-in.',
+      }),
+      enabled_at: z.iso.datetime().nullable().meta({
+        description: 'When the authenticator was confirmed, or `null` while `enabled` is `false`.',
+      }),
+      recovery_codes_left: z.number().int().min(0).max(10).meta({
+        description: 'How many of the ten single-use recovery codes are still unspent. `0` while `enabled` is `false`.',
+      }),
+    })
+    .meta({
+      description: 'The account\'s second factor, as a developer\'s user list shows it. No secret and no code travels here; resetting it is `DELETE /api/apps/:id/users/:userId/two-factor`.',
+    }),
   created_at: z.iso.datetime().meta({
     description: 'When the account was created, as an ISO 8601 timestamp.',
   }),
@@ -197,7 +215,7 @@ export const createAppInvitationRequest = z
       description: 'An optional name to pre-fill the account with; the invitee can change it afterwards.',
     }),
     send_mail: z.boolean().meta({
-      description: 'Whether Fleetless mails the invitation. **Refused with `409 target_state_conflict` naming `invite_url` when the app has configured none** — there would be nowhere for the link to point, and a mail carrying a Fleetless-hosted page is a surface this product does not have.',
+      description: 'Whether Fleetless mails the invitation. The link points at the app\'s `invite_url`, or at the Fleetless-hosted invitation page when the app has configured none — so the mail always leads somewhere, and nothing is refused for a missing URL.',
     }),
   })
   .strict()
@@ -206,12 +224,11 @@ export type CreateAppInvitationRequest = z.infer<typeof createAppInvitationReque
 /**
  * The invitation as issued.
  *
- * **`accept_url` is nullable, and that is a policy rather than a convenience.**
- * The link points into the developer's app, at their configured `invite_url`.
- * An app that has configured none has nowhere for it to point, so there is no
- * link to hand back — `null` says that outright, where an absent key would be
- * indistinguishable from a mapper that dropped the field and a fabricated
- * Fleetless-hosted URL would name a page this product does not serve.
+ * The link points into the developer's app, at their configured `invite_url`,
+ * or at the Fleetless-hosted invitation page (`appAuthConfig.hosted_pages`)
+ * when the app has configured none. **`accept_url` stays nullable** so a
+ * reader written against the earlier shape keeps parsing; the cloud fills it
+ * in every case now that a hosted page always exists.
  */
 export const appInvitation = z.object({
   id: z.uuid().meta({ description: 'The invitation, as listed and revoked by the developer.' }),
@@ -220,10 +237,10 @@ export const appInvitation = z.object({
   role_id: z.uuid().meta({ description: 'The role the invitee holds once they accept. Resolved at creation, so a later change to the app\'s default role does not silently re-aim an outstanding invitation.' }),
   expires_at: z.iso.datetime().meta({ description: 'When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does.' }),
   accept_url: z.url().max(500).nullable().meta({
-    description: 'The link to give the invitee, built from the app\'s `invite_url` with the token substituted for `{token}`. **`null` when the app has configured no `invite_url`** — there is nowhere for the link to point, and Fleetless serves no page of its own for an app user. Bounded like every other URL that gets mailed, logged and rendered.',
+    description: 'The link to give the invitee: the app\'s `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered. Nullable for readers of the earlier shape; the cloud always fills it.',
   }),
   mail: mailStatus.meta({
-    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted — the caller asked for none, or the app has no `invite_url` for a link to point at; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
+    description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted because the caller asked for none; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
   }),
 })
 export type AppInvitation = z.infer<typeof appInvitation>
@@ -480,6 +497,89 @@ export const emailDomain = z
   )
 
 /**
+ * **How an app's users sign in: by password, by emailed code, or both.**
+ *
+ * At least one is on — an app with neither would have no door but its
+ * identity providers, and a provider can be disabled. Identity providers are
+ * not part of this choice; they stay on top of whichever methods are on. A
+ * method turned off refuses its routes with `method_not_allowed`; a stored
+ * password stays stored, so turning the method back on restores it.
+ */
+export const appSignInMethods = z
+  .object({
+    password: z.boolean().meta({
+      description: 'Whether app users may sign in with a password. Off refuses `POST /api/client/login` with `method_not_allowed`, and registration and invitations then take no password.',
+    }),
+    email_code: z.boolean().meta({
+      description: 'Whether app users may sign in with a six-digit code mailed to them, valid ten minutes. A code needs no URL, so it works in local development and in an app with no web UI.',
+    }),
+  })
+  .strict()
+  .refine((m) => m.password || m.email_code, { message: 'At least one sign-in method must be on.', path: ['password'] })
+export type AppSignInMethods = z.infer<typeof appSignInMethods>
+
+/**
+ * **Whether an app asks its users for a second factor**, an authenticator
+ * app (TOTP) with ten single-use recovery codes.
+ *
+ * - `off` — nobody is asked to set one up, and nobody can.
+ * - `optional` — people turn it on in the app's own account settings.
+ * - `required` — a person without one sets it up at their next sign-in,
+ *   before any session exists. Nobody is signed out when it is switched on.
+ *
+ * Whatever the policy, a person who **has** a confirmed authenticator is asked
+ * for a code at every sign-in that yields a session. A sign-in through an
+ * identity provider is never asked: the provider owns that sign-in.
+ */
+export const appTwoFactorPolicy = z.enum(['off', 'optional', 'required'])
+export type AppTwoFactorPolicy = z.infer<typeof appTwoFactorPolicy>
+
+/**
+ * **The app's own home page**: https, or http on `localhost`/`127.0.0.1` —
+ * the host rule `appUrlTemplate` keeps — and no placeholder, because nothing
+ * is substituted into it. The hosted pages link to it as `Open <app>` when a
+ * flow is done.
+ */
+export const appHomeUrl = z
+  .url()
+  .max(500)
+  .refine(
+    (v) => {
+      try {
+        const u = new URL(v)
+        const hostOk = u.protocol === 'https:' || (u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname))
+        return hostOk && !v.includes('{')
+      } catch {
+        return false
+      }
+    },
+    { message: 'An https URL (http only on localhost) without a placeholder.' },
+  )
+
+/** The accent colour of the hosted pages: `#rrggbb`, lowercase, the one spelling the renderer compares against. */
+export const hostedAccent = z.string().regex(/^#[0-9a-f]{6}$/, 'must be a lowercase hex colour, #rrggbb')
+
+/** The largest logo the hosted pages take, in bytes: 100 KB. */
+export const HOSTED_LOGO_MAX_BYTES = 102_400
+
+/** The logo types the hosted pages take. An SVG is served sandboxed and embedded only as an image. */
+export const HOSTED_LOGO_TYPES = ['image/png', 'image/svg+xml'] as const
+
+/**
+ * **The Fleetless-hosted pages an unset URL falls back to**, one per URL
+ * field, as templates with the same placeholder the field takes. Read-only:
+ * they are minted by the cloud from the auth portal's base URL and the app's
+ * identifier.
+ */
+export const appHostedPages = z.object({
+  invite_url: z.url().meta({ description: 'The hosted invitation page, `<portal>/app/<identifier>/invite/{token}`.' }),
+  verify_url: z.url().meta({ description: 'The hosted email-confirmation page, `<portal>/app/<identifier>/verify/{token}`.' }),
+  reset_url: z.url().meta({ description: 'The hosted new-password page, `<portal>/app/<identifier>/reset/{token}`.' }),
+  mcp_login_url: z.url().meta({ description: 'The hosted MCP sign-in, `<portal>/app/<identifier>/mcp/{interaction}`.' }),
+})
+export type AppHostedPages = z.infer<typeof appHostedPages>
+
+/**
  * **The app's auth settings: one row per app, configured by a Fleetless user.**
  *
  * `self_registration` and `allowed_domains` are **one policy for one
@@ -488,11 +588,11 @@ export const emailDomain = z
  * a developer inviting somebody by hand has already made the decision the
  * whitelist automates.
  *
- * The four URLs are what makes that work: Fleetless mails a link, and the link
- * points into the developer's app. An app that has configured none of them
- * still works for password login — it simply cannot send a mail that leads
- * anywhere, and `send_mail` is refused rather than silently sending a dead
- * link.
+ * The four URLs point Fleetless's mails and the MCP sign-in into the
+ * developer's app. **Each is optional**: an unset one falls back to the
+ * Fleetless-hosted page in `hosted_pages`, so nothing is refused for a
+ * missing URL — self-registration, mailed invitations, resets and MCP sign-in
+ * all work before the app has a page of its own.
  */
 export const appAuthConfig = z.object({
   self_registration: z.boolean().meta({
@@ -508,16 +608,34 @@ export const appAuthConfig = z.object({
     description: 'Whether this app serves an MCP endpoint at `/mcp/<identifier>`. Off refuses the whole OAuth surface for the app, not merely the tool calls, and is re-read on every request rather than cached off a token.',
   }),
   invite_url: appUrlTemplate('{token}').nullable().meta({
-    description: 'The page in the developer\'s app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point.',
+    description: 'The page in the developer\'s app that accepts an invitation, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used.',
   }),
   verify_url: appUrlTemplate('{token}').nullable().meta({
-    description: 'The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate.',
+    description: 'The page that confirms a new address, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used.',
   }),
   reset_url: appUrlTemplate('{token}').nullable().meta({
-    description: 'The page that takes a new password, with `{token}` where the token goes.',
+    description: 'The page that takes a new password, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used.',
   }),
   mcp_login_url: appUrlTemplate('{interaction}').nullable().meta({
-    description: 'The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it.',
+    description: 'The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it. `null` means the hosted MCP sign-in in `hosted_pages` is used.',
+  }),
+  app_url: appHomeUrl.nullable().meta({
+    description: 'The app\'s own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`.',
+  }),
+  sign_in_methods: appSignInMethods.meta({
+    description: 'Which sign-in methods the app offers: password, emailed code, or both — at least one. Identity providers stay on top of either. The default is password only.',
+  }),
+  two_factor: appTwoFactorPolicy.meta({
+    description: 'Whether the app asks for an authenticator code: `off` (the default), `optional` or `required`. A person with a confirmed authenticator is asked at every sign-in whatever the policy; a sign-in through an identity provider is never asked.',
+  }),
+  hosted_logo_url: z.url().nullable().meta({
+    description: 'Where the hosted pages load the app\'s logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`.',
+  }),
+  hosted_accent: hostedAccent.nullable().meta({
+    description: 'The accent colour of the hosted pages, `#rrggbb` in lowercase, or `null` for the neutral shell\'s own.',
+  }),
+  hosted_pages: appHostedPages.meta({
+    description: 'The Fleetless-hosted pages an unset URL falls back to, as templates. **Read-only**: minted by the cloud from the auth portal and the app\'s identifier.',
   }),
   oidc_callback_url: z.url().meta({
     description: 'The one callback URL to register at every identity provider, the same for every app and every provider. **Read-only** — it is minted by the cloud from its own public base URL, and a writable version of this field would let a caller point the return leg, which carries an authorization code, at a host they own.',
@@ -530,8 +648,8 @@ export type AppAuthConfig = z.infer<typeof appAuthConfig>
  * `PUT /api/apps/:id/auth-config/registration` — who may get in, and from
  * where.
  *
- * Three slices rather than one document, and each still a **replace** with
- * every field of its slice required: three screens carving up one
+ * Several slices rather than one document, and each still a **replace** with
+ * every field of its slice required: several screens carving up one
  * all-required request is how a field nobody's screen shows becomes a field
  * somebody's save clears. The slice states its own ownership, so a new field
  * lands in one schema and one screen.
@@ -544,29 +662,47 @@ export const putAppAuthRegistrationRequest = appAuthConfig
   .strict()
 export type PutAppAuthRegistrationRequest = z.infer<typeof putAppAuthRegistrationRequest>
 
-/** `PUT /api/apps/:id/auth-config/urls` — the three pages Fleetless's mails point at. */
+/** `PUT /api/apps/:id/auth-config/sign-in` — how the app's users sign in, and whether they give a second factor. */
+export const putAppAuthSignInRequest = appAuthConfig
+  .pick({ sign_in_methods: true, two_factor: true })
+  .strict()
+export type PutAppAuthSignInRequest = z.infer<typeof putAppAuthSignInRequest>
+
+/**
+ * `PUT /api/apps/:id/auth-config/urls` — the app's home page and the four
+ * pages Fleetless's mails and the MCP sign-in point at. One slice, because
+ * the console's Pages section owns all five; each `null` falls back to the
+ * hosted page.
+ */
 export const putAppAuthUrlsRequest = appAuthConfig
-  .pick({ invite_url: true, verify_url: true, reset_url: true })
+  .pick({ app_url: true, invite_url: true, verify_url: true, reset_url: true, mcp_login_url: true })
   .strict()
 export type PutAppAuthUrlsRequest = z.infer<typeof putAppAuthUrlsRequest>
 
 /**
- * `PUT /api/apps/:id/auth-config/mcp` — the switch and the login URL, which
- * belong together: on without a URL refuses every sign-in, in the MCP
- * client's browser mid-OAuth, where no console screen ever sees it.
+ * `PUT /api/apps/:id/auth-config/mcp` — the switch alone. Its login URL moved
+ * to the `urls` slice: on without a URL no longer refuses anything, because
+ * the hosted MCP sign-in stands in for it.
  */
 export const putAppAuthMcpRequest = appAuthConfig
-  .pick({ mcp_enabled: true, mcp_login_url: true })
+  .pick({ mcp_enabled: true })
   .strict()
 export type PutAppAuthMcpRequest = z.infer<typeof putAppAuthMcpRequest>
 
+/** `PUT /api/apps/:id/auth-config/look` — the hosted pages' accent colour. The logo is its own write, a raw image body. */
+export const putAppAuthLookRequest = appAuthConfig
+  .pick({ hosted_accent: true })
+  .strict()
+export type PutAppAuthLookRequest = z.infer<typeof putAppAuthLookRequest>
+
 /**
- * The three mails a developer may replace with their own template.
- * Mails to *Fleetless* users — a team invitation, a console password reset —
- * stay Fleetless default and are deliberately not customisable: they are
- * about this platform, not about the developer's product.
+ * The four mails a developer may replace with their own template: the
+ * invitation, the address confirmation, the password reset and the sign-in
+ * code. Mails to *Fleetless* users — a team invitation, a console sign-in
+ * code — stay Fleetless default and are deliberately not customisable: they
+ * are about this platform, not about the developer's product.
  */
-export const mailTemplateKind = z.enum(['invite', 'verify', 'reset'])
+export const mailTemplateKind = z.enum(['invite', 'verify', 'reset', 'login_code'])
 export type MailTemplateKind = z.infer<typeof mailTemplateKind>
 
 /**
@@ -586,10 +722,12 @@ export const MAIL_TEMPLATE_VARIABLES = [
   'role.name',
   'link',
   'expires_in_hours',
+  'code',
+  'expires_in_minutes',
 ] as const
 
 /**
- * **The Fleetless default text for the three app mails.**
+ * **The Fleetless default text for the four app mails.**
  *
  * It lives here rather than in the cloud because two products send the same
  * words: the cloud renders these when an app has no template of its own, and
@@ -623,12 +761,15 @@ export const MAIL_TEMPLATE_VARIABLES = [
  * that one is written by an authenticated developer about somebody they
  * invited.
  *
- * **`expires_in_hours` is the only lifetime variable a template gets**, and
+ * **`expires_in_hours` is the lifetime variable of the three link mails**, and
  * the three values are 1, 24 and 168. "The next 168 hours" is not how a person
  * says a week, so each default converts: 48 and up reads in days, exactly one
  * reads "1 hour", everything else reads in hours. The conversion is in the
  * template rather than in a new variable because a custom template has the
- * same problem and this is the spelling it can copy.
+ * same problem and this is the spelling it can copy. The sign-in code mail
+ * carries no link: it names the `code` and its lifetime in
+ * `expires_in_minutes` (10), and greets nobody, since whoever asked for it
+ * typed the address unauthenticated.
  *
  * **What contracts does NOT assert about these.** That they compile as Liquid
  * is the cloud's business — contracts has no renderer and adding one to check
@@ -643,7 +784,7 @@ export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKind, { subject: string,
 
 {{ org.name }} has invited you to {{ app.name }} as {{ role.name }}.
 
-Accept the invitation and choose a password:
+Accept the invitation:
 {{ link }}
 
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you were not expecting this invitation, ignore this mail — no account is created until you accept.
@@ -674,6 +815,13 @@ The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours |
 `,
     html: null,
   },
+  login_code: {
+    subject: 'Your {{ app.name }} sign-in code',
+    text: `Your sign-in code for {{ app.name }} is {{ code }}.
+
+It works once, for {{ expires_in_minutes }} minutes. If you did not ask for it, ignore this mail.`,
+    html: null,
+  },
 }
 
 /**
@@ -682,7 +830,7 @@ The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours |
  * should not have to write the same words twice.
  */
 export const appMailTemplate = z.object({
-  kind: mailTemplateKind.meta({ description: 'Which of the three mails this template replaces.' }),
+  kind: mailTemplateKind.meta({ description: 'Which of the four mails this template replaces.' }),
   subject: z.string().min(1).max(200).meta({ description: 'The subject line, a Liquid template. Bounded because a subject is rendered into a header.' }),
   text: z.string().min(1).max(20_000).meta({ description: 'The plain-text body, a Liquid template. Required even when an HTML part is given: a mail with no text part is unreadable to a client that refuses HTML.' }),
   html: z.string().min(1).max(100_000).nullable().meta({ description: 'The optional HTML body, a Liquid template. `null` means this template is text-only, which is a complete mail and not a half-configured one.' }),
@@ -692,7 +840,7 @@ export type AppMailTemplate = z.infer<typeof appMailTemplate>
 
 /** `GET /api/apps/:id/mail-templates` — **only the kinds that have a custom template.** An absent kind is one using the Fleetless default, which is a state and not a gap. */
 export const appMailTemplateListResponse = z.object({
-  templates: z.array(appMailTemplate).max(3).meta({
+  templates: z.array(appMailTemplate).max(4).meta({
     description: 'The app\'s custom templates. A kind that does not appear is one using the Fleetless default text — an ordinary state, not a missing row.',
   }),
 })

@@ -574,10 +574,15 @@ describe('the app-user auth surface', () => {
     'POST /api/apps/:id/invitations',
     'POST /api/apps/:id/invitations/:invId/reissue',
     'DELETE /api/apps/:id/invitations/:invId',
+    'DELETE /api/apps/:id/users/:userId/two-factor',
     'GET /api/apps/:id/auth-config',
     'PUT /api/apps/:id/auth-config/registration',
+    'PUT /api/apps/:id/auth-config/sign-in',
     'PUT /api/apps/:id/auth-config/urls',
     'PUT /api/apps/:id/auth-config/mcp',
+    'PUT /api/apps/:id/auth-config/look',
+    'PUT /api/apps/:id/auth-config/logo',
+    'DELETE /api/apps/:id/auth-config/logo',
     'GET /api/apps/:id/mail-templates',
     'GET /api/apps/:id/mail-templates/:kind',
     'PUT /api/apps/:id/mail-templates/:kind',
@@ -630,13 +635,24 @@ describe('the app-user auth surface', () => {
    * field, or go back to a partial merge — the thing `.strict()` exists to
    * refuse.
    */
-  it('offers three slice writes and no whole-document write', () => {
+  it('offers slice writes and no whole-document write', () => {
     const paths = ROUTES.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/apps/:id/auth-config')).map((r) => r.path)
     expect(paths).toEqual([
       '/api/apps/:id/auth-config/registration',
+      '/api/apps/:id/auth-config/sign-in',
       '/api/apps/:id/auth-config/urls',
       '/api/apps/:id/auth-config/mcp',
+      '/api/apps/:id/auth-config/look',
+      '/api/apps/:id/auth-config/logo',
     ])
+  })
+
+  it('takes the logo as a raw image body, with no request schema, and removes it with a DELETE', () => {
+    const put = ROUTES.find((r) => key(r) === 'PUT /api/apps/:id/auth-config/logo')!
+    expect(put.request).toBeNull()
+    expect(put.errors).toContain('unsupported_media_type')
+    expect(put.notes ?? '').toContain('HOSTED_LOGO_MAX_BYTES')
+    expect(ROUTES.find((r) => key(r) === 'DELETE /api/apps/:id/auth-config/logo')?.response).toBe(appAuthConfig)
   })
 
   it('still reads the whole document in one GET', () => {
@@ -644,7 +660,7 @@ describe('the app-user auth surface', () => {
   })
 
   it('answers every slice write with the whole document', () => {
-    for (const r of ROUTES.filter((r) => r.method === 'PUT' && r.path.startsWith('/api/apps/:id/auth-config'))) {
+    for (const r of ROUTES.filter((r) => r.method !== 'GET' && r.path.startsWith('/api/apps/:id/auth-config'))) {
       expect(r.response).toBe(appAuthConfig)
     }
   })
@@ -1318,11 +1334,14 @@ describe('the per-app MCP surface', () => {
    * the field it names — a developer who enabled MCP and left `mcp_login_url`
    * empty has to be able to find that from the reference.
    */
-  it('sends the authorize route to the app own login page, with the two app-level refusals', () => {
+  it('sends the authorize route to the app own login page or the hosted one, with one app-level refusal', () => {
     const r = ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!
     expect(r.status, 'the authorize route answers a redirect on the happy path').toBe(302)
     expect(r.response, 'a 302 carries no body').toBeNull()
-    expect([...r.errors].sort()).toEqual(['not_found', 'target_state_conflict'])
+    // #98: an unset `mcp_login_url` falls back to the hosted sign-in, so the
+    // `409 target_state_conflict` for a missing URL is gone.
+    expect([...r.errors].sort()).toEqual(['not_found'])
+    expect(r.notes ?? '', 'the row does not name the hosted fallback').toContain('/app/:appIdentifier/mcp/:interaction')
     const notes = r.notes ?? ''
     expect(notes, 'the row does not name the app URL it redirects to').toContain('mcp_login_url')
     expect(notes, 'the row does not say Fleetless renders no page here').toContain('renders no page')
@@ -1346,8 +1365,8 @@ describe('the per-app MCP surface', () => {
     expect(notes, 'the row does not name the refusal envelope').toContain('oauthError')
     expect(notes, 'the row does not say the app-level refusals use it too').toContain('invalid_client')
     expect(notes, 'the row does not say what binds a token to one app').toContain('aud')
-    // Non-vacuity for the empty list: rows in this very set list several.
-    expect(ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!.errors.length).toBeGreaterThan(1)
+    // Non-vacuity for the empty list: rows in this very set list codes.
+    expect(ROUTES.find((x) => key(x) === `GET ${APP_PATHS.authorize}`)!.errors.length).toBeGreaterThan(0)
   })
 
   /**

@@ -40,7 +40,7 @@
           "type": "null"
         }
       ],
-      "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` when unconfigured, and then an invitation still issues but `send_mail` is refused with `409 target_state_conflict` — there would be nowhere for the link to point."
+      "description": "The page in the developer's app that accepts an invitation, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
     },
     "verify_url": {
       "anyOf": [
@@ -52,7 +52,7 @@
           "type": "null"
         }
       ],
-      "description": "The page that confirms a new address, with `{token}` where the token goes. Self-registration needs it: without a page to send people to, a registration would leave an account nobody can activate."
+      "description": "The page that confirms a new address, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
     },
     "reset_url": {
       "anyOf": [
@@ -64,7 +64,7 @@
           "type": "null"
         }
       ],
-      "description": "The page that takes a new password, with `{token}` where the token goes."
+      "description": "The page that takes a new password, with `{token}` where the token goes. `null` means the hosted page in `hosted_pages` is used."
     },
     "mcp_login_url": {
       "anyOf": [
@@ -76,7 +76,105 @@
           "type": "null"
         }
       ],
-      "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it."
+      "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it. `null` means the hosted MCP sign-in in `hosted_pages` is used."
+    },
+    "app_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500,
+          "format": "uri"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The app's own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`."
+    },
+    "sign_in_methods": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "boolean",
+          "description": "Whether app users may sign in with a password. Off refuses `POST /api/client/login` with `method_not_allowed`, and registration and invitations then take no password."
+        },
+        "email_code": {
+          "type": "boolean",
+          "description": "Whether app users may sign in with a six-digit code mailed to them, valid ten minutes. A code needs no URL, so it works in local development and in an app with no web UI."
+        }
+      },
+      "required": [
+        "password",
+        "email_code"
+      ],
+      "additionalProperties": false,
+      "description": "Which sign-in methods the app offers: password, emailed code, or both — at least one. Identity providers stay on top of either. The default is password only."
+    },
+    "two_factor": {
+      "type": "string",
+      "enum": [
+        "off",
+        "optional",
+        "required"
+      ],
+      "description": "Whether the app asks for an authenticator code: `off` (the default), `optional` or `required`. A person with a confirmed authenticator is asked at every sign-in whatever the policy; a sign-in through an identity provider is never asked."
+    },
+    "hosted_logo_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Where the hosted pages load the app's logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`."
+    },
+    "hosted_accent": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The accent colour of the hosted pages, `#rrggbb` in lowercase, or `null` for the neutral shell's own."
+    },
+    "hosted_pages": {
+      "type": "object",
+      "properties": {
+        "invite_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The hosted invitation page, `<portal>/app/<identifier>/invite/{token}`."
+        },
+        "verify_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The hosted email-confirmation page, `<portal>/app/<identifier>/verify/{token}`."
+        },
+        "reset_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The hosted new-password page, `<portal>/app/<identifier>/reset/{token}`."
+        },
+        "mcp_login_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The hosted MCP sign-in, `<portal>/app/<identifier>/mcp/{interaction}`."
+        }
+      },
+      "required": [
+        "invite_url",
+        "verify_url",
+        "reset_url",
+        "mcp_login_url"
+      ],
+      "additionalProperties": false,
+      "description": "The Fleetless-hosted pages an unset URL falls back to, as templates. **Read-only**: minted by the cloud from the auth portal and the app's identifier."
     },
     "oidc_callback_url": {
       "type": "string",
@@ -99,6 +197,12 @@
     "verify_url",
     "reset_url",
     "mcp_login_url",
+    "app_url",
+    "sign_in_methods",
+    "two_factor",
+    "hosted_logo_url",
+    "hosted_accent",
+    "hosted_pages",
     "oidc_callback_url",
     "updated_at"
   ],

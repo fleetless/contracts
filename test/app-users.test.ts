@@ -22,7 +22,13 @@ import {
   DEFAULT_MAIL_TEMPLATES,
   allowedOrigin,
   appAuthConfig,
+  appHomeUrl,
   appInvitation,
+  appSignInMethods,
+  appTwoFactorPolicy,
+  HOSTED_LOGO_MAX_BYTES,
+  HOSTED_LOGO_TYPES,
+  hostedAccent,
   appOidcProvider,
   appUrlTemplate,
   appUser,
@@ -34,8 +40,10 @@ import {
   patchAppUserRequest,
   pendingAppInvitation,
   providerSlug,
+  putAppAuthLookRequest,
   putAppAuthMcpRequest,
   putAppAuthRegistrationRequest,
+  putAppAuthSignInRequest,
   putAppAuthUrlsRequest,
   putAppMailTemplateRequest,
 } from '../src/app-users.js'
@@ -206,8 +214,8 @@ describe('the enums, by arity AND content', () => {
     expect(appUserStatus.options).toEqual(['pending_verification', 'active', 'blocked'])
   })
 
-  it('mailTemplateKind is exactly the three customisable mails', () => {
-    expect(mailTemplateKind.options).toEqual(['invite', 'verify', 'reset'])
+  it('mailTemplateKind is exactly the four customisable mails', () => {
+    expect(mailTemplateKind.options).toEqual(['invite', 'verify', 'reset', 'login_code'])
   })
 
   it('clientOidcErrorCode is exactly the twelve callback outcomes', () => {
@@ -240,6 +248,8 @@ describe('the enums, by arity AND content', () => {
       'role.name',
       'link',
       'expires_in_hours',
+      'code',
+      'expires_in_minutes',
     ])
   })
 
@@ -275,9 +285,9 @@ describe('the enums, by arity AND content', () => {
       expect(putAppMailTemplateRequest.safeParse(template).success, `${kind} within the request bounds`).toBe(true)
     }
 
-    // Three distinct subjects — arity alone would pass three copies of one
+    // Four distinct subjects — arity alone would pass four copies of one
     // line.
-    expect(new Set(mailTemplateKind.options.map(kind => DEFAULT_MAIL_TEMPLATES[kind].subject)).size).toBe(3)
+    expect(new Set(mailTemplateKind.options.map(kind => DEFAULT_MAIL_TEMPLATES[kind].subject)).size).toBe(4)
   })
 })
 
@@ -294,6 +304,7 @@ describe('appUser and the requests that write one', () => {
     has_password: true,
     providers: ['azure-ad'],
     last_login_at: '2026-09-05T10:00:00.000Z',
+    two_factor: { enabled: false, enabled_at: null, recovery_codes_left: 0 },
     created_at: '2026-09-05T09:00:00.000Z',
   }
 
@@ -489,6 +500,17 @@ describe('appAuthConfig — what the developer may set, and the one field they m
     verify_url: 'https://app.example.com/verify/{token}',
     reset_url: 'https://app.example.com/reset/{token}',
     mcp_login_url: null,
+    app_url: null,
+    sign_in_methods: { password: true, email_code: false },
+    two_factor: 'off',
+    hosted_logo_url: null,
+    hosted_accent: null,
+    hosted_pages: {
+      invite_url: 'https://auth.fleetless.dev/app/shop/invite/{token}',
+      verify_url: 'https://auth.fleetless.dev/app/shop/verify/{token}',
+      reset_url: 'https://auth.fleetless.dev/app/shop/reset/{token}',
+      mcp_login_url: 'https://auth.fleetless.dev/app/shop/mcp/{interaction}',
+    },
     oidc_callback_url: 'https://api.fleetless.dev/api/client/oidc/callback',
     updated_at: '2026-09-05T09:00:00.000Z',
   }
@@ -538,33 +560,88 @@ describe('app auth config slices', () => {
     }).success).toBe(false)
 
     expect(putAppAuthUrlsRequest.safeParse({
+      app_url: 'https://app.example.com',
       invite_url: 'https://app.example.com/invite/{token}', verify_url: null, reset_url: null,
+      mcp_login_url: 'https://app.example.com/mcp-login/{interaction}',
     }).success).toBe(true)
 
-    expect(putAppAuthMcpRequest.safeParse({
-      mcp_enabled: true, mcp_login_url: 'https://app.example.com/mcp-login/{interaction}',
+    expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: true }).success).toBe(true)
+
+    expect(putAppAuthSignInRequest.safeParse({
+      sign_in_methods: { password: false, email_code: true }, two_factor: 'required',
     }).success).toBe(true)
+
+    expect(putAppAuthLookRequest.safeParse({ hosted_accent: '#00dc82' }).success).toBe(true)
   })
 
   it('keeps every field of its slice required — a forgotten field is a refusal, not a clear', () => {
     expect(putAppAuthRegistrationRequest.safeParse({ self_registration: true }).success).toBe(false)
     expect(putAppAuthUrlsRequest.safeParse({ invite_url: null, verify_url: null }).success).toBe(false)
-    expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: false }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({ invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null }).success).toBe(false)
+    expect(putAppAuthMcpRequest.safeParse({}).success).toBe(false)
+    expect(putAppAuthSignInRequest.safeParse({ two_factor: 'off' }).success).toBe(false)
+    expect(putAppAuthLookRequest.safeParse({}).success).toBe(false)
   })
 
   it('refuses the server\'s own fields in any slice', () => {
     expect(putAppAuthMcpRequest.safeParse({
-      mcp_enabled: false, mcp_login_url: null, oidc_callback_url: 'https://evil.example/cb',
+      mcp_enabled: false, oidc_callback_url: 'https://evil.example/cb',
+    }).success).toBe(false)
+    expect(putAppAuthLookRequest.safeParse({
+      hosted_accent: null, hosted_logo_url: 'https://evil.example/logo.svg',
+    }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({
+      app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null,
+      hosted_pages: { invite_url: 'https://evil.example/{token}' },
     }).success).toBe(false)
   })
 
   it('carries the URL placeholder rules into the slice that owns the field', () => {
-    expect(putAppAuthUrlsRequest.safeParse({
-      invite_url: 'https://app.example.com/invite', verify_url: null, reset_url: null,
-    }).success).toBe(false)
-    expect(putAppAuthMcpRequest.safeParse({
-      mcp_enabled: true, mcp_login_url: 'https://app.example.com/login/{token}',
-    }).success).toBe(false)
+    const urls = { app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null }
+    expect(putAppAuthUrlsRequest.safeParse({ ...urls, invite_url: 'https://app.example.com/invite' }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({ ...urls, mcp_login_url: 'https://app.example.com/login/{token}' }).success).toBe(false)
+  })
+})
+
+/* ------------------------------------------- #98: sign-in and the look -- */
+
+describe('app auth config for #98', () => {
+  it('refuses no sign-in method at all', () => {
+    expect(appSignInMethods.safeParse({ password: false, email_code: false }).success).toBe(false)
+    expect(appSignInMethods.safeParse({ password: true, email_code: true }).success).toBe(true)
+  })
+  it('takes a lowercase hex accent only', () => {
+    expect(hostedAccent.safeParse('#00dc82').success).toBe(true)
+    expect(hostedAccent.safeParse('#00DC82').success).toBe(false)
+    expect(hostedAccent.safeParse('red').success).toBe(false)
+  })
+  it('app_url takes no placeholder and no plain http off localhost', () => {
+    expect(appHomeUrl.safeParse('https://app.example.com').success).toBe(true)
+    expect(appHomeUrl.safeParse('http://localhost:3000').success).toBe(true)
+    expect(appHomeUrl.safeParse('http://app.example.com').success).toBe(false)
+    expect(appHomeUrl.safeParse('https://app.example.com/{token}').success).toBe(false)
+  })
+  it('the mcp slice holds the switch only', () => {
+    expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: true, mcp_login_url: null }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({ app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null }).success).toBe(true)
+  })
+  it('two-factor is off, optional or required', () => {
+    expect(appTwoFactorPolicy.options).toEqual(['off', 'optional', 'required'])
+  })
+  it('login_code is a mail kind with a default template naming the code', () => {
+    expect(mailTemplateKind.options).toContain('login_code')
+    expect(DEFAULT_MAIL_TEMPLATES.login_code.text).toContain('{{ code }}')
+    expect(DEFAULT_MAIL_TEMPLATES.login_code.text).toContain('{{ expires_in_minutes }}')
+  })
+  it('the invitation mail no longer promises a password', () => {
+    expect(DEFAULT_MAIL_TEMPLATES.invite.text).not.toContain('password')
+  })
+  it('an app user carries its two-factor state', () => {
+    expect(appUser.shape.two_factor).toBeDefined()
+  })
+  it('the hosted logo limits are 100 KB of PNG or SVG', () => {
+    expect(HOSTED_LOGO_MAX_BYTES).toBe(102_400)
+    expect([...HOSTED_LOGO_TYPES]).toEqual(['image/png', 'image/svg+xml'])
   })
 })
 

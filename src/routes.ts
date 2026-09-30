@@ -85,8 +85,10 @@ import {
   mailTemplatePreviewResponse,
   patchAppOidcProviderRequest,
   patchAppUserRequest,
+  putAppAuthLookRequest,
   putAppAuthMcpRequest,
   putAppAuthRegistrationRequest,
+  putAppAuthSignInRequest,
   putAppAuthUrlsRequest,
   putAppMailTemplateRequest,
 } from './app-users.js'
@@ -811,12 +813,25 @@ export const ROUTES: readonly RouteEntry[] = [
       'The support door beside `POST /api/client/password/reset`: the same one-hour token and the same link, triggered by a developer for a ' +
       'user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read ' +
       'the user list — so this one answers what actually happened: `{ "mail": mailStatus }`, where `not_configured` is a deployment without a ' +
-      'mailer and `failed` is the state worth somebody\'s attention. `409 target_state_conflict` names `reset_url` when the app has configured ' +
-      'none: the token would be minted and the link would point nowhere, so nothing is minted. The same `409` names `password` with rule ' +
+      'mailer and `failed` is the state worth somebody\'s attention. The link points at the app\'s `reset_url`, or at the hosted reset page ' +
+      'when the app has configured none. `409 target_state_conflict` names `password` with rule ' +
       '`not_set` for an account that has none — an OIDC-only app user, whom a reset link would hand a second, quieter door — and `status` ' +
       'with rule `blocked` for a blocked one, since `POST /api/client/password/reset` mails a blocked account nothing and the two doors may ' +
       'not disagree. Setting the password directly is deliberately not offered; a developer who could would hold their customers\' ' +
       'credentials.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/users/:userId/two-factor', section: 'apps',
+    summary: "Removes an app user's authenticator and recovery codes and ends every session they hold.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'The support door for a person who lost their authenticator and their recovery codes. The authenticator and every recovery code go, ' +
+      'and so does every session of the account — whoever held one may be the reason for the reset. **A user with no second factor answers ' +
+      '`204` too**: that is the end state being asked for. When the app requires two-factor, the person sets it up again at their next ' +
+      'sign-in, before any session exists. Audited as `app_user.two_factor_reset`.',
   },
   /* ---------------------------- the MCP clients one app user has connected */
   {
@@ -889,11 +904,9 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       '**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the ' +
       'developer\'s own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. ' +
-      'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`, which is `null` when the app has configured no ' +
-      '`invite_url` — there is nowhere for the link to point, and Fleetless serves an app user no page of its own. That is a `201` with a ' +
-      'null link, not a refusal: the invitation exists and a developer may hand the token over by another route. Asking to **mail** it in that ' +
-      'state is `409 target_state_conflict` naming `invite_url`, because a mail carrying a dead link is worse than no mail. The same `409` ' +
-      'names `default_role_id` when `role_id` is absent and the app has no default role, or its default no longer resolves: an invitation ' +
+      'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`: the app\'s `invite_url` with the token in it, ' +
+      'or the Fleetless-hosted invitation page when the app has configured none — so mailing it is never refused for a missing URL. ' +
+      '`409 target_state_conflict` names `default_role_id` when `role_id` is absent and the app has no default role, or its default no longer resolves: an invitation ' +
       'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. `409 ' +
       'email_taken` is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles. ' +
       '\n\nCreating shares the reissue route\'s ceiling of **five invitation mails a minute per app**, answering `429 rate_limited` with ' +
@@ -1013,7 +1026,7 @@ export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------- the app's auth configuration and mails */
   {
     method: 'GET', path: '/api/apps/:id/auth-config', section: 'apps',
-    summary: "Reads the app's auth settings: self-registration, domains, origins, URLs and the MCP switch.",
+    summary: "Reads the app's auth settings: sign-in methods, two-factor, registration, pages, the hosted look and the MCP switch.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: appAuthConfig,
@@ -1024,7 +1037,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'for every app and every provider, and is the value a developer registers at their identity provider. It stays read-only on every slice ' +
       'write below for a second reason: a writable callback URL would let a caller point the return leg of an OIDC sign-in, which carries an ' +
       'authorization code, at a host they own. `updated_at` is read-only for a duller one: the server stamps it on every write, and a ' +
-      'client-supplied value would be a lie about when the row last changed.',
+      'client-supplied value would be a lie about when the row last changed. `hosted_pages` and `hosted_logo_url` are read-only as well: ' +
+      'the cloud mints both from the auth portal\'s base URL and the app\'s identifier.',
   },
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/registration', section: 'apps',
@@ -1040,39 +1054,89 @@ export const ROUTES: readonly RouteEntry[] = [
       '\n\n`400 validation_error` is where the two field rules land: an entry in `allowed_domains` must be lowercase, since a capitalised one ' +
       'can never match a lowercased address, and an entry in `allowed_origins` must be a bare scheme-host-port with no path, since a browser ' +
       'sends nothing longer in its `Origin` header. Each refuses at configuration time rather than failing silently later. ' +
-      '\n\nThe merge is server-side against the stored row, so this write never disturbs the urls or mcp slice.',
+      '\n\nThe merge is server-side against the stored row, so this write never disturbs another slice.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config/sign-in', section: 'apps',
+    summary: 'Replaces how the app\'s users sign in and whether they give a second factor.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: putAppAuthSignInRequest, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**A replace, not a merge, and `.strict()`**: `sign_in_methods` and `two_factor` both arrive or the write is refused. Both methods off ' +
+      'is `400 validation_error` naming `sign_in_methods.password` — an app needs at least one door besides its identity providers. ' +
+      '\n\nTurning a method off refuses its routes with `method_not_allowed` from the next request on; a stored password stays stored. ' +
+      'Setting `two_factor` to `required` signs nobody out: each person without an authenticator sets one up at their next sign-in, before ' +
+      'any session exists. Audited with both old and new values. The merge is server-side against the stored row, so this write never ' +
+      'disturbs another slice.',
   },
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/urls', section: 'apps',
-    summary: "Replaces the three pages Fleetless's mails point at.",
+    summary: "Replaces the app's home page and the four pages Fleetless's mails and MCP sign-in point at.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: putAppAuthUrlsRequest, response: appAuthConfig,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      '**A replace, not a merge, and `.strict()`**: `invite_url`, `verify_url` and `reset_url` all arrive or the write is refused, so a ' +
-      'client built against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are ' +
-      'the server\'s, refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
-      '\n\n`400 validation_error` is where the field rule lands: a URL template must be https (or `http` on `localhost`) and carry its ' +
+      '**A replace, not a merge, and `.strict()`**: `app_url`, `invite_url`, `verify_url`, `reset_url` and `mcp_login_url` all arrive or ' +
+      'the write is refused, so a client built against an older shape cannot silently clear a setting it does not know about. ' +
+      '`oidc_callback_url` and `updated_at` are the server\'s, refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
+      '\n\nEach may be `null`, and then the Fleetless-hosted page in `hosted_pages` stands in for it: nothing is refused for a missing URL. ' +
+      '`400 validation_error` is where the field rules land: a URL template must be https (or `http` on `localhost`) and carry its ' +
       'placeholder exactly once — a second occurrence leaves one literal in a mailed link, refused here rather than failing silently once ' +
-      'the mail is sent. ' +
-      '\n\nThe merge is server-side against the stored row, so this write never disturbs the registration or mcp slice.',
+      'the mail is sent — and `app_url` takes the same host rule with no placeholder. `mcp_login_url` moved here from the `mcp` slice, ' +
+      'because one screen owns all four pages. ' +
+      '\n\nThe merge is server-side against the stored row, so this write never disturbs another slice.',
   },
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/mcp', section: 'apps',
-    summary: 'Replaces the MCP switch and its login URL together.',
+    summary: 'Turns the app\'s MCP endpoint on or off.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: putAppAuthMcpRequest, response: appAuthConfig,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      '**A replace, not a merge, and `.strict()`**: `mcp_enabled` and `mcp_login_url` both arrive or the write is refused, so a client built ' +
-      'against an older shape cannot silently clear a setting it does not know about. `oidc_callback_url` and `updated_at` are the server\'s, ' +
-      'refused in this body as in every slice\'s — see `GET`\'s notes for why. ' +
-      '\n\n`mcp_login_url` answers to the same rule as the `urls` slice\'s three templates — https (or `http` on `localhost`), its placeholder ' +
-      'exactly once — refused as `400 validation_error` rather than left to fail mid-OAuth, in a client\'s browser where no console screen ' +
-      'is watching. ' +
-      '\n\nThe merge is server-side against the stored row, so this write never disturbs the registration or urls slice.',
+      '**A replace, not a merge, and `.strict()`**: `mcp_enabled` arrives or the write is refused. It used to take `mcp_login_url` as ' +
+      'well, because on without a URL refused every sign-in; the hosted MCP sign-in now stands in for an unset URL, and the URL moved to ' +
+      'the `urls` slice. A body still carrying it is `400 validation_error`. `oidc_callback_url` and `updated_at` are the server\'s, ' +
+      'refused in this body as in every slice\'s. The merge is server-side against the stored row, so this write never disturbs another slice.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config/look', section: 'apps',
+    summary: "Replaces the hosted pages' accent colour.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: putAppAuthLookRequest, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '**A replace, and `.strict()`**: `hosted_accent` arrives, `#rrggbb` in lowercase, or `null` for the neutral shell\'s own accent. ' +
+      'The logo is its own write, `PUT /api/apps/:id/auth-config/logo`, because it is an image rather than a field. The merge is ' +
+      'server-side against the stored row, so this write never disturbs another slice.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/auth-config/logo', section: 'apps',
+    summary: "Stores the logo the hosted pages show above the app's name.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type'], transport: 'http',
+    notes:
+      'The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, ' +
+      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one ' +
+      'that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from ' +
+      '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/auth-config/logo', section: 'apps',
+    summary: 'Removes the logo from the hosted pages.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appAuthConfig,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'Answers the whole configuration, with `hosted_logo_url` now `null`; the hosted pages show the app\'s name alone. An app with no ' +
+      'logo answers the same: that is the end state being asked for.',
   },
   {
     method: 'GET', path: '/api/apps/:id/mail-templates', section: 'apps',
@@ -1082,9 +1146,9 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: appMailTemplateListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Answers `{ "templates": [appMailTemplate, …] }` with **only the kinds that have a custom template** — at most three. A kind that does ' +
+      'Answers `{ "templates": [appMailTemplate, …] }` with **only the kinds that have a custom template** — at most four. A kind that does ' +
       'not appear is one using the Fleetless default text, which is an ordinary state and not a missing row. Mails to *Fleetless* users, a ' +
-      'team invitation or a console password reset, are not in this list and are deliberately not customisable: they are about this platform, ' +
+      'team invitation or a console sign-in code, are not in this list and are deliberately not customisable: they are about this platform, ' +
       'not about the developer\'s product.',
   },
   {
@@ -1663,8 +1727,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'itself and never asks a person for a `client_id`. \n\n**`issuer`, `token_endpoint` and the resource identifier are minted from the ' +
       'canonical public base, never from the friendly `mcp.fleetless.dev` alias or the request\'s `Host`**, because a client checks a minted ' +
       'token\'s `iss` and `aud` against these exact strings. \n\n**Unlike the central document, `authorization_endpoint` does not move to an ' +
-      'auth-portal origin**, and there is nothing here for one to serve: this authorization step renders no Fleetless page at all. It ' +
-      'redirects to the app\'s own `mcp_login_url`, which is on the developer\'s origin already.',
+      'auth-portal origin**: the authorization step renders no page itself. It redirects to the app\'s own `mcp_login_url`, or to the ' +
+      'hosted MCP sign-in on the auth portal when the app has configured none.',
   },
   {
     method: 'POST', path: MCP_APP.register, section: 'mcp',
@@ -1688,30 +1752,28 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'GET', path: MCP_APP.authorize, section: 'mcp',
-    summary: "Starts an MCP sign-in and redirects the browser to the app's own login page.",
+    summary: "Starts an MCP sign-in and redirects the browser to the app's own login page, or to the hosted one.",
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 302,
     params: [APP_IDENTIFIER], query: oauthAuthorizeQuery, request: null, response: null,
-    errors: ['not_found', 'target_state_conflict'], transport: 'http',
+    errors: ['not_found'], transport: 'http',
     notes:
       'The same query as `GET /mcp/oauth/authorize`, read the same way — parameter by parameter, because the answers differ and one parse ' +
-      'would collapse them. \n\n**Fleetless renders no page here**, and that is the whole of it. The route writes an interaction — ten minutes, as the OIDC ones live ' +
+      'would collapse them. \n\n**This route renders no page.** It writes an interaction — ten minutes, as the OIDC ones live ' +
       '— and redirects to `appAuthConfig.mcp_login_url` with `{interaction}` filled in. The app then authenticates the person with its own ' +
       'UI, reads `GET /api/client/mcp/interactions/:id` to show the client\'s claimed name and the scopes it asked for, and calls approve or ' +
-      'deny. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET ' +
+      'deny. **An app with no `mcp_login_url` is redirected to the hosted MCP sign-in** (`GET /app/:appIdentifier/mcp/:interaction`), ' +
+      'which runs the same steps on the auth portal; nothing is refused for a missing URL. \n\nClient and `redirect_uri` are validated first and a failure there never redirects — the open-redirect discipline `GET ' +
       '/mcp/oauth/authorize` and `GET /api/client/oidc/:slug/start` both keep — and those refusals are RFC 6749\'s flat `oauthError`, which ' +
       'is why none of them appear above. `redirect_uri` is matched **exactly** against the registration, with no loopback-port wildcard: ' +
       'every client here registered itself minutes ago and can name the port it bound, so a wildcard would only widen where a stolen ' +
-      '`client_id` may send a browser. \n\nThe two codes above are the `apiError` envelope because they are refusals about the **app**, ' +
+      '`client_id` may send a browser. \n\nThe code above is the `apiError` envelope because it is a refusal about the **app**, ' +
       'decided before an OAuth parameter is looked at. **`404 not_found` covers an identifier no app carries AND an app with MCP switched ' +
       'off** — the same single answer the two metadata documents, `register` and the transport give. An earlier draft answered `403 ' +
       'mcp_disabled` here, on the argument that a client which registered while the switch was on is owed the difference between "turned ' +
       'off" and "mistyped"; that argument does not survive the caller being anonymous. This route takes no credential, so the extra code ' +
       'was readable by anyone who could type an identifier, and it handed back precisely the existence distinction every neighbouring ' +
       'route collapses. `mcp_disabled` survives only where the caller has already proved they belong to the app — the two decision routes ' +
-      'under `/api/client/mcp/interactions/:id`. `409 ' +
-      'target_state_conflict` names `mcp_login_url` with rule `not_set`: MCP is enabled and no page is configured to send the person to. It ' +
-      'is the same code and the same shape `send_mail` answers for an unconfigured `invite_url`, and the refusal is the honest one — ' +
-      'Fleetless has nowhere to redirect, and rendering a page of its own would contradict the rule that Fleetless shows an app user no page.',
+      'under `/api/client/mcp/interactions/:id`.',
   },
   {
     method: 'POST', path: MCP_APP.token, section: 'mcp',
@@ -1765,8 +1827,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'which is what a form needs to mark it. `404 not_found` names an ' +
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
-      'configuration bug that was not there. `409 target_state_conflict` when the app has configured no `verify_url` or has no default role — ' +
-      'there would be nowhere to send the person and no role to give them, and mailing a link that leads nowhere is worse than refusing. ' +
+      'configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give ' +
+      'the person. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
       '\n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal ' +
       'here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a ' +
       'quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which ' +
@@ -1815,8 +1877,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'Fleetless address is globally unique and resolves alone, an app user\'s is unique only within their app, so the pair is the identifier. ' +
       'Status, body and timing are identical for a known and an unknown address. An account with no Fleetless password — one created through an ' +
       'identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link ' +
-      'points at the app\'s `reset_url`; an app that has configured none can send no mail, which the `202` does not distinguish, because saying ' +
-      'so would answer for the address as well.',
+      'points at the app\'s `reset_url`, or at the hosted reset page when the app has configured none.',
   },
   {
     method: 'POST', path: '/api/client/password/reset/confirm', section: 'client-auth',
@@ -1970,10 +2031,10 @@ export const ROUTES: readonly RouteEntry[] = [
       '\n\n**It lists `rate_limited` and no other code, because every sign-in outcome it has is a redirect.** Success and failure alike are ' +
       'a `302` to the app\'s own ' +
       '`redirect_uri`: `?code=…&state=…` when a session was resolved, `?error=<clientOidcErrorCode>&state=…` when it was not, so the app ' +
-      'renders its own message and can bind either answer to the request it started. Fleetless shows an app user no page. \n\n**The one ' +
+      'renders its own message and can bind either answer to the request it started. This route renders no page for an outcome. \n\n**The one ' +
       'exception is a `state` that resolves to no interaction** — unknown, hand-edited, or past its ten minutes. Then there is no confirmed ' +
       'redirect target to carry the answer to, and bouncing a browser to an unvalidated one is the hole the whole flow is arranged to avoid, ' +
-      'so the cloud renders an HTML problem page at `400`. That is the only Fleetless-rendered surface an app user can reach. It is HTML ' +
+      'so the cloud renders an HTML problem page at `400`. It is HTML ' +
       'rather than an `apiError`, which is why no code is listed: a code here would document an envelope no caller receives, and this ' +
       'manifest\'s other HTML pages (`GET /mcp/oauth/interaction/:id`, `GET /console/oauth/interaction/:id`) say their status in prose for ' +
       'the same reason.',
