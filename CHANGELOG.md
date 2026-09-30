@@ -90,6 +90,18 @@ version.
   `acceptTeamInviteRequest` takes an optional `display_name` and no
   password. The default invitation mail no longer asks the invitee to
   choose a password.
+- **`appInvitation.accept_url` is never `null`**: an app with no
+  `invite_url` gets the hosted invitation page's link.
+- **`appMailTemplateListResponse.templates` holds up to four** (was three),
+  with `login_code`.
+- **The portal's identify step mails a sign-in code** (`POST
+  /console/oauth/identify`, `POST /mcp/oauth/identify`) instead of handing
+  back a password step, and answers the same for every address.
+- **A password reset and a password change are refused with `403
+  method_not_allowed`** while the app has the password method off — `POST
+  /api/client/password/reset`, `…/password/reset/confirm`,
+  `…/password/change` and the developer's `POST
+  /api/apps/:id/users/:userId/reset-password`.
 
 ### Removed
 
@@ -102,11 +114,11 @@ version.
   /console/oauth/login` and `POST /mcp/oauth/login`. Fleetless users sign
   in by emailed code or passkey; the portal sign-up is the one way to
   create an organisation. `passwordChangeRequest` stays, for `POST
-  /api/client/password/change`. Together with the newly required fields
-  above (`appUser.two_factor`, `org.require_two_factor`,
+  /api/client/password/change`. The newly required fields above
+  (`appUser.two_factor`, `org.require_two_factor`,
   `fleetlessUser.two_factor`, `clientIdentity.two_factor_enabled`,
   `clientProviderListResponse.sign_in_methods`) and the narrowed `mcp`
-  slice, this is why the release is a major.
+  slice break existing readers as well.
 
 ## [5.3.0] — 2026-10-02
 

@@ -377,9 +377,16 @@ const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidd
  *
  * Every step is a page the auth portal serves to itself: `audience:
  * 'internal'`, no request schema — the handlers read form fields by hand — and
- * HTML for a browser form post, JSON for a JSON caller. Every step after
- * `identify` needs the browser-proof cookie set there, so a step posted from
- * another browser renders the `wrong_browser` page. The interaction's ten
+ * HTML for a browser form post, JSON for a JSON caller.
+ *
+ * **The browser-proof cookie binds the interaction to one browser**, and it
+ * is set by whichever of these comes first for the interaction: the email
+ * card (`GET <prefix>/interaction/:id`), `POST <prefix>/identify`, or `POST
+ * <prefix>/passkey/options`. The email card is what a browser normally opens
+ * first; the two steps set it for a caller that never loaded the page, so
+ * `Sign in with a passkey` works without an email step. Once the interaction
+ * is bound, every step — those three included — without the matching cookie
+ * renders the `wrong_browser` page. The interaction's ten
  * minutes cover every step; only when the last one is done is anything
  * minted. **For `/mcp/oauth`, "done" means the consent step**, as the
  * password did before.
@@ -401,12 +408,12 @@ export function developerSignInRoutes(prefix: '/console/oauth' | '/mcp/oauth'): 
     params: [], query: null, request: null, response, errors: ['rate_limited', ...errors], transport: 'http', notes,
   })
   return [
-    step('/identify', 'Takes the email address, mails a sign-in code and hands back the code step.', null, ['validation_error', 'token_spent'],
+    step('/identify', 'Takes the email address, mails a sign-in code and hands back the code step.', null, ['validation_error', 'token_spent', 'wrong_browser'],
       'The page answers `Check your email` **for every address**: a known one gets `Your Fleetless sign-in code`, six digits valid ten ' +
       'minutes; an unknown one gets a mail saying no Fleetless account uses it, with a link to sign up (or the waiting list while sign-up ' +
       'is closed). So the page never reveals who has an account, and the address is trimmed and compared case-insensitively. A request ' +
       'within sixty seconds of the last one for the same address renders the same page without a second mail. The browser-proof cookie is ' +
-      `set here. A browser form post gets the code card; a JSON caller gets \`{ "next": "${prefix}/code" }\`, which has no schema. A dead ` +
+      `set here when the interaction has none yet, and checked when it has. A browser form post gets the code card; a JSON caller gets \`{ "next": "${prefix}/code" }\`, which has no schema. A dead ` +
       'interaction is `410 token_spent`.'),
     step('/code', 'Checks the emailed code and finishes the sign-in, or hands back the second step.', oauthRedirectResponse,
       ['validation_error', 'token_spent', 'wrong_browser', 'invalid_code'],
@@ -431,7 +438,9 @@ export function developerSignInRoutes(prefix: '/console/oauth' | '/mcp/oauth'): 
       ['token_spent', 'wrong_browser'],
       'Before an address is known the options name no credential, so the browser offers every discoverable passkey for `fleetless.dev` ' +
       '(`Sign in with a passkey`); after the code step they name the account\'s own passkeys. User verification is required. The challenge ' +
-      'is bound to the interaction and single-use.'),
+      'is bound to the interaction and single-use. **This is the first step of a passkey sign-in**, which has no email step: the ' +
+      'browser-proof cookie is set here when the interaction has none yet, and checked when it has — so `POST ' + prefix + '/passkey` ' +
+      'can require it.'),
     step('/passkey', 'Checks a passkey assertion; a passkey completes the sign-in on its own.', oauthRedirectResponse,
       ['validation_error', 'token_spent', 'wrong_browser', 'invalid_credentials'],
       '**A passkey is a full sign-in**: it proves possession and user verification, two factors, so it skips the emailed code and the ' +
@@ -1057,9 +1066,10 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 202,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'userId', description: 'The app user\'s uuid, from `GET /api/apps/:id/users`; a user of another app answers `404`.' }],
     query: null, request: null, response: mailOutcome,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict', 'method_not_allowed'], transport: 'http',
     notes:
-      'The support door beside `POST /api/client/password/reset`: the same one-hour token and the same link, triggered by a developer for a ' +
+      'The support door beside `POST /api/client/password/reset`, refused like it with `403 method_not_allowed` while the app has the ' +
+      'password method off: the same one-hour token and the same link, triggered by a developer for a ' +
       'user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read ' +
       'the user list — so this one answers what actually happened: `{ "mail": mailStatus }`, where `not_configured` is a deployment without a ' +
       'mailer and `failed` is the state worth somebody\'s attention. The link points at the app\'s `reset_url`, or at the hosted reset page ' +
@@ -1404,7 +1414,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
     summary: 'Reads one custom mail template of the app.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.' }],
     query: null, request: null, response: appMailTemplate,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
@@ -1417,7 +1427,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'PUT', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
     summary: 'Stores or replaces the app\'s template for one kind of mail, refusing one that does not render.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.' }],
     query: null, request: putAppMailTemplateRequest, response: appMailTemplate,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited'], transport: 'http',
     notes:
@@ -1436,7 +1446,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'DELETE', path: '/api/apps/:id/mail-templates/:kind', section: 'apps',
     summary: 'Drops the app\'s custom template for one kind, returning that mail to the Fleetless default.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.' }],
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
@@ -1448,7 +1458,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/apps/:id/mail-templates/:kind/preview', section: 'apps',
     summary: 'Renders a template with sample data and answers the three parts, storing nothing.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.' }],
     query: null, request: mailTemplatePreviewRequest, response: mailTemplatePreviewResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited'], transport: 'http',
     notes:
@@ -1466,7 +1476,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/apps/:id/mail-templates/:kind/test', section: 'apps',
     summary: 'Sends the rendered template as a real mail to the calling developer.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 202,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.' }],
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'kind', description: 'Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.' }],
     query: null, request: mailTemplatePreviewRequest, response: mailOutcome,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'template_invalid', 'rate_limited', 'target_state_conflict'],
     transport: 'http',
@@ -1711,7 +1721,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'HTML, and a GET rather than the body of the authorize response — so it is reloadable, bookmarkable and survives a back button, which ' +
       'the inline page it replaced was not. An expired, consumed, unknown or hand-edited interaction renders one page at `410`, and so does a ' +
-      'client whose dynamic registration lapsed in between.',
+      'client whose dynamic registration lapsed in between. It offers the email field and `Sign in with a passkey`, and opening it binds ' +
+      'the interaction to this browser with the browser-proof cookie, which every sign-in step after it checks.',
   },
   ...developerSignInRoutes('/mcp/oauth'),
   {
@@ -1768,7 +1779,8 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The interaction id minted by `GET /console/oauth/authorize`, which redirects the browser here.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
-      'HTML: the email field, `Email me a code`, and `Sign in with a passkey`. An expired, consumed, unknown or hand-edited interaction ' +
+      'HTML: the email field, `Email me a code`, and `Sign in with a passkey`. Opening it binds the interaction to this browser with the ' +
+      'browser-proof cookie, which every sign-in step after it checks. An expired, consumed, unknown or hand-edited interaction ' +
       'renders one page at `410`: which of the four it was is not a fact a stranger may learn, and to the person it is one fact anyway. The ' +
       'page resolves nothing about the address typed into it, so there is no enumeration oracle here at all.',
   },
@@ -2056,7 +2068,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       '**`202` and an empty body for every request the policy allows**, in status, body and timing, whether or not the address names an ' +
       'active account of this app — a decoy like `POST /api/client/resend-verification`, so this is no enumeration oracle. A mail goes out ' +
-      'only for an account that may sign in. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires ' +
+      'for an `active` account and for one still `pending_verification` — spending the code proves the address, as the verification link ' +
+      'would — and never for a `blocked` one or an unknown address. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires ' +
       'the previous one for the same address; a request within sixty seconds of the last sends no second mail. The address is trimmed and ' +
       'compared case-insensitively. `404 not_found` is the **app identifier**, never the address; `403 method_not_allowed` when the app has ' +
       'the email-code method off. Limited per app, address and IP, so it cannot be used to mail somebody repeatedly.',
@@ -2144,9 +2157,11 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Mails an app user a reset link, and answers the same either way.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
     params: [], query: null, request: clientPasswordResetRequest, response: null,
-    errors: ['rate_limited', 'validation_error', 'not_found'], transport: 'http',
+    errors: ['rate_limited', 'validation_error', 'not_found', 'method_not_allowed'], transport: 'http',
     notes:
       'The pair of app identifier and address is the identifier: an app user\'s address is unique only within their app. ' +
+      '`403 method_not_allowed` when the app has the password method off — a reset link whose confirmation would be refused is not mailed; ' +
+      'the code names the app\'s policy, not a person. ' +
       'Status, body and timing are identical for a known and an unknown address. An account with no password — one created through an ' +
       'identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link ' +
       'points at the app\'s `reset_url`, or at the hosted reset page when the app has configured none.',
@@ -2225,8 +2240,10 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Changes an app user's own password and answers a fresh session.",
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: passwordChangeRequest, response: sessionTokens,
-    errors: [...CLIENT_GUARD, 'validation_error', 'invalid_credentials', 'target_state_conflict'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'validation_error', 'invalid_credentials', 'target_state_conflict', 'method_not_allowed'], transport: 'http',
     notes:
+      '`403 method_not_allowed` when the app has the password method off: a stored password stays stored but is not in use, so it is not ' +
+      'changed either. ' +
       'The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key ' +
       'reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made ' +
       'the change stays signed in. An app user belongs to one app, so "every session" is this app\'s. An account that has **no password** — ' +
@@ -2262,11 +2279,12 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/client/two-factor/setup', section: 'client-auth',
     summary: 'Starts an authenticator setup and answers its secret and otpauth URL.',
     audience: 'client', auth: 'in_handler', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientTwoFactorSetupRequest, response: twoFactorSetupResponse,
+    params: [], query: null, request: clientTwoFactorSetupRequest, requestOptional: true, response: twoFactorSetupResponse,
     errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'target_state_conflict'], transport: 'http',
     notes:
       '**Two ways in, decided in the handler.** During sign-in the body carries the `two_factor_setup_required` challenge, and that is the ' +
-      'credential; from the app\'s own account settings the app user\'s bearer is, with no challenge. Neither is `401 unauthorized`, and a ' +
+      'credential; from the app\'s own account settings the app user\'s bearer is, with no challenge and an empty or missing body. Neither ' +
+      'is `401 unauthorized`, and a ' +
       'dead challenge is `410 token_spent`. `409 target_state_conflict` names `two_factor` with rule `off` when the app\'s policy is `off`. ' +
       'The secret is not in use until `POST /api/client/two-factor/setup/confirm` accepts a code from it; a second call replaces a pending ' +
       'secret, and an account that already has an authenticator keeps it until the new one is confirmed.',

@@ -119,3 +119,25 @@ describe('the routes that sign an app user in', () => {
     expect(r.errors).toContain('method_not_allowed')
   })
 })
+
+describe('a password method turned off', () => {
+  /**
+   * A reset link whose confirmation is refused is a mail that leads nowhere,
+   * so every password route refuses alike while the app has passwords off.
+   */
+  it('refuses every password route with method_not_allowed', () => {
+    for (const k of [
+      'POST /api/client/login',
+      'POST /api/client/password/reset',
+      'POST /api/client/password/reset/confirm',
+      'POST /api/client/password/change',
+      'POST /api/apps/:id/users/:userId/reset-password',
+    ]) {
+      expect(ROUTES.find((r) => key(r) === k)?.errors, k).toContain('method_not_allowed')
+    }
+  })
+
+  it('takes an empty body at two-factor setup from the account settings', () => {
+    expect(ROUTES.find((r) => key(r) === 'POST /api/client/two-factor/setup')?.requestOptional).toBe(true)
+  })
+})

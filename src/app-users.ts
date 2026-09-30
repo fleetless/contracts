@@ -226,9 +226,8 @@ export type CreateAppInvitationRequest = z.infer<typeof createAppInvitationReque
  *
  * The link points into the developer's app, at their configured `invite_url`,
  * or at the Fleetless-hosted invitation page (`appAuthConfig.hosted_pages`)
- * when the app has configured none. **`accept_url` stays nullable** so a
- * reader written against the earlier shape keeps parsing; the cloud fills it
- * in every case now that a hosted page always exists.
+ * when the app has configured none — so there is always a link, and
+ * `accept_url` is never `null`.
  */
 export const appInvitation = z.object({
   id: z.uuid().meta({ description: 'The invitation, as listed and revoked by the developer.' }),
@@ -236,8 +235,8 @@ export const appInvitation = z.object({
   email: z.email().meta({ description: 'The address the invitation was addressed to.' }),
   role_id: z.uuid().meta({ description: 'The role the invitee holds once they accept. Resolved at creation, so a later change to the app\'s default role does not silently re-aim an outstanding invitation.' }),
   expires_at: z.iso.datetime().meta({ description: 'When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does.' }),
-  accept_url: z.url().max(500).nullable().meta({
-    description: 'The link to give the invitee: the app\'s `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered. Nullable for readers of the earlier shape; the cloud always fills it.',
+  accept_url: z.url().max(500).meta({
+    description: 'The link to give the invitee: the app\'s `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered.',
   }),
   mail: mailStatus.meta({
     description: 'What happened to the mail: `sent` means the SMTP server accepted it, not that it was delivered; `not_requested` means none was attempted because the caller asked for none; `not_configured` is an expected state and not a failure; `failed` is the one worth somebody\'s attention.',
