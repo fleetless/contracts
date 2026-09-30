@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-09-30
+
 ### Added
 
 - **Protocol 5: `unknown` jobs, external goals, and a hard cut of protocols 3
