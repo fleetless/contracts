@@ -19,6 +19,11 @@ import {
   cloudJobQuery,
   bridgeJobStatusEntry,
   bridgeJobStatus,
+  bridgeCancelResult,
+  bridgeCancelResultEntry,
+  CANCEL_RETURN_CODES,
+  reportedJobState,
+  activeJob,
   typeDefinition,
   parameterFieldsOf,
   exposureListResponse,
@@ -230,6 +235,42 @@ describe('bridge protocol', () => {
       bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [], unknown_job_ids: [UUID, UUID2] }).success,
     ).toBe(true)
     expect(bridgeJobStatus.safeParse({ type: 'job_status', request_id: 'q1', jobs: [entry] }).success).toBe(false)
+  })
+
+  it('refuses unknown from the bridge: that is the cloud word for not having heard', () => {
+    expect(reportedJobState.safeParse('unknown').success).toBe(false)
+    expect(reportedJobState.safeParse('running').success).toBe(true)
+    const update = {
+      type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'unknown', origin: 'fleetless',
+      goal_id: 'b9e0a3c4-5f1d-4e2a-9c7b-1a2b3c4d5e6f',
+      feedback: null, progress: null, result: null, error: null, timestamp_ms: 1786400000000,
+    }
+    expect(bridgeJobUpdate.safeParse(update).success).toBe(false)
+    expect(bridgeJobUpdate.safeParse({ ...update, state: 'running' }).success).toBe(true)
+    const entry = { job_id: UUID, state: 'unknown', feedback: null, progress: null, result: null, error: null }
+    expect(bridgeJobStatusEntry.safeParse(entry).success).toBe(false)
+    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive_to', state: 'unknown' }).success).toBe(false)
+    expect(activeJob.safeParse({ job_id: UUID, slug: 'drive_to', state: 'succeeded' }).success).toBe(true)
+  })
+
+  it('lets the bridge answer a cancel with each goal and its CancelGoal return code', () => {
+    const goal = { job_id: UUID, goal_id: '0a1b2c3d4e5f60718293a4b5c6d7e8f9', return_code: CANCEL_RETURN_CODES.rejected }
+    const frame = { type: 'cancel_result', request_id: 'c1', slug: 'drive_to', goals: [goal], error: null }
+    expect(bridgeCancelResult.safeParse(frame).success).toBe(true)
+    // A server that never answered is listed, not left out.
+    expect(bridgeCancelResultEntry.safeParse({ ...goal, return_code: null }).success).toBe(true)
+    // Only the four codes CancelGoal defines.
+    expect(bridgeCancelResultEntry.safeParse({ ...goal, return_code: 4 }).success).toBe(false)
+    expect(bridgeCancelResultEntry.safeParse({ ...goal, goal_id: '' }).success).toBe(false)
+    // Nothing matched is an answer, not a failure.
+    expect(bridgeCancelResult.safeParse({ ...frame, goals: [] }).success).toBe(true)
+    expect(
+      bridgeCancelResult.safeParse({ ...frame, goals: [], error: { code: 'unknown_slug', message: 'no such action' } }).success,
+    ).toBe(true)
+    // `error` is stated, never left to the reader's assumption.
+    const { error: _error, ...noError } = frame
+    expect(bridgeCancelResult.safeParse(noError).success).toBe(false)
+    expect(ERROR_CODES).toContain('cancel_rejected')
   })
 
   it('a bridge may say why it lost a job, and a frame naming no cause still parses', () => {

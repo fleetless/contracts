@@ -29,13 +29,24 @@ version.
   `hello_error` for a bridge below protocol 5, naming bridge `6.0.0`; and
   `job_unknown_to_bridge`, the final `lost` reason when the bridge does not
   know a job and nothing it cannot attribute runs on the job's action.
+- **A cancel is answered with each goal's `CancelGoal` return code.**
+  `cancel` gains a required `request_id`; the bridge answers with the new
+  frame `cancel_result` (`bridgeCancelResult`, `bridgeCancelResultEntry`):
+  every goal the cancel reached, with its `job_id`, `goal_id` and
+  `return_code` (`CANCEL_RETURN_CODES`, `null` when the server did not
+  answer). A cancel naming a `job_id` the bridge does not hold cancels every
+  external goal on the action, never one of the bridge's own jobs. New error
+  code `cancel_rejected`: the server answered `ERROR_REJECTED`, and the
+  caller is refused, not told the cancel succeeded. `reportedJobState`, every
+  state but `unknown`, is what `job_update`, `job_status` entries and
+  `hello.active_jobs` accept, so a bridge claiming `unknown` fails validation.
 
 ### Removed
 
 - **Protocols 2, 3 and 4, and an origin-less `job`; this is why the release
   is a major.** A bridge below `6.0.0` is refused at `hello`, and a `job` or
   `job_update` literal without `origin` (or a `job_update` without
-  `goal_id`) no longer parses.
+  `goal_id`) no longer parses, nor does a `cancel` without `request_id`.
 
 ## [4.0.0] — 2026-09-29
 
