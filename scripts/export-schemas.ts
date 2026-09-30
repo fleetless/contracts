@@ -90,10 +90,7 @@ import { apiError } from '../src/errors.js'
 import {
   org,
   sessionTokens,
-  signUpRequest,
-  signUpResponse,
   waitlistRequest,
-  developerLoginRequest,
   fleetlessUser,
   fleetlessUserListResponse,
   createTeamInviteRequest,
@@ -225,10 +222,17 @@ import { updateAppRequest } from '../src/apps.js'
 import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
 import {
   passwordChangeRequest,
-  passwordResetConfirm,
-  passwordResetRequest,
   refreshRequest,
   twoFactorSetupResponse,
+  webauthnOptionsResponse,
+  developerPasskey,
+  developerTwoFactor,
+  createPasskeyRequest,
+  createPasskeyResponse,
+  renamePasskeyRequest,
+  totpConfirmRequest,
+  totpConfirmResponse,
+  recoveryCodesResponse,
 } from '../src/identity.js'
 import { busyDetails, jobState } from '../src/jobs.js'
 import {
@@ -368,10 +372,7 @@ export const exportedSchemas = {
   'patch-org-request': patchOrgRequest,
   'patch-auth-me-request': patchAuthMeRequest,
   'session-tokens': sessionTokens,
-  'sign-up-request': signUpRequest,
-  'sign-up-response': signUpResponse,
   'waitlist-request': waitlistRequest,
-  'developer-login-request': developerLoginRequest,
   // 2026-09-05 — the two identity spaces.
   'fleetless-user': fleetlessUser,
   'fleetless-user-list-response': fleetlessUserListResponse,
@@ -528,11 +529,20 @@ export const exportedSchemas = {
   // entry below was added because a route pointed at it; the comment names
   // that route, so the next reader can tell a wire shape from a leftover.
   'refresh-request': refreshRequest, // POST /api/auth/refresh, POST /api/auth/logout
-  'password-change-request': passwordChangeRequest, // POST /api/auth/password/change, POST /api/client/password/change
-  'password-reset-request': passwordResetRequest, // POST /api/auth/password/reset
-  'password-reset-confirm': passwordResetConfirm, // POST /api/auth/password/reset/confirm
+  'password-change-request': passwordChangeRequest, // POST /api/client/password/change
+  // A developer's second factors (Settings › Profile › Security) and the
+  // portal steps that set one up inside a sign-in.
+  'webauthn-options-response': webauthnOptionsResponse, // POST /api/auth/passkeys/options, the portal's passkey option steps
+  'developer-passkey': developerPasskey, // PATCH /api/auth/passkeys/:id
+  'developer-two-factor': developerTwoFactor, // GET /api/auth/two-factor
+  'create-passkey-request': createPasskeyRequest, // POST /api/auth/passkeys
+  'create-passkey-response': createPasskeyResponse, // POST /api/auth/passkeys
+  'rename-passkey-request': renamePasskeyRequest, // PATCH /api/auth/passkeys/:id
+  'totp-confirm-request': totpConfirmRequest, // POST /api/auth/totp/confirm
+  'totp-confirm-response': totpConfirmResponse, // POST /api/auth/totp/confirm
+  'recovery-codes-response': recoveryCodesResponse, // POST /api/auth/recovery-codes, the portal's setup confirm steps
   'update-app-request': updateAppRequest, // PATCH /api/apps/:id
-  'oauth-redirect-response': oauthRedirectResponse, // POST /console/oauth/login, POST /console/oauth/signup/organization, POST /mcp/oauth/login, POST /mcp/oauth/consent
+  'oauth-redirect-response': oauthRedirectResponse, // the portal sign-in steps (code, two-factor, passkey, setup/done), POST /console/oauth/signup/organization, POST /mcp/oauth/consent
   // **The four OAuth shapes that spent a release registered here and named by
   // no route.** The block that stood here argued they
   // were "documentation of a live wire, not leftovers" and left them
@@ -749,7 +759,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'org-event-subscribe', 'org-event-unsubscribe',
 
   // --- REST request bodies and queries -------------------------------------
-  'create-robot-request', 'sign-up-request', 'waitlist-request', 'developer-login-request',
+  'create-robot-request', 'waitlist-request',
   'create-app-request',
   'create-team-invite-request', 'accept-team-invite-request',
   'patch-fleetless-user-request', 'tier-change-request',
@@ -780,7 +790,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'put-datapoint-display-request',
 
   // --- Request bodies and queries the route manifest names ----------------
-  'refresh-request', 'password-change-request', 'password-reset-request', 'password-reset-confirm',
+  'refresh-request', 'password-change-request',
+  'create-passkey-request', 'rename-passkey-request', 'totp-confirm-request',
   'update-app-request',
   'oauth-token-request', 'dynamic-client-registration-request',
   'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
@@ -817,7 +828,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'create-robot-response', 'exposure-counts', 'robot-list-item', 'robot-list-response', 'datapoint-value',
   'robot-detail-response', 'config-draft-response', 'publish-config-response',
   'introspection-response', 'datapoint-list-response', 'api-error', 'org',
-  'session-tokens', 'sign-up-response', 'app', 'server-key',
+  'session-tokens', 'app', 'server-key',
+  'webauthn-options-response', 'developer-passkey', 'developer-two-factor', 'create-passkey-response',
+  'totp-confirm-response', 'recovery-codes-response',
   'fleetless-user', 'fleetless-user-list-response', 'team-invite',
   'pending-team-invite', 'pending-team-invite-list-response',
   'app-user', 'app-user-list-response', 'app-invitation',

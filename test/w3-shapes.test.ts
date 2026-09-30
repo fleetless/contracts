@@ -73,6 +73,7 @@ describe('org, member and robot patches; slug rename', () => {
       email: 'a@b.de',
       display_name: null,
       tier: 'owner',
+      two_factor: { passkeys: 0, authenticator: false },
       created_at: NOW,
     }
     expect(fleetlessUser.safeParse(withKey).success).toBe(true)

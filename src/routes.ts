@@ -104,12 +104,14 @@ import type { ErrorCode } from './errors.js'
 import {
   acceptTeamInviteRequest,
   authMeResponse,
+  createPasskeyRequest,
+  createPasskeyResponse,
   createTeamInviteRequest,
+  developerPasskey,
+  developerTwoFactor,
   fleetlessUser,
   fleetlessUserListResponse,
   passwordChangeRequest,
-  passwordResetConfirm,
-  passwordResetRequest,
   patchAuthMeRequest,
   patchFleetlessUserRequest,
   patchOrgRequest,
@@ -117,12 +119,15 @@ import {
   pendingTeamInviteListResponse,
   refreshRequest,
   sessionTokens,
-  signUpRequest,
-  signUpResponse,
   teamInvite,
+  recoveryCodesResponse,
+  renamePasskeyRequest,
   tierChangeRequest,
+  totpConfirmRequest,
+  totpConfirmResponse,
   twoFactorSetupResponse,
   waitlistRequest,
+  webauthnOptionsResponse,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
 import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
@@ -361,6 +366,105 @@ const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked'] as co
  */
 const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidden'] as const satisfies readonly ErrorCode[]
 
+/**
+ * **The steps of a developer sign-in, written once for both portal flows.**
+ *
+ * The console's own OAuth flow (`/console/oauth`) and the central MCP
+ * endpoint's (`/mcp/oauth`) sign the same people in the same way: an emailed
+ * code or a passkey, then the second factor where the person has one or the
+ * organisation requires one. Two hand-written copies of thirteen rows would
+ * drift; this returns them for a prefix, and `ROUTES` spreads both.
+ *
+ * Every step is a page the auth portal serves to itself: `audience:
+ * 'internal'`, no request schema — the handlers read form fields by hand — and
+ * HTML for a browser form post, JSON for a JSON caller. Every step after
+ * `identify` needs the browser-proof cookie set there, so a step posted from
+ * another browser renders the `wrong_browser` page. The interaction's ten
+ * minutes cover every step; only when the last one is done is anything
+ * minted. **For `/mcp/oauth`, "done" means the consent step**, as the
+ * password did before.
+ */
+export function developerSignInRoutes(prefix: '/console/oauth' | '/mcp/oauth'): RouteEntry[] {
+  const section: RouteSection = prefix === '/console/oauth' ? 'developer-auth' : 'mcp'
+  const done = prefix === '/console/oauth'
+    ? 'the console callback with the authorization code'
+    : 'the consent screen for a self-registered client, or straight to the callback for the central one'
+  const page = (path: string, summary: string, notes: string): RouteEntry => ({
+    method: 'GET', path: `${prefix}${path}`, section, summary,
+    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The interaction id of this sign-in; the step before redirects the browser here.' }],
+    query: null, request: null, response: null, errors: [], transport: 'http', notes,
+  })
+  const step = (path: string, summary: string, response: ZodType | null, errors: readonly ErrorCode[], notes: string): RouteEntry => ({
+    method: 'POST', path: `${prefix}${path}`, section, summary,
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response, errors: ['rate_limited', ...errors], transport: 'http', notes,
+  })
+  return [
+    step('/identify', 'Takes the email address, mails a sign-in code and hands back the code step.', null, ['validation_error', 'token_spent'],
+      'The page answers `Check your email` **for every address**: a known one gets `Your Fleetless sign-in code`, six digits valid ten ' +
+      'minutes; an unknown one gets a mail saying no Fleetless account uses it, with a link to sign up (or the waiting list while sign-up ' +
+      'is closed). So the page never reveals who has an account, and the address is trimmed and compared case-insensitively. A request ' +
+      'within sixty seconds of the last one for the same address renders the same page without a second mail. The browser-proof cookie is ' +
+      `set here. A browser form post gets the code card; a JSON caller gets \`{ "next": "${prefix}/code" }\`, which has no schema. A dead ` +
+      'interaction is `410 token_spent`.'),
+    step('/code', 'Checks the emailed code and finishes the sign-in, or hands back the second step.', oauthRedirectResponse,
+      ['validation_error', 'token_spent', 'wrong_browser', 'invalid_code'],
+      'A wrong code renders the code card again with the attempts left (`400 invalid_code`, `details.attempts_left`); a code spent, past ' +
+      'its ten minutes or out of its five attempts is `410 token_spent` and a new one has to be asked for. Spaces inside a typed code are ' +
+      `removed before it is checked. With no second factor to give, a browser gets a \`303\` to ${done}, and a JSON caller that URL as ` +
+      '`redirect_to`. Otherwise the next step: a JSON caller gets `{ "next" }` naming `' + prefix + '/two-factor` — the person has a ' +
+      'passkey or an authenticator — or `' + prefix + '/two-factor/setup` — the organisation requires one and the person has none — and a ' +
+      'browser the page itself. Audited as `developer.login` with `details.method` `email_code` once the sign-in completes.'),
+    page('/two-factor/:id', 'Serves the second step: the authenticator code, or the passkey prompt.',
+      'HTML. Six boxes for the authenticator code, `Use a passkey`, and `Use a recovery code`; a developer with passkeys only sees the ' +
+      'passkey prompt directly. The browser-proof cookie is checked on this GET too. A dead interaction renders the `410` page.'),
+    page('/two-factor/:id/recovery', 'Serves the recovery-code page of the second step.',
+      'HTML. One field for a recovery code, and the way out when none is left: an owner of the organisation can reset the member\'s ' +
+      'two-factor in Settings › Team.'),
+    step('/two-factor', 'Checks an authenticator code or a recovery code and finishes the sign-in.', oauthRedirectResponse,
+      ['validation_error', 'token_spent', 'wrong_browser', 'invalid_code'],
+      'The form carries either `code` or `recovery_code`. **An authenticator code is accepted at most once**, so the same code sent twice ' +
+      'finishes one sign-in. A recovery code is spent by its use. Five wrong codes end the interaction (`410 token_spent`). A browser gets ' +
+      `a \`303\` to ${done}; a JSON caller that URL as \`redirect_to\`.`),
+    step('/passkey/options', 'Answers the WebAuthn request options for a passkey sign-in or second step.', webauthnOptionsResponse,
+      ['token_spent', 'wrong_browser'],
+      'Before an address is known the options name no credential, so the browser offers every discoverable passkey for `fleetless.dev` ' +
+      '(`Sign in with a passkey`); after the code step they name the account\'s own passkeys. User verification is required. The challenge ' +
+      'is bound to the interaction and single-use.'),
+    step('/passkey', 'Checks a passkey assertion; a passkey completes the sign-in on its own.', oauthRedirectResponse,
+      ['validation_error', 'token_spent', 'wrong_browser', 'invalid_credentials'],
+      '**A passkey is a full sign-in**: it proves possession and user verification, two factors, so it skips the emailed code and the ' +
+      'second step — used as the second step, it finishes it. An assertion that does not verify, or names no passkey of an account, is ' +
+      '`401 invalid_credentials`, the same answer for both. When the organisation requires two-factor, a passkey satisfies it. A browser ' +
+      `gets a \`303\` to ${done}; a JSON caller that URL as \`redirect_to\`. Audited as \`developer.login\` with \`details.method\` \`passkey\`.`),
+    page('/two-factor/setup/:id', 'Serves the "your organisation requires two-factor" choice between a passkey and an authenticator.',
+      'HTML. Reached when the organisation requires two-factor and the person has none; no session exists until the setup is done. Two ' +
+      'options, the passkey recommended because it also signs the person in without an emailed code. `Signed in as <email> · Sign out` ' +
+      'under it.'),
+    step('/two-factor/setup/totp', 'Starts an authenticator setup inside the sign-in and hands back its QR code and key.', twoFactorSetupResponse,
+      ['token_spent', 'wrong_browser'],
+      'A browser gets the page with the QR code, the key and the confirm field; a JSON caller the secret and `otpauth_url`. Nothing is ' +
+      'stored as confirmed yet.'),
+    step('/two-factor/setup/totp/confirm', 'Confirms the new authenticator and hands back the ten recovery codes.', recoveryCodesResponse,
+      ['validation_error', 'token_spent', 'wrong_browser', 'invalid_code'],
+      'A code that does not match is `400 invalid_code`. On success the authenticator is on and ten recovery codes are shown once; ' +
+      '`I saved my recovery codes` then finishes the sign-in. Audited as `developer.two_factor_added` with `details.kind` `authenticator`.'),
+    step('/two-factor/setup/passkey/options', 'Answers the WebAuthn creation options for a passkey set up inside the sign-in.', webauthnOptionsResponse,
+      ['token_spent', 'wrong_browser'],
+      'The same options `POST /api/auth/passkeys/options` answers a signed-in developer: relying party `fleetless.dev`, user verification ' +
+      'required, a discoverable credential.'),
+    step('/two-factor/setup/passkey', 'Registers the passkey and hands back the ten recovery codes.', recoveryCodesResponse,
+      ['validation_error', 'token_spent', 'wrong_browser'],
+      'A ceremony that does not verify is `400 validation_error`. On success the passkey is stored, named after the browser\'s device ' +
+      'where it says so, and ten recovery codes are shown once. Audited as `developer.two_factor_added` with `details.kind` `passkey`.'),
+    step('/two-factor/setup/done', 'Finishes the sign-in once the recovery codes are saved.', oauthRedirectResponse,
+      ['token_spent', 'wrong_browser'],
+      '`I saved my recovery codes` gates the button on the page; the step itself only checks that a second factor now exists. A browser ' +
+      `gets a \`303\` to ${done}; a JSON caller that URL as \`redirect_to\`.`),
+  ]
+}
+
 export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------------------------- health */
   {
@@ -376,17 +480,6 @@ export const ROUTES: readonly RouteEntry[] = [
 
   /* ----------------------------------------------------- developer auth */
   {
-    method: 'POST', path: '/api/auth/signup', section: 'developer-auth',
-    summary: 'Creates an org and its founding Owner, and answers a developer session.',
-    audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 201,
-    params: [], query: null, request: signUpRequest, response: signUpResponse,
-    errors: ['rate_limited', 'signup_closed', 'validation_error', 'email_taken'], transport: 'http',
-    notes:
-      'While the deployment runs in closed beta this answers `403 signup_closed` before it looks at the body — there is nothing for a ' +
-      'validation message, or an `email_taken` answer, to be right about when nothing will be created. Email is globally unique, so an ' +
-      'address already registered in any org is refused.',
-  },
-  {
     method: 'POST', path: '/api/auth/refresh', section: 'developer-auth',
     summary: 'Rotates a developer refresh token and mints a fresh access token.',
     audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
@@ -394,7 +487,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: ['rate_limited', 'validation_error', 'token_expired', 'token_revoked'], transport: 'http',
     notes:
       'The whole family is re-checked here, not just the token: an account that has been removed from the org, or whose `token_version` was ' +
-      'bumped by a password change, cannot mint a fresh console token and answers `token_revoked`. Refusing that only on the other routes ' +
+      'bumped by an owner\'s two-factor reset, cannot mint a fresh console token and answers `token_revoked`. Refusing that only on the other routes ' +
       'would leave a session that is dead everywhere but here.',
   },
   {
@@ -426,51 +519,104 @@ export const ROUTES: readonly RouteEntry[] = [
       'held writes nothing and records no audit event — the org activity stream reaches every developer with the console open, and an event ' +
       'for a no-op would misreport that something changed.',
   },
+
+  /* ------------------------------------ a developer's own second factors */
   {
-    method: 'POST', path: '/api/auth/password/change', section: 'developer-auth',
-    summary: 'Verifies the current password, sets a new one and answers a fresh session.',
+    method: 'GET', path: '/api/auth/two-factor', section: 'developer-auth',
+    summary: "Answers the calling developer's passkeys, authenticator, recovery codes left and the org's policy.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: passwordChangeRequest, response: sessionTokens,
-    errors: [...DEVELOPER_GUARD, 'validation_error', 'invalid_credentials'], transport: 'http',
+    params: [], query: null, request: null, response: developerTwoFactor,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
     notes:
-      'Every session of this account ends, including the caller\'s — the request carries nothing identifying its own refresh family, so there ' +
-      'is none to spare. The answer is a working replacement pair, which is what the promise has to mean when nothing distinguishes one ' +
-      'session from another.',
+      'What Settings › Profile › Security draws. No key material, secret or code travels here — the passkeys are names and dates, the ' +
+      'authenticator is a date, the recovery codes are a count.',
   },
   {
-    method: 'POST', path: '/api/auth/password/reset', section: 'developer-auth',
-    summary: 'Mails a password-reset link to the address, and answers the same either way.',
-    audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
-    params: [], query: null, request: passwordResetRequest, response: null,
-    errors: ['rate_limited', 'validation_error'], transport: 'http',
+    method: 'POST', path: '/api/auth/passkeys/options', section: 'developer-auth',
+    summary: 'Answers the WebAuthn creation options for registering a passkey.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: webauthnOptionsResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
     notes:
-      'Status, body and timing are identical for a known and an unknown address — any difference is an account-enumeration oracle, which is ' +
-      'why the unknown branch still pays a real SMTP round trip to a discard address. An account provisioned through OIDC has no Fleetless ' +
-      'password and is mailed nothing. A browser form post gets a `303` to the "check your mail" card instead of this `202`.',
+      'Hand `options` to the browser\'s WebAuthn API as it is. The relying party is `fleetless.dev`, so the passkey works on the auth ' +
+      'portal and in the console alike; user verification is required and the credential is discoverable, so it can sign the person in ' +
+      'without an address. The passkeys the caller already has are excluded. The challenge is single-use and expires with the ceremony.',
+  },
+  {
+    method: 'POST', path: '/api/auth/passkeys', section: 'developer-auth',
+    summary: 'Registers a passkey from the browser\'s answer to the creation options.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [], query: null, request: createPasskeyRequest, response: createPasskeyResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
+    notes:
+      'A ceremony that does not verify — a wrong challenge, origin or relying party, no user verification — is `400 validation_error` ' +
+      'naming `credential`. When this is the account\'s first second factor, ten recovery codes are issued and answered once; otherwise ' +
+      '`recovery_codes` is `null` and the existing ones stay valid. Audited as `developer.two_factor_added` with `details.kind` `passkey`.',
+  },
+  {
+    method: 'PATCH', path: '/api/auth/passkeys/:id', section: 'developer-auth',
+    summary: "Renames one of the caller's passkeys.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The passkey\'s uuid, as listed by `GET /api/auth/two-factor`; another person\'s passkey answers `404`.' }],
+    query: null, request: renamePasskeyRequest, response: developerPasskey,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+  },
+  {
+    method: 'DELETE', path: '/api/auth/passkeys/:id', section: 'developer-auth',
+    summary: "Removes one of the caller's passkeys.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'id', description: 'The passkey\'s uuid, as listed by `GET /api/auth/two-factor`; another person\'s passkey answers `404`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      '`409 target_state_conflict` names `two_factor` with rule `required_by_org` when this is the caller\'s last second factor and the ' +
+      'organisation requires one. Removing the last one otherwise also voids the recovery codes. Audited as `developer.two_factor_removed` ' +
+      'with `details.kind` `passkey`.',
+  },
+  {
+    method: 'POST', path: '/api/auth/totp', section: 'developer-auth',
+    summary: 'Starts an authenticator setup and answers its secret and otpauth URL.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: twoFactorSetupResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      'The secret is pending until `POST /api/auth/totp/confirm` accepts a code from it; a second call replaces a pending secret. A ' +
+      'developer who already has an authenticator keeps it until the new one is confirmed, which is how `Replace…` works.',
+  },
+  {
+    method: 'POST', path: '/api/auth/totp/confirm', section: 'developer-auth',
+    summary: 'Confirms the pending authenticator with a code it shows now.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: totpConfirmRequest, response: totpConfirmResponse,
+    errors: [...DEVELOPER_GUARD, 'rate_limited', 'validation_error', 'invalid_code', 'token_spent'], transport: 'http',
+    notes:
+      'A code that does not match the pending secret is `400 invalid_code`; no pending setup is `410 token_spent`. On success the new ' +
+      'authenticator replaces any earlier one. Ten recovery codes are answered when it is the account\'s first second factor, otherwise ' +
+      '`null`. Audited as `developer.two_factor_added` with `details.kind` `authenticator`.',
+  },
+  {
+    method: 'DELETE', path: '/api/auth/totp', section: 'developer-auth',
+    summary: "Removes the caller's authenticator app.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [], query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      '`404 not_found` when there is no authenticator. `409 target_state_conflict` names `two_factor` with rule `required_by_org` when it ' +
+      'is the caller\'s last second factor and the organisation requires one. Audited as `developer.two_factor_removed` with ' +
+      '`details.kind` `authenticator`.',
+  },
+  {
+    method: 'POST', path: '/api/auth/recovery-codes', section: 'developer-auth',
+    summary: 'Issues ten new recovery codes and voids the old ones.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: recoveryCodesResponse,
+    errors: [...DEVELOPER_GUARD, 'target_state_conflict'], transport: 'http',
+    notes:
+      'The codes are shown this once. `409 target_state_conflict` names `two_factor` with rule `off` when the caller has no second factor: ' +
+      'recovery codes only stand in for one. Audited as `developer.recovery_codes_generated`.',
   },
 
   /* ------------------------------------------- client auth (portal pages) */
-  {
-    method: 'GET', path: '/reset-password', section: 'client-auth',
-    summary: 'Serves the auth portal\'s "forgot your password" card as an HTML page.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, not JSON: this is a page a person opens, served by the cloud from the auth portal origin. `?sent=1` draws the "check your mail" ' +
-      'state instead — one path, because that second card has no inputs and a second path would exist only to be redirected to. The value is ' +
-      'caller-settable and discloses nothing, since the page it draws is a constant.',
-  },
-  {
-    method: 'GET', path: '/reset-password/:token', section: 'client-auth',
-    summary: 'Serves the "pick a new password" page for a mailed reset link.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'token', description: 'The opaque reset token from the mailed link; it is never sent as a query parameter.' }],
-    query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML. An unknown, spent or expired token renders one "link no longer valid" page at `410` — they are one refusal on the wire already, ' +
-      'and splitting them here would tell a stranger which tokens ever existed. No rate limiter: the GET changes nothing, and the POST it ' +
-      'leads to is limited per IP.',
-  },
   {
     method: 'GET', path: '/favicon.svg', section: 'client-auth',
     summary: 'Serves the Fleetless icon for the auth portal\'s and the MCP welcome page\'s browser tab.',
@@ -481,17 +627,6 @@ export const ROUTES: readonly RouteEntry[] = [
       'origin — the one source `img-src \'self\'` names. Cached for a day: the bytes change when the brand does, not per deploy.',
   },
 
-  {
-    method: 'POST', path: '/api/auth/password/reset/confirm', section: 'developer-auth',
-    summary: 'Spends a reset token, sets the new password and ends every session of the account.',
-    audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 204,
-    params: [], query: null, request: passwordResetConfirm, response: null,
-    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
-    notes:
-      'Unknown, spent and expired tokens all answer `410 token_spent`. Sessions are revoked under the account\'s actual kind — a console admin ' +
-      'holds developer sessions, an app user holds end-user ones — so an app user\'s open `/realtime` socket does not outlive the reset. ' +
-      'A browser form post gets the rendered "done" page instead of this `204`.',
-  },
   {
     method: 'POST', path: '/api/waitlist', section: 'developer-auth',
     summary: 'Adds an address to the closed-beta waiting list.',
@@ -1314,14 +1449,16 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/api/org/invitations/accept', section: 'users',
-    summary: 'Spends an invitation token and creates the login it was addressed to.',
+    summary: 'Spends an invitation token and creates the account it was addressed to.',
     audience: 'developer', auth: 'none', rateLimited: true, ownerTier: false, status: 204,
     params: [], query: null, request: acceptTeamInviteRequest, response: null,
     errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken'], transport: 'http',
     notes:
       '**`204`, not a session.** The console signs in through its own OAuth portal, so a session minted here would be a second credential door ' +
-      'for one account — and every security property would then have to be right in two places. Unknown, expired and already-accepted tokens ' +
-      'collapse into `410 token_spent`. A browser form post gets the rendered "you\'re in" page instead.',
+      'for one account — and every security property would then have to be right in two places. **No password**: the mailed link proves the ' +
+      'address, so accepting needs no code either, and the new member signs in by emailed code from then on. When the organisation requires ' +
+      'two-factor, the member sets one up at their first sign-in. Unknown, expired and already-accepted tokens collapse into `410 token_spent`. ' +
+      'A browser form post gets the rendered "you\'re in" page instead.',
   },
   {
     method: 'GET', path: '/accept-invite/:token', section: 'users',
@@ -1330,9 +1467,10 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'token', description: 'The opaque invitation token from the mailed link; it is never sent as a query parameter.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
-      'HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/invitations/accept`. An unknown, ' +
-      'spent or expired token renders the "link no longer valid" page at `410`, which offers the password-reset page — the only self-service ' +
-      'door the portal has, since an invitation cannot be re-issued by the person holding it.',
+      'HTML, served by the cloud from the auth portal origin; the form on it posts to `POST /api/org/invitations/accept`. **The GET spends ' +
+      'nothing** — a mail scanner opening the link must not accept the invitation — only the form\'s POST does. An unknown, spent or ' +
+      'expired token renders the "link no longer valid" page at `410`, which says to ask the organisation for a new invitation: the person ' +
+      'holding a dead link cannot re-issue it.',
   },
   {
     method: 'PATCH', path: '/api/org/users/:id', section: 'users',
@@ -1377,15 +1515,32 @@ export const ROUTES: readonly RouteEntry[] = [
   },
 
   {
+    method: 'DELETE', path: '/api/org/users/:id/two-factor', section: 'users',
+    summary: "Removes a team member's passkeys, authenticator and recovery codes and ends their sessions.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    params: [{ name: 'id', description: 'The Fleetless user\'s uuid, as listed by `GET /api/org/users`.' }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      'Owner tier: the door for a member who lost every second factor and every recovery code. Every session of the member ends, and when ' +
+      'the organisation requires two-factor they set one up again at their next sign-in. **An owner cannot reset their own** — `409 ' +
+      'target_state_conflict` naming `user_id` with rule `self`; Settings › Profile is where they change it. A member with no second factor ' +
+      'answers `204` too. Audited as `developer.two_factor_reset`, naming the owner who did it.',
+  },
+
+  {
     method: 'PATCH', path: '/api/org', section: 'org',
-    summary: 'Renames the org.',
+    summary: 'Renames the org, requires two-factor for its members, or both.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: patchOrgRequest, response: patchOrgResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error'], transport: 'http',
     notes:
       'Answers `{ "org": org }`. Owner tier, and the gate runs ' +
-      'before the body is looked at, so a malformed rename and a forbidden one answer the same way. Renaming to the name already held writes ' +
-      'nothing and records no audit event.',
+      'before the body is looked at, so a malformed patch and a forbidden one answer the same way — `403 tier_required` for a developer, ' +
+      'whichever field they sent. An empty body is `400 validation_error`. Writing the values already held writes ' +
+      'nothing and records no audit event. \n\n`require_two_factor` on signs nobody out: each member without a passkey or authenticator ' +
+      'sets one up at their next sign-in, before any session exists, on the console and the central MCP endpoint alike. Server keys and ' +
+      'robot bridges are not people and are not affected. Audited as `org.two_factor_required_changed`.',
   },
 
 
@@ -1444,8 +1599,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'applies; those refusals are `oauthError`. Exact `redirect_uri` matching for both client kinds — the loopback-port wildcard of RFC 8252 ' +
       '§7.3 belongs to the one central client alone, whose URIs are configured ahead of time and cannot name an ephemeral port. A client that ' +
       'registered itself seconds ago can name the port it bound, and widening the wildcard there would only widen where a stolen `client_id` ' +
-      'may send a browser. Nothing about the person is decided here — the next card asks for an email address and the password step after ' +
-      'it resolves the account; this route knows only the client.',
+      'may send a browser. Nothing about the person is decided here — the next card asks for an email address, or a passkey, and the steps ' +
+      'after it resolve the account; this route knows only the client.',
   },
   {
     method: 'GET', path: '/mcp/oauth/interaction/:id', section: 'mcp',
@@ -1458,35 +1613,12 @@ export const ROUTES: readonly RouteEntry[] = [
       'the inline page it replaced was not. An expired, consumed, unknown or hand-edited interaction renders one page at `410`, and so does a ' +
       'client whose dynamic registration lapsed in between.',
   },
-  {
-    method: 'POST', path: '/mcp/oauth/identify', section: 'mcp',
-    summary: 'Takes the email address and hands back the password step.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null,
-    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
-    notes:
-      'The identifier-first step, with nothing left to identify: Fleetless users are password-only, so **this step does not ' +
-      'read the address at all** — it renders the password card for a known address, an unknown one and an empty one alike, and the login ' +
-      'step below answers the same `401` for all three. That is a property of the shape rather than of two branches agreeing: there is no ' +
-      'lookup here whose result could differ. A browser form post gets the password card; a JSON caller gets `{ "next" }`, which has no ' +
-      'schema. Still rate limited per (route, ip, email), because it is an unauthenticated endpoint that renders a page.',
-  },
-  {
-    method: 'POST', path: '/mcp/oauth/login', section: 'mcp',
-    summary: 'Checks the password and hands back where the MCP sign-in continues.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: oauthRedirectResponse,
-    errors: ['rate_limited', 'validation_error', 'token_spent', 'invalid_credentials'], transport: 'http',
-    notes:
-      'The body is `{ "interaction_id", "email", "password" }`, read field by field rather than through a contract shape. A browser gets a ' +
-      '`303` — to the consent screen for a self-registered client, or straight to the callback for the central one — where a JSON caller gets ' +
-      'this `200` and `redirect_to`.',
-  },
+  ...developerSignInRoutes('/mcp/oauth'),
   {
     method: 'GET', path: '/mcp/oauth/consent/:id', section: 'mcp',
     summary: 'Serves the consent screen for an MCP client that registered itself.',
     audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The interaction id from the sign-in; the login step redirects the browser here.' }],
+    params: [{ name: 'id', description: 'The interaction id from the sign-in; the last sign-in step redirects the browser here.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
       'HTML. The browser-proof cookie is checked on this GET, not only on the POST. The **central** client never reaches this screen and ' +
@@ -1536,55 +1668,44 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The interaction id minted by `GET /console/oauth/authorize`, which redirects the browser here.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
-      'HTML. An expired, consumed, unknown or hand-edited interaction renders one page at `410`: which of the four it was is not a fact a ' +
-      'stranger may learn, and to the person it is one fact anyway. The page resolves nothing about the address typed into it, so there is no ' +
-      'enumeration oracle here at all.',
+      'HTML: the email field, `Email me a code`, and `Sign in with a passkey`. An expired, consumed, unknown or hand-edited interaction ' +
+      'renders one page at `410`: which of the four it was is not a fact a stranger may learn, and to the person it is one fact anyway. The ' +
+      'page resolves nothing about the address typed into it, so there is no enumeration oracle here at all.',
   },
-  {
-    method: 'POST', path: '/console/oauth/identify', section: 'developer-auth',
-    summary: 'Takes the email address and hands back the password step.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null,
-    errors: ['rate_limited', 'token_spent'], transport: 'http',
-    notes:
-      'A browser form post gets the password card as HTML; a JSON caller gets `{ "next": "/console/oauth/login" }`, which has no schema — the ' +
-      'step made no decision, and it says so rather than inventing a redirect. A dead interaction is `410 token_spent`. Rate limited despite ' +
-      'spending no credential: it is an unauthenticated endpoint that renders a page.',
-  },
-  {
-    method: 'POST', path: '/console/oauth/login', section: 'developer-auth',
-    summary: 'Checks the password and mints the authorization code the console exchanges.',
-    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: oauthRedirectResponse,
-    errors: ['rate_limited', 'token_spent', 'invalid_credentials'], transport: 'http',
-    notes:
-      'This is the only place a Fleetless developer password may be typed; `POST /api/auth/login` is gone, because a second credential door ' +
-      'means every security property has to be right in two places. A browser form post gets a `303` to the callback URL; a JSON caller gets ' +
-      'that same URL as `redirect_to` at `200`. An argon2 verify runs whether or not the address exists, and the Org Admins check runs after ' +
-      'it — filtering first would hand back a faster "no" for a non-admin account, which is a timing oracle. Wrong password, unknown address ' +
-      'and "not an org admin" render identical bytes under one `401`.',
-  },
+  ...developerSignInRoutes('/console/oauth'),
   {
     method: 'GET', path: '/console/oauth/signup/:id', section: 'developer-auth',
-    summary: 'Serves step one of console sign-up, the account card.',
+    summary: 'Serves step one of console sign-up, the email card.',
     audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The interaction id minted by `GET /console/oauth/authorize` with `?prompt=create`.' }],
     query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
-      'HTML. While the deployment runs in closed beta this renders the "sign-up is closed" card at `403` instead, keeping the interaction alive ' +
-      'and pointing back at sign-in — the person may well already have an account.',
+      'HTML: the email field and `Email me a code`, the first of three steps — email, code, organization. While the deployment runs in ' +
+      'closed beta this renders the "sign-up is closed" card at `403` instead, keeping the interaction alive and pointing back at sign-in and ' +
+      'the waiting list — the person may well already have an account.',
   },
   {
     method: 'POST', path: '/console/oauth/signup', section: 'developer-auth',
-    summary: 'Takes the sign-up email and password and hands back the organization step.',
+    summary: 'Takes the sign-up email, mails a code and hands back the code step.',
     audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
     errors: ['rate_limited', 'token_spent', 'signup_closed', 'validation_error', 'email_taken'], transport: 'http',
     notes:
-      'A browser form post gets the organization card; a JSON caller gets `{ "next", "email" }`, which has no schema. The plaintext password ' +
-      'exists for this one request: what is stored is its argon2 hash, on the interaction row, which expires with it. A per-interaction proof ' +
-      'cookie is set here — it is what stops a third party from finishing a sign-up somebody else started. Sign-up is the one surface whose job ' +
-      'is to say an address is taken, so `409 email_taken` is not a leak here.',
+      'A browser form post gets the code card; a JSON caller gets `{ "next", "email" }`, which has no schema. **No password**: the code ' +
+      'mailed here, six digits valid ten minutes, proves the address. A per-interaction proof cookie is set here — it is what stops a third ' +
+      'party from finishing a sign-up somebody else started. Sign-up is the one surface whose job is to say an address is taken, so `409 ' +
+      'email_taken` is not a leak here.',
+  },
+  {
+    method: 'POST', path: '/console/oauth/signup/code', section: 'developer-auth',
+    summary: 'Checks the sign-up code and hands back the organization step.',
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null,
+    errors: ['rate_limited', 'token_spent', 'signup_closed', 'wrong_browser', 'validation_error', 'invalid_code'], transport: 'http',
+    notes:
+      'A wrong code renders the code card again with the attempts left (`400 invalid_code`); a spent, expired or exhausted one is `410 ' +
+      'token_spent`. The step before must have run in **this** browser (`401 wrong_browser`). A browser form post gets the organization card, ' +
+      'the address shown `confirmed`; a JSON caller gets `{ "next" }`, which has no schema.',
   },
   {
     method: 'POST', path: '/console/oauth/signup/organization', section: 'developer-auth',
@@ -1593,9 +1714,11 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: oauthRedirectResponse,
     errors: ['rate_limited', 'token_spent', 'signup_closed', 'wrong_browser', 'validation_error', 'email_taken'], transport: 'http',
     notes:
-      'The same single transaction `POST /api/auth/signup` runs. Step one must have run in **this** browser: a missing or mismatched proof ' +
-      'cookie is `401 wrong_browser` and the person is sent back to step one. A browser form post gets a `303` to the console callback; a JSON ' +
-      'caller gets `redirect_to` at `200`.',
+      'The form carries `org_name` only. The org and its founding Owner are created in one transaction, and only after the code step ' +
+      'confirmed the address. Both steps before must have run in **this** browser: a missing or mismatched proof cookie is `401 ' +
+      'wrong_browser` and the person is sent back to step one. `409 email_taken` when the address was taken meanwhile. A browser form post ' +
+      'gets a `303` to the console callback; a JSON caller gets `redirect_to` at `200`. This is the only way an organisation is created: ' +
+      '`POST /api/auth/signup` is gone, because without a password it would hand a session to anybody who names an address.',
   },
   {
     method: 'POST', path: '/console/oauth/token', section: 'developer-auth',
@@ -1920,9 +2043,8 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: clientPasswordResetRequest, response: null,
     errors: ['rate_limited', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      '**The app-user twin of `POST /api/auth/password/reset`, and a different shape** because the two surfaces name a person differently: a ' +
-      'Fleetless address is globally unique and resolves alone, an app user\'s is unique only within their app, so the pair is the identifier. ' +
-      'Status, body and timing are identical for a known and an unknown address. An account with no Fleetless password — one created through an ' +
+      'The pair of app identifier and address is the identifier: an app user\'s address is unique only within their app. ' +
+      'Status, body and timing are identical for a known and an unknown address. An account with no password — one created through an ' +
       'identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link ' +
       'points at the app\'s `reset_url`, or at the hosted reset page when the app has configured none.',
   },

@@ -5,9 +5,6 @@ import {
   org,
   fleetlessUser,
   sessionTokens,
-  signUpRequest,
-  signUpResponse,
-  developerLoginRequest,
   teamInvite,
   createTeamInviteRequest,
   acceptTeamInviteRequest,
@@ -33,6 +30,7 @@ import {
   roleDeleteQuery,
   roleInUseDetails,
 } from '../src/index.js'
+import * as identityBarrel from '../src/index.js'
 
 const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
 const UUID2 = '7c2f1b40-8e3a-4d51-9f6b-2a1c3d4e5f60'
@@ -46,27 +44,15 @@ describe('identity', () => {
     expect(password.safeParse('aaaaaaaaaaaaaaaa').success).toBe(true)
   })
 
-  it('registering an org yields org, first owner and a session in one step', () => {
-    const request = { org_name: 'Dehne Robotik', email: 'andre@example.com', password: 'correct-horse-battery' }
-    expect(signUpRequest.safeParse(request).success).toBe(true)
-    expect(signUpRequest.safeParse({ ...request, password: 'short' }).success).toBe(false)
-    expect(signUpRequest.safeParse({ ...request, email: 'not-an-email' }).success).toBe(false)
-
-    expect(
-      signUpResponse.safeParse({
-        org: { id: UUID, name: 'Dehne Robotik', created_at: NOW },
-        user: {
-          id: UUID2, org_id: UUID, email: 'andre@example.com', display_name: null,
-          tier: 'owner', created_at: NOW,
-        },
-        tokens: { access_token: 'a', refresh_token: 'r', expires_in: 900 },
-      }).success,
-    ).toBe(true)
+  it('describes an org with its two-factor policy', () => {
+    expect(org.safeParse({ id: UUID, name: 'Dehne Robotik', require_two_factor: false, created_at: NOW }).success).toBe(true)
+    expect(org.safeParse({ id: UUID, name: 'Dehne Robotik', created_at: NOW }).success).toBe(false)
   })
 
   it('knows exactly two tiers, and every Fleetless user has one', () => {
     const base = {
       id: UUID, org_id: UUID2, email: 'a@b.de', display_name: null, created_at: NOW,
+      two_factor: { passkeys: 0, authenticator: false },
     }
     expect(fleetlessUser.safeParse({ ...base, tier: 'owner' }).success).toBe(true)
     expect(fleetlessUser.safeParse({ ...base, tier: 'developer' }).success).toBe(true)
@@ -78,11 +64,12 @@ describe('identity', () => {
   })
 
   it('separates the console login from the app login', () => {
-    // Console login has no app identifier: it resolves a Fleetless user, whose
-    // email is globally unique. App login needs one: an app user's email is
-    // unique only within their app, so the pair names them — separate tables,
-    // so a credential from one never authenticates the other.
-    expect(developerLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(true)
+    // A Fleetless user signs in on the auth portal by emailed code or passkey
+    // and has no JSON login shape at all. App login needs an app identifier:
+    // an app user's email is unique only within their app, so the pair names
+    // them — separate tables, so a credential from one never authenticates
+    // the other.
+    expect('developerLoginRequest' in identityBarrel).toBe(false)
     expect(clientLoginRequest.safeParse({ email: 'a@b.de', password: 'x' }).success).toBe(false)
     expect(
       clientLoginRequest.safeParse({ app_identifier: 'fleet_ops', email: 'a@b.de', password: 'x' }).success,
@@ -114,8 +101,10 @@ describe('identity', () => {
     expect(
       createTeamInviteRequest.safeParse({ email: 'u@e.de', tier: 'developer', send_mail: true }).success,
     ).toBe(true)
-    expect(acceptTeamInviteRequest.safeParse({ token: 't', password: 'correct-horse-battery' }).success).toBe(true)
-    expect(acceptTeamInviteRequest.safeParse({ token: 't', password: 'short' }).success).toBe(false)
+    // The mailed link proves the address; a Fleetless user holds no password.
+    expect(acceptTeamInviteRequest.safeParse({ token: 't' }).success).toBe(true)
+    expect(acceptTeamInviteRequest.safeParse({ token: 't', display_name: 'Ada' }).success).toBe(true)
+    expect(acceptTeamInviteRequest.safeParse({ token: 't', password: 'correct-horse-battery' }).success).toBe(false)
   })
 
   it('bounds the session token shape', () => {
@@ -124,8 +113,8 @@ describe('identity', () => {
   })
 
   it('names the org', () => {
-    expect(org.safeParse({ id: UUID, name: 'Dehne Robotik', created_at: NOW }).success).toBe(true)
-    expect(org.safeParse({ id: UUID, name: '', created_at: NOW }).success).toBe(false)
+    expect(org.safeParse({ id: UUID, name: 'Dehne Robotik', require_two_factor: false, created_at: NOW }).success).toBe(true)
+    expect(org.safeParse({ id: UUID, name: '', require_two_factor: false, created_at: NOW }).success).toBe(false)
   })
 })
 

@@ -8,7 +8,7 @@ import {
   clientOidcCallbackQuery, clientOidcErrorCode, MCP_ENDPOINT_PATH, MCP_APP_PATHS, mcpAppEndpointPath,
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
-  appDeletionSummary,
+  appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -181,12 +181,72 @@ describe('the route manifest', () => {
    * sign-in continues. Deleted in both repositories, and guarded here because
    * the manifest is what a re-add would have to pass through.
    */
-  it('lists no federated MCP callback — Fleetless users sign in with a password and nothing else', () => {
+  it('lists no federated MCP callback — Fleetless users sign in by emailed code or passkey and nothing else', () => {
     const paths = new Set(ROUTES.map((r) => r.path))
     expect(paths.has('/mcp/oauth/idp-callback')).toBe(false)
     // Non-vacuity: the rest of that flow is still here.
     expect(paths.has('/mcp/oauth/identify')).toBe(true)
-    expect(paths.has('/mcp/oauth/login')).toBe(true)
+    expect(paths.has('/mcp/oauth/code')).toBe(true)
+  })
+
+  /**
+   * **#98: developers sign in by emailed code or passkey, and no password
+   * route is left.** A manifest that still listed one would make the cloud's
+   * set-equality test demand a handler for a door that must not exist.
+   */
+  it('no developer password route is left', () => {
+    const paths = ROUTES.map((r) => `${r.method} ${r.path}`)
+    for (const gone of [
+      'POST /api/auth/signup', 'POST /api/auth/password/change', 'POST /api/auth/password/reset',
+      'POST /api/auth/password/reset/confirm', 'GET /reset-password', 'GET /reset-password/:token',
+      'POST /console/oauth/login', 'POST /mcp/oauth/login',
+    ]) expect(paths).not.toContain(gone)
+    expect(paths).toContain('POST /api/client/password/change')
+  })
+
+  it('both portal prefixes carry the same sign-in steps', () => {
+    const steps = (p: string) => ROUTES.filter((r) => r.path.startsWith(`${p}/`)).map((r) => `${r.method} ${r.path.slice(p.length)}`)
+    const common = [
+      'POST /identify', 'POST /code', 'GET /two-factor/:id', 'GET /two-factor/:id/recovery', 'POST /two-factor',
+      'POST /passkey/options', 'POST /passkey', 'GET /two-factor/setup/:id', 'POST /two-factor/setup/totp',
+      'POST /two-factor/setup/totp/confirm', 'POST /two-factor/setup/passkey/options', 'POST /two-factor/setup/passkey',
+      'POST /two-factor/setup/done',
+    ]
+    for (const s of common) {
+      expect(steps('/console/oauth'), `/console/oauth${s}`).toContain(s)
+      expect(steps('/mcp/oauth'), `/mcp/oauth${s}`).toContain(s)
+    }
+    expect(developerSignInRoutes('/console/oauth').map((r) => `${r.method} ${r.path.slice('/console/oauth'.length)}`).sort()).toEqual([...common].sort())
+    // Every step after identify needs the browser-proof cookie.
+    for (const r of [...developerSignInRoutes('/console/oauth'), ...developerSignInRoutes('/mcp/oauth')]) {
+      expect(r.audience, key(r)).toBe('internal')
+      expect(r.request, key(r)).toBeNull()
+      if (r.method === 'POST' && !r.path.endsWith('/identify')) expect(r.errors, key(r)).toContain('wrong_browser')
+    }
+  })
+
+  it('an invitation takes no password and the org update takes the policy alone', () => {
+    expect(acceptTeamInviteRequest.safeParse({ token: 't', password: 'x'.repeat(12) }).success).toBe(false)
+    expect(patchOrgRequest.safeParse({ require_two_factor: true }).success).toBe(true)
+    expect(patchOrgRequest.safeParse({}).success).toBe(false)
+  })
+
+  it('the member reset is owner-only', () => {
+    const r = ROUTES.find((x) => x.method === 'DELETE' && x.path === '/api/org/users/:id/two-factor')
+    expect(r?.ownerTier).toBe(true)
+  })
+
+  it('offers a developer their own second factors, and no MCP-exposed shortcut around them', () => {
+    for (const k of [
+      'GET /api/auth/two-factor', 'POST /api/auth/passkeys/options', 'POST /api/auth/passkeys', 'PATCH /api/auth/passkeys/:id',
+      'DELETE /api/auth/passkeys/:id', 'POST /api/auth/totp', 'POST /api/auth/totp/confirm', 'DELETE /api/auth/totp',
+      'POST /api/auth/recovery-codes',
+    ]) {
+      const r = ROUTES.find((x) => key(x) === k)
+      expect(r, k).toBeDefined()
+      expect(r!.auth, k).toBe('developer')
+      expect(r!.ownerTier, `${k} is the caller's own and needs no Owner tier`).toBe(false)
+    }
   })
 })
 
@@ -258,8 +318,6 @@ describe('the route artifacts', () => {
       'cloud-introspect-request': 'a bridge protocol frame, as above',
       'cloud-job-query': 'a bridge protocol frame, as above',
       'cloud-type-request': 'a bridge protocol frame, as above',
-      'developer-login-request':
-        "the auth portal's own login form. POST /console/oauth/login is audience:'internal' — a page the cloud serves to itself, never rendered in the published reference — and its handler reads the three fields by hand",
       'put-datapoint-display-request':
         'PUT /api/robots/:id/datapoints/:slug/display is designed and not implemented: no cloud route serves it, so there is no manifest entry to name the shape from',
     }
@@ -765,11 +823,10 @@ describe('the app-user auth surface', () => {
       expect(r.notes ?? '', `${key(r)} does not say what a short password answers`).toContain('validation_error')
     }
 
-    // Non-vacuity, and the precedent the rule is read off: the two developer
-    // routes that have taken a password since long before this release answer the
-    // same way. If either ever grows a `weak_password`, these rows should be
-    // revisited together rather than drifting apart.
-    for (const k of ['POST /api/auth/signup', 'POST /api/auth/password/change']) {
+    // Non-vacuity, and the precedent the rule is read off: the app user's own
+    // password change answers the same way. (The two developer routes this
+    // used to name are gone: Fleetless users hold no password.)
+    for (const k of ['POST /api/client/password/change']) {
       const errors: readonly string[] = ROUTES.find((r) => key(r) === k)!.errors
       expect(errors, `${k} no longer refuses a malformed body`).toContain('validation_error')
       expect(errors, `${k} grew a weak_password; the four rows above assume it has none`).not.toContain('weak_password')

@@ -437,11 +437,8 @@ export {
   patchOrgResponse,
   sessionTokens,
   refreshRequest,
-  signUpRequest,
-  signUpResponse,
   // 2026-09-04 — the public site (closed beta).
   waitlistRequest,
-  developerLoginRequest,
   // The two identity spaces.
   USER_DISPLAY_NAME_MAX,
   orgAdminTier,
@@ -458,8 +455,6 @@ export {
   mailStatus,
   tierRequiredDetails,
   passwordChangeRequest,
-  passwordResetRequest,
-  passwordResetConfirm,
   idpIssuer,
   // Codes and second factors, shared by both identity spaces.
   loginCode,
@@ -467,6 +462,17 @@ export {
   recoveryCode,
   recoveryCodesList,
   twoFactorSetupResponse,
+  // A developer's second factors.
+  webauthnJson,
+  webauthnOptionsResponse,
+  developerPasskey,
+  developerTwoFactor,
+  createPasskeyRequest,
+  createPasskeyResponse,
+  renamePasskeyRequest,
+  totpConfirmRequest,
+  totpConfirmResponse,
+  recoveryCodesResponse,
   // auth/me, org and member patches.
   authMeResponse,
   patchOrgRequest,
@@ -477,10 +483,7 @@ export type {
   PatchOrgResponse,
   SessionTokens,
   RefreshRequest,
-  SignUpRequest,
-  SignUpResponse,
   WaitlistRequest,
-  DeveloperLoginRequest,
   OrgAdminTier,
   FleetlessUser,
   FleetlessUserListResponse,
@@ -494,10 +497,17 @@ export type {
   MailStatus,
   TierRequiredDetails,
   PasswordChangeRequest,
-  PasswordResetRequest,
-  PasswordResetConfirm,
   IdpIssuer,
   TwoFactorSetupResponse,
+  WebauthnOptionsResponse,
+  DeveloperPasskey,
+  DeveloperTwoFactor,
+  CreatePasskeyRequest,
+  CreatePasskeyResponse,
+  RenamePasskeyRequest,
+  TotpConfirmRequest,
+  TotpConfirmResponse,
+  RecoveryCodesResponse,
   AuthMeResponse,
   PatchOrgRequest,
   PatchAuthMeRequest,
@@ -773,7 +783,7 @@ export type {
   AuthorizationServerMetadata,
   ProtectedResourceMetadata,
 } from './oauth.js'
-export { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES } from './routes.js'
+export { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, developerSignInRoutes } from './routes.js'
 export type {
   RouteEntry,
   RouteParam,

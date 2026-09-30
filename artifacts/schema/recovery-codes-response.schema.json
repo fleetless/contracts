@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "recovery_codes": {
+      "minItems": 10,
+      "maxItems": 10,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z2-7]{5}-[a-z2-7]{5}$"
+      },
+      "description": "The ten new recovery codes, lowercase, shown once. Every earlier code is void."
+    }
+  },
+  "required": [
+    "recovery_codes"
+  ],
+  "additionalProperties": false
+}

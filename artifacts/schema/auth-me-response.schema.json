@@ -17,6 +17,10 @@
           "maxLength": 120,
           "description": "The organisation's display name. Free text, changed through `PATCH /api/org`."
         },
+        "require_two_factor": {
+          "type": "boolean",
+          "description": "Whether every member must have a second factor — a passkey or an authenticator app. A member without one sets it up at their next sign-in, before any session exists; nobody is signed out when it is switched on. It covers the console and the central MCP endpoint; server keys and robot bridges are not people and are not affected. Owners change it through `PATCH /api/org`."
+        },
         "created_at": {
           "type": "string",
           "format": "date-time",
@@ -27,6 +31,7 @@
       "required": [
         "id",
         "name",
+        "require_two_factor",
         "created_at"
       ],
       "additionalProperties": false
@@ -73,6 +78,27 @@
           ],
           "description": "The console powers this person holds. **Required** — every Fleetless user has a tier; it was optional only while the org also held people with no console powers to grade, and that pool is gone."
         },
+        "two_factor": {
+          "type": "object",
+          "properties": {
+            "passkeys": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "How many passkeys the person has registered."
+            },
+            "authenticator": {
+              "type": "boolean",
+              "description": "Whether the person has a confirmed authenticator app."
+            }
+          },
+          "required": [
+            "passkeys",
+            "authenticator"
+          ],
+          "additionalProperties": false,
+          "description": "The person's second factors, as the team list shows them: none, passkeys, an authenticator, or both. No credential travels here. An owner resets them through `DELETE /api/org/users/:id/two-factor`."
+        },
         "created_at": {
           "type": "string",
           "format": "date-time",
@@ -86,6 +112,7 @@
         "email",
         "display_name",
         "tier",
+        "two_factor",
         "created_at"
       ],
       "additionalProperties": false

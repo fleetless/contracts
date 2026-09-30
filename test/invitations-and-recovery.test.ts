@@ -23,9 +23,8 @@ import {
   teamInvite,
   tierRequiredDetails,
   passwordChangeRequest,
-  passwordResetRequest,
-  passwordResetConfirm,
 } from '../src/identity.js'
+import { clientPasswordResetConfirmRequest, clientPasswordResetRequest } from '../src/client-auth.js'
 import { appInvitation } from '../src/app-users.js'
 import { rateLimitDetails } from '../src/rest.js'
 import { ERROR_CODES } from '../src/errors.js'
@@ -160,16 +159,19 @@ describe('recovering an account', () => {
     expect(passwordChangeRequest.safeParse({ current_password: 'x', new_password: 'short' }).success).toBe(false)
   })
 
-  it('asks for a reset with an address and nothing else', () => {
+  // Only app users hold a password since the developer sign-in moved to
+  // emailed codes and passkeys, so the reset pair is the app user's.
+  it('asks for a reset with an app and an address and nothing else', () => {
     // Anything more would be another thing an unauthenticated caller can probe.
-    expect(passwordResetRequest.safeParse({ email: 'dev@example.com' }).success).toBe(true)
-    expect(passwordResetRequest.safeParse({ email: 'not-an-address' }).success).toBe(false)
-    expect(Object.keys(passwordResetRequest.parse({ email: 'dev@example.com' }))).toEqual(['email'])
+    const body = { app_identifier: 'fleet_ops', email: 'dev@example.com' }
+    expect(clientPasswordResetRequest.safeParse(body).success).toBe(true)
+    expect(clientPasswordResetRequest.safeParse({ ...body, email: 'not-an-address' }).success).toBe(false)
+    expect(Object.keys(clientPasswordResetRequest.parse(body)).sort()).toEqual(['app_identifier', 'email'])
   })
 
   it('confirms a reset with the token and the new password', () => {
-    expect(passwordResetConfirm.safeParse({ token: 't', new_password: GOOD_PASSWORD }).success).toBe(true)
-    expect(passwordResetConfirm.safeParse({ token: '', new_password: GOOD_PASSWORD }).success).toBe(false)
-    expect(passwordResetConfirm.safeParse({ token: 't', new_password: 'short' }).success).toBe(false)
+    expect(clientPasswordResetConfirmRequest.safeParse({ token: 't', new_password: GOOD_PASSWORD }).success).toBe(true)
+    expect(clientPasswordResetConfirmRequest.safeParse({ token: '', new_password: GOOD_PASSWORD }).success).toBe(false)
+    expect(clientPasswordResetConfirmRequest.safeParse({ token: 't', new_password: 'short' }).success).toBe(false)
   })
 })

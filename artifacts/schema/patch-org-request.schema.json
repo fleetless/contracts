@@ -3,13 +3,15 @@
   "type": "object",
   "properties": {
     "name": {
+      "description": "The organisation's new display name. Absent leaves it alone.",
       "type": "string",
       "minLength": 1,
       "maxLength": 120
+    },
+    "require_two_factor": {
+      "description": "Whether every member must have a second factor. Turning it on signs nobody out: each member without one sets it up at their next sign-in. Absent leaves it alone.",
+      "type": "boolean"
     }
   },
-  "required": [
-    "name"
-  ],
   "additionalProperties": false
 }

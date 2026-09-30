@@ -17,6 +17,10 @@
           "maxLength": 120,
           "description": "The organisation's display name. Free text, changed through `PATCH /api/org`."
         },
+        "require_two_factor": {
+          "type": "boolean",
+          "description": "Whether every member must have a second factor — a passkey or an authenticator app. A member without one sets it up at their next sign-in, before any session exists; nobody is signed out when it is switched on. It covers the console and the central MCP endpoint; server keys and robot bridges are not people and are not affected. Owners change it through `PATCH /api/org`."
+        },
         "created_at": {
           "type": "string",
           "format": "date-time",
@@ -27,6 +31,7 @@
       "required": [
         "id",
         "name",
+        "require_two_factor",
         "created_at"
       ],
       "additionalProperties": false,
