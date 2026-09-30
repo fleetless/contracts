@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [5.2.0] — 2026-09-30
+
 ### Added
 
 - **A cancel can be limited to the bridge's own job.** `cancel`
