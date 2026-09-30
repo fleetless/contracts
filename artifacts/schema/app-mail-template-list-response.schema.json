@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "templates": {
-      "maxItems": 3,
+      "maxItems": 4,
       "type": "array",
       "items": {
         "type": "object",
@@ -13,9 +13,10 @@
             "enum": [
               "invite",
               "verify",
-              "reset"
+              "reset",
+              "login_code"
             ],
-            "description": "Which of the three mails this template replaces."
+            "description": "Which of the four mails this template replaces."
           },
           "subject": {
             "type": "string",

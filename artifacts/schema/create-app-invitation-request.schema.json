@@ -29,7 +29,7 @@
     },
     "send_mail": {
       "type": "boolean",
-      "description": "Whether Fleetless mails the invitation. **Refused with `409 target_state_conflict` naming `invite_url` when the app has configured none** — there would be nowhere for the link to point, and a mail carrying a Fleetless-hosted page is a surface this product does not have."
+      "description": "Whether Fleetless mails the invitation. The link points at the app's `invite_url`, or at the Fleetless-hosted invitation page when the app has configured none — so the mail always leads somewhere, and nothing is refused for a missing URL."
     }
   },
   "required": [

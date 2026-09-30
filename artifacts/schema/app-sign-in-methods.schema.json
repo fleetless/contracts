@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "password": {
+      "type": "boolean",
+      "description": "Whether app users may sign in with a password. Off refuses `POST /api/client/login` with `method_not_allowed`, and registration and invitations then take no password."
+    },
+    "email_code": {
+      "type": "boolean",
+      "description": "Whether app users may sign in with a six-digit code mailed to them, valid ten minutes. A code needs no URL, so it works in local development and in an app with no web UI."
+    }
+  },
+  "required": [
+    "password",
+    "email_code"
+  ],
+  "additionalProperties": false
+}
