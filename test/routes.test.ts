@@ -2046,3 +2046,37 @@ describe('the robot-detail routes phase 4 adds', () => {
     for (const r of ROUTES) expect(r.errors, key(r)).not.toContain('asset_too_large')
   })
 })
+
+describe('the Fleetless-hosted app pages (#98)', () => {
+  const HOSTED = [
+    'GET /logo', 'GET /mcp/:interaction', 'POST /mcp/:interaction/password', 'POST /mcp/:interaction/code',
+    'POST /mcp/:interaction/code/verify', 'POST /mcp/:interaction/consent', 'POST /two-factor',
+    'POST /two-factor/setup', 'POST /two-factor/setup/confirm', 'GET /invite/:token', 'POST /invite',
+    'GET /reset/:token', 'POST /reset', 'GET /forgot', 'POST /forgot', 'GET /sign-up', 'POST /sign-up',
+    'GET /verify/:token', 'POST /verify',
+  ].map((k) => k.replace(' /', ' /app/:appIdentifier/'))
+
+  it('lists exactly the nineteen hosted pages, internal and without a request schema', () => {
+    const rows = ROUTES.filter((r) => r.path.startsWith('/app/:appIdentifier/'))
+    expect(rows.map(key).sort()).toEqual([...HOSTED].sort())
+    for (const r of rows) {
+      expect(r.audience, key(r)).toBe('internal')
+      expect(r.auth, key(r)).toBe('none')
+      expect(r.request, key(r)).toBeNull()
+      expect(r.response, key(r)).toBeNull()
+      expect(r.params[0]?.name, key(r)).toBe('appIdentifier')
+    }
+  })
+
+  it('spends no token on the GET of a mailed link', () => {
+    for (const k of ['GET /app/:appIdentifier/invite/:token', 'GET /app/:appIdentifier/reset/:token', 'GET /app/:appIdentifier/verify/:token']) {
+      expect(ROUTES.find((r) => key(r) === k)?.notes ?? '', k).toContain('only its `POST` spends the token')
+    }
+  })
+
+  it('serves the logo sandboxed', () => {
+    const notes = ROUTES.find((r) => key(r) === 'GET /app/:appIdentifier/logo')?.notes ?? ''
+    expect(notes).toContain('nosniff')
+    expect(notes).toContain('sandbox')
+  })
+})

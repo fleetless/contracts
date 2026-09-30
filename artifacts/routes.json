@@ -3296,6 +3296,499 @@
     },
     {
       "method": "GET",
+      "path": "/app/:appIdentifier/logo",
+      "section": "client-auth",
+      "summary": "Serves the app's logo for its hosted pages.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "The stored PNG or SVG, as written through `PUT /api/apps/:id/auth-config/logo`; `404` when the app has none. **Served sandboxed**: `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, so a script inside an SVG never runs, even opened directly. The hosted pages embed it as an image only."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/mcp/:interaction",
+      "section": "client-auth",
+      "summary": "Serves the hosted MCP sign-in, the page an unset `mcp_login_url` falls back to.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "interaction",
+          "description": "The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML: the app's identity providers, then the sign-in the app offers — email and password with `Email me a sign-in code instead`, or email and `Email me a code` for a code-only app — and `Create one` when self-registration is on. A dead interaction renders the `410` page. The browser-proof cookie is set here."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/mcp/:interaction/password",
+      "section": "client-auth",
+      "summary": "Checks the email and password of the hosted MCP sign-in.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "interaction",
+          "description": "The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. One refusal for every miss, as `POST /api/client/login` answers. With a second factor to give, the two-factor page follows; otherwise the consent page."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/mcp/:interaction/code",
+      "section": "client-auth",
+      "summary": "Mails a sign-in code for the hosted MCP sign-in and renders the code page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "interaction",
+          "description": "The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. The same page for a known and an unknown address, as `POST /api/client/login/code` answers; six boxes, `Resend code in 0:42`, and `Use password instead` where the app has passwords on."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/mcp/:interaction/code/verify",
+      "section": "client-auth",
+      "summary": "Checks the emailed code of the hosted MCP sign-in.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "interaction",
+          "description": "The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. A wrong code renders the code page with the attempts left; a spent one asks for a new code. With a second factor to give, the two-factor page follows; otherwise the consent page."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/mcp/:interaction/consent",
+      "section": "client-auth",
+      "summary": "Records the allow-or-deny of the hosted MCP sign-in and sends the browser back to the client.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "interaction",
+          "description": "The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "Answers a `303` to the MCP client's callback, carrying the code or `error=access_denied`, as `POST /api/client/mcp/interactions/:id/approve` and `…/deny` do. Fail-closed: anything but the Allow value denies. The browser-proof cookie set at the sign-in must match, or the `wrong_browser` page renders."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/two-factor",
+      "section": "client-auth",
+      "summary": "Checks an authenticator or recovery code on a hosted page and finishes the sign-in it interrupted.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. The form carries the challenge the step before answered and either `code` or `recovery_code`, checked as `POST /api/client/two-factor/verify` checks them. Success continues where the sign-in was going: the MCP consent, or the done page."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/two-factor/setup",
+      "section": "client-auth",
+      "summary": "Starts an authenticator setup on a hosted page, when the app requires two-factor.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. Renders the QR code, the key with `Copy key`, and the confirm field, for the challenge the step before answered."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/two-factor/setup/confirm",
+      "section": "client-auth",
+      "summary": "Confirms the new authenticator on a hosted page and shows the ten recovery codes.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. A wrong code renders the setup page again. On success the ten recovery codes are shown once, with `Copy` and `Download .txt`; `I saved my recovery codes` gates `Continue`."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/invite/:token",
+      "section": "client-auth",
+      "summary": "Serves the hosted invitation page, the one an unset `invite_url` falls back to.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "token",
+          "description": "The opaque token from the mailed link; it is never sent as a query parameter."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML. Renders a form; only its `POST` spends the token, so a mail scanner opening the link changes nothing. Asks for a name, and a password only while the app has passwords on; announces the two-factor setup when the app requires it. A spent, expired or unknown token renders the `410` page with the next step for its kind."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/invite",
+      "section": "client-auth",
+      "summary": "Accepts an invitation from the hosted invitation page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. Spends the token as `POST /api/client/invitations/accept` does; the two-factor setup follows when the app requires it, then the done page."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/reset/:token",
+      "section": "client-auth",
+      "summary": "Serves the hosted new-password page, the one an unset `reset_url` falls back to.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "token",
+          "description": "The opaque token from the mailed link; it is never sent as a query parameter."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML. Renders a form; only its `POST` spends the token, so a mail scanner opening the link changes nothing. Says that two-factor stays on. A spent, expired or unknown token renders the `410` page with the next step for its kind."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/reset",
+      "section": "client-auth",
+      "summary": "Sets the new password from the hosted new-password page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. Spends the token as `POST /api/client/password/reset/confirm` does; a person with an authenticator gives a code before the done page."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/forgot",
+      "section": "client-auth",
+      "summary": "Serves the hosted \"forgot your password\" page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML: the address field. Reached from the hosted sign-in and the dead-link page."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/forgot",
+      "section": "client-auth",
+      "summary": "Mails a reset link from the hosted \"forgot your password\" page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. The same \"check your mail\" page for a known and an unknown address, as `POST /api/client/password/reset` answers."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/sign-up",
+      "section": "client-auth",
+      "summary": "Serves the hosted sign-up page, when the app has self-registration on.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML: the address, a password while the app has passwords on, and an optional name. With self-registration off it renders the \"registration closed\" page."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/sign-up",
+      "section": "client-auth",
+      "summary": "Creates an account from the hosted sign-up page and mails the confirmation link.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. Registers as `POST /api/client/register` does, and renders the same \"check your mail\" page for a new and a known address."
+    },
+    {
+      "method": "GET",
+      "path": "/app/:appIdentifier/verify/:token",
+      "section": "client-auth",
+      "summary": "Serves the hosted email-confirmation page, the one an unset `verify_url` falls back to.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": false,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        },
+        {
+          "name": "token",
+          "description": "The opaque token from the mailed link; it is never sent as a query parameter."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [],
+      "transport": "http",
+      "notes": "HTML. Renders a form; only its `POST` spends the token, so a mail scanner opening the link changes nothing. A spent, expired or unknown token renders the `410` page with the next step for its kind."
+    },
+    {
+      "method": "POST",
+      "path": "/app/:appIdentifier/verify",
+      "section": "client-auth",
+      "summary": "Confirms the address from the hosted email-confirmation page.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 200,
+      "params": [
+        {
+          "name": "appIdentifier",
+          "description": "The app's public identifier — `app.identifier`, what the console prints beside its copy button. It is not a secret: it appears in this path, in both metadata documents, and in the URL an app user pastes into their AI tool."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "HTML: the next page on success, the same page with the problem named on a refusal. Spends the token as `POST /api/client/verify-email` does; the two-factor setup follows when the app requires it, then the done page."
+    },
+    {
+      "method": "GET",
       "path": "/mcp/welcome",
       "section": "mcp",
       "summary": "Serves the page that tells a person which URL to paste into their MCP client.",

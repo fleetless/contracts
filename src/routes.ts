@@ -465,6 +465,106 @@ export function developerSignInRoutes(prefix: '/console/oauth' | '/mcp/oauth'): 
   ]
 }
 
+/**
+ * **The Fleetless-hosted pages an app falls back to**, under
+ * `/app/:appIdentifier` on the auth portal.
+ *
+ * An app that leaves one of its URLs unset gets these instead: the invitation,
+ * email-confirmation and new-password pages its mails link to, a forgot-password
+ * and a sign-up page, and the MCP sign-in. They are pages the portal serves to
+ * itself — `audience: 'internal'`, HTML only, forms with no request schema —
+ * on a neutral shell carrying the app's name, its optional logo and accent,
+ * and `Secured by Fleetless`. They call the same sign-in policy as the
+ * `/api/client/*` routes, so there is one set of rules, not two; the portal
+ * origin is always allowed for them, whatever the app's `allowed_origins`.
+ * They are not a hosted login for the app's own web UI: nothing hands a
+ * session to the app's origin.
+ *
+ * **A mailed link never spends its token on `GET`**: the `GET` renders a form,
+ * and only its `POST` spends the token — a mail scanner opening the link
+ * changes nothing. Every MCP step after the sign-in needs the browser-proof
+ * cookie set there. A done page offers `Open <app>` when the app's `app_url`
+ * is set, and `You can close this tab` otherwise; a spent or expired link
+ * renders one `410` page with the next step for its kind.
+ */
+const HOSTED_TOKEN: RouteParam = {
+  name: 'token',
+  description: 'The opaque token from the mailed link; it is never sent as a query parameter.',
+}
+const HOSTED_INTERACTION: RouteParam = {
+  name: 'interaction',
+  description: 'The interaction id `GET /mcp/:appIdentifier/oauth/authorize` put into the hosted MCP sign-in URL.',
+}
+function hostedPage(method: 'GET' | 'POST', path: string, summary: string, notes: string, params: readonly RouteParam[] = []): RouteEntry {
+  return {
+    method, path: `/app/:appIdentifier${path}`, section: 'client-auth', summary,
+    audience: 'internal', auth: 'none', rateLimited: method === 'POST', ownerTier: false, status: 200,
+    params: [APP_IDENTIFIER, ...params], query: null, request: null, response: null,
+    errors: method === 'POST' ? ['rate_limited'] : [], transport: 'http', notes,
+  }
+}
+const HOSTED_FORM = 'Renders a form; only its `POST` spends the token, so a mail scanner opening the link changes nothing. '
+const HOSTED_DEAD = 'A spent, expired or unknown token renders the `410` page with the next step for its kind.'
+const HOSTED_POST = 'HTML: the next page on success, the same page with the problem named on a refusal. '
+
+const HOSTED_APP_ROUTES: readonly RouteEntry[] = [
+  hostedPage('GET', '/logo', "Serves the app's logo for its hosted pages.",
+    'The stored PNG or SVG, as written through `PUT /api/apps/:id/auth-config/logo`; `404` when the app has none. **Served sandboxed**: ' +
+    '`X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src \'none\'; style-src \'unsafe-inline\'; sandbox`, so a ' +
+    'script inside an SVG never runs, even opened directly. The hosted pages embed it as an image only.'),
+  hostedPage('GET', '/mcp/:interaction', 'Serves the hosted MCP sign-in, the page an unset `mcp_login_url` falls back to.',
+    'HTML: the app\'s identity providers, then the sign-in the app offers — email and password with `Email me a sign-in code instead`, ' +
+    'or email and `Email me a code` for a code-only app — and `Create one` when self-registration is on. A dead interaction renders the ' +
+    '`410` page. The browser-proof cookie is set here.', [HOSTED_INTERACTION]),
+  hostedPage('POST', '/mcp/:interaction/password', 'Checks the email and password of the hosted MCP sign-in.',
+    HOSTED_POST + 'One refusal for every miss, as `POST /api/client/login` answers. With a second factor to give, the two-factor page ' +
+    'follows; otherwise the consent page.', [HOSTED_INTERACTION]),
+  hostedPage('POST', '/mcp/:interaction/code', 'Mails a sign-in code for the hosted MCP sign-in and renders the code page.',
+    HOSTED_POST + 'The same page for a known and an unknown address, as `POST /api/client/login/code` answers; six boxes, `Resend code ' +
+    'in 0:42`, and `Use password instead` where the app has passwords on.', [HOSTED_INTERACTION]),
+  hostedPage('POST', '/mcp/:interaction/code/verify', 'Checks the emailed code of the hosted MCP sign-in.',
+    HOSTED_POST + 'A wrong code renders the code page with the attempts left; a spent one asks for a new code. With a second factor to ' +
+    'give, the two-factor page follows; otherwise the consent page.', [HOSTED_INTERACTION]),
+  hostedPage('POST', '/mcp/:interaction/consent', 'Records the allow-or-deny of the hosted MCP sign-in and sends the browser back to the client.',
+    'Answers a `303` to the MCP client\'s callback, carrying the code or `error=access_denied`, as `POST ' +
+    '/api/client/mcp/interactions/:id/approve` and `…/deny` do. Fail-closed: anything but the Allow value denies. The browser-proof cookie ' +
+    'set at the sign-in must match, or the `wrong_browser` page renders.', [HOSTED_INTERACTION]),
+  hostedPage('POST', '/two-factor', 'Checks an authenticator or recovery code on a hosted page and finishes the sign-in it interrupted.',
+    HOSTED_POST + 'The form carries the challenge the step before answered and either `code` or `recovery_code`, checked as `POST ' +
+    '/api/client/two-factor/verify` checks them. Success continues where the sign-in was going: the MCP consent, or the done page.'),
+  hostedPage('POST', '/two-factor/setup', 'Starts an authenticator setup on a hosted page, when the app requires two-factor.',
+    HOSTED_POST + 'Renders the QR code, the key with `Copy key`, and the confirm field, for the challenge the step before answered.'),
+  hostedPage('POST', '/two-factor/setup/confirm', 'Confirms the new authenticator on a hosted page and shows the ten recovery codes.',
+    HOSTED_POST + 'A wrong code renders the setup page again. On success the ten recovery codes are shown once, with `Copy` and `Download ' +
+    '.txt`; `I saved my recovery codes` gates `Continue`.'),
+  hostedPage('GET', '/invite/:token', 'Serves the hosted invitation page, the one an unset `invite_url` falls back to.',
+    'HTML. ' + HOSTED_FORM + 'Asks for a name, and a password only while the app has passwords on; announces the two-factor setup when ' +
+    'the app requires it. ' + HOSTED_DEAD, [HOSTED_TOKEN]),
+  hostedPage('POST', '/invite', 'Accepts an invitation from the hosted invitation page.',
+    HOSTED_POST + 'Spends the token as `POST /api/client/invitations/accept` does; the two-factor setup follows when the app requires it, ' +
+    'then the done page.'),
+  hostedPage('GET', '/reset/:token', 'Serves the hosted new-password page, the one an unset `reset_url` falls back to.',
+    'HTML. ' + HOSTED_FORM + 'Says that two-factor stays on. ' + HOSTED_DEAD, [HOSTED_TOKEN]),
+  hostedPage('POST', '/reset', 'Sets the new password from the hosted new-password page.',
+    HOSTED_POST + 'Spends the token as `POST /api/client/password/reset/confirm` does; a person with an authenticator gives a code ' +
+    'before the done page.'),
+  hostedPage('GET', '/forgot', 'Serves the hosted "forgot your password" page.',
+    'HTML: the address field. Reached from the hosted sign-in and the dead-link page.'),
+  hostedPage('POST', '/forgot', 'Mails a reset link from the hosted "forgot your password" page.',
+    HOSTED_POST + 'The same "check your mail" page for a known and an unknown address, as `POST /api/client/password/reset` answers.'),
+  hostedPage('GET', '/sign-up', 'Serves the hosted sign-up page, when the app has self-registration on.',
+    'HTML: the address, a password while the app has passwords on, and an optional name. With self-registration off it renders the ' +
+    '"registration closed" page.'),
+  hostedPage('POST', '/sign-up', 'Creates an account from the hosted sign-up page and mails the confirmation link.',
+    HOSTED_POST + 'Registers as `POST /api/client/register` does, and renders the same "check your mail" page for a new and a known ' +
+    'address.'),
+  hostedPage('GET', '/verify/:token', 'Serves the hosted email-confirmation page, the one an unset `verify_url` falls back to.',
+    'HTML. ' + HOSTED_FORM + HOSTED_DEAD, [HOSTED_TOKEN]),
+  hostedPage('POST', '/verify', 'Confirms the address from the hosted email-confirmation page.',
+    HOSTED_POST + 'Spends the token as `POST /api/client/verify-email` does; the two-factor setup follows when the app requires it, then ' +
+    'the done page.'),
+]
+
 export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------------------------- health */
   {
@@ -1731,6 +1831,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'the replay check, and the single-use consume is atomic, so exactly one caller ever mints. The Org Admins membership is re-read here: the ' +
       'code was minted earlier, and a user moved out in between must not get a console session.',
   },
+
+  /* --------------------------------- the Fleetless-hosted app pages */
+  ...HOSTED_APP_ROUTES,
 
   /* ---------------------------------------------------- mcp (the endpoint) */
   {
