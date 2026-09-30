@@ -175,6 +175,13 @@ describe('schema artifacts', () => {
     expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing', 'bridge-job-status.schema.json'))).toBe(true)
   })
 
+  it('cancel_result is registered for export as a bridge-sent frame', () => {
+    expect(Object.keys(exportedSchemas)).toContain('bridge-cancel-result')
+    expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-cancel-result')
+    expect(schemaIo('bridge-cancel-result')).toBe('input')
+    expect(existsSync(join(import.meta.dirname, '..', 'artifacts', 'schema-outgoing', 'bridge-cancel-result.schema.json'))).toBe(true)
+  })
+
   it('bridge-link-mode is registered for export as a bridge-sent frame; bridge-pressure is gone', () => {
     expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-link-mode')
     expect(Object.keys(exportedSchemas)).not.toContain('bridge-pressure')

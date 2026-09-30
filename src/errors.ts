@@ -164,6 +164,14 @@ export const ERROR_CODES = [
   /** A parameter failed its declared rule; details name the field and the rule. */
   'parameter_invalid',
   /**
+   * The action server refused a cancel request — `CancelGoal` answered
+   * `ERROR_REJECTED` (the bridge's `cancel_result`). The caller's cancel is
+   * refused with this code, never reported as success; `details.goals` carry
+   * each goal's `job_id`, `goal_id` and `return_code`. Whether the goal ends
+   * anyway is what its `job_update` says afterwards.
+   */
+  'cancel_rejected',
+  /**
    * The bridge's own statement, while connected, that it lost track of a job
    * it still names — the vocabulary behind its `job_lost` frame. Distinct
    * from `job_unknown_to_bridge`, the cloud's conclusion about a job the

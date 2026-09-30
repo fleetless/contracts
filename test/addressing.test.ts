@@ -73,13 +73,18 @@ describe('naming a job', () => {
     expect(clientCancel.safeParse({
       type: 'cancel', request_id: 'r1', robot_id: UUID2, slug: 'drive_to',
     }).success).toBe(false)
-    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive_to' }).success).toBe(false)
+    expect(cloudCancel.safeParse({ type: 'cancel', request_id: 'c1', slug: 'drive_to' }).success).toBe(false)
   })
 
   it('keeps the slug required on a cancel even when an id is given', () => {
     // The bridge finds the tracker by slug; an id alone would make it search.
-    expect(cloudCancel.safeParse({ type: 'cancel', job_id: UUID }).success).toBe(false)
-    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive_to', job_id: UUID }).success).toBe(true)
+    expect(cloudCancel.safeParse({ type: 'cancel', request_id: 'c1', job_id: UUID }).success).toBe(false)
+    expect(cloudCancel.safeParse({ type: 'cancel', request_id: 'c1', slug: 'drive_to', job_id: UUID }).success).toBe(true)
+  })
+
+  it('makes a cancel carry a request id, so its cancel_result can be matched to it', () => {
+    expect(cloudCancel.safeParse({ type: 'cancel', slug: 'drive_to', job_id: UUID }).success).toBe(false)
+    expect(cloudCancel.safeParse({ type: 'cancel', request_id: '', slug: 'drive_to', job_id: null }).success).toBe(false)
   })
 
   it('refuses a job id that is not a uuid, rather than passing the string through', () => {

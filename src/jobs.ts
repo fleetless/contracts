@@ -28,6 +28,16 @@ export const jobState = z.enum(['running', 'unknown', 'succeeded', 'failed', 'ca
 export type JobState = z.infer<typeof jobState>
 
 /**
+ * The states a bridge may state about a job: every `jobState` but `unknown`,
+ * which is the cloud's own word for not having heard. The bridge's
+ * `job_update`, `job_status` entries and `hello.active_jobs` use this, so a
+ * bridge claiming `unknown` fails validation instead of parking a job
+ * nobody will ever ask about.
+ */
+export const reportedJobState = jobState.exclude(['unknown'])
+export type ReportedJobState = z.infer<typeof reportedJobState>
+
+/**
  * Who started a job.
  *
  * `fleetless` for every job the cloud minted from an invocation. `external`

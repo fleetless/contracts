@@ -4,7 +4,7 @@ import { assetFailure } from './assets.js'
 import { applyError, slug } from './common.js'
 import { robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
-import { jobOrigin, jobState } from './jobs.js'
+import { jobOrigin, reportedJobState } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
@@ -273,12 +273,18 @@ export { slug } from './common.js'
  * has a terminal result still in hand reports it here and the cloud writes it
  * down, instead of publishing `lost` over a job that in fact succeeded.
  * Never `unknown`: that is the cloud's word for not having heard, and a
- * bridge listing a job has, by definition, something to say about it.
+ * bridge listing a job has, by definition, something to say about it — the
+ * schema refuses it.
+ *
+ * Only the bridge's own jobs, never an external goal: this entry carries no
+ * `origin`, and a cloud adopting an external goal from it would take it for
+ * its own. An active external goal is reported by the next `job_update`
+ * tick, with its origin.
  */
 export const activeJob = z.object({
   job_id: z.uuid(),
   slug,
-  state: jobState,
+  state: reportedJobState,
 })
 export type ActiveJob = z.infer<typeof activeJob>
 
@@ -519,18 +525,74 @@ export type CloudInvoke = z.infer<typeof cloudInvoke>
  * wire had nowhere to put it.
  *
  * `null` keeps today's meaning and must be read as exactly that: *cancel
- * whatever is running on this slug*. It is a real request — an operator
- * hitting stop wants the robot stopped, not a lecture about job identity —
- * and it stays available for that. A bridge given an id that does not match
- * what is running cancels **nothing** and says so; it must not fall back to
- * the slug, because a caller who named an id has ruled that out.
+ * every goal active on this slug's action*. It is a real request — an
+ * operator hitting stop wants the robot stopped, not a lecture about job
+ * identity — and it stays available for that.
+ *
+ * A `job_id` the bridge holds (its own job, or an external goal's derived
+ * id) cancels that goal alone. A `job_id` it does not hold is how the cloud
+ * cancels an `unknown` job: the bridge cancels every **external** goal
+ * active on the slug's action, since one of them may be that job, and never
+ * one of its own jobs, which the caller did not name.
+ *
+ * `request_id` correlates the bridge's `cancel_result`, which carries each
+ * goal's `CancelGoal` return code; the cloud answers its caller only from
+ * that.
  */
 export const cloudCancel = z.object({
   type: z.literal('cancel'),
+  request_id: z.string().min(1).max(64),
   slug,
   job_id: z.uuid().nullable(),
 })
 export type CloudCancel = z.infer<typeof cloudCancel>
+
+/**
+ * The ROS 2 `action_msgs/srv/CancelGoal` return codes: `0` `ERROR_NONE` (the
+ * server accepted the cancel request), `1` `ERROR_REJECTED` (it refused),
+ * `2` `ERROR_UNKNOWN_GOAL_ID`, `3` `ERROR_GOAL_TERMINATED` (the goal had
+ * already ended). An accepted request is not an ended goal: whether the goal
+ * ends, and how, is what the action's status reports afterwards, and reaches
+ * the cloud as the goal's `job_update`.
+ */
+export const CANCEL_RETURN_CODES = { none: 0, rejected: 1, unknown_goal_id: 2, goal_terminated: 3 } as const
+export const cancelReturnCode = z.number().int().min(0).max(3)
+export type CancelReturnCode = z.infer<typeof cancelReturnCode>
+
+/** One goal a `cancel` reached, and what its action server answered. */
+export const bridgeCancelResultEntry = z.object({
+  /** The job the goal belongs to — the bridge's own, or an external goal's derived id. */
+  job_id: z.uuid(),
+  /** The ROS 2 goal id the cancel was sent for. */
+  goal_id: z.string().min(1),
+  /** `null` when the action server did not answer the cancel request within the bridge's own bound. */
+  return_code: cancelReturnCode.nullable(),
+})
+export type BridgeCancelResultEntry = z.infer<typeof bridgeCancelResultEntry>
+
+/**
+ * The bridge's answer to a `cancel`, once every goal it sent a cancel request
+ * for has answered — or `error` when it could not ask. `goals` is empty when
+ * nothing matched (a `job_id` the bridge does not hold, with no external goal
+ * on the action; or nothing active on the slug): the cancel reached nothing,
+ * which is an answer, not a failure.
+ *
+ * A goal whose server did not answer the cancel request within the bridge's
+ * own bound is listed with `return_code: null`, not left out.
+ *
+ * The cloud reports `return_code` `1` (`ERROR_REJECTED`) to the caller as a
+ * refusal (`cancel_rejected`), never as success, and writes the audit event
+ * of a cancel of an external goal from this frame, return code included.
+ */
+export const bridgeCancelResult = z.object({
+  type: z.literal('cancel_result'),
+  request_id: z.string().min(1).max(64),
+  slug,
+  goals: z.array(bridgeCancelResultEntry),
+  /** Set when the bridge could not send the cancel at all (no such slug, a service, the server gone). */
+  error: z.object({ code: z.string().min(1), message: z.string().min(1) }).nullable(),
+})
+export type BridgeCancelResult = z.infer<typeof bridgeCancelResult>
 
 export const cloudPublish = z.object({
   type: z.literal('publish'),
@@ -572,7 +634,7 @@ export const bridgeJobUpdate = z.object({
   job_id: z.uuid(),
   slug,
   /** Never `unknown`: that is the cloud's word for not having heard. */
-  state: jobState,
+  state: reportedJobState,
   origin: jobOrigin,
   /** The ROS 2 goal id; `null` for a service job, which has no goal. */
   goal_id: z.string().min(1).nullable(),
@@ -635,7 +697,7 @@ export type CloudJobQuery = z.infer<typeof cloudJobQuery>
 export const bridgeJobStatusEntry = z.object({
   job_id: z.uuid(),
   /** Never `unknown` — the bridge only ever states a definite fact about a job it recognises. */
-  state: jobState,
+  state: reportedJobState,
   feedback: z.unknown().nullable(),
   progress: z.number().min(0).max(1).nullable(),
   result: z.unknown().nullable(),

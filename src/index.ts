@@ -62,6 +62,10 @@ export {
   bridgeTypeDefinitions,
   cloudInvoke,
   cloudCancel,
+  CANCEL_RETURN_CODES,
+  cancelReturnCode,
+  bridgeCancelResultEntry,
+  bridgeCancelResult,
   cloudPublish,
   bridgeJobUpdate,
   bridgeJobLost,
@@ -107,6 +111,9 @@ export type {
   BridgeTypeDefinitions,
   CloudInvoke,
   CloudCancel,
+  CancelReturnCode,
+  BridgeCancelResultEntry,
+  BridgeCancelResult,
   CloudPublish,
   BridgeJobUpdate,
   BridgeJobLost,
@@ -122,9 +129,10 @@ export type {
   CloudAssetRequest,
   BridgeAssetProgress,
 } from './protocol.js'
-export { jobState, jobOrigin, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
+export { jobState, reportedJobState, jobOrigin, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
 export type {
   JobState,
+  ReportedJobState,
   JobOrigin,
   Job,
   JobEvent,

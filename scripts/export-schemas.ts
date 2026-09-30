@@ -185,6 +185,7 @@ import {
 import {
   cloudInvoke,
   cloudCancel,
+  bridgeCancelResult,
   cloudPublish,
   bridgeJobUpdate,
   bridgeJobLost,
@@ -449,6 +450,7 @@ export const exportedSchemas = {
   'error-frame': errorFrame,
   'cloud-invoke': cloudInvoke,
   'cloud-cancel': cloudCancel,
+  'bridge-cancel-result': bridgeCancelResult,
   'cloud-publish': cloudPublish,
   'bridge-job-update': bridgeJobUpdate,
   'bridge-job-lost': bridgeJobLost,
@@ -699,7 +701,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
   'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',
   'cloud-invoke', 'cloud-cancel', 'cloud-publish', 'bridge-job-update', 'bridge-job-lost',
-  'cloud-job-query', 'bridge-job-status',
+  'cloud-job-query', 'bridge-job-status', 'bridge-cancel-result',
 
   // --- socket frames, client <-> cloud -------------------------------------
   'client-auth', 'auth-ok', 'auth-error', 'client-subscribe', 'client-unsubscribe',
@@ -871,7 +873,7 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
 export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
   'bridge-hello', 'bridge-pong', 'bridge-link-mode', 'bridge-config-applied', 'bridge-introspect',
   'bridge-type-definitions', 'datapoint-frame', 'bridge-job-update', 'bridge-job-lost', 'bridge-job-status',
-  'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
+  'bridge-cancel-result', 'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
 ]
 
 /**
