@@ -651,11 +651,9 @@ export const ERROR_CODES = [
   'target_state_conflict',
   // 2026-09-04 — the public site (closed beta).
   /**
-   * `403` from `POST /api/auth/signup` and the portal's sign-up pages while
-   * `SIGNUP_MODE=closed`. Not `forbidden`: nothing about the caller is
-   * refused, the door is closed for everyone. The message names the
-   * waiting list. Produced by cloud `routes/auth.ts` and
-   * `routes/console-oauth.ts` in the same release.
+   * `403` from the portal's sign-up pages while `SIGNUP_MODE=closed`. Not
+   * `forbidden`: nothing about the caller is refused, the door is closed for
+   * everyone. The message names the waiting list.
    */
   'signup_closed',
 

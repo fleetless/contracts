@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "What to call the passkey, such as the device it lives on."
+    },
+    "credential": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {},
+      "description": "The browser's `RegistrationResponseJSON` for the options `POST /api/auth/passkeys/options` answered."
+    }
+  },
+  "required": [
+    "name",
+    "credential"
+  ],
+  "additionalProperties": false
+}

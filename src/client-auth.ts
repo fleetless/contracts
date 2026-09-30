@@ -264,12 +264,10 @@ export const clientResendVerificationRequest = z
 export type ClientResendVerificationRequest = z.infer<typeof clientResendVerificationRequest>
 
 /**
- * Asking for a reset link **as an app user**.
- *
- * Same act as `passwordResetRequest`, different shape, because the two surfaces
- * identify a person differently. A Fleetless user's address is globally unique
- * and resolves alone; an app user's is unique only within their app, so the
- * pair is what names them.
+ * Asking for a reset link **as an app user** — the only password reset
+ * there is: Fleetless users hold no password. An app user's address is
+ * unique only within their app, so the pair of app and address is what names
+ * them.
  *
  * The response is identical for a known and an unknown pair — otherwise this
  * becomes the enumeration oracle the rest of the family is carefully built not

@@ -8,9 +8,10 @@ import { z } from 'zod'
  * There are two identity spaces now and **nothing joins them**:
  *
  * - *Fleetless users*, this file. The people who configure robots in the
- *   console. Email globally unique, tier `owner | developer`, a Fleetless
- *   password, login through the auth portal. They always have MCP access, at
- *   the one central endpoint.
+ *   console. Email globally unique, tier `owner | developer`, sign-in through
+ *   the auth portal by a code mailed to them or by a passkey — **no
+ *   password** — with an optional second factor the organisation may require.
+ *   They always have MCP access, at the one central endpoint.
  * - *app users*, `app-users.ts`. The people who use a developer's app. One app
  *   each, email unique per app, authenticated through the JSON client-auth
  *   API that the developer's own UI calls.
@@ -25,16 +26,23 @@ import { z } from 'zod'
  * the two populations have different lifecycles, and every joining mechanism
  * was cost without a product reason.
  *
- * What did **not** change: the password rules, the session and token shapes,
- * and the enumeration-oracle reasoning on password reset. None of those was
- * ever a statement about which space a person lived in.
+ * What did **not** change: the session and token shapes, and the
+ * enumeration-oracle reasoning. Neither was ever a statement about which space
+ * a person lived in.
+ *
+ * **Developers have no password any more.** They sign in with a six-digit
+ * code mailed to them, or with a passkey, which proves possession and user
+ * verification at once and so completes a sign-in on its own. After a code,
+ * a developer with a second factor — a passkey or an authenticator app —
+ * gives it; ten recovery codes are the fallback. The password sign-in, the
+ * password change, the reset pages and `POST /api/auth/signup` are gone: the
+ * portal's sign-up (email, code, organisation) is the one door in.
  *
  * **Email is globally unique here** — `lower(email)` unique across all orgs, so
- * one address is exactly one Fleetless user in exactly one org. Every shape
- * that identifies a person by a bare address (`developerLoginRequest`,
- * `passwordResetRequest`) therefore resolves to at most one account with no org
- * context needed. App users are the opposite and say so on their own shape:
- * unique **per app**, so one address may be several unrelated app accounts.
+ * one address is exactly one Fleetless user in exactly one org. A bare address
+ * therefore resolves to at most one account with no org context needed. App
+ * users are the opposite and say so on their own shape: unique **per app**, so
+ * one address may be several unrelated app accounts.
  */
 
 /**
@@ -42,9 +50,8 @@ import { z } from 'zod'
  * the same inputs for the same reason. Length only: a rule a user cannot
  * predict is a rule they work around.
  *
- * Shared by both identity spaces on purpose. A weaker rule for app users would
- * be a second policy for one decision, and the weaker one always wins by
- * accident.
+ * App users only: Fleetless users sign in by emailed code or passkey and hold
+ * no password.
  */
 export const password = z.string().min(12).max(256)
 
@@ -76,6 +83,9 @@ export const org = z.object({
   name: z.string().min(1).max(120).meta({
     description: 'The organisation\'s display name. Free text, changed through `PATCH /api/org`.',
   }),
+  require_two_factor: z.boolean().meta({
+    description: 'Whether every member must have a second factor — a passkey or an authenticator app. A member without one sets it up at their next sign-in, before any session exists; nobody is signed out when it is switched on. It covers the console and the central MCP endpoint; server keys and robot bridges are not people and are not affected. Owners change it through `PATCH /api/org`.',
+  }),
   created_at: z.iso.datetime().meta({
     description: 'When the organisation was created, as an ISO 8601 timestamp.',
   }),
@@ -91,8 +101,8 @@ export const patchOrgResponse = z.object({
 export type PatchOrgResponse = z.infer<typeof patchOrgResponse>
 
 /**
- * **A member of the org's team.** Console access, a tier, a Fleetless
- * password, and no relationship whatsoever to any app's users.
+ * **A member of the org's team.** Console access, a tier, a sign-in by
+ * emailed code or passkey, and no relationship whatsoever to any app's users.
  *
  * `email` is **globally unique** — `lower(email)` unique across every org, a
  * constraint the cloud enforces in the database; a schema cannot see two rows
@@ -103,10 +113,10 @@ export type PatchOrgResponse = z.infer<typeof patchOrgResponse>
  * groups), `mcp_access` (a Fleetless user always has MCP access, at the
  * central endpoint), and `has_password`. The last is the interesting one — it
  * existed because a pool user might have been provisioned by an identity
- * provider and hold no Fleetless credential. A Fleetless user always holds
- * one: the console is password-only by design, which removes the
- * IdP-lockout class entirely, so a field reporting whether the credential
- * exists would have exactly one value forever.
+ * provider and hold no Fleetless credential. Every Fleetless user signs in by
+ * a code mailed to their address, so the console has no federated door and
+ * no IdP-lockout class, and a field about a password would describe nothing.
+ * What varies is the second factor, which `two_factor` reports.
  */
 export const fleetlessUser = z.object({
   id: z.uuid().meta({
@@ -124,6 +134,14 @@ export const fleetlessUser = z.object({
   tier: orgAdminTier.meta({
     description: 'The console powers this person holds. **Required** — every Fleetless user has a tier; it was optional only while the org also held people with no console powers to grade, and that pool is gone.',
   }),
+  two_factor: z
+    .object({
+      passkeys: z.number().int().min(0).meta({ description: 'How many passkeys the person has registered.' }),
+      authenticator: z.boolean().meta({ description: 'Whether the person has a confirmed authenticator app.' }),
+    })
+    .meta({
+      description: 'The person\'s second factors, as the team list shows them: none, passkeys, an authenticator, or both. No credential travels here. An owner resets them through `DELETE /api/org/users/:id/two-factor`.',
+    }),
   created_at: z.iso.datetime().meta({
     description: 'When the account was created, as an ISO 8601 timestamp.',
   }),
@@ -208,33 +226,6 @@ export const twoFactorSetupResponse = z.object({
 export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
 
 /**
- * Registering an org creates the org and its first owner in one step: whoever
- * registers the organisation is the owner.
- */
-export const signUpRequest = z.object({
-  org_name: z.string().min(1).max(120),
-  email: z.email(),
-  password,
-})
-export type SignUpRequest = z.infer<typeof signUpRequest>
-
-/**
- * Registering answers with the founding **Fleetless user**, tier `owner`.
- *
- * The key is `user` rather than `member` or `owner`, and it has stayed `user`
- * through two identity redesigns deliberately: a renamed shape under a
- * renamed key would typecheck in every consumer that reads `.user.id` and mean
- * something subtly different, which is the quietest way for a cut like this to
- * go wrong.
- */
-export const signUpResponse = z.object({
-  org,
-  user: fleetlessUser,
-  tokens: sessionTokens,
-})
-export type SignUpResponse = z.infer<typeof signUpResponse>
-
-/**
  * The landing page's waiting list (public site, 2026-09-04): one address,
  * posted from fleetless.dev while sign-up is closed. The route answers
  * `202` whether or not the address was already listed.
@@ -246,26 +237,6 @@ export type SignUpResponse = z.infer<typeof signUpResponse>
  */
 export const waitlistRequest = z.object({ email: z.email().max(254) })
 export type WaitlistRequest = z.infer<typeof waitlistRequest>
-
-/**
- * Console login. Fleetless users only, always the Fleetless password — the
- * console has no federated door at all, which removes the IdP-lockout
- * class entirely.
- *
- * This resolves a person by address alone, and a Fleetless user's email is
- * **globally unique**, so a bare address names at most one account and no org
- * context is needed to disambiguate. An org selector was never needed and
- * would have told an unauthenticated caller which org an address belongs to.
- *
- * **It cannot be reached by an app user**, whatever their address: the two
- * spaces have separate tables and separate routes, and a credential from one
- * never authenticates the other.
- */
-export const developerLoginRequest = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-})
-export type DeveloperLoginRequest = z.infer<typeof developerLoginRequest>
 
 /**
  * What happened to the mail, in four words instead of one.
@@ -386,14 +357,18 @@ export const pendingTeamInviteListResponse = z.object({
 })
 export type PendingTeamInviteListResponse = z.infer<typeof pendingTeamInviteListResponse>
 
-/** Accepting it: the token proves the invitation, the password creates the login. */
+/**
+ * Accepting it: the token proves the invitation, and the mailed link proves
+ * the address, so accepting needs no code and takes **no password** — the
+ * new member signs in by emailed code from then on.
+ */
 export const acceptTeamInviteRequest = z
   .object({
     token: z.string().min(1).meta({
       description: 'The opaque invitation token from the link. Unknown, expired and already-accepted all collapse into `410 token_spent` — telling them apart would say whether a token ever existed.',
     }),
-    password: password.meta({
-      description: 'The password the new Fleetless account will use. At least 12 characters.',
+    display_name: z.string().min(1).max(USER_DISPLAY_NAME_MAX).nullable().optional().meta({
+      description: 'An optional name, overriding whatever the invitation pre-filled. Absent keeps it.',
     }),
   })
   .strict()
@@ -456,17 +431,14 @@ export const tierRequiredDetails = z.object({
 export type TierRequiredDetails = z.infer<typeof tierRequiredDetails>
 
 /**
- * Changing your own password while logged in.
+ * An app user changing their own password while signed in
+ * (`POST /api/client/password/change`). Fleetless users have no password.
  *
  * `current_password` is required even though the session already proves
  * identity: it is what makes a stolen *session* insufficient to take the
  * *account*. Every other session is revoked on success; the one that made the
  * change survives, because logging someone out of the tab they just used is
  * indistinguishable from the change having failed.
- *
- * Shared with the app-user surface (`POST /api/client/password/change`): the
- * argument is about credentials and sessions, not about which space the person
- * lives in.
  */
 export const passwordChangeRequest = z.object({
   current_password: z.string().min(1).meta({
@@ -477,43 +449,6 @@ export const passwordChangeRequest = z.object({
   }),
 })
 export type PasswordChangeRequest = z.infer<typeof passwordChangeRequest>
-
-/**
- * Asking for a reset link, **as a Fleetless user**.
- *
- * **The response never says whether the address exists.** It is unauthenticated
- * and would otherwise be an account-enumeration oracle — the one place where
- * revealing nothing about what exists is not a preference but the whole point.
- * So this answers the same way for a known and an unknown address, in
- * status, body **and timing**, and any consumer that renders "no such account"
- * from it has reintroduced the oracle.
- *
- * A bare address resolves to at most one account: a Fleetless user's email is
- * **globally unique**, so the reset mails the one match, if any, with a token
- * bound to that account.
- *
- * The app-user equivalent is `clientPasswordResetRequest` in `client-auth.ts`
- * and carries an `app_identifier`, because on that surface a person is
- * identified by app *and* address. Two shapes rather than one, because the two
- * surfaces identify a person differently — not because the reasoning differs.
- */
-export const passwordResetRequest = z.object({
-  email: z.email(),
-})
-export type PasswordResetRequest = z.infer<typeof passwordResetRequest>
-
-/**
- * Using the link. The token is **single-use and expires**; spending it revokes
- * every session of that subject, because a forgotten password is one of the
- * two states where somebody else may be holding one. `token_spent` covers used
- * and expired alike — telling them apart tells a stranger whether a token ever
- * existed.
- */
-export const passwordResetConfirm = z.object({
-  token: z.string().min(1),
-  new_password: password,
-})
-export type PasswordResetConfirm = z.infer<typeof passwordResetConfirm>
 
 /**
  * An IdP issuer URL — **an attacker-supplied string that decides where the
@@ -568,8 +503,8 @@ export type IdpIssuer = z.infer<typeof idpIssuer>
  * here.** `oidcCallbackErrorCode` and `oidcCallbackError` described the page
  * `GET /mcp/oauth/idp-callback` rendered when a group's identity provider sent
  * a browser back — `jit_disabled` and `email_collision` name provisioning steps
- * only a group provider had. Fleetless users are password-only now, which deletes
- * group providers, so the flow that produced these codes cannot start; the
+ * only a group provider had. Fleetless users sign in by emailed code or
+ * passkey, with no group providers, so the flow that produced these codes cannot start; the
  * route is gone from this manifest and from the cloud.
  *
  * The per-app OIDC vocabulary is `clientOidcErrorCode` in `client-auth.ts`: a
@@ -592,10 +527,135 @@ export type IdpIssuer = z.infer<typeof idpIssuer>
 export const authMeResponse = z.object({ org, user: fleetlessUser })
 export type AuthMeResponse = z.infer<typeof authMeResponse>
 
-/** `PATCH /api/org` — rename the org. Owner only. Same bounds as signup's `org_name`. */
-export const patchOrgRequest = z.object({ name: z.string().min(1).max(120) }).strict()
+/**
+ * `PATCH /api/org` — rename the org, require two-factor for its members, or
+ * both. Owner only. At least one field: an empty patch is a refusal rather
+ * than a write that changed nothing.
+ */
+export const patchOrgRequest = z
+  .object({
+    name: z.string().min(1).max(120).optional().meta({
+      description: 'The organisation\'s new display name. Absent leaves it alone.',
+    }),
+    require_two_factor: z.boolean().optional().meta({
+      description: 'Whether every member must have a second factor. Turning it on signs nobody out: each member without one sets it up at their next sign-in. Absent leaves it alone.',
+    }),
+  })
+  .strict()
+  .refine((b) => b.name !== undefined || b.require_two_factor !== undefined, { message: 'Send name, require_two_factor, or both.' })
 export type PatchOrgRequest = z.infer<typeof patchOrgRequest>
 
 /** `PATCH /api/auth/me` — the caller updates their own display name (null clears it). */
 export const patchAuthMeRequest = z.object({ display_name: z.string().min(1).max(USER_DISPLAY_NAME_MAX).nullable() }).strict()
 export type PatchAuthMeRequest = z.infer<typeof patchAuthMeRequest>
+
+/* ----------------------------------------- a developer's second factors --
+ * Settings › Profile › Security in the console. Several passkeys, at most one
+ * authenticator app, and ten recovery codes issued with the first factor.
+ * Passkeys are for Fleetless users only; app users have the authenticator.
+ */
+
+/**
+ * **A WebAuthn JSON document, opaque here.** The `PublicKeyCredential*JSON`
+ * shapes of the WebAuthn Level 3 specification — creation and request options
+ * going out, the browser's credential coming back. The browser API and the
+ * server library define them; a second, hand-written copy here would be one
+ * that drifts.
+ */
+export const webauthnJson = z.record(z.string(), z.unknown())
+
+/**
+ * **Options for a WebAuthn ceremony**, to hand to the browser as they are.
+ * The relying party is `fleetless.dev`, so the auth portal and the console
+ * both accept the same passkey; user verification is required.
+ */
+export const webauthnOptionsResponse = z.object({
+  options: webauthnJson.meta({
+    description: 'The `PublicKeyCredentialCreationOptionsJSON` or `PublicKeyCredentialRequestOptionsJSON` to pass to the browser. Its challenge is single-use and short-lived.',
+  }),
+})
+export type WebauthnOptionsResponse = z.infer<typeof webauthnOptionsResponse>
+
+/** **One registered passkey**, as Settings › Profile lists it. No key material travels here. */
+export const developerPasskey = z.object({
+  id: z.uuid().meta({ description: 'The passkey in the API, as renamed and removed through `/api/auth/passkeys/:id`.' }),
+  name: z.string().min(1).max(80).meta({ description: 'What the person called it, such as the device it lives on.' }),
+  created_at: z.iso.datetime().meta({ description: 'When it was registered.' }),
+  last_used_at: z.iso.datetime().nullable().meta({ description: 'When it last signed the person in or confirmed a sign-in, or `null` if never.' }),
+  synced: z.boolean().nullable().meta({
+    description: 'Whether the authenticator reported the passkey as syncable across the person\'s devices (the backup-eligible flag), or `null` when it said nothing.',
+  }),
+})
+export type DeveloperPasskey = z.infer<typeof developerPasskey>
+
+/** **`GET /api/auth/two-factor`** — the caller's own second factors, in full. */
+export const developerTwoFactor = z.object({
+  passkeys: z.array(developerPasskey).meta({ description: 'Every passkey the caller has registered, oldest first. Empty when none.' }),
+  authenticator: z
+    .object({ created_at: z.iso.datetime().meta({ description: 'When the authenticator was confirmed.' }) })
+    .nullable()
+    .meta({ description: 'The confirmed authenticator app, or `null` when there is none. At most one.' }),
+  recovery_codes_left: z.number().int().min(0).max(10).meta({
+    description: 'How many of the ten recovery codes are unspent. `0` while the caller has no second factor.',
+  }),
+  required_by_org: z.boolean().meta({
+    description: 'Whether the organisation requires a second factor. While it does, the last one cannot be removed.',
+  }),
+})
+export type DeveloperTwoFactor = z.infer<typeof developerTwoFactor>
+
+/** **Registering a passkey**: the name, and the browser's answer to the creation options. */
+export const createPasskeyRequest = z
+  .object({
+    name: z.string().min(1).max(80).meta({ description: 'What to call the passkey, such as the device it lives on.' }),
+    credential: webauthnJson.meta({ description: 'The browser\'s `RegistrationResponseJSON` for the options `POST /api/auth/passkeys/options` answered.' }),
+  })
+  .strict()
+export type CreatePasskeyRequest = z.infer<typeof createPasskeyRequest>
+
+/**
+ * **The registered passkey**, and the ten recovery codes when it is the
+ * account's first second factor — `null` otherwise, since the existing codes
+ * stay valid.
+ */
+export const createPasskeyResponse = z.object({
+  passkey: developerPasskey.meta({ description: 'The passkey as it is now stored.' }),
+  recovery_codes: recoveryCodesList.nullable().meta({
+    description: 'The ten recovery codes, shown once, when this passkey is the account\'s first second factor; `null` when the account already had one and its codes stay valid.',
+  }),
+})
+export type CreatePasskeyResponse = z.infer<typeof createPasskeyResponse>
+
+/** **Renaming a passkey.** The name is the only thing about one that can change. */
+export const renamePasskeyRequest = z
+  .object({
+    name: z.string().min(1).max(80).meta({ description: 'The new name.' }),
+  })
+  .strict()
+export type RenamePasskeyRequest = z.infer<typeof renamePasskeyRequest>
+
+/** **Confirming a new authenticator** with a code it shows now. */
+export const totpConfirmRequest = z
+  .object({
+    code: totpCode.meta({ description: 'A code the new authenticator shows now. It proves the secret was copied correctly before anything depends on it.' }),
+  })
+  .strict()
+export type TotpConfirmRequest = z.infer<typeof totpConfirmRequest>
+
+/**
+ * **The confirmed authenticator.** Ten recovery codes when it is the
+ * account's first second factor; `null` when it replaces an authenticator or
+ * joins passkeys, whose codes stay valid.
+ */
+export const totpConfirmResponse = z.object({
+  recovery_codes: recoveryCodesList.nullable().meta({
+    description: 'The ten recovery codes, shown once, when this is the account\'s first second factor; `null` otherwise.',
+  }),
+})
+export type TotpConfirmResponse = z.infer<typeof totpConfirmResponse>
+
+/** **A fresh set of ten recovery codes**, shown once. The previous set stops working. */
+export const recoveryCodesResponse = z.object({
+  recovery_codes: recoveryCodesList.meta({ description: 'The ten new recovery codes, lowercase, shown once. Every earlier code is void.' }),
+})
+export type RecoveryCodesResponse = z.infer<typeof recoveryCodesResponse>

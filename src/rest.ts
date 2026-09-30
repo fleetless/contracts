@@ -650,23 +650,17 @@ export type JobResponse = z.infer<typeof jobResponse>
  * There are no compatibility aliases, because an alias here is how a deleted
  * model survives in production while the contract says otherwise.
  *
- * **`POST /api/auth/password/reset` answers `202` for every well-formed
- * address**, known or not. It is the one route where saying nothing about
- * whether an account exists is not a preference but the entire point: any
- * status, body or timing difference between the two cases is an
+ * **Every route that mails a code or a link answers the same for a known and
+ * an unknown address** — the portal's identify step, `POST
+ * /api/client/login/code`, `POST /api/client/password/reset`. Saying nothing
+ * about whether an account exists is not a preference there but the entire
+ * point: any status, body or timing difference between the two cases is an
  * account-enumeration oracle. Note *timing* — a route that only sends mail for
- * a real address must not become measurably faster for an unknown one. Email is
- * **globally unique**, so a bare address names at most one account and the
- * route mails the one match, if any. See `passwordResetRequest`.
+ * a real address must not become measurably faster for an unknown one.
  *
- * **Both surfaces get the password routes, mirrored.** An end user and a
- * console user each need a way to change and to reset a password.
- * `passwordChangeRequest` is shared because the operation is identical; the
- * **prefix** is what says
- * which session is being spent, exactly as it does for `login`. The two *reset*
- * requests are separate shapes rather than one, because the surfaces identify a
- * person differently: a Fleetless user by a globally unique address, an app
- * user by app **and** address.
+ * **Only app users hold a password.** Fleetless users sign in by emailed code
+ * or passkey, so the password change and reset routes are the app user's
+ * alone, under `/api/client`.
  *
  * **A password change answers with fresh `sessionTokens`, not `204`.** The
  * promise is that the session which made the change survives while every other
@@ -694,20 +688,15 @@ export type JobResponse = z.infer<typeof jobResponse>
  *
  * | purpose | URL |
  * |---|---|
- * | password reset, Fleetless user | `{portal}/reset-password/{token}` |
  * | team invitation                | `{portal}/accept-invite/{token}` |
  *
- * **An app user's links are not in this table, and cannot be** (2026-09-05,
- * Fleetless renders an app user no page, so there is no `{portal}` path
- * to name: the link points into the **developer's own app**, at the template
- * they configured (`appAuthConfig.invite_url`, `verify_url`, `reset_url`), with
- * the token substituted for `{token}`. That is why those fields are validated
- * as templates rather than as URLs, and why an app with none configured is
- * refused a `send_mail` instead of being mailed a link to nowhere.
- *
- * The paragraph this replaces said an app-user reset *"is a feature to design,
- * not a row to restore"*. It was designed; the answer was that the row belongs
- * to the developer and not to this table.
+ * **An app user's links point into the developer's own app** where it has
+ * configured one — the template in `appAuthConfig.invite_url`, `verify_url` or
+ * `reset_url`, with the token substituted for `{token}`. That is why those
+ * fields are validated as templates rather than as URLs. Where the app has
+ * configured none, the link points at the Fleetless-hosted page the cloud
+ * reports in `appAuthConfig.hosted_pages` (`{portal}/app/<identifier>/…`), so
+ * no mail is refused for a missing URL.
  *
  * The strings themselves live server-side, read by the
  * route that serves each page AND by the builder that mails it — one constant,

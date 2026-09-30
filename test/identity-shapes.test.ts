@@ -26,7 +26,6 @@ import {
   patchFleetlessUserRequest,
   pendingTeamInvite,
   pendingTeamInviteListResponse,
-  signUpResponse,
   teamInvite,
   tierChangeRequest,
   tierRequiredDetails,
@@ -47,6 +46,7 @@ const VALID_USER = {
   email: 'pilot@example.com',
   display_name: 'Pilot',
   tier: 'developer' as const,
+  two_factor: { passkeys: 0, authenticator: false },
   created_at: NOW,
 }
 
@@ -196,13 +196,12 @@ describe('the team invitation', () => {
     expect(pendingTeamInviteListResponse.safeParse({}).success).toBe(false)
   })
 
-  it('accepting spends a token and sets the password, under the shared length rule', () => {
-    expect(acceptTeamInviteRequest.safeParse({ token: 'tok', password: 'x'.repeat(12) }).success).toBe(true)
-    expect(acceptTeamInviteRequest.safeParse({ token: 'tok', password: 'short' }).success).toBe(false)
-    expect(acceptTeamInviteRequest.safeParse({ token: '', password: 'x'.repeat(12) }).success).toBe(false)
-    expect(
-      acceptTeamInviteRequest.safeParse({ token: 'tok', password: 'x'.repeat(12), tier: 'owner' }).success,
-    ).toBe(false)
+  it('accepting spends a token and takes no password — the link proves the address', () => {
+    expect(acceptTeamInviteRequest.safeParse({ token: 'tok' }).success).toBe(true)
+    expect(acceptTeamInviteRequest.safeParse({ token: 'tok', display_name: null }).success).toBe(true)
+    expect(acceptTeamInviteRequest.safeParse({ token: 'tok', password: 'x'.repeat(12) }).success).toBe(false)
+    expect(acceptTeamInviteRequest.safeParse({ token: '' }).success).toBe(false)
+    expect(acceptTeamInviteRequest.safeParse({ token: 'tok', tier: 'owner' }).success).toBe(false)
   })
 })
 
@@ -264,21 +263,12 @@ describe('the session shapes speak the new model', () => {
    * of a tier is now refused by the response shape itself.
    */
   it('authMeResponse answers a Fleetless user whose tier is not optional', () => {
-    expect(authMeResponse.safeParse({ org: { id: ORG, name: 'Acme', created_at: NOW }, user: VALID_USER }).success).toBe(true)
+    expect(authMeResponse.safeParse({ org: { id: ORG, name: 'Acme', require_two_factor: false, created_at: NOW }, user: VALID_USER }).success).toBe(true)
     const { tier, ...noTier } = VALID_USER
     void tier
-    expect(authMeResponse.safeParse({ org: { id: ORG, name: 'Acme', created_at: NOW }, user: noTier }).success).toBe(false)
+    expect(authMeResponse.safeParse({ org: { id: ORG, name: 'Acme', require_two_factor: false, created_at: NOW }, user: noTier }).success).toBe(false)
   })
 
-  it('signUpResponse hands back the founding owner as a Fleetless user', () => {
-    expect(
-      signUpResponse.safeParse({
-        org: { id: ORG, name: 'Acme', created_at: NOW },
-        user: { ...VALID_USER, tier: 'owner' },
-        tokens: { access_token: 'a', refresh_token: 'r', expires_in: 900 },
-      }).success,
-    ).toBe(true)
-  })
 })
 
 describe('the group-and-assignment model is gone from the contract', () => {
@@ -330,6 +320,13 @@ describe('the group-and-assignment model is gone from the contract', () => {
     'selfRegistration',
     'orgMember',
     'appMembership',
+    // The developer password, gone with the email-code sign-in: the JSON
+    // sign-up, the console login shape and the Fleetless reset pair.
+    'signUpRequest',
+    'signUpResponse',
+    'developerLoginRequest',
+    'passwordResetRequest',
+    'passwordResetConfirm',
   ] as const
 
   it('exports none of them from the barrel', () => {
