@@ -495,6 +495,9 @@ export type {
   PatchOrgRequest,
   PatchAuthMeRequest,
 } from './identity.js'
+// 2026-09-30 — the console's feedback modal.
+export { FEEDBACK_KINDS, FEEDBACK_MESSAGE_MAX, feedbackKind, feedbackRequest, feedbackResponse } from './feedback.js'
+export type { FeedbackKind, FeedbackRequest, FeedbackResponse } from './feedback.js'
 export {
   appIdentifier,
   app,
@@ -509,6 +512,9 @@ export {
   role,
   roleListResponse,
   rolePermissions,
+  roleRenameRequest,
+  roleDeleteQuery,
+  roleInUseDetails,
 } from './apps.js'
 export type {
   App,
@@ -522,6 +528,9 @@ export type {
   Role,
   RoleListResponse,
   RolePermissions,
+  RoleRenameRequest,
+  RoleDeleteQuery,
+  RoleInUseDetails,
 } from './apps.js'
 export {
   clientLoginRequest,

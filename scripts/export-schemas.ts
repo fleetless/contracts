@@ -116,7 +116,8 @@ import {
   role,
   rolePermissions,
 } from '../src/apps.js'
-import { appListResponse, appDeletionSummary, roleListResponse, serverKeyListResponse } from '../src/apps.js'
+import { appListResponse, appDeletionSummary, roleDeleteQuery, roleInUseDetails, roleListResponse, roleRenameRequest, serverKeyListResponse } from '../src/apps.js'
+import { feedbackRequest, feedbackResponse } from '../src/feedback.js'
 import {
   clientLoginRequest,
   clientRefreshRequest,
@@ -467,6 +468,13 @@ export const exportedSchemas = {
   'org-latency-response': orgLatencyResponse,
   'org-usage-query': orgUsageQuery,
   'org-usage-response': orgUsageResponse,
+  // The console's feedback modal and the role rename and delete routes
+  // (2026-09-30, fleetless/fleetless#79).
+  'feedback-request': feedbackRequest,
+  'feedback-response': feedbackResponse,
+  'role-rename-request': roleRenameRequest,
+  'role-delete-query': roleDeleteQuery,
+  'role-in-use-details': roleInUseDetails,
   'patch-robot-request': patchRobotRequest,
   'rename-slug-request': renameSlugRequest,
   'rename-slug-response': renameSlugResponse,
@@ -748,6 +756,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // other `*-query` above is.
   'oauth-authorize-query', 'org-alerts-query',
   'robot-delete-query', 'org-health-query', 'missing-asset-query',
+  'feedback-request', 'role-rename-request', 'role-delete-query',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -811,7 +820,10 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // send, with defaults already applied.
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
-  'cancel-rejected-details',
+  'cancel-rejected-details', 'role-in-use-details',
+
+  // --- Responses the route manifest names (2026-09-30) ---------------------
+  'feedback-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

@@ -226,8 +226,9 @@ export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
 
 /**
  * Every app starts with `observe` and `operate`; custom roles are allowed
- * too. `builtin` marks the two starting roles — editable like any other,
- * the flag only tells the console where they came from.
+ * too. `builtin` marks the two starting roles — editable, renamable and
+ * deletable like any other; the flag only tells the console where they came
+ * from.
  */
 export const role = z.object({
   id: z.uuid().meta({
@@ -240,7 +241,7 @@ export const role = z.object({
     description: 'The role\'s name, shown wherever a user\'s access is chosen. The two roles every app starts with are named `observe` and `operate`.',
   }),
   builtin: z.boolean().meta({
-    description: '`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role\'s, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable — no route does that for any role.',
+    description: '`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role\'s, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them.',
   }),
 })
 export type Role = z.infer<typeof role>
@@ -252,6 +253,54 @@ export const roleListResponse = z.object({
   }),
 })
 export type RoleListResponse = z.infer<typeof roleListResponse>
+
+/**
+ * The body of `PATCH /api/apps/:id/roles/:roleId`: the role's new name.
+ *
+ * The same bounds as `role.name`, trimmed. Names are unique per app, compared
+ * exactly as stored after trimming; a clash answers `409 role_name_taken`.
+ */
+export const roleRenameRequest = z.object({
+  name: z.string().trim().min(1).max(60).meta({
+    description: 'The new name, trimmed, 1 to 60 characters. Unique per app: another role of this app with the same name answers `409 role_name_taken`. The role\'s users keep it under its new name.',
+  }),
+}).strict()
+export type RoleRenameRequest = z.infer<typeof roleRenameRequest>
+
+/**
+ * The query of `DELETE /api/apps/:id/roles/:roleId`.
+ *
+ * `move_to` is what makes a held role deletable: every app user and pending
+ * invitation holding the role moves to it, and so does the app's default when
+ * it pointed at the role, in the same transaction as the delete. Without it a
+ * held role answers `409 role_in_use` with `roleInUseDetails`, so a client
+ * can ask where they should go instead of guessing.
+ */
+export const roleDeleteQuery = z.object({
+  move_to: z.uuid().optional().meta({
+    description: 'Another role of the same app that takes over the deleted role\'s app users, pending invitations and, when it applies, the app\'s default. The role itself or a role of another app answers `400 validation_error`.',
+  }),
+}).strict()
+export type RoleDeleteQuery = z.infer<typeof roleDeleteQuery>
+
+/**
+ * `details` of `409 role_in_use`: what still holds the role.
+ *
+ * All three are reported, zeros included, so a client renders one sentence
+ * from one shape rather than inferring a missing key.
+ */
+export const roleInUseDetails = z.object({
+  users: z.number().int().nonnegative().meta({
+    description: 'App users whose role this is.',
+  }),
+  invitations: z.number().int().nonnegative().meta({
+    description: 'Pending invitations that would grant this role when accepted.',
+  }),
+  is_default: z.boolean().meta({
+    description: '`true` when this is the app\'s `default_role_id`; the default then moves with the users to `move_to`.',
+  }),
+}).strict()
+export type RoleInUseDetails = z.infer<typeof roleInUseDetails>
 
 /**
  * The rights matrix of one role: which slugs of which robot it may use, plus

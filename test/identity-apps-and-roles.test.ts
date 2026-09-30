@@ -28,6 +28,10 @@ import {
   auditActor,
   auditEvent,
   ERROR_CODES,
+  ROUTES,
+  roleRenameRequest,
+  roleDeleteQuery,
+  roleInUseDetails,
 } from '../src/index.js'
 
 const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
@@ -316,5 +320,48 @@ describe('realtime authentication', () => {
     // server or a token stolen before logout keeps working.
     expect(clientLogoutRequest.safeParse({ refresh_token: 'r' }).success).toBe(true)
     expect(clientLogoutRequest.safeParse({}).success).toBe(false)
+  })
+})
+
+describe('role rename and delete', () => {
+  it('renames to 1–60 trimmed characters', () => {
+    expect(roleRenameRequest.parse({ name: '  operator ' }).name).toBe('operator')
+    expect(roleRenameRequest.safeParse({ name: '' }).success).toBe(false)
+    expect(roleRenameRequest.safeParse({ name: '   ' }).success).toBe(false)
+    expect(roleRenameRequest.safeParse({ name: 'x'.repeat(60) }).success).toBe(true)
+    expect(roleRenameRequest.safeParse({ name: 'x'.repeat(61) }).success).toBe(false)
+    expect(roleRenameRequest.safeParse({ name: 'a', builtin: false }).success).toBe(false)
+  })
+  it('deletes with an optional uuid move_to', () => {
+    expect(roleDeleteQuery.parse({})).toEqual({})
+    expect(roleDeleteQuery.parse({ move_to: UUID })).toEqual({ move_to: UUID })
+    expect(roleDeleteQuery.safeParse({ move_to: 'observe' }).success).toBe(false)
+    expect(roleDeleteQuery.safeParse({ force: 'true' }).success).toBe(false)
+  })
+  it('describes what holds a role in use', () => {
+    expect(roleInUseDetails.parse({ users: 3, invitations: 1, is_default: true })).toEqual({ users: 3, invitations: 1, is_default: true })
+    expect(roleInUseDetails.safeParse({ users: -1, invitations: 0, is_default: false }).success).toBe(false)
+    expect(roleInUseDetails.safeParse({ users: 0, invitations: 0 }).success).toBe(false)
+  })
+  it('catalogues the three new codes', () => {
+    for (const code of ['role_name_taken', 'role_in_use', 'last_role']) expect(ERROR_CODES).toContain(code)
+  })
+  it('declares the two routes', () => {
+    const patch = ROUTES.find((r) => r.method === 'PATCH' && r.path === '/api/apps/:id/roles/:roleId')
+    const del = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/apps/:id/roles/:roleId')
+    expect(patch).toMatchObject({ status: 200, auth: 'developer', section: 'apps', request: roleRenameRequest, response: role })
+    expect(patch?.errors).toContain('role_name_taken')
+    expect(del).toMatchObject({ status: 204, auth: 'developer', section: 'apps', query: roleDeleteQuery, request: null, response: null })
+    expect(del?.errors).toEqual(expect.arrayContaining(['role_in_use', 'last_role', 'validation_error']))
+  })
+  it('no longer tells anyone a built-in role cannot be renamed or deleted', () => {
+    const description = role.shape.builtin.meta()?.description ?? ''
+    expect(description).not.toContain('no route does that')
+    expect(description).toContain('can be renamed and deleted like any other')
+  })
+  it('states the same 60-character limit on create as the role itself', () => {
+    const create = ROUTES.find((r) => r.method === 'POST' && r.path === '/api/apps/:id/roles')
+    expect(create?.notes).toContain('at most 60 characters')
+    expect(create?.notes).not.toContain('120')
   })
 })

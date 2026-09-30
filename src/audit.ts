@@ -163,6 +163,20 @@ export const auditQuery = z.object({
   /** Only events about this kind of target, e.g. `robot`. */
   target_kind: z.string().min(1).max(40).optional(),
   /**
+   * Only events about this target — and, for a robot, also the events that
+   * name it in `details.robot_id`, so a robot's log includes what was
+   * started on it.
+   *
+   * **A string, not `z.uuid()`**, unlike `actor_id` above: `target.id` is a
+   * string in this contract and text in the cloud's table, so a uuid rule
+   * here would refuse ids the log can hold, and no value can fail a cast.
+   */
+  target_id: z.string().min(1).max(200).optional().meta({
+    description:
+      'Events whose target is this id; for a robot also the events that name it in `details.robot_id` (`action.invoked`, ' +
+      '`service.called`, …), so a robot\'s events include what was started on it.',
+  }),
+  /**
    * Absolute bounds in unix milliseconds, **half-open `[from, to)`** — the
    * same rule the history shapes follow.
    *

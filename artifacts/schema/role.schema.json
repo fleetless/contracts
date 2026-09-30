@@ -22,7 +22,7 @@
     },
     "builtin": {
       "type": "boolean",
-      "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable — no route does that for any role."
+      "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them."
     }
   },
   "required": [

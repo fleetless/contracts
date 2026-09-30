@@ -107,3 +107,16 @@ describe('the barrel exports the values AND the types', () => {
     expect(NOW).toBeTruthy()
   })
 })
+
+describe('auditQuery.target_id', () => {
+  it('takes any non-empty id up to 200 characters', () => {
+    expect(auditQuery.parse({ target_id: UUID }).target_id).toBe(UUID)
+    expect(auditQuery.parse({ target_id: 'demo_app' }).target_id).toBe('demo_app')
+    expect(auditQuery.safeParse({ target_id: '' }).success).toBe(false)
+    expect(auditQuery.safeParse({ target_id: 'x'.repeat(200) }).success).toBe(true)
+    expect(auditQuery.safeParse({ target_id: 'x'.repeat(201) }).success).toBe(false)
+  })
+  it('combines with every other filter', () => {
+    expect(auditQuery.safeParse({ target_id: 'x', action_prefix: 'robot.', actor_id: UUID, target_kind: 'robot' }).success).toBe(true)
+  })
+})

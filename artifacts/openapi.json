@@ -526,6 +526,17 @@
             }
           },
           {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Events whose target is this id; for a robot also the events that name it in `details.robot_id` (`action.invoked`, `service.called`, …), so a robot's events include what was started on it.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
             "name": "from_ms",
             "in": "query",
             "required": false,
@@ -674,6 +685,17 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 40
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Events whose target is this id; for a robot also the events that name it in `details.robot_id` (`action.invoked`, `service.called`, …), so a robot's events include what was started on it.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
             }
           },
           {
@@ -1058,7 +1080,7 @@
             }
           }
         },
-        "description": "The body is `{ \"name\": string }` — non-empty, trimmed, at most 120 characters — and is deliberately not a contract shape: contracts define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the listing beside it."
+        "description": "The body is `{ \"name\": string }` — non-empty, trimmed, at most 60 characters as on `role.name` — and is deliberately not a contract shape: contracts define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the listing beside it."
       },
       "get": {
         "operationId": "get_api_apps_id_roles",
@@ -1283,6 +1305,132 @@
           }
         },
         "description": "Built by the same builder the MCP server's own `robot_describe` uses, so the two cannot drift. It answers what the role *would* be offered and consults nothing about any user's actual MCP entitlement. A robot the role grants nothing on still appears, with an empty `exposures` — dropping it would read as \"not attached\", which is a different fact."
+      }
+    },
+    "/api/apps/{id}/roles/{roleId}": {
+      "patch": {
+        "operationId": "patch_api_apps_id_roles_roleId",
+        "summary": "Renames a role; its users keep it.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "description": "The role's uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/role"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `role_name_taken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Names are unique per app, compared exactly as stored after trimming. Built-in roles can be renamed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/role-rename-request"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_apps_id_roles_roleId",
+        "summary": "Deletes a role, moving its users, pending invitations and default-role status to another role.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "description": "The role's uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "move_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Another role of the same app that takes over the deleted role's app users, pending invitations and, when it applies, the app's default. The role itself or a role of another app answers `400 validation_error`.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `role_in_use`, `last_role`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Without `move_to`, a role that app users or pending invitations hold, or that is the app's default, answers `409 role_in_use` with `{ users, invitations, is_default }`. With `move_to` — another role of the same app, else `400 validation_error` — one transaction moves `app_users.role_id`, pending invitations and `default_role_id`, then deletes the role and its permissions. The app's only role answers `409 last_role`. Built-in roles can be deleted like any other."
       }
     },
     "/api/apps/{id}/server-keys": {
@@ -8476,6 +8624,54 @@
         },
         "description": "A window longer than `USAGE_WINDOW_MAX_DAYS` is refused naming the field, not silently capped: a caller who asked for more than the platform will answer is owed a refusal, not a shorter answer they will mistake for the whole picture. `from_day <= to_day` is a cross-field rule no JSON Schema can express and is enforced here. The window is echoed back."
       }
+    },
+    "/api/feedback": {
+      "post": {
+        "operationId": "post_api_feedback",
+        "summary": "Sends a message from a developer to the people who build Fleetless.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/feedback-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `rate_limited`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The message is stored before any mail is tried, so `202` means it is kept whatever `mail` says: `sent`, `failed`, or `not_configured` when this cloud has no feedback address. At most 10 messages per developer per hour; the 11th answers `429 rate_limited` with `retry_after_ms`. Replies come by mail, to the sender's address.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/feedback-request"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14004,6 +14200,65 @@
         ],
         "additionalProperties": false
       },
+      "feedback-request": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "idea",
+              "problem",
+              "question",
+              "other"
+            ],
+            "description": "What the message is: an `idea`, a `problem`, a `question` or `other`. It only sorts the inbox; it changes nothing about how the message is handled."
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "What the developer wrote, trimmed. At most 5000 characters; a message that is only whitespace is refused."
+          },
+          "page": {
+            "type": "string",
+            "maxLength": 512,
+            "pattern": "^\\/.*",
+            "description": "The console path the message was sent from, e.g. `/robots/:id/jobs` with its real id. A path, never a full URL, so no host and no query string reach the inbox by accident."
+          }
+        },
+        "required": [
+          "kind",
+          "message",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "feedback-response": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The stored message. It exists whatever `mail` says."
+          },
+          "mail": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "not_requested",
+              "not_configured",
+              "failed"
+            ],
+            "description": "What happened to the notification mail: `sent`, `failed`, or `not_configured` when this cloud has no feedback address. The message is stored in every case, so a client shows success for all three."
+          }
+        },
+        "required": [
+          "id",
+          "mail"
+        ],
+        "additionalProperties": false
+      },
       "fetch-types-request": {
         "type": "object",
         "properties": {
@@ -15026,12 +15281,26 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "description": "A display name taken at invoke time — the email for a Fleetless user or an app user, the key's own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history."
+                    },
+                    "name": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The person's display name when the job started: the Fleetless user's `display_name` for a developer, the app user's `display_name` for an app user. `null` for a server key, when the person had no name set, and for runs recorded before contracts 5.3.0. Show `label` when it is null."
                     }
                   },
                   "required": [
                     "kind",
                     "id",
-                    "label"
+                    "label",
+                    "name"
                   ],
                   "additionalProperties": false,
                   "description": "Who invoked the run, and what they were acting as at the time."
@@ -17637,7 +17906,7 @@
           },
           "builtin": {
             "type": "boolean",
-            "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable — no route does that for any role."
+            "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them."
           }
         },
         "required": [
@@ -17676,7 +17945,7 @@
                 },
                 "builtin": {
                   "type": "boolean",
-                  "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. It does not make them renamable or deletable — no route does that for any role."
+                  "description": "`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role's, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them."
                 }
               },
               "required": [
@@ -17754,6 +18023,21 @@
           "grants",
           "capabilities"
         ]
+      },
+      "role-rename-request": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "The new name, trimmed, 1 to 60 characters. Unique per app: another role of this app with the same name answers `409 role_name_taken`. The role's users keep it under its new name."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
       },
       "server-key-list-response": {
         "type": "object",
