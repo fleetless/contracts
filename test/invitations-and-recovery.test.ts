@@ -91,7 +91,7 @@ describe('mail, in four words instead of one', () => {
     expect(mailStatus.safeParse('not_requested').success).toBe(true)
     expect(appInvitation.parse({
       id: UUID, app_id: UUID, email: 'someone@example.com', role_id: UUID,
-      expires_at: '2026-09-12T10:00:00.000Z', accept_url: null, mail: 'not_requested',
+      expires_at: '2026-09-12T10:00:00.000Z', accept_url: 'https://auth.fleetless.dev/app/shop/invite/abc', mail: 'not_requested',
     }).mail).toBe('not_requested')
   })
 

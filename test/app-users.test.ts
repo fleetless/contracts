@@ -380,13 +380,11 @@ describe('appInvitation — the accept link is nullable, and that is a policy', 
   })
 
   /**
-   * An app with no `invite_url` has nowhere for the link to point. `null`
-   * says that outright — an absent key would look like a mapper dropped the
-   * field, and a fabricated Fleetless-hosted URL is a page this product
-   * doesn't have.
+   * #98: an app with no `invite_url` gets the Fleetless-hosted invitation
+   * page, so there is always a link and `null` is no longer a state.
    */
-  it('accepts a null accept_url, the state of an app with no invite_url configured', () => {
-    expect(appInvitation.safeParse({ ...ROW, accept_url: null }).success).toBe(true)
+  it('refuses a null accept_url, since an unset invite_url falls back to the hosted page', () => {
+    expect(appInvitation.safeParse({ ...ROW, accept_url: null }).success).toBe(false)
   })
 
   /**

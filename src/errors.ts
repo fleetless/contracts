@@ -629,10 +629,9 @@ export const ERROR_CODES = [
    * string on the validation envelope is not a code a consumer can switch on.
    *
    * Its producers in the two-space model are the ones about an app or an
-   * account rather than about a caller: `send_mail: true` on an app that has
-   * configured no `invite_url` (the `details` name the field), and a password
-   * change on an app user who has no password at all — an OIDC-only account,
-   * where the session is live and it is the target's state that refuses.
+   * account rather than about a caller — for example a password change on an
+   * app user who has no password at all, an OIDC-only account, where the
+   * session is live and it is the target's state that refuses.
    *
    * **A tier change aimed at somebody who is not a Fleetless user of this org
    * was listed here and stopped being a producer at the cut.** That refusal
@@ -899,10 +898,10 @@ export const ERROR_CODES = [
    */
   'invalid_code',
   /**
-   * `403`: the app does not offer this sign-in method — a password login on a
-   * code-only app, a code request on a password-only one, or a password where
-   * the app takes none. It names the app's policy, never a person, so it is
-   * no enumeration oracle.
+   * `403`: the app does not offer this sign-in method — a password login, a
+   * password reset or a password change on a code-only app, or a code request
+   * on a password-only one. It names the app's policy, never a person, so it
+   * is no enumeration oracle.
    */
   'method_not_allowed',
 ] as const

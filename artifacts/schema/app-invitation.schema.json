@@ -33,17 +33,10 @@
       "description": "When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does."
     },
     "accept_url": {
-      "anyOf": [
-        {
-          "type": "string",
-          "maxLength": 500,
-          "format": "uri"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "The link to give the invitee: the app's `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered. Nullable for readers of the earlier shape; the cloud always fills it."
+      "type": "string",
+      "maxLength": 500,
+      "format": "uri",
+      "description": "The link to give the invitee: the app's `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered."
     },
     "mail": {
       "type": "string",

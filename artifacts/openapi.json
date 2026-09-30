@@ -2159,7 +2159,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `target_state_conflict`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `target_state_conflict`, `method_not_allowed`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2169,7 +2169,7 @@
             }
           }
         },
-        "description": "The support door beside `POST /api/client/password/reset`: the same one-hour token and the same link, triggered by a developer for a user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read the user list — so this one answers what actually happened: `{ \"mail\": mailStatus }`, where `not_configured` is a deployment without a mailer and `failed` is the state worth somebody's attention. The link points at the app's `reset_url`, or at the hosted reset page when the app has configured none. `409 target_state_conflict` names `password` with rule `not_set` for an account that has none — an OIDC-only app user, whom a reset link would hand a second, quieter door — and `status` with rule `blocked` for a blocked one, since `POST /api/client/password/reset` mails a blocked account nothing and the two doors may not disagree. Setting the password directly is deliberately not offered; a developer who could would hold their customers' credentials."
+        "description": "The support door beside `POST /api/client/password/reset`, refused like it with `403 method_not_allowed` while the app has the password method off: the same one-hour token and the same link, triggered by a developer for a user who asked them rather than the form. **No enumeration discipline applies** — the caller is authenticated into the app and can read the user list — so this one answers what actually happened: `{ \"mail\": mailStatus }`, where `not_configured` is a deployment without a mailer and `failed` is the state worth somebody's attention. The link points at the app's `reset_url`, or at the hosted reset page when the app has configured none. `409 target_state_conflict` names `password` with rule `not_set` for an account that has none — an OIDC-only app user, whom a reset link would hand a second, quieter door — and `status` with rule `blocked` for a blocked one, since `POST /api/client/password/reset` mails a blocked account nothing and the two doors may not disagree. Setting the password directly is deliberately not offered; a developer who could would hold their customers' credentials."
       }
     },
     "/api/apps/{id}/users/{userId}/two-factor": {
@@ -3329,7 +3329,7 @@
             "name": "kind",
             "in": "path",
             "required": true,
-            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "description": "Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.",
             "schema": {
               "type": "string"
             }
@@ -3384,7 +3384,7 @@
             "name": "kind",
             "in": "path",
             "required": true,
-            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "description": "Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.",
             "schema": {
               "type": "string"
             }
@@ -3449,7 +3449,7 @@
             "name": "kind",
             "in": "path",
             "required": true,
-            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "description": "Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.",
             "schema": {
               "type": "string"
             }
@@ -3499,7 +3499,7 @@
             "name": "kind",
             "in": "path",
             "required": true,
-            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "description": "Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.",
             "schema": {
               "type": "string"
             }
@@ -3566,7 +3566,7 @@
             "name": "kind",
             "in": "path",
             "required": true,
-            "description": "Which of the three mails this template replaces — a `mailTemplateKind`: `invite`, `verify` or `reset`.",
+            "description": "Which of the four mails this template replaces — a `mailTemplateKind`: `invite`, `verify`, `reset` or `login_code`.",
             "schema": {
               "type": "string"
             }
@@ -4915,7 +4915,7 @@
             }
           }
         },
-        "description": "**`202` and an empty body for every request the policy allows**, in status, body and timing, whether or not the address names an active account of this app — a decoy like `POST /api/client/resend-verification`, so this is no enumeration oracle. A mail goes out only for an account that may sign in. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires the previous one for the same address; a request within sixty seconds of the last sends no second mail. The address is trimmed and compared case-insensitively. `404 not_found` is the **app identifier**, never the address; `403 method_not_allowed` when the app has the email-code method off. Limited per app, address and IP, so it cannot be used to mail somebody repeatedly.",
+        "description": "**`202` and an empty body for every request the policy allows**, in status, body and timing, whether or not the address names an active account of this app — a decoy like `POST /api/client/resend-verification`, so this is no enumeration oracle. A mail goes out for an `active` account and for one still `pending_verification` — spending the code proves the address, as the verification link would — and never for a `blocked` one or an unknown address. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires the previous one for the same address; a request within sixty seconds of the last sends no second mail. The address is trimmed and compared case-insensitively. `404 not_found` is the **app identifier**, never the address; `403 method_not_allowed` when the app has the email-code method off. Limited per app, address and IP, so it cannot be used to mail somebody repeatedly.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5104,7 +5104,7 @@
             "description": "Success."
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`, `method_not_allowed`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5114,7 +5114,7 @@
             }
           }
         },
-        "description": "The pair of app identifier and address is the identifier: an app user's address is unique only within their app. Status, body and timing are identical for a known and an unknown address. An account with no password — one created through an identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link points at the app's `reset_url`, or at the hosted reset page when the app has configured none.",
+        "description": "The pair of app identifier and address is the identifier: an app user's address is unique only within their app. `403 method_not_allowed` when the app has the password method off — a reset link whose confirmation would be refused is not mailed; the code names the app's policy, not a person. Status, body and timing are identical for a known and an unknown address. An account with no password — one created through an identity provider — is mailed nothing and still answers `202`. `404 not_found` is the **app identifier**, never the address. The link points at the app's `reset_url`, or at the hosted reset page when the app has configured none.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5327,7 +5327,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `invalid_credentials`, `target_state_conflict`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `validation_error`, `invalid_credentials`, `target_state_conflict`, `method_not_allowed`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5337,7 +5337,7 @@
             }
           }
         },
-        "description": "The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made the change stays signed in. An app user belongs to one app, so \"every session\" is this app's. An account that has **no password** — an OIDC-only app user, which the schema admits — answers `409 target_state_conflict` naming the `password` field with rule `not_set`, not `401`: the session is live and the token is fine, it is the account that has nothing to change, and telling such a caller to sign in again sends them round a loop that ends here.",
+        "description": "`403 method_not_allowed` when the app has the password method off: a stored password stays stored but is not in use, so it is not changed either. The guard admits all three caller kinds, but a password belongs to an app user specifically — a developer bearer or a server key reaching this is `401 unauthorized`. Every other session of the account ends; the answer is the replacement pair, so the tab that made the change stays signed in. An app user belongs to one app, so \"every session\" is this app's. An account that has **no password** — an OIDC-only app user, which the schema admits — answers `409 target_state_conflict` naming the `password` field with rule `not_set`, not `401`: the session is live and the token is fine, it is the account that has nothing to change, and telling such a caller to sign in again sends them round a loop that ends here.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5474,9 +5474,9 @@
             }
           }
         },
-        "description": "**Two ways in, decided in the handler.** During sign-in the body carries the `two_factor_setup_required` challenge, and that is the credential; from the app's own account settings the app user's bearer is, with no challenge. Neither is `401 unauthorized`, and a dead challenge is `410 token_spent`. `409 target_state_conflict` names `two_factor` with rule `off` when the app's policy is `off`. The secret is not in use until `POST /api/client/two-factor/setup/confirm` accepts a code from it; a second call replaces a pending secret, and an account that already has an authenticator keeps it until the new one is confirmed.",
+        "description": "**Two ways in, decided in the handler.** During sign-in the body carries the `two_factor_setup_required` challenge, and that is the credential; from the app's own account settings the app user's bearer is, with no challenge and an empty or missing body. Neither is `401 unauthorized`, and a dead challenge is `410 token_spent`. `409 target_state_conflict` names `two_factor` with rule `off` when the app's policy is `off`. The secret is not in use until `POST /api/client/two-factor/setup/confirm` accepts a code from it; a second call replaces a pending secret, and an account that already has an authenticator keeps it until the new one is confirmed.",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -10049,17 +10049,10 @@
             "description": "When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does."
           },
           "accept_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500,
-                "format": "uri"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "The link to give the invitee: the app's `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered. Nullable for readers of the earlier shape; the cloud always fills it."
+            "type": "string",
+            "maxLength": 500,
+            "format": "uri",
+            "description": "The link to give the invitee: the app's `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered."
           },
           "mail": {
             "type": "string",

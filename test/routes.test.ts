@@ -217,11 +217,20 @@ describe('the route manifest', () => {
       expect(steps('/mcp/oauth'), `/mcp/oauth${s}`).toContain(s)
     }
     expect(developerSignInRoutes('/console/oauth').map((r) => `${r.method} ${r.path.slice('/console/oauth'.length)}`).sort()).toEqual([...common].sort())
-    // Every step after identify needs the browser-proof cookie.
+    // Every step checks the browser-proof cookie once the interaction is
+    // bound, identify and the passkey options included.
     for (const r of [...developerSignInRoutes('/console/oauth'), ...developerSignInRoutes('/mcp/oauth')]) {
       expect(r.audience, key(r)).toBe('internal')
       expect(r.request, key(r)).toBeNull()
-      if (r.method === 'POST' && !r.path.endsWith('/identify')) expect(r.errors, key(r)).toContain('wrong_browser')
+      if (r.method === 'POST') expect(r.errors, key(r)).toContain('wrong_browser')
+    }
+    // A passkey sign-in has no email step, so the cookie must be set on its
+    // own path: by the email card, by identify, or by the passkey options.
+    for (const p of ['/console/oauth', '/mcp/oauth']) {
+      for (const k of [`GET ${p}/interaction/:id`, `POST ${p}/identify`, `POST ${p}/passkey/options`]) {
+        expect(ROUTES.find((r) => key(r) === k)?.notes ?? '', k).toContain('browser-proof cookie')
+      }
+      expect(ROUTES.find((r) => key(r) === `POST ${p}/passkey/options`)?.notes ?? '').toContain('set here when the interaction has none yet')
     }
   })
 
