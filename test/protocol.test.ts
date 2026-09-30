@@ -74,7 +74,7 @@ describe('contracts v1', () => {
   it('protocol 5 is the only version served; 2, 3 and 4 are cut without a sunset', () => {
     expect(PROTOCOL_VERSION).toBe(5)
     expect(PROTOCOL_VERSIONS).toEqual([{ version: 5, bridge_from: '6.0.0', deprecated_at: null }])
-    expect(LATEST_BRIDGE_VERSION).toBe('6.0.0')
+    expect(LATEST_BRIDGE_VERSION).toBe('6.1.0')
     // A cut, not a window: every older version is unsupported today, with no
     // sunset date to wait for — which is exactly what an absent entry means.
     for (const version of [2, 3, 4]) {

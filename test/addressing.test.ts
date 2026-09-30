@@ -87,6 +87,20 @@ describe('naming a job', () => {
     expect(cloudCancel.safeParse({ type: 'cancel', request_id: '', slug: 'drive_to', job_id: null }).success).toBe(false)
   })
 
+  it('lets a cancel say it may only stop an own job, and only a boolean says so (fleetless#84)', () => {
+    // Absent is `false`, today's meaning: a user's cancel never carries the
+    // key, so it must stay optional — unlike `job_id`, whose absence
+    // would mean different things to different readers.
+    const frame = { type: 'cancel', request_id: 'c1', slug: 'drive_to', job_id: UUID }
+    expect(cloudCancel.safeParse(frame).success).toBe(true)
+    expect(cloudCancel.parse(frame)).not.toHaveProperty('own_only')
+    expect(cloudCancel.parse({ ...frame, own_only: true }).own_only).toBe(true)
+    expect(cloudCancel.parse({ ...frame, own_only: false }).own_only).toBe(false)
+    for (const bad of [null, 'true', 1]) {
+      expect(cloudCancel.safeParse({ ...frame, own_only: bad }).success).toBe(false)
+    }
+  })
+
   it('refuses a job id that is not a uuid, rather than passing the string through', () => {
     // This is the contract half of `invalid_uuid`: the wire will not carry a
     // shape the route is expected to refuse.
