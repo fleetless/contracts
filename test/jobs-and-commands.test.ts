@@ -29,6 +29,7 @@ import {
   exposureListResponse,
   parameterViolation,
   parameterInvalidDetails,
+  cancelRejectedDetails,
   publisherBusyDetails,
   ERROR_CODES,
 } from '../src/index.js'
@@ -152,6 +153,16 @@ describe('command parity', () => {
     expect(parameterInvalidDetails.safeParse(parsed.details).success).toBe(true)
     // Still optional — most refusals carry none.
     expect(commandResult.safeParse({ ...r, details: undefined }).success).toBe(true)
+  })
+
+  it('carries the goals of a cancel_rejected on the socket as well', () => {
+    const r = {
+      type: 'command_result', request_id: 'r10', ok: false, job: null, kind: 'action',
+      code: 'cancel_rejected', message: "The action server on 'dock' refused to cancel.",
+      details: { goals: [{ job_id: UUID, goal_id: '0a1b2c3d4e5f60718293a4b5c6d7e8f9', return_code: CANCEL_RETURN_CODES.rejected }] },
+    }
+    const parsed = commandResult.parse(r)
+    expect(cancelRejectedDetails.parse(parsed.details).goals[0].return_code).toBe(CANCEL_RETURN_CODES.rejected)
   })
 
   it('answers an unknown frame instead of closing the socket', () => {
@@ -351,6 +362,42 @@ describe('parameter refusals', () => {
     expect(parameterInvalidDetails.safeParse({ violations: [] }).success).toBe(false)
     // `field` is the flat key as sent — the same string as the rule it broke.
     expect(parameterViolation.safeParse({ field: 'target_pose.position.x', rule: 'min', message: 'too small' }).success).toBe(true)
+  })
+})
+
+describe('cancel refusals', () => {
+  // Every goal the cancel reached, accepted ones included, as the cloud sends
+  // them in `details` of a `409 cancel_rejected`.
+  const goal = (goal_id: string, return_code: number | null) => ({ job_id: UUID, goal_id, return_code })
+
+  it('pins the details of a cancel_rejected, so a caller parses instead of reading prose', () => {
+    const details = {
+      goals: [
+        goal('0a1b2c3d4e5f60718293a4b5c6d7e8f9', CANCEL_RETURN_CODES.rejected),
+        { ...goal('1b2c3d4e5f60718293a4b5c6d7e8f90a', CANCEL_RETURN_CODES.none), job_id: UUID2 },
+        goal('2c3d4e5f60718293a4b5c6d7e8f90a1b', CANCEL_RETURN_CODES.unknown_goal_id),
+        goal('3d4e5f60718293a4b5c6d7e8f90a1b2c', CANCEL_RETURN_CODES.goal_terminated),
+        // The goal's server did not answer within the bridge's bound.
+        goal('4e5f60718293a4b5c6d7e8f90a1b2c3d', null),
+      ],
+    }
+    expect(cancelRejectedDetails.parse(details)).toEqual(details)
+  })
+
+  it('refuses details that name no goal, an unknown return code, or a goal without its id', () => {
+    // The cloud refuses only because a goal was rejected, so there is always one.
+    expect(cancelRejectedDetails.safeParse({ goals: [] }).success).toBe(false)
+    expect(cancelRejectedDetails.safeParse({ goals: [goal('0a1b2c3d4e5f60718293a4b5c6d7e8f9', 4)] }).success).toBe(false)
+    expect(cancelRejectedDetails.safeParse({ goals: [{ job_id: UUID, return_code: 1 }] }).success).toBe(false)
+  })
+
+  it('keeps parsing when a later cloud adds a field', () => {
+    // An older SDK must not throw on a newer cloud's details; unknown keys are stripped.
+    const parsed = cancelRejectedDetails.parse({
+      goals: [{ ...goal('0a1b2c3d4e5f60718293a4b5c6d7e8f9', 1), server: '/dock' }],
+      hint: 'retry later',
+    })
+    expect(parsed).toEqual({ goals: [goal('0a1b2c3d4e5f60718293a4b5c6d7e8f9', 1)] })
   })
 })
 

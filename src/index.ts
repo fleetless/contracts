@@ -691,8 +691,8 @@ export type {
   DatapointDisplay,
   PutDatapointDisplayRequest,
 } from './alerts.js'
-export { apiError, parameterViolation, parameterInvalidDetails, ERROR_CODES } from './errors.js'
-export type { ApiError, ParameterViolation, ParameterInvalidDetails, ErrorCode } from './errors.js'
+export { apiError, parameterViolation, parameterInvalidDetails, cancelRejectedDetails, ERROR_CODES } from './errors.js'
+export type { ApiError, ParameterViolation, ParameterInvalidDetails, CancelRejectedDetails, ErrorCode } from './errors.js'
 export {
   oauthErrorCode,
   oauthError,

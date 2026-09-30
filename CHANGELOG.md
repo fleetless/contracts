@@ -9,6 +9,17 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **`cancelRejectedDetails`** (`CancelRejectedDetails`): the `details` of a
+  `cancel_rejected` refusal, `{ goals }` with at least one `{ job_id,
+  goal_id, return_code }` — every goal the cancel reached, accepted ones
+  included, with its `CancelGoal` return code (`CANCEL_RETURN_CODES`, or
+  `null` when that goal's server did not answer). A consumer parses the
+  refusal instead of reading its shape from prose. Published as the
+  artifact `cancel-rejected-details`. The wire does not change: the cloud
+  already sends this shape.
+
 ## [5.0.0] — 2026-09-30
 
 ### Added

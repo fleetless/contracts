@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
+import { bridgeCancelResultEntry } from './protocol.js'
 
 /**
  * The one error shape of the REST and realtime APIs: a stable
@@ -44,6 +45,22 @@ export const parameterInvalidDetails = z.object({
   violations: z.array(parameterViolation).min(1),
 })
 export type ParameterInvalidDetails = z.infer<typeof parameterInvalidDetails>
+
+/**
+ * The `details` of a `cancel_rejected` refusal: every goal the cancel reached,
+ * accepted ones included, each with the `CancelGoal` return code its action
+ * server answered — compare `return_code` against `CANCEL_RETURN_CODES`
+ * (`none`, `rejected`, `unknown_goal_id`, `goal_terminated`); it is `null`
+ * when that goal's server did not answer within the bridge's bound. Always at
+ * least one goal: the cloud refuses a cancel only because a goal's server
+ * answered `ERROR_REJECTED`. Pinned here for the reason
+ * `parameterInvalidDetails` is: a caller parses it instead of reading the
+ * shape from prose.
+ */
+export const cancelRejectedDetails = z.object({
+  goals: z.array(bridgeCancelResultEntry).min(1),
+})
+export type CancelRejectedDetails = z.infer<typeof cancelRejectedDetails>
 
 /**
  * The codes in use today. The wire deliberately allows any string — this

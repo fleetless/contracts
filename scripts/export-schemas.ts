@@ -208,7 +208,7 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
-import { parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import { cancelRejectedDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
 import {
   passwordChangeRequest,
   passwordResetConfirm,
@@ -578,6 +578,7 @@ export const exportedSchemas = {
   'rate-limit-details': rateLimitDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'parameter-invalid-details': parameterInvalidDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
+  'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
 } as const
 
 /**
@@ -810,6 +811,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // send, with defaults already applied.
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
+  'cancel-rejected-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
