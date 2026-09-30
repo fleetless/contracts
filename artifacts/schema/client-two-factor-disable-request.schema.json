@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^\\d{6}$",
+      "description": "A code the authenticator shows now."
+    }
+  },
+  "required": [
+    "code"
+  ],
+  "additionalProperties": false
+}

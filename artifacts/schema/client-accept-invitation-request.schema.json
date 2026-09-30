@@ -8,10 +8,10 @@
       "description": "The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`."
     },
     "password": {
+      "description": "The password the new account will use, at least 12 characters. **Required while the app's password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app accepts invitations without one.",
       "type": "string",
       "minLength": 12,
-      "maxLength": 256,
-      "description": "The password the new account will use."
+      "maxLength": 256
     },
     "display_name": {
       "description": "An optional name, overriding whatever the invitation pre-filled.",
@@ -28,8 +28,7 @@
     }
   },
   "required": [
-    "token",
-    "password"
+    "token"
   ],
   "additionalProperties": false
 }

@@ -95,6 +95,17 @@
             }
           ],
           "description": "The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person."
+        },
+        "two_factor_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the app user has a confirmed authenticator, so the app's account settings can offer to turn it on or off. `null` unless `kind` is `app_user`."
         }
       },
       "required": [
@@ -104,7 +115,8 @@
         "server_key_id",
         "app_id",
         "role_id",
-        "email"
+        "email",
+        "two_factor_enabled"
       ]
     }
   },

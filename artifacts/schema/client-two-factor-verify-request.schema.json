@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "challenge": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The challenge the sign-in step answered."
+    },
+    "code": {
+      "description": "The six-digit code the authenticator shows now. A code already accepted once is refused, so a replay of a seen code does not sign anybody in.",
+      "type": "string",
+      "pattern": "^\\d{6}$"
+    },
+    "recovery_code": {
+      "description": "One of the ten recovery codes, `xxxxx-xxxxx`, in either case. Spent by its use.",
+      "type": "string",
+      "pattern": "^[a-zA-Z2-7]{5}-[a-zA-Z2-7]{5}$"
+    }
+  },
+  "required": [
+    "challenge"
+  ],
+  "additionalProperties": false
+}

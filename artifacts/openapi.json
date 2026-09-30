@@ -4614,13 +4614,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/session-tokens"
+                  "$ref": "#/components/schemas/client-sign-in-result"
                 }
               }
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invalid_credentials`.",
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invalid_credentials`, `method_not_allowed`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4630,13 +4630,94 @@
             }
           }
         },
-        "description": "One refusal for every miss — unknown app, unknown address, wrong password, a `blocked` account and one still `pending_verification` — because the caller supplies the `app_identifier` unauthenticated, so \"this app knows this user\" is not a fact the answer may carry. The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either.",
+        "description": "One refusal for every miss — unknown app, unknown address, wrong password, a `blocked` account and one still `pending_verification` — because the caller supplies the `app_identifier` unauthenticated, so \"this app knows this user\" is not a fact the answer may carry. The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either. \n\n**The answer is a `clientSignInResult`**: session tokens, or a `twoFactorChallenge` when the person has a confirmed authenticator or the app requires one — then no session exists until `POST /api/client/two-factor/verify` or the setup is done. `403 method_not_allowed` when the app has the password method off; it names the app's policy, not a person.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/client-login-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/login/code": {
+      "post": {
+        "operationId": "post_api_client_login_code",
+        "summary": "Mails a six-digit sign-in code, and answers the same whether or not the address exists.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `not_found`, `method_not_allowed`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**`202` and an empty body for every request the policy allows**, in status, body and timing, whether or not the address names an active account of this app — a decoy like `POST /api/client/resend-verification`, so this is no enumeration oracle. A mail goes out only for an account that may sign in. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires the previous one for the same address; a request within sixty seconds of the last sends no second mail. The address is trimmed and compared case-insensitively. `404 not_found` is the **app identifier**, never the address; `403 method_not_allowed` when the app has the email-code method off. Limited per app, address and IP, so it cannot be used to mail somebody repeatedly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-login-code-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/login/code/verify": {
+      "post": {
+        "operationId": "post_api_client_login_code_verify",
+        "summary": "Spends a mailed sign-in code and answers a session or a two-factor challenge.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/client-sign-in-result"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invalid_code`, `token_spent`, `method_not_allowed`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A wrong code is `400 invalid_code` with `details.attempts_left` (`invalidCodeDetails`). A code that is spent, past its ten minutes, out of attempts, or was never mailed is `410 token_spent` — one answer, because telling them apart would say whether a code was ever sent to that address; the recovery is the same, ask for a new code. The address is trimmed and compared case-insensitively, so the address typed at the request and here need not match in case. \n\n**The answer is a `clientSignInResult`**, like the password login: tokens, or a `twoFactorChallenge` when the person has an authenticator or the app requires one. A pending-verification account that spends a code is activated — reading a mail at that address is the proof verification asks for.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-login-code-verify-request"
               }
             }
           }
@@ -4667,7 +4748,7 @@
             }
           }
         },
-        "description": "**`202` and an empty body for every request policy allows** — a new address, one this app already knows and one it does not answer identically, in status, body and timing. An answer that depended on existence would be the account-enumeration oracle the whole client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. \n\n**An address on an account still `pending_verification` is re-registered, not ignored.** The password and display name from this call replace what is stored, every outstanding verification link for the address stops working, and a fresh one is mailed. Otherwise whoever typed an address first would own the password of the account its real owner later verifies. An address on an `active` account changes nothing and sends nothing — that account has already been proven, and its way back in is `POST /api/client/password/reset`. Neither case is visible in the answer. \n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer's own configuration, and a stranger learns the app's policy rather than who is in it. **A password under twelve characters is part of that `400 validation_error`** and not a code of its own — the minimum is the `password` field's schema rule, and the error names the field, which is what a form needs to mark it. `404 not_found` names an **app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the developer's own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give the person. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. \n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which is precisely the enumeration oracle every other line of this route exists to close. At the quota, every registration is refused identically, including one that would only have re-mailed a pending account's link.",
+        "description": "**`202` and an empty body for every request policy allows** — a new address, one this app already knows and one it does not answer identically, in status, body and timing. An answer that depended on existence would be the account-enumeration oracle the whole client family is built to avoid. The account cannot log in until the mailed link is spent; `POST /api/client/verify-email` is what does that. \n\n**An address on an account still `pending_verification` is re-registered, not ignored.** The password and display name from this call replace what is stored, every outstanding verification link for the address stops working, and a fresh one is mailed. Otherwise whoever typed an address first would own the password of the account its real owner later verifies. An address on an `active` account changes nothing and sends nothing — that account has already been proven, and its way back in is `POST /api/client/password/reset`. Neither case is visible in the answer. \n\nThe refusals it *does* make are about policy or about what the caller typed, never about a person. `403 registration_closed` when the app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer's own configuration, and a stranger learns the app's policy rather than who is in it. **A password under twelve characters is part of that `400 validation_error`** and not a code of its own — the minimum is the `password` field's schema rule, and the error names the field, which is what a form needs to mark it. The same `400` names `password` when one is missing while the app's password method is on, or sent while it is off: an email-code-only app registers people without one. `404 not_found` names an **app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the developer's own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give the person. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. \n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which is precisely the enumeration oracle every other line of this route exists to close. At the quota, every registration is refused identically, including one that would only have re-mailed a pending account's link.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4695,7 +4776,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/session-tokens"
+                  "$ref": "#/components/schemas/client-sign-in-result"
                 }
               }
             }
@@ -4711,7 +4792,7 @@
             }
           }
         },
-        "description": "**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their password again on the next screen, and the app has an access token to carry them into it. The token is spent first and the account is activated second, as **two writes**: the spend is the atomic one, so a link opened twice cannot mint two sessions, but a process that died between them would leave a spent token on an account still `pending_verification`, whose recovery is `POST /api/client/resend-verification`. Spending the token also proves the address, so a later `PATCH` may return the account to `active` after a block. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its twenty-four hours, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and because the recovery is the same in all three cases: ask for a fresh link with `POST /api/client/resend-verification`. An app rendering this refusal should offer that and nothing conditional on which of the three it was.",
+        "description": "**The answer is a session, not a `204`** — or, as on every sign-in step, a `twoFactorChallenge` when the app requires two-factor (`clientSignInResult`). Somebody who has just proved they can read the mail should not be asked to type their password again on the next screen, and the app has an access token to carry them into it. The token is spent first and the account is activated second, as **two writes**: the spend is the atomic one, so a link opened twice cannot mint two sessions, but a process that died between them would leave a spent token on an account still `pending_verification`, whose recovery is `POST /api/client/resend-verification`. Spending the token also proves the address, so a later `PATCH` may return the account to `active` after a block. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its twenty-four hours, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and because the recovery is the same in all three cases: ask for a fresh link with `POST /api/client/resend-verification`. An app rendering this refusal should offer that and nothing conditional on which of the three it was.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4813,13 +4894,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/session-tokens"
+                  "$ref": "#/components/schemas/client-sign-in-result"
                 }
               }
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_spent`.",
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_spent`, `method_not_allowed`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4829,7 +4910,7 @@
             }
           }
         },
-        "description": "**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and the recovery is identical either way: ask for a new link. A replacement password under twelve characters is a `400 validation_error` naming the `new_password` field — the twelve-character minimum is that field's schema rule, and it is refused the way any other malformed field is.",
+        "description": "**A new password does not bypass the second factor**: a person with an authenticator, or in an app that requires one, gets a `twoFactorChallenge` instead of tokens (`clientSignInResult`), and the authenticator stays on. `403 method_not_allowed` when the app has the password method off. \n\n**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code because distinguishing them would tell a stranger whether a token ever existed, and the recovery is identical either way: ask for a new link. A replacement password under twelve characters is a `400 validation_error` naming the `new_password` field — the twelve-character minimum is that field's schema rule, and it is refused the way any other malformed field is.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4857,7 +4938,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/session-tokens"
+                  "$ref": "#/components/schemas/client-sign-in-result"
                 }
               }
             }
@@ -4873,7 +4954,7 @@
             }
           }
         },
-        "description": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works.",
+        "description": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. `password` is required while the app's password method is on and refused while it is off, both as `400 validation_error` naming the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5063,6 +5144,195 @@
           }
         },
         "description": "The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one."
+      }
+    },
+    "/api/client/two-factor/verify": {
+      "post": {
+        "operationId": "post_api_client_two_factor_verify",
+        "summary": "Answers a two-factor challenge with an authenticator or recovery code, and answers the session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/session-tokens"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invalid_code`, `token_spent`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The challenge is the one a sign-in step answered with `two_factor_required`; it lives five minutes and takes five wrong codes, after which it is `410 token_spent` and the sign-in starts over. A wrong code is `400 invalid_code` with `details.attempts_left`. **A code is accepted at most once**: the same authenticator code sent twice, even at the same moment, signs in exactly once. A recovery code is spent by its use and audited as `app_user.recovery_code_used`. Exactly one of `code` and `recovery_code`, or `400 validation_error`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-two-factor-verify-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/two-factor/setup": {
+      "post": {
+        "operationId": "post_api_client_two_factor_setup",
+        "summary": "Starts an authenticator setup and answers its secret and otpauth URL.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [
+          {
+            "clientToken": []
+          },
+          {}
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/two-factor-setup-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `token_spent`, `unauthorized`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "**Two ways in, decided in the handler.** During sign-in the body carries the `two_factor_setup_required` challenge, and that is the credential; from the app's own account settings the app user's bearer is, with no challenge. Neither is `401 unauthorized`, and a dead challenge is `410 token_spent`. `409 target_state_conflict` names `two_factor` with rule `off` when the app's policy is `off`. The secret is not in use until `POST /api/client/two-factor/setup/confirm` accepts a code from it; a second call replaces a pending secret, and an account that already has an authenticator keeps it until the new one is confirmed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-two-factor-setup-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/two-factor/setup/confirm": {
+      "post": {
+        "operationId": "post_api_client_two_factor_setup_confirm",
+        "summary": "Confirms the new authenticator with a code and answers the recovery codes and a session.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [
+          {
+            "clientToken": []
+          },
+          {}
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/client-two-factor-setup-confirm-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `rate_limited`, `validation_error`, `invalid_code`, `token_spent`, `unauthorized`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The same two ways in as `setup`. A code that does not match the pending secret is `400 invalid_code`; no pending setup, or a dead challenge, is `410 token_spent`. On success the authenticator is on, ten recovery codes are issued — shown this once, any earlier set void — and the answer carries a session: the one the sign-in was waiting for, or, from account settings, a fresh one while every other session of the account ends. Audited as `app_user.two_factor_enabled`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-two-factor-setup-confirm-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/client/two-factor": {
+      "delete": {
+        "operationId": "delete_api_client_two_factor",
+        "summary": "Turns the signed-in app user's authenticator off.",
+        "tags": [
+          "client-auth"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          },
+          {
+            "clientToken": []
+          },
+          {
+            "serverKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `rate_limited`, `validation_error`, `invalid_code`, `target_state_conflict`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The app user's own door; a developer bearer or a server key is `401 unauthorized`, because the factor is the person's. A current code proves they still hold the authenticator: a stolen session alone cannot remove it. The authenticator and every recovery code go. `409 target_state_conflict` names `two_factor` with rule `required` while the app requires two-factor, and with rule `off` when there is none to remove. Audited as `app_user.two_factor_disabled`. The developer's support door is `DELETE /api/apps/:id/users/:userId/two-factor`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/client-two-factor-disable-request"
+              }
+            }
+          }
+        }
       }
     },
     "/api/client/providers": {
@@ -11240,10 +11510,10 @@
             "description": "The opaque token from the invitation link, valid seven days. Unknown, expired, revoked and already-accepted all answer `410 token_spent`."
           },
           "password": {
+            "description": "The password the new account will use, at least 12 characters. **Required while the app's password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app accepts invitations without one.",
             "type": "string",
             "minLength": 12,
-            "maxLength": 256,
-            "description": "The password the new account will use."
+            "maxLength": 256
           },
           "display_name": {
             "description": "An optional name, overriding whatever the invitation pre-filled.",
@@ -11260,8 +11530,7 @@
           }
         },
         "required": [
-          "token",
-          "password"
+          "token"
         ],
         "additionalProperties": false
       },
@@ -11354,6 +11623,17 @@
               }
             ],
             "description": "The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person."
+          },
+          "two_factor_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether the app user has a confirmed authenticator, so the app's account settings can offer to turn it on or off. `null` unless `kind` is `app_user`."
           }
         },
         "required": [
@@ -11363,7 +11643,60 @@
           "server_key_id",
           "app_id",
           "role_id",
+          "email",
+          "two_factor_enabled"
+        ],
+        "additionalProperties": false
+      },
+      "client-login-code-request": {
+        "type": "object",
+        "properties": {
+          "app_identifier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app to sign in to. An identifier no app carries is `404 not_found`; the address is never the subject of a refusal."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address to mail the code to, trimmed and compared case-insensitively. `202` whether or not it names an account of this app."
+          }
+        },
+        "required": [
+          "app_identifier",
           "email"
+        ],
+        "additionalProperties": false
+      },
+      "client-login-code-verify-request": {
+        "type": "object",
+        "properties": {
+          "app_identifier": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The app the code was requested for."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+            "description": "The address the code was mailed to, as typed when it was requested; trimmed and compared case-insensitively."
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "description": "The six digits from the mail, exactly — leading zeros included, no spaces."
+          }
+        },
+        "required": [
+          "app_identifier",
+          "email",
+          "code"
         ],
         "additionalProperties": false
       },
@@ -11569,11 +11902,31 @@
               ],
               "additionalProperties": false
             },
-            "description": "The app's **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password login alone."
+            "description": "The app's **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password or code sign-in alone."
+          },
+          "sign_in_methods": {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "boolean",
+                "description": "Whether app users may sign in with a password. Off refuses `POST /api/client/login` with `method_not_allowed`, and registration and invitations then take no password."
+              },
+              "email_code": {
+                "type": "boolean",
+                "description": "Whether app users may sign in with a six-digit code mailed to them, valid ten minutes. A code needs no URL, so it works in local development and in an app with no web UI."
+              }
+            },
+            "required": [
+              "password",
+              "email_code"
+            ],
+            "additionalProperties": false,
+            "description": "Which of password and emailed code the app accepts, so its sign-in page draws the right fields without guessing. The same value the developer set; public, like the provider buttons."
           }
         },
         "required": [
-          "providers"
+          "providers",
+          "sign_in_methods"
         ],
         "additionalProperties": false
       },
@@ -11607,10 +11960,10 @@
             "description": "The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists."
           },
           "password": {
+            "description": "The password for the new account, at least 12 characters. **Required while the app's password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app registers people without one.",
             "type": "string",
             "minLength": 12,
-            "maxLength": 256,
-            "description": "The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around."
+            "maxLength": 256
           },
           "display_name": {
             "description": "An optional human name for the account. The developer's own UI decides whether to ask for it.",
@@ -11628,8 +11981,7 @@
         },
         "required": [
           "app_identifier",
-          "email",
-          "password"
+          "email"
         ],
         "additionalProperties": false
       },
@@ -11740,6 +12092,176 @@
         },
         "required": [
           "robots"
+        ],
+        "additionalProperties": false
+      },
+      "client-sign-in-result": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "access_token": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
+              },
+              "refresh_token": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
+              },
+              "expires_in": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
+              }
+            },
+            "required": [
+              "access_token",
+              "refresh_token",
+              "expires_in"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "two_factor_required",
+                  "two_factor_setup_required"
+                ],
+                "description": "`two_factor_required`: ask for the authenticator code. `two_factor_setup_required`: the app requires two-factor and the person has none yet, so set one up before any session exists."
+              },
+              "challenge": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The handle the next step spends. Valid five minutes; afterwards it answers `410 token_spent` and the sign-in starts over."
+              }
+            },
+            "required": [
+              "status",
+              "challenge"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "client-two-factor-disable-request": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "description": "A code the authenticator shows now."
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "client-two-factor-setup-confirm-request": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "description": "The same challenge as at `setup`, during sign-in; absent with a bearer.",
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^\\d{6}$",
+            "description": "A code the new authenticator shows now. It proves the secret was copied correctly before anything depends on it."
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      },
+      "client-two-factor-setup-confirm-response": {
+        "type": "object",
+        "properties": {
+          "recovery_codes": {
+            "minItems": 10,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z2-7]{5}-[a-z2-7]{5}$"
+            },
+            "description": "The ten single-use recovery codes, lowercase, shown once. Any earlier set is void."
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "access_token": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The token to send as `Authorization: Bearer <token>` on every call. Short-lived: read `expires_in` rather than assuming a lifetime."
+              },
+              "refresh_token": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The token that buys the next access token. It rotates on every use, so a value presented twice is detectable theft and ends the whole family."
+              },
+              "expires_in": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "How long the access token stays valid, in **seconds** from now. Not a timestamp, and not milliseconds."
+              }
+            },
+            "required": [
+              "access_token",
+              "refresh_token",
+              "expires_in"
+            ],
+            "additionalProperties": false,
+            "description": "The session the sign-in was waiting for, or a fresh one for the account settings."
+          }
+        },
+        "required": [
+          "recovery_codes",
+          "session"
+        ],
+        "additionalProperties": false
+      },
+      "client-two-factor-setup-request": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "description": "The `two_factor_setup_required` challenge, during sign-in. Absent when the call carries the app user's bearer instead.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "client-two-factor-verify-request": {
+        "type": "object",
+        "properties": {
+          "challenge": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The challenge the sign-in step answered."
+          },
+          "code": {
+            "description": "The six-digit code the authenticator shows now. A code already accepted once is refused, so a replay of a seen code does not sign anybody in.",
+            "type": "string",
+            "pattern": "^\\d{6}$"
+          },
+          "recovery_code": {
+            "description": "One of the ten recovery codes, `xxxxx-xxxxx`, in either case. Spent by its use.",
+            "type": "string",
+            "pattern": "^[a-zA-Z2-7]{5}-[a-zA-Z2-7]{5}$"
+          }
+        },
+        "required": [
+          "challenge"
         ],
         "additionalProperties": false
       },
@@ -18975,6 +19497,26 @@
         },
         "required": [
           "tier"
+        ],
+        "additionalProperties": false
+      },
+      "two-factor-setup-response": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The shared secret, base32, for an authenticator app that cannot scan a QR code. Shown once; the cloud stores it encrypted."
+          },
+          "otpauth_url": {
+            "type": "string",
+            "pattern": "^otpauth:\\/\\/totp\\/.*",
+            "description": "The same secret as an `otpauth://totp/` URL, to render as a QR code. It carries the secret: never log it."
+          }
+        },
+        "required": [
+          "secret",
+          "otpauth_url"
         ],
         "additionalProperties": false
       },

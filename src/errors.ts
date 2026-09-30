@@ -63,6 +63,18 @@ export const cancelRejectedDetails = z.object({
 export type CancelRejectedDetails = z.infer<typeof cancelRejectedDetails>
 
 /**
+ * The `details` of an `invalid_code` refusal: how many wrong codes are left
+ * before the code is spent. Pinned for the reason `parameterInvalidDetails`
+ * is — a sign-in page parses it instead of reading the shape from prose.
+ */
+export const invalidCodeDetails = z.object({
+  attempts_left: z.number().int().min(0).meta({
+    description: 'How many more wrong codes this code or challenge takes before it is spent. `0` means the next attempt answers `410 token_spent`.',
+  }),
+})
+export type InvalidCodeDetails = z.infer<typeof invalidCodeDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -399,6 +411,10 @@ export const ERROR_CODES = [
    * Deliberately one code for both: distinguishing them tells a stranger
    * whether a token ever existed, and the recovery is identical either way —
    * ask for a new link.
+   *
+   * The same code answers an emailed sign-in code that is spent, expired or
+   * out of attempts, and a two-factor challenge past its five minutes: the
+   * recovery is the same — ask for a new code, or start the sign-in again.
    */
   'token_spent',
   // The command path, continued.
@@ -874,5 +890,22 @@ export const ERROR_CODES = [
    * advice for the state a person is actually in.
    */
   'interaction_expired',
+  // 2026-09-30 — email codes and two-factor.
+  /**
+   * `400`: a six-digit code, an authenticator code or a recovery code that
+   * does not match. `details` is `invalidCodeDetails`: how many attempts the
+   * emailed code has left, so the page can say so. At zero the code is spent
+   * and the next answer is `410 token_spent`. Distinct from
+   * `invalid_credentials`, which is about a password and says nothing about
+   * attempts.
+   */
+  'invalid_code',
+  /**
+   * `403`: the app does not offer this sign-in method — a password login on a
+   * code-only app, a code request on a password-only one, or a password where
+   * the app takes none. It names the app's policy, never a person, so it is
+   * no enumeration oracle.
+   */
+  'method_not_allowed',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

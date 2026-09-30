@@ -162,6 +162,51 @@ export type SessionTokens = z.infer<typeof sessionTokens>
 export const refreshRequest = z.object({ refresh_token: z.string().min(1) })
 export type RefreshRequest = z.infer<typeof refreshRequest>
 
+/* ------------------------------------------- codes and second factors --
+ * Shared by both identity spaces, like `password` and `sessionTokens`: a
+ * six-digit code and a recovery code are the same thing whoever types them,
+ * and two spellings would be two rules for one decision.
+ */
+
+/**
+ * **A six-digit code**: the emailed sign-in code (valid ten minutes, five
+ * wrong attempts) and an authenticator's time-based code alike. Exactly six
+ * digits on the wire, leading zeros included — the portal and hosted forms
+ * strip spaces before they send it, the JSON API does not.
+ */
+export const loginCode = z.string().regex(/^\d{6}$/, 'must be exactly six digits')
+
+/** An authenticator app's code (TOTP, RFC 6238: SHA-1, six digits, thirty-second steps). The same shape as `loginCode`. */
+export const totpCode = loginCode
+
+/**
+ * **A recovery code as typed**: two groups of five base32 characters,
+ * `xxxxx-xxxxx`, in either case — the cloud lower-cases before it compares.
+ * Single use.
+ */
+export const recoveryCode = z.string().regex(/^[a-zA-Z2-7]{5}-[a-zA-Z2-7]{5}$/, 'must be two groups of five characters, xxxxx-xxxxx')
+
+/**
+ * **The ten recovery codes, as issued**: lowercase, shown once. Generating a
+ * new set voids the old one.
+ */
+export const recoveryCodesList = z.array(z.string().regex(/^[a-z2-7]{5}-[a-z2-7]{5}$/)).length(10)
+
+/**
+ * **An authenticator being set up**: the secret to type in, and the same
+ * secret as an `otpauth://` URL for a QR code. Nothing is stored as
+ * confirmed until a code from it is confirmed.
+ */
+export const twoFactorSetupResponse = z.object({
+  secret: z.string().min(1).meta({
+    description: 'The shared secret, base32, for an authenticator app that cannot scan a QR code. Shown once; the cloud stores it encrypted.',
+  }),
+  otpauth_url: z.string().startsWith('otpauth://totp/').meta({
+    description: 'The same secret as an `otpauth://totp/` URL, to render as a QR code. It carries the secret: never log it.',
+  }),
+})
+export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
+
 /**
  * Registering an org creates the org and its first owner in one step: whoever
  * registers the organisation is the owner.

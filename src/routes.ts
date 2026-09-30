@@ -49,6 +49,8 @@ import {
   CLIENT_OIDC_CALLBACK_PATH,
   clientAcceptInvitationRequest,
   clientIdentity,
+  clientLoginCodeRequest,
+  clientLoginCodeVerifyRequest,
   clientLoginRequest,
   clientLogoutRequest,
   clientMcpInteraction,
@@ -63,6 +65,12 @@ import {
   clientRefreshRequest,
   clientRegisterRequest,
   clientResendVerificationRequest,
+  clientSignInResult,
+  clientTwoFactorDisableRequest,
+  clientTwoFactorSetupConfirmRequest,
+  clientTwoFactorSetupConfirmResponse,
+  clientTwoFactorSetupRequest,
+  clientTwoFactorVerifyRequest,
   clientVerifyEmailRequest,
   mcpConsentGrantListResponse,
 } from './client-auth.js'
@@ -113,6 +121,7 @@ import {
   signUpResponse,
   teamInvite,
   tierChangeRequest,
+  twoFactorSetupResponse,
   waitlistRequest,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
@@ -291,6 +300,11 @@ export const IN_HANDLER_ROUTES: readonly string[] = [
   // The one route whose bearer is **optional**: it answers the same document
   // with or without one, and only `already_granted` moves.
   'GET /api/client/mcp/interactions/:id',
+  // Two-factor setup: during sign-in the challenge in the body is the
+  // credential, from the app's account settings the app user's bearer is.
+  // Either one, decided in the handler.
+  'POST /api/client/two-factor/setup',
+  'POST /api/client/two-factor/setup/confirm',
   'GET /api/asset-links/missing',
   'GET /api/asset-links/:token',
 ]
@@ -1797,12 +1811,43 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/client/login', section: 'client-auth',
     summary: 'Signs an app user in with an app identifier, an email address and a password.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientLoginRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'invalid_credentials'], transport: 'http',
+    params: [], query: null, request: clientLoginRequest, response: clientSignInResult,
+    errors: ['rate_limited', 'validation_error', 'invalid_credentials', 'method_not_allowed'], transport: 'http',
     notes:
       'One refusal for every miss — unknown app, unknown address, wrong password, a `blocked` account and one still `pending_verification` — ' +
       'because the caller supplies the `app_identifier` unauthenticated, so "this app knows this user" is not a fact the answer may carry. ' +
-      'The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either.',
+      'The argon2 verify is paid unconditionally, including for an unknown app identifier, so response time is not an oracle either. ' +
+      '\n\n**The answer is a `clientSignInResult`**: session tokens, or a `twoFactorChallenge` when the person has a confirmed authenticator ' +
+      'or the app requires one — then no session exists until `POST /api/client/two-factor/verify` or the setup is done. `403 ' +
+      'method_not_allowed` when the app has the password method off; it names the app\'s policy, not a person.',
+  },
+  {
+    method: 'POST', path: '/api/client/login/code', section: 'client-auth',
+    summary: 'Mails a six-digit sign-in code, and answers the same whether or not the address exists.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 202,
+    params: [], query: null, request: clientLoginCodeRequest, response: null,
+    errors: ['rate_limited', 'validation_error', 'not_found', 'method_not_allowed'], transport: 'http',
+    notes:
+      '**`202` and an empty body for every request the policy allows**, in status, body and timing, whether or not the address names an ' +
+      'active account of this app — a decoy like `POST /api/client/resend-verification`, so this is no enumeration oracle. A mail goes out ' +
+      'only for an account that may sign in. The code is six digits, valid ten minutes, takes five wrong attempts, and a new request expires ' +
+      'the previous one for the same address; a request within sixty seconds of the last sends no second mail. The address is trimmed and ' +
+      'compared case-insensitively. `404 not_found` is the **app identifier**, never the address; `403 method_not_allowed` when the app has ' +
+      'the email-code method off. Limited per app, address and IP, so it cannot be used to mail somebody repeatedly.',
+  },
+  {
+    method: 'POST', path: '/api/client/login/code/verify', section: 'client-auth',
+    summary: 'Spends a mailed sign-in code and answers a session or a two-factor challenge.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientLoginCodeVerifyRequest, response: clientSignInResult,
+    errors: ['rate_limited', 'validation_error', 'invalid_code', 'token_spent', 'method_not_allowed'], transport: 'http',
+    notes:
+      'A wrong code is `400 invalid_code` with `details.attempts_left` (`invalidCodeDetails`). A code that is spent, past its ten minutes, ' +
+      'out of attempts, or was never mailed is `410 token_spent` — one answer, because telling them apart would say whether a code was ever ' +
+      'sent to that address; the recovery is the same, ask for a new code. The address is trimmed and compared case-insensitively, so the ' +
+      'address typed at the request and here need not match in case. \n\n**The answer is a `clientSignInResult`**, like the password ' +
+      'login: tokens, or a `twoFactorChallenge` when the person has an authenticator or the app requires one. A pending-verification account ' +
+      'that spends a code is activated — reading a mail at that address is the proof verification asks for.',
   },
   {
     method: 'POST', path: '/api/client/register', section: 'client-auth',
@@ -1824,7 +1869,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'app has self-registration off and `403 domain_not_allowed` when the address is outside `allowed_domains`: both are the developer\'s own ' +
       'configuration, and a stranger learns the app\'s policy rather than who is in it. **A password under twelve characters is part of that ' +
       '`400 validation_error`** and not a code of its own — the minimum is the `password` field\'s schema rule, and the error names the field, ' +
-      'which is what a form needs to mark it. `404 not_found` names an ' +
+      'which is what a form needs to mark it. The same `400` names `password` when one is missing while the app\'s password method is on, ' +
+      'or sent while it is off: an email-code-only app registers people without one. `404 not_found` names an ' +
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
       'configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give ' +
@@ -1839,10 +1885,11 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/client/verify-email', section: 'client-auth',
     summary: 'Spends a verification token, activates the account and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientVerifyEmailRequest, response: sessionTokens,
+    params: [], query: null, request: clientVerifyEmailRequest, response: clientSignInResult,
     errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
     notes:
-      '**The answer is a session, not a `204`.** Somebody who has just proved they can read the mail should not be asked to type their ' +
+      '**The answer is a session, not a `204`** — or, as on every sign-in step, a `twoFactorChallenge` when the app requires two-factor ' +
+      '(`clientSignInResult`). Somebody who has just proved they can read the mail should not be asked to type their ' +
       'password again on the next screen, and the app has an access token to carry them into it. The token is spent first and the account is ' +
       'activated second, as **two writes**: the spend is the atomic one, so a link opened twice cannot mint two sessions, but a process that ' +
       'died between them would leave a spent token on an account still `pending_verification`, whose recovery is ' +
@@ -1883,10 +1930,12 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/client/password/reset/confirm', section: 'client-auth',
     summary: 'Spends a reset token, sets the new password and answers a fresh session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientPasswordResetConfirmRequest, response: sessionTokens,
-    errors: ['rate_limited', 'validation_error', 'token_spent'], transport: 'http',
+    params: [], query: null, request: clientPasswordResetConfirmRequest, response: clientSignInResult,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'method_not_allowed'], transport: 'http',
     notes:
-      '**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two ' +
+      '**A new password does not bypass the second factor**: a person with an authenticator, or in an app that requires one, gets a ' +
+      '`twoFactorChallenge` instead of tokens (`clientSignInResult`), and the authenticator stays on. `403 method_not_allowed` when the app ' +
+      'has the password method off. \n\n**Every refresh family of that account is revoked**, then a fresh pair is minted for the caller — a forgotten password is one of the two ' +
       'states where somebody else may be holding a live session, and the person completing the reset is the one who should keep theirs. The ' +
       'account is activated if it was still `pending_verification`: reading a mail at that address is the same proof verification asks for. ' +
       '\n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, past its hour, or already used. There is one code ' +
@@ -1898,14 +1947,16 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/client/invitations/accept', section: 'client-auth',
     summary: 'Spends an invitation token, creates or activates the app user and answers a session.',
     audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
-    params: [], query: null, request: clientAcceptInvitationRequest, response: sessionTokens,
+    params: [], query: null, request: clientAcceptInvitationRequest, response: clientSignInResult,
     errors: ['rate_limited', 'validation_error', 'token_spent', 'email_taken', 'target_state_conflict', 'quota_exceeded'], transport: 'http',
     notes:
       '**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a ' +
       'session, because the person is landing in the developer\'s app and there is no second door for them to sign in through. The role is the ' +
       'one the invitation fixed at creation, so a later change to the app\'s default role does not re-aim a link already in somebody\'s inbox, ' +
       'and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist ' +
-      'automates. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by ' +
+      'automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. ' +
+      '`password` is required while the app\'s password method is on and refused while it is off, both as `400 validation_error` naming ' +
+      'the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by ' +
       'the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because ' +
       'the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password ' +
       'under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app ' +
@@ -1967,6 +2018,58 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the ' +
       'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one.',
+  },
+
+  /* ------------------------------------------------ app-user two-factor */
+  {
+    method: 'POST', path: '/api/client/two-factor/verify', section: 'client-auth',
+    summary: 'Answers a two-factor challenge with an authenticator or recovery code, and answers the session.',
+    audience: 'client', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientTwoFactorVerifyRequest, response: sessionTokens,
+    errors: ['rate_limited', 'validation_error', 'invalid_code', 'token_spent'], transport: 'http',
+    notes:
+      'The challenge is the one a sign-in step answered with `two_factor_required`; it lives five minutes and takes five wrong codes, after ' +
+      'which it is `410 token_spent` and the sign-in starts over. A wrong code is `400 invalid_code` with `details.attempts_left`. **A code ' +
+      'is accepted at most once**: the same authenticator code sent twice, even at the same moment, signs in exactly once. A recovery code is ' +
+      'spent by its use and audited as `app_user.recovery_code_used`. Exactly one of `code` and `recovery_code`, or `400 validation_error`.',
+  },
+  {
+    method: 'POST', path: '/api/client/two-factor/setup', section: 'client-auth',
+    summary: 'Starts an authenticator setup and answers its secret and otpauth URL.',
+    audience: 'client', auth: 'in_handler', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientTwoFactorSetupRequest, response: twoFactorSetupResponse,
+    errors: ['rate_limited', 'validation_error', 'token_spent', 'unauthorized', 'target_state_conflict'], transport: 'http',
+    notes:
+      '**Two ways in, decided in the handler.** During sign-in the body carries the `two_factor_setup_required` challenge, and that is the ' +
+      'credential; from the app\'s own account settings the app user\'s bearer is, with no challenge. Neither is `401 unauthorized`, and a ' +
+      'dead challenge is `410 token_spent`. `409 target_state_conflict` names `two_factor` with rule `off` when the app\'s policy is `off`. ' +
+      'The secret is not in use until `POST /api/client/two-factor/setup/confirm` accepts a code from it; a second call replaces a pending ' +
+      'secret, and an account that already has an authenticator keeps it until the new one is confirmed.',
+  },
+  {
+    method: 'POST', path: '/api/client/two-factor/setup/confirm', section: 'client-auth',
+    summary: 'Confirms the new authenticator with a code and answers the recovery codes and a session.',
+    audience: 'client', auth: 'in_handler', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: clientTwoFactorSetupConfirmRequest, response: clientTwoFactorSetupConfirmResponse,
+    errors: ['rate_limited', 'validation_error', 'invalid_code', 'token_spent', 'unauthorized'], transport: 'http',
+    notes:
+      'The same two ways in as `setup`. A code that does not match the pending secret is `400 invalid_code`; no pending setup, or a dead ' +
+      'challenge, is `410 token_spent`. On success the authenticator is on, ten recovery codes are issued — shown this once, any earlier set ' +
+      'void — and the answer carries a session: the one the sign-in was waiting for, or, from account settings, a fresh one while every other ' +
+      'session of the account ends. Audited as `app_user.two_factor_enabled`.',
+  },
+  {
+    method: 'DELETE', path: '/api/client/two-factor', section: 'client-auth',
+    summary: "Turns the signed-in app user's authenticator off.",
+    audience: 'client', auth: 'developer_or_client', rateLimited: true, ownerTier: false, status: 204,
+    params: [], query: null, request: clientTwoFactorDisableRequest, response: null,
+    errors: [...CLIENT_GUARD, 'rate_limited', 'validation_error', 'invalid_code', 'target_state_conflict'], transport: 'http',
+    notes:
+      'The app user\'s own door; a developer bearer or a server key is `401 unauthorized`, because the factor is the person\'s. A current ' +
+      'code proves they still hold the authenticator: a stolen session alone cannot remove it. The authenticator and every recovery code go. ' +
+      '`409 target_state_conflict` names `two_factor` with rule `required` while the app requires two-factor, and with rule `off` when there ' +
+      'is none to remove. Audited as `app_user.two_factor_disabled`. The developer\'s support door is `DELETE ' +
+      '/api/apps/:id/users/:userId/two-factor`.',
   },
 
   /* ---------------------------------------- app-user sign-in through an IdP */

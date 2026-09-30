@@ -24,11 +24,31 @@
         ],
         "additionalProperties": false
       },
-      "description": "The app's **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password login alone."
+      "description": "The app's **enabled** providers, slug and display name only. An app with none answers an empty array, which is the state of an app that offers password or code sign-in alone."
+    },
+    "sign_in_methods": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "boolean",
+          "description": "Whether app users may sign in with a password. Off refuses `POST /api/client/login` with `method_not_allowed`, and registration and invitations then take no password."
+        },
+        "email_code": {
+          "type": "boolean",
+          "description": "Whether app users may sign in with a six-digit code mailed to them, valid ten minutes. A code needs no URL, so it works in local development and in an app with no web UI."
+        }
+      },
+      "required": [
+        "password",
+        "email_code"
+      ],
+      "additionalProperties": false,
+      "description": "Which of password and emailed code the app accepts, so its sign-in page draws the right fields without guessing. The same value the developer set; public, like the provider buttons."
     }
   },
   "required": [
-    "providers"
+    "providers",
+    "sign_in_methods"
   ],
   "additionalProperties": false
 }

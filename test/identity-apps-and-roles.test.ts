@@ -195,11 +195,11 @@ describe('apps, keys and roles', () => {
 
   it('reports who the caller is without making the client decode a token', () => {
     expect(
-      clientIdentity.safeParse({ kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' })
+      clientIdentity.safeParse({ kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de', two_factor_enabled: false })
         .success,
     ).toBe(true)
     expect(
-      clientIdentity.safeParse({ kind: 'server_key', developer_id: null, app_user_id: null, server_key_id: UUID, app_id: UUID2, role_id: null, email: null })
+      clientIdentity.safeParse({ kind: 'server_key', developer_id: null, app_user_id: null, server_key_id: UUID, app_id: UUID2, role_id: null, email: null, two_factor_enabled: null })
         .success,
     ).toBe(true)
   })
@@ -209,7 +209,7 @@ describe('apps, keys and roles', () => {
     // client API. Requiring app_id would have made /realtime client-only and
     // silently killed every live badge in the console.
     expect(
-      clientIdentity.safeParse({ kind: 'developer', developer_id: UUID, app_user_id: null, server_key_id: null, app_id: null, role_id: null, email: 'dev@example.com' })
+      clientIdentity.safeParse({ kind: 'developer', developer_id: UUID, app_user_id: null, server_key_id: null, app_id: null, role_id: null, email: 'dev@example.com', two_factor_enabled: null })
         .success,
     ).toBe(true)
     expect(clientIdentity.safeParse({ kind: 'nobody', developer_id: null, app_user_id: null, server_key_id: null, app_id: null, role_id: null, email: null }).success).toBe(false)
@@ -310,7 +310,7 @@ describe('realtime authentication', () => {
     expect(
       authOk.safeParse({
         type: 'auth_ok',
-        identity: { kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de' },
+        identity: { kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de', two_factor_enabled: true },
       }).success,
     ).toBe(true)
     expect(authError.safeParse({ type: 'auth_error', code: 'unauthorized', message: 'bad token' }).success).toBe(true)

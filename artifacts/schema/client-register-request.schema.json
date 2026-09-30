@@ -16,10 +16,10 @@
       "description": "The address to register. Unique per app, case-insensitively. An address this app already knows still answers `202`, without a mail — the answer may not say whether an account exists."
     },
     "password": {
+      "description": "The password for the new account, at least 12 characters. **Required while the app's password method is on, refused while it is off** — both as `400 validation_error` naming `password`. An email-code-only app registers people without one.",
       "type": "string",
       "minLength": 12,
-      "maxLength": 256,
-      "description": "The password for the new account. At least 12 characters; length only, because a rule a user cannot predict is a rule they work around."
+      "maxLength": 256
     },
     "display_name": {
       "description": "An optional human name for the account. The developer's own UI decides whether to ask for it.",
@@ -37,8 +37,7 @@
   },
   "required": [
     "app_identifier",
-    "email",
-    "password"
+    "email"
   ],
   "additionalProperties": false
 }
