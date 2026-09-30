@@ -142,12 +142,26 @@
                 "minLength": 1,
                 "maxLength": 200,
                 "description": "A display name taken at invoke time — the email for a Fleetless user or an app user, the key's own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history."
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The person's display name when the job started: the Fleetless user's `display_name` for a developer, the app user's `display_name` for an app user. `null` for a server key, when the person had no name set, and for runs recorded before contracts 5.3.0. Show `label` when it is null."
               }
             },
             "required": [
               "kind",
               "id",
-              "label"
+              "label",
+              "name"
             ],
             "additionalProperties": false,
             "description": "Who invoked the run, and what they were acting as at the time."

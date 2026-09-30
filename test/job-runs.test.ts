@@ -13,7 +13,7 @@ const RUNNING = {
   duration_ms: null,
   result: null,
   error: null,
-  actor: { kind: 'developer', id: '33333333-3333-4333-8333-333333333333', label: 'a.kern@example.com' },
+  actor: { kind: 'developer', id: '33333333-3333-4333-8333-333333333333', label: 'a.kern@example.com', name: 'Anna Kern' },
   seq: 1,
   progress: 0.62,
   feedback: 'approaching dock, 1.4 m',
@@ -121,5 +121,24 @@ describe('jobRunSummaryQuery', () => {
 
   it('refuses an unknown parameter rather than summarising something else', () => {
     expect(jobRunSummaryQuery.safeParse({ since_ms: 1000, robot_id: '00000000-0000-4000-8000-000000000000' }).success).toBe(false)
+  })
+})
+
+describe('jobActor.name', () => {
+  const base = { kind: 'developer', id: '6f1c1f0e-4b4a-4a8e-9b1a-1f0e4b4a4a8e', label: 'mia@example.com' }
+  it('carries the person\'s name', () => {
+    expect(jobActor.parse({ ...base, name: 'Mia Berg' }).name).toBe('Mia Berg')
+  })
+  it('is null for a server key and for old runs', () => {
+    expect(jobActor.parse({ ...base, kind: 'server_key', label: 'ci key', name: null }).name).toBeNull()
+  })
+  it('is required, so absent is never confused with null', () => {
+    expect(jobActor.safeParse(base).success).toBe(false)
+  })
+  it('refuses an empty name', () => {
+    expect(jobActor.safeParse({ ...base, name: '' }).success).toBe(false)
+  })
+  it('stays non-strict, so a consumer on an older schema strips a newer key', () => {
+    expect(jobActor.safeParse({ ...base, name: null, extra: 1 }).success).toBe(true)
   })
 })

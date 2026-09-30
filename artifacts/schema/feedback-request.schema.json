@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "idea",
+        "problem",
+        "question",
+        "other"
+      ],
+      "description": "What the message is: an `idea`, a `problem`, a `question` or `other`. It only sorts the inbox; it changes nothing about how the message is handled."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000,
+      "description": "What the developer wrote, trimmed. At most 5000 characters; a message that is only whitespace is refused."
+    },
+    "page": {
+      "type": "string",
+      "maxLength": 512,
+      "pattern": "^\\/.*",
+      "description": "The console path the message was sent from, e.g. `/robots/:id/jobs` with its real id. A path, never a full URL, so no host and no query string reach the inbox by accident."
+    }
+  },
+  "required": [
+    "kind",
+    "message",
+    "page"
+  ],
+  "additionalProperties": false
+}

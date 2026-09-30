@@ -571,6 +571,35 @@ export const ERROR_CODES = [
    * caller could infer from a silence about existence.
    */
   'last_owner',
+  // App roles.
+  /**
+   * **Another role of this app already has that name.** 409, on
+   * `PATCH /api/apps/:id/roles/:roleId`. Names are unique per app, compared
+   * exactly as stored after trimming.
+   *
+   * Not `validation_error`: the name is well-formed, and the remedy — pick
+   * another — depends on the app's other roles, not on the body.
+   */
+  'role_name_taken',
+  /**
+   * **The role is still held**, by app users, by pending invitations, or as
+   * the app's default role. 409, on `DELETE /api/apps/:id/roles/:roleId`
+   * without `move_to`. `details` is `roleInUseDetails`:
+   * `{ users, invitations, is_default }`.
+   *
+   * Not `conflict`: the details tell the console what to offer — a role to
+   * move them to — and a generic code would leave it guessing.
+   */
+  'role_in_use',
+  /**
+   * **An app must keep at least one role.** 409, on
+   * `DELETE /api/apps/:id/roles/:roleId` for the app's only role: every app
+   * user holds exactly one role, so an app without roles could hold no users.
+   *
+   * The same shape of refusal as `last_owner`: the caller may delete roles;
+   * the app's remaining state is what refuses this one.
+   */
+  'last_role',
   // OIDC federation.
   /**
    * **The target is in a state that refuses the operation** — not the caller's

@@ -35,13 +35,16 @@ import {
   app as appSchema,
   role,
   roleListResponse,
+  roleDeleteQuery,
   rolePermissions,
+  roleRenameRequest,
   serverKeyListResponse,
   updateAppRequest,
 } from './apps.js'
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
 import { asset, assetListResponse, assetsClearResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
+import { feedbackRequest, feedbackResponse } from './feedback.js'
 import {
   CLIENT_OIDC_CALLBACK_PATH,
   clientAcceptInvitationRequest,
@@ -584,7 +587,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: role,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'The body is `{ "name": string }` — non-empty, trimmed, at most 120 characters — and is deliberately not a contract shape: contracts ' +
+      'The body is `{ "name": string }` — non-empty, trimmed, at most 60 characters as on `role.name` — and is deliberately not a contract shape: contracts ' +
       'define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the ' +
       'listing beside it.',
   },
@@ -638,6 +641,34 @@ export const ROUTES: readonly RouteEntry[] = [
       'Built by the same builder the MCP server\'s own `robot_describe` uses, so the two cannot drift. It answers what the role *would* be ' +
       'offered and consults nothing about any user\'s actual MCP entitlement. A robot the role grants nothing on still appears, with an empty ' +
       '`exposures` — dropping it would read as "not attached", which is a different fact.',
+  },
+  {
+    method: 'PATCH', path: '/api/apps/:id/roles/:roleId', section: 'apps',
+    summary: 'Renames a role; its users keep it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [
+      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
+      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
+    ],
+    query: null, request: roleRenameRequest, response: role,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_name_taken'], transport: 'http',
+    notes: 'Names are unique per app, compared exactly as stored after trimming. Built-in roles can be renamed.',
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/roles/:roleId', section: 'apps',
+    summary: 'Deletes a role, moving its users, pending invitations and default-role status to another role.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [
+      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
+      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
+    ],
+    query: roleDeleteQuery, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_in_use', 'last_role'], transport: 'http',
+    notes:
+      'Without `move_to`, a role that app users or pending invitations hold, or that is the app\'s default, answers ' +
+      '`409 role_in_use` with `{ users, invitations, is_default }`. With `move_to` — another role of the same app, else ' +
+      '`400 validation_error` — one transaction moves `app_users.role_id`, pending invitations and `default_role_id`, then deletes ' +
+      'the role and its permissions. The app\'s only role answers `409 last_role`. Built-in roles can be deleted like any other.',
   },
   {
     method: 'POST', path: '/api/apps/:id/server-keys', section: 'apps',
@@ -2839,6 +2870,17 @@ export const ROUTES: readonly RouteEntry[] = [
       'A window longer than `USAGE_WINDOW_MAX_DAYS` is refused naming the field, not silently capped: a caller who asked for more than the ' +
       'platform will answer is owed a refusal, not a shorter answer they will mistake for the whole picture. `from_day <= to_day` is a ' +
       'cross-field rule no JSON Schema can express and is enforced here. The window is echoed back.',
+  },
+  {
+    method: 'POST', path: '/api/feedback', section: 'org',
+    summary: 'Sends a message from a developer to the people who build Fleetless.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: false, status: 202,
+    params: [], query: null, request: feedbackRequest, response: feedbackResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'rate_limited'], transport: 'http',
+    notes:
+      'The message is stored before any mail is tried, so `202` means it is kept whatever `mail` says: `sent`, `failed`, or ' +
+      '`not_configured` when this cloud has no feedback address. At most 10 messages per developer per hour; the 11th answers ' +
+      '`429 rate_limited` with `retry_after_ms`. Replies come by mail, to the sender\'s address.',
   },
   /* ------------------------------------------------- assets (robot upload) */
   {

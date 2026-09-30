@@ -9,6 +9,42 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **`feedbackRequest` and `feedbackResponse`** (`FeedbackRequest`,
+  `FeedbackResponse`) for the new `POST /api/feedback`: a developer's
+  message to the people who build Fleetless, `{ kind, message, page }` with
+  `kind` one of `FEEDBACK_KINDS` (`idea`, `problem`, `question`, `other`), a
+  trimmed message of at most `FEEDBACK_MESSAGE_MAX` (5000) characters and
+  the console path it was sent from. The route answers `202` with
+  `{ id, mail }`: the message is stored before any mail is tried, so `mail`
+  (`sent`, `failed`, `not_configured`) never means it was lost. Rate
+  limited to 10 per developer per hour. Published as the artifacts
+  `feedback-request` and `feedback-response`.
+- **`jobActor.name`**: the person's display name when the job started,
+  required and nullable — `null` for a server key, a person without a name
+  and runs recorded before this version; show `label` then. `jobActor`
+  stays non-strict, so a consumer on 5.2.0 strips the new key rather than
+  refusing the run. Changes the artifacts `job-actor`, `job-run` and
+  `job-run-list-response`.
+- **`roleRenameRequest`, `roleDeleteQuery` and `roleInUseDetails`**
+  (`RoleRenameRequest`, `RoleDeleteQuery`, `RoleInUseDetails`) for the new
+  `PATCH` and `DELETE /api/apps/:id/roles/:roleId`: rename a role
+  (`409 role_name_taken` on a clash), or delete it, moving its app users,
+  pending invitations and default-role status to `move_to`. Without
+  `move_to` a held role answers `409 role_in_use` with
+  `{ users, invitations, is_default }`; the app's only role answers
+  `409 last_role`. The three codes join `ERROR_CODES`. `role.builtin` no
+  longer says built-in roles cannot be renamed or deleted, and the create
+  route's note now states the 60-character limit `role.name` always had.
+  Published as the artifacts `role-rename-request`, `role-delete-query`
+  and `role-in-use-details`.
+- **`auditQuery.target_id`**: only the events about one target — for a
+  robot also those that name it in `details.robot_id`, so a robot's log
+  includes what was started on it. A string, since target ids are not all
+  uuids. `GET /api/audit/export` takes it too. Changes the artifact
+  `audit-query`.
+
 ## [5.2.0] — 2026-09-30
 
 ### Added

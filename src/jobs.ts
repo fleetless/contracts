@@ -245,6 +245,23 @@ export const jobActor = z.object({
   label: z.string().min(1).max(200).meta({
     description: 'A display name taken at invoke time — the email for a Fleetless user or an app user, the key\'s own name for a server key. Storing it rather than joining is the point: renaming a key afterwards does not rewrite history.',
   }),
+  /**
+   * The person's display name, snapshotted beside `label` for the same
+   * reason. **Required and nullable**, so a consumer never has to tell
+   * "absent" from "null": every run a 5.3.0 cloud answers carries it, and
+   * `null` means there is no name to show — a server key, a person without
+   * one, or a run recorded before the field existed.
+   *
+   * `jobActor` stays a plain object, not `.strict()`: a consumer still on an
+   * older contracts version then parses a newer cloud's answer by stripping
+   * the key instead of refusing the whole run.
+   */
+  name: z.string().min(1).max(200).nullable().meta({
+    description:
+      'The person\'s display name when the job started: the Fleetless user\'s `display_name` for a developer, the app user\'s ' +
+      '`display_name` for an app user. `null` for a server key, when the person had no name set, and for runs recorded before ' +
+      'contracts 5.3.0. Show `label` when it is null.',
+  }),
 })
 export type JobActor = z.infer<typeof jobActor>
 

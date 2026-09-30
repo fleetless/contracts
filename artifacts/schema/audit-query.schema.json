@@ -48,6 +48,12 @@
       "minLength": 1,
       "maxLength": 40
     },
+    "target_id": {
+      "description": "Events whose target is this id; for a robot also the events that name it in `details.robot_id` (`action.invoked`, `service.called`, …), so a robot's events include what was started on it.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
     "from_ms": {
       "anyOf": [
         {
