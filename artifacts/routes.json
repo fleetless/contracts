@@ -6467,7 +6467,7 @@
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "Every public host answers `404 not_found` for every `/api/admin/*` path — this route is reachable only on the cloud's private address — and that same address answers `404` here too while `OPS_API_TOKEN` is not configured, so a door with no key behind it reads exactly like one nobody opened. An unknown `:id` is the same `404`. Applies at once: an operator's plan, add-on or override change is never queued as a `pending_change`, unlike a developer's own downgrade. `409 plan_limit` when a lowered override or a removed add-on would leave the org's current usage over its new ceiling. Every change here is audited with the `fleetless` actor, never a developer's — the row names what an operator did, not who in the org asked for it."
+      "notes": "Every public host answers `404 not_found` for every `/api/admin/*` path — this route is reachable only on the cloud's private address — and that same address answers `404` here too while `OPS_API_TOKEN` is not configured, so a door with no key behind it reads exactly like one nobody opened. An unknown `:id` is the same `404`. Applies at once, never queued as a `pending_change`, and only when the org's current usage fits the result: `409 plan_limit` when a lower plan, a lowered override or a removed add-on would leave the org over a limit — the operator never deletes an org's things, only the owner's own choice does. On success it also withdraws any `pending_change`, ends a beta org's wait for the switch and lifts a lock. Audited as `org.plan_changed` with the `fleetless` actor, never a developer's — the row names what an operator did, not who in the org asked for it."
     },
     {
       "method": "POST",

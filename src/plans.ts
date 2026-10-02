@@ -6,8 +6,8 @@ import { z } from 'zod'
  *
  * Four plans, cheapest first: `basic` (free), `plus`, `pro` and
  * `enterprise` (sold by contract, never self-service — its limits and
- * features are the catalogue's ceiling, not a priced row). Add-ons exist on
- * `pro` only; see `ADDONS` and the `addons` feature.
+ * features are the catalogue's ceiling, not a priced row). Add-ons are
+ * bought on a plan with the `addons` feature; see `ADDONS`.
  */
 export const planId = z.enum(['basic', 'plus', 'pro', 'enterprise'])
 export type PlanId = z.infer<typeof planId>
@@ -58,7 +58,7 @@ export type PlanLimits = z.infer<typeof planLimits>
  * may force it org-wide), `app_oidc` (an app may federate sign-in to an
  * external IdP), `hosted_logo` (a custom logo on the app's hosted pages),
  * `audit_export` (the audit log's CSV export) and `addons` (whether add-ons
- * may be bought at all — `pro` only).
+ * may be bought at all — `pro` and `enterprise`).
  */
 export const planFeature = z.enum(['app_mcp', 'two_factor', 'require_two_factor', 'app_oidc', 'hosted_logo', 'audit_export', 'addons'])
 export type PlanFeature = z.infer<typeof planFeature>
@@ -94,9 +94,8 @@ export type PlanCatalogueEntry = z.infer<typeof planCatalogueEntry>
 
 /**
  * What can be bought on top of a plan, each raising exactly one
- * `planLimitKey` by `per_unit`. Exist on `pro` only: on any other plan an
- * org's add-on counts are zero, and a plan change away from `pro` resets
- * them to zero (the add-ons feature gate, `planFeature.addons`).
+ * `planLimitKey` by `per_unit`. Only a plan with the `addons` feature may
+ * buy them (`planFeature.addons`: `pro` and `enterprise`).
  */
 export const addonKey = z.enum(['seats', 'robots', 'apps', 'app_user_packs', 'live_video_packs'])
 export type AddonKey = z.infer<typeof addonKey>
@@ -306,10 +305,9 @@ export const planCurrency = z.enum(['eur', 'usd'])
 export type PlanCurrency = z.infer<typeof planCurrency>
 
 /**
- * How many units of each add-on an org has bought. Meaningful on `pro` only
- * — see `planFeature.addons` — and zero on every other plan: a plan change
- * away from `pro` resets every count here to zero rather than leaving them
- * stored and merely unread.
+ * How many units of each add-on an org has bought. Only a plan with the
+ * `addons` feature may buy them (see `planFeature.addons`); `orgPlan.limits`
+ * already includes what they add.
  */
 export const orgAddons = z.object({
   seats: z.number().int().nonnegative(),
@@ -401,10 +399,11 @@ export const pendingPlanChange = z.object({
 export type PendingPlanChange = z.infer<typeof pendingPlanChange>
 
 /**
- * An org restricted, while locked, to moving straight to Basic — narrower
- * still than the already-downward-only `PUT /api/org/plan/change`. `payment`
- * is a failed charge; `migration` is the platform's own move off the beta.
- * Either way the only plan a developer may choose while locked is Basic —
+ * An org that is locked: every sign-in and token refresh except an owner's
+ * answers `403 org_locked`, and its bridges are refused; nothing is
+ * deleted. `payment` is a missing payment; `migration` is the platform's
+ * own move off the beta. Either way the only plan an owner may choose
+ * while locked is Basic —
  * see `target_state_conflict` with rule `locked_basic_only` on
  * `PUT /api/org/plan/change`; a choice made while locked takes effect at
  * once rather than waiting for the billing period to turn over.
@@ -479,12 +478,11 @@ export const planOverrides = z.object(
 export type PlanOverrides = z.infer<typeof planOverrides>
 
 /**
- * What the operator sends on `PATCH /api/admin/orgs/:id/plan`. Every field
- * is optional because this one route carries every shape of change an
- * operator makes to an org's plan — switching it, adding or removing
- * add-ons, overriding a limit, changing the billing currency, or moving the
- * period boundary — and a request that touched all of them at once would be
- * no easier to audit than four small ones in its place. `addons` is a
+ * What the operator sends on `PATCH /api/admin/orgs/:id/plan`. `plan` is
+ * required: every request names the plan the org ends up on, even when only
+ * an add-on, an override, the currency or the period end changes. Every
+ * other field is optional, so one route carries every shape of change an
+ * operator makes to an org's plan. `addons` is a
  * partial `orgAddons`: only the counts named change, the rest are left as
  * they are. `overrides` follows `planOverrides`: a key present with `null`
  * clears that override.

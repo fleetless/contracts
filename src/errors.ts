@@ -979,8 +979,8 @@ export const ERROR_CODES = [
   // 2026-10-02 — plans (#103).
   /**
    * `409`: the action would push the org past one of its plan's limits —
-   * a seat, a robot, an app, an app user, this month's live video, or a
-   * robot's asset storage. Answered **before anything is written**, so a
+   * a seat, a robot, an app, an app user, this month's live video, or the
+   * org's asset storage pool (its robots × the plan's bytes per robot). Answered **before anything is written**, so a
    * refused create or invite never leaves a half-made row behind. `details`
    * is `planLimitDetails` (or `assetPlanLimitDetails` for an asset-storage
    * refusal): which limit, how much is used, the ceiling, the plan that
@@ -991,19 +991,21 @@ export const ERROR_CODES = [
    */
   'plan_limit',
   /**
-   * `403`: the feature the caller reached for is not on the org's plan — a
-   * two-factor requirement, an app's OIDC federation, a hosted logo, the
-   * audit export, or add-ons themselves. `details` is `planRequiredDetails`:
+   * `403`: the feature the caller reached for is not on the org's plan — an
+   * app's MCP endpoint, two-factor for a developer, a two-factor requirement
+   * for the org, an app's OIDC federation, a hosted logo, the audit export,
+   * or add-ons themselves. `details` is `planRequiredDetails`:
    * the feature, the org's own plan, and the cheapest plan that has it, so
    * the console can offer the upgrade in the same breath as the refusal.
    */
   'plan_required',
   /**
-   * `403`: the org is locked and may only move to Basic. `details` is
-   * `orgLockedDetails`, naming why — a failed payment, or the platform's own
-   * move off the beta. Distinct from `plan_required`, which is about a
-   * feature the plan never had; this is about an org that is not allowed to
-   * spend on any plan right now.
+   * `403`: the org is locked. Every sign-in and every token refresh is
+   * refused, except an owner's, so an owner can still sign in and settle
+   * it; the sign-in pages render this refusal. A bridge's `hello` is
+   * refused with this code as well. Nothing is deleted while an org is
+   * locked. `details` is `orgLockedDetails`, naming why — a missing
+   * payment, or the platform's own move off the beta.
    */
   'org_locked',
 ] as const

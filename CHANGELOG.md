@@ -28,10 +28,12 @@ version.
   `overrides`), `features`, fresh `usage` (`orgPlanUsage`), any
   `pending_change` (`pendingPlanChange`), an `orgLock` and, for an
   organization still on the beta, `switch`. `PUT /api/org/plan/change`
-  (`planChangeRequest`, Owner tier) records the owner's move to a lower plan or a cancellation —
-  everything not named in `keep` (`planChangeKeep`) is deleted at
-  `period_ends_at`, never before — and `DELETE /api/org/plan/change` (Owner
-  tier) cancels one still pending.
+  (`planChangeRequest`, Owner tier) records the owner's move to a lower
+  plan or a cancellation; everything not named in `keep` (`planChangeKeep`)
+  is deleted when the change takes effect, never before: at
+  `period_ends_at`, at once for an org that is locked, or at the switch
+  date for an org still on the beta. `DELETE /api/org/plan/change` (Owner
+  tier) withdraws one still pending.
 - **The admin plan route.** `PATCH /api/admin/orgs/:id/plan`
   (`adminPlanChangeRequest`) lets the operator change an org's plan,
   add-ons, limit overrides (`planOverrides`), currency or billing period at
