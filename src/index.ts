@@ -793,3 +793,39 @@ export type {
   RouteMethod,
   RouteTransport,
 } from './routes.js'
+// 2026-10-02 — plans (#103). The catalogue (I-1) only: `PLANS` and `ADDONS`
+// are deliberately not constants exports (`constants.json` is vendored by
+// the bridge and must stay unchanged) but are exported values of this
+// barrel like any other schema module.
+export {
+  planId,
+  PLAN_ORDER,
+  planLimitKey,
+  planLimits,
+  planFeature,
+  planFeatures,
+  planPrices,
+  planSupport,
+  planCatalogueEntry,
+  addonKey,
+  addonCatalogueEntry,
+  usdCentsFromEurCents,
+  yearlyEurCents,
+  pricesFromEurMonth,
+  PLANS,
+  ADDONS,
+  requiredPlanFor,
+  nextPlanRaising,
+} from './plans.js'
+export type {
+  PlanId,
+  PlanLimitKey,
+  PlanLimits,
+  PlanFeature,
+  PlanFeatures,
+  PlanPrices,
+  PlanSupport,
+  PlanCatalogueEntry,
+  AddonKey,
+  AddonCatalogueEntry,
+} from './plans.js'
