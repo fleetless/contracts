@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [5.3.0] — 2026-10-02
+
 ### Added
 
 - **`feedbackRequest` and `feedbackResponse`** (`FeedbackRequest`,
