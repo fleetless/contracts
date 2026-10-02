@@ -110,8 +110,26 @@ export type PlanLimitDetails = z.infer<typeof planLimitDetails>
  * ride twice because the bridge reads these three specific keys off any
  * `409` and a consumer parsing only `assetStoreRefusedDetails` must keep
  * working unchanged.
+ *
+ * **The two carried-over fields are re-described, not re-typed.** Plain
+ * `.extend(assetStoreRefusedDetails.shape)` would publish that schema's own
+ * per-robot wording (`'The robot\'s store, in bytes.'`) on a refusal that is
+ * never about one robot — so `store_bytes` and `used_bytes` get their own
+ * `.meta()` here, org-wide, while keeping the exact same underlying type
+ * (`.meta()` clones a schema and only replaces its registered metadata, so
+ * the bridge's own parser sees the same shape it always did). `size_bytes`
+ * is unchanged: the refused upload's size means the same thing in both
+ * contexts.
  */
-export const assetPlanLimitDetails = planLimitDetails.extend(assetStoreRefusedDetails.shape)
+export const assetPlanLimitDetails = planLimitDetails.extend({
+  ...assetStoreRefusedDetails.shape,
+  store_bytes: assetStoreRefusedDetails.shape.store_bytes.meta({
+    description: 'The org\'s asset pool, in bytes: `robots × asset_bytes_per_robot`.',
+  }),
+  used_bytes: assetStoreRefusedDetails.shape.used_bytes.meta({
+    description: 'Bytes the org\'s assets occupy, across every robot, before this upload.',
+  }),
+})
 export type AssetPlanLimitDetails = z.infer<typeof assetPlanLimitDetails>
 
 /** The `details` of a `403 plan_required` refusal: the feature, the org's own plan, and the cheapest plan that has it (`requiredPlanFor`). */

@@ -79,13 +79,13 @@
       "type": "integer",
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991,
-      "description": "The robot's store, in bytes."
+      "description": "The org's asset pool, in bytes: `robots × asset_bytes_per_robot`."
     },
     "used_bytes": {
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991,
-      "description": "Bytes the robot's assets occupy before this upload."
+      "description": "Bytes the org's assets occupy, across every robot, before this upload."
     },
     "size_bytes": {
       "type": "integer",
