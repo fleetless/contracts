@@ -1131,6 +1131,21 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
 }
 
 /**
+ * Every scheme any `RouteAuth` or in-handler credential could name — a
+ * superset of what actually ends up in a document. `openApiDocument()`
+ * writes only the entries `referencedSchemes` collected from the operations
+ * it wrote, so a scheme whose only route never got an operation (`opsToken`,
+ * today, since `ops` is `audience: 'internal'`) is not advertised to a reader
+ * the document says nothing else about.
+ */
+const ALL_SECURITY_SCHEMES: Record<string, object> = {
+  developerSession: { type: 'http', scheme: 'bearer', description: 'A developer session token from the console login.' },
+  clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
+  serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
+  opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
+}
+
+/**
  * **`auth: 'in_handler'` is three different credentials, not one**, so a single
  * blanket entry in `SECURITY` was wrong: it said `security: []` — *this route
  * needs no authentication* — about `POST /mcp`, which needs an OAuth access
@@ -1272,6 +1287,13 @@ export function openApiDocument(): Record<string, any> {
   const artifact = routesArtifact()
   const paths: Record<string, Record<string, unknown>> = {}
   const components: Record<string, unknown> = { 'api-error': componentSchema('api-error') }
+  // Every scheme name a written operation's `security` actually carries —
+  // `opsToken` is a real entry in `ALL_SECURITY_SCHEMES` below because `ops`
+  // is a real `RouteAuth` value, but its only route is `audience: 'internal'`
+  // and this loop's own `continue` above never writes an operation for one.
+  // A document that advertised the scheme anyway would be naming a credential
+  // for a surface the document otherwise says nothing about at all.
+  const referencedSchemes = new Set<string>()
   for (const r of artifact.routes) {
     if (r.audience === 'internal' || r.transport !== 'http') continue
     const path = r.path.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, '{$1}')
@@ -1289,11 +1311,13 @@ export function openApiDocument(): Record<string, any> {
       // them) that no pointer reaches, which is exactly the shape of a
       // dangling name a reader cannot tell from a real one.
     }
+    const security = r.auth === 'in_handler' ? IN_HANDLER_SECURITY[`${r.method} ${r.path}`] ?? [] : SECURITY[r.auth as Exclude<RouteEntry['auth'], 'in_handler'>]
+    for (const alt of security) for (const name of Object.keys(alt)) referencedSchemes.add(name)
     const operation: Record<string, unknown> = {
       operationId: `${r.method.toLowerCase()}_${r.path.replace(/^\//, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/_+$/, '')}`,
       summary: r.summary,
       tags: [r.section],
-      security: r.auth === 'in_handler' ? IN_HANDLER_SECURITY[`${r.method} ${r.path}`] ?? [] : SECURITY[r.auth as Exclude<RouteEntry['auth'], 'in_handler'>],
+      security,
       parameters,
       responses: {
         // **`status` is not always a success.** Two routes exist to refuse —
@@ -1353,12 +1377,7 @@ export function openApiDocument(): Record<string, any> {
     tags: artifact.sections.map((s) => ({ name: s.id, description: s.title })),
     paths,
     components: {
-      securitySchemes: {
-        developerSession: { type: 'http', scheme: 'bearer', description: 'A developer session token from the console login.' },
-        clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
-        serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
-        opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
-      },
+      securitySchemes: Object.fromEntries(Object.entries(ALL_SECURITY_SCHEMES).filter(([name]) => referencedSchemes.has(name))),
       // Code point, not `localeCompare`: that one's ordering depends on the
       // host's ICU data, so the same source could emit two different documents
       // on two machines and the staleness guard would call one of them stale.

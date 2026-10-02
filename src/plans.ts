@@ -282,10 +282,10 @@ export function requiredPlanFor(feature: PlanFeature): PlanId {
 export function nextPlanRaising(plan: PlanId, key: PlanLimitKey): PlanId | null {
   const at = PLAN_ORDER.indexOf(plan)
   const current = PLANS[plan].limits[key]
+  if (current === null) return null // already unlimited, nothing raises it further
   for (let i = at + 1; i < PLAN_ORDER.length; i++) {
     const candidate = PLAN_ORDER[i]
     const candidateLimit = PLANS[candidate].limits[key]
-    if (current === null) continue // already unlimited, nothing raises it further
     if (candidateLimit === null || candidateLimit > current) return candidate
   }
   return null
@@ -473,8 +473,8 @@ export type PlanChangeRequest = z.infer<typeof planChangeRequest>
  */
 export const planOverrides = z.object(
   Object.fromEntries(
-    planLimitKey.options.map((k) => [k, z.number().int().positive().nullable().optional()]),
-  ) as Record<PlanLimitKey, z.ZodOptional<z.ZodNullable<z.ZodNumber>>>,
+    planLimitKey.options.map((k) => [k, limit.optional()]),
+  ) as Record<PlanLimitKey, z.ZodOptional<typeof limit>>,
 ).strict()
 export type PlanOverrides = z.infer<typeof planOverrides>
 
