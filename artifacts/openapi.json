@@ -9583,11 +9583,6 @@
         "type": "http",
         "scheme": "bearer",
         "description": "An app server key (`flk_…`)."
-      },
-      "opsToken": {
-        "type": "http",
-        "scheme": "bearer",
-        "description": "An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host."
       }
     },
     "schemas": {
