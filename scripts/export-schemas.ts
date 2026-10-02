@@ -273,6 +273,7 @@ import {
   resourceHealthState,
   resourceHealthListResponse,
 } from '../src/rest.js'
+import { planId, planLimits, planFeatures, planPrices, planCatalogueEntry, addonKey, addonCatalogueEntry } from '../src/plans.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -518,6 +519,17 @@ export const exportedSchemas = {
   'org-firing-alerts-response': orgFiringAlertsResponse,
   'datapoint-display': datapointDisplay,
   'put-datapoint-display-request': putDatapointDisplayRequest,
+
+  // The plan catalogue (2026-10-02, fleetless/fleetless#103, I-1). `PLANS`
+  // and `ADDONS` are not registered here — they are not schemas, and
+  // `constants.json` stays unchanged, since the bridge vendors it.
+  'plan-id': planId,
+  'plan-limits': planLimits,
+  'plan-features': planFeatures,
+  'plan-prices': planPrices,
+  'plan-catalogue-entry': planCatalogueEntry,
+  'addon-key': addonKey,
+  'addon-catalogue-entry': addonCatalogueEntry,
 
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
@@ -873,6 +885,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
 
   // --- Responses the route manifest names (2026-09-30) ---------------------
   'feedback-response',
+
+  // --- The plan catalogue (2026-10-02, fleetless/fleetless#103, I-1) -------
+  'plan-id', 'plan-limits', 'plan-features', 'plan-prices', 'plan-catalogue-entry', 'addon-key', 'addon-catalogue-entry',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "plus",
+        "pro",
+        "enterprise"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The plan's display name: Basic, Plus, Pro or Enterprise."
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "seats": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "robots": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "apps": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "app_users": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "live_video_ms_per_month": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "asset_bytes_per_robot": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "history_days": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "audit_days": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seats",
+        "robots",
+        "apps",
+        "app_users",
+        "live_video_ms_per_month",
+        "asset_bytes_per_robot",
+        "history_days",
+        "audit_days"
+      ],
+      "additionalProperties": false
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "app_mcp": {
+          "type": "boolean"
+        },
+        "two_factor": {
+          "type": "boolean"
+        },
+        "require_two_factor": {
+          "type": "boolean"
+        },
+        "app_oidc": {
+          "type": "boolean"
+        },
+        "hosted_logo": {
+          "type": "boolean"
+        },
+        "audit_export": {
+          "type": "boolean"
+        },
+        "addons": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "app_mcp",
+        "two_factor",
+        "require_two_factor",
+        "app_oidc",
+        "hosted_logo",
+        "audit_export",
+        "addons"
+      ],
+      "additionalProperties": false
+    },
+    "prices": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "eur_month": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "usd_month": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "eur_year": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "usd_year": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "eur_month",
+            "usd_month",
+            "eur_year",
+            "usd_year"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`null` for Enterprise: sold by contract, on request."
+    },
+    "support": {
+      "type": "string",
+      "enum": [
+        "community",
+        "email",
+        "priority",
+        "named_contact"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "limits",
+    "features",
+    "prices",
+    "support"
+  ],
+  "additionalProperties": false
+}
