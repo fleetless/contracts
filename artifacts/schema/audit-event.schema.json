@@ -32,7 +32,8 @@
             "end_user",
             "app_user",
             "server_key",
-            "bridge"
+            "bridge",
+            "fleetless"
           ]
         },
         "id": {

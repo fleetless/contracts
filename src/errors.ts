@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
+import { assetStoreRefusedDetails } from './assets.js'
+import { addonKey, planFeature, planId, planLimitKey } from './plans.js'
 import { bridgeCancelResultEntry } from './protocol.js'
 
 /**
@@ -73,6 +75,58 @@ export const invalidCodeDetails = z.object({
   }),
 })
 export type InvalidCodeDetails = z.infer<typeof invalidCodeDetails>
+
+/**
+ * The `details` of a `409 plan_limit` refusal (2026-10-02, fleetless/fleetless#103).
+ * `history_days` and `audit_days` are excluded from `limit` — they size a
+ * retention window, not a quota an action can exceed, so nothing ever
+ * refuses against them. `max` is the effective ceiling the refusal was
+ * checked against: the plan's own number, or — for `asset_bytes_per_robot`
+ * — the org's whole pool, `robots × asset_bytes_per_robot`. `plan` is the
+ * plan that refused, which during a pending downgrade is the **target**
+ * plan, not the one still in effect. `lifted_by` is `nextPlanRaising` for
+ * `plan` and `limit`, paired with the add-on that raises the same limit when
+ * the org's plan has `planFeature.addons` — never both at once, since a plan
+ * that cannot buy add-ons has nothing in that field.
+ */
+export const planLimitDetails = z.object({
+  limit: planLimitKey.exclude(['history_days', 'audit_days']),
+  used: z.number().int().nonnegative(),
+  max: z.number().int().nonnegative(),
+  plan: planId,
+  lifted_by: z.object({
+    plan: planId.nullable(),
+    addon: addonKey.nullable(),
+  }),
+})
+export type PlanLimitDetails = z.infer<typeof planLimitDetails>
+
+/**
+ * `planLimitDetails` plus the three numbers `assetStoreRefusedDetails`
+ * already carries, for the one refusal that answers both at once: a robot
+ * asset sync refused because the **org's** pool (not a per-robot ceiling,
+ * which no longer exists) has no room left. `store_bytes` and `used_bytes`
+ * are the org's totals, the same pool `max` and `used` above describe; they
+ * ride twice because the bridge reads these three specific keys off any
+ * `409` and a consumer parsing only `assetStoreRefusedDetails` must keep
+ * working unchanged.
+ */
+export const assetPlanLimitDetails = planLimitDetails.extend(assetStoreRefusedDetails.shape)
+export type AssetPlanLimitDetails = z.infer<typeof assetPlanLimitDetails>
+
+/** The `details` of a `403 plan_required` refusal: the feature, the org's own plan, and the cheapest plan that has it (`requiredPlanFor`). */
+export const planRequiredDetails = z.object({
+  feature: planFeature,
+  plan: planId,
+  required_plan: planId,
+})
+export type PlanRequiredDetails = z.infer<typeof planRequiredDetails>
+
+/** The `details` of a `403 org_locked` refusal: why the org is locked, matching `orgLock.reason`. */
+export const orgLockedDetails = z.object({
+  reason: z.enum(['payment', 'migration']),
+})
+export type OrgLockedDetails = z.infer<typeof orgLockedDetails>
 
 /**
  * The codes in use today. The wire deliberately allows any string — this
@@ -904,5 +958,35 @@ export const ERROR_CODES = [
    * is no enumeration oracle.
    */
   'method_not_allowed',
+  // 2026-10-02 — plans (#103).
+  /**
+   * `409`: the action would push the org past one of its plan's limits —
+   * a seat, a robot, an app, an app user, this month's live video, or a
+   * robot's asset storage. Answered **before anything is written**, so a
+   * refused create or invite never leaves a half-made row behind. `details`
+   * is `planLimitDetails` (or `assetPlanLimitDetails` for an asset-storage
+   * refusal): which limit, how much is used, the ceiling, the plan that
+   * refused, and what would lift it — a higher plan, an add-on, or neither.
+   * The existing `quota_exceeded` protection ceiling is still checked, and
+   * only after this one: it exists to stop runaway consumption, not to tell
+   * a developer what their plan allows.
+   */
+  'plan_limit',
+  /**
+   * `403`: the feature the caller reached for is not on the org's plan — a
+   * two-factor requirement, an app's OIDC federation, a hosted logo, the
+   * audit export, or add-ons themselves. `details` is `planRequiredDetails`:
+   * the feature, the org's own plan, and the cheapest plan that has it, so
+   * the console can offer the upgrade in the same breath as the refusal.
+   */
+  'plan_required',
+  /**
+   * `403`: the org is locked and may only move to Basic. `details` is
+   * `orgLockedDetails`, naming why — a failed payment, or the platform's own
+   * move off the beta. Distinct from `plan_required`, which is about a
+   * feature the plan never had; this is about an org that is not allowed to
+   * spend on any plan right now.
+   */
+  'org_locked',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

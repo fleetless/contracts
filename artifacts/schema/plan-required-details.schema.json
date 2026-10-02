@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "feature": {
+      "type": "string",
+      "enum": [
+        "app_mcp",
+        "two_factor",
+        "require_two_factor",
+        "app_oidc",
+        "hosted_logo",
+        "audit_export",
+        "addons"
+      ]
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "plus",
+        "pro",
+        "enterprise"
+      ]
+    },
+    "required_plan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "plus",
+        "pro",
+        "enterprise"
+      ]
+    }
+  },
+  "required": [
+    "feature",
+    "plan",
+    "required_plan"
+  ],
+  "additionalProperties": false
+}

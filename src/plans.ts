@@ -290,3 +290,185 @@ export function nextPlanRaising(plan: PlanId, key: PlanLimitKey): PlanId | null 
   }
   return null
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * The organization's plan (2026-10-02, fleetless/fleetless#103).
+ *
+ * Everything above is the catalogue: the same four rows for every org. What
+ * follows is one org's position in it — what it bought, what it is using,
+ * and the change it has queued but not yet crossed into.
+ * ---------------------------------------------------------------------------
+ */
+
+/** What an org is billed in. The catalogue's prices are fixed in both; this picks which one an invoice reads in. */
+export const planCurrency = z.enum(['eur', 'usd'])
+export type PlanCurrency = z.infer<typeof planCurrency>
+
+/**
+ * How many units of each add-on an org has bought. Meaningful on `pro` only
+ * — see `planFeature.addons` — and zero on every other plan: a plan change
+ * away from `pro` resets every count here to zero rather than leaving them
+ * stored and merely unread.
+ */
+export const orgAddons = z.object({
+  seats: z.number().int().nonnegative(),
+  robots: z.number().int().nonnegative(),
+  apps: z.number().int().nonnegative(),
+  app_user_packs: z.number().int().nonnegative(),
+  live_video_packs: z.number().int().nonnegative(),
+})
+export type OrgAddons = z.infer<typeof orgAddons>
+
+/**
+ * What the org is using right now, counted the way each limit refuses
+ * against: `seats` is developers, owners included, plus pending team
+ * invitations; `app_users` is app users of every app plus pending app-user
+ * invitations; `live_video_ms_this_month` is this UTC calendar month's
+ * app-attributed live video only — a console session never counts and is
+ * never ended for it; `asset_bytes` is the sum of every robot's stored
+ * assets across the whole org. Read fresh on every call, the same discipline
+ * `GET /api/org/quotas` already keeps, so a number here is never one call
+ * behind the limit it is compared against.
+ */
+export const orgPlanUsage = z.object({
+  seats: z.number().int().nonnegative(),
+  robots: z.number().int().nonnegative(),
+  apps: z.number().int().nonnegative(),
+  app_users: z.number().int().nonnegative(),
+  live_video_ms_this_month: z.number().int().nonnegative(),
+  asset_bytes: z.number().int().nonnegative(),
+})
+export type OrgPlanUsage = z.infer<typeof orgPlanUsage>
+
+/**
+ * What a plan change keeps, by id, when the target plan cannot hold
+ * everything the org has today. `owners` is deliberately not a field: an
+ * owner is never a candidate for deletion, so a chooser cannot even name one
+ * here, and the schema says so by omission rather than by a rule that would
+ * have to be checked. `.strict()` so an extra key — `owners` most of all —
+ * is refused at the door rather than silently ignored.
+ */
+export const planChangeKeep = z.object({
+  robots: z.array(z.uuid()),
+  apps: z.array(z.uuid()),
+  app_users: z.array(z.uuid()),
+  developers: z.array(z.uuid()),
+}).strict()
+export type PlanChangeKeep = z.infer<typeof planChangeKeep>
+
+/**
+ * Why a change is pending. `downgrade` and `cancel` are a developer's own
+ * choice; `migration` is a plan the platform is moving every org on the
+ * beta through; `lock` is a change the platform queued because the org is
+ * locked (see `orgLock`) and must land on Basic.
+ */
+export const planChangeReason = z.enum(['downgrade', 'cancel', 'migration', 'lock'])
+export type PlanChangeReason = z.infer<typeof planChangeReason>
+
+/**
+ * A plan change the org has chosen or been queued for, not yet in effect.
+ * `effective_at` is `null` only while a `migration` has no date yet — every
+ * other reason always carries one. `keep` is `null` when nothing has to be
+ * deleted at all: the target's limits already hold everything the org has.
+ * `history_days_after` is what the confirmation announces to whoever chose
+ * it, so the warning they read before confirming is the same number that
+ * lands.
+ */
+export const pendingPlanChange = z.object({
+  target_plan: planId,
+  reason: planChangeReason,
+  effective_at: z.iso.datetime().nullable(),
+  keep: planChangeKeep.nullable(),
+  history_days_after: z.number().int().positive(),
+  chosen_by: z.uuid(),
+  chosen_at: z.iso.datetime(),
+})
+export type PendingPlanChange = z.infer<typeof pendingPlanChange>
+
+/**
+ * An org locked out of changing its own plan upward. `payment` is a failed
+ * charge; `migration` is the platform's own move off the beta. Either way
+ * the only plan a developer may choose while locked is Basic — see
+ * `target_state_conflict` with rule `locked_basic_only` on
+ * `PUT /api/org/plan/change`.
+ */
+export const orgLock = z.object({
+  reason: z.enum(['payment', 'migration']),
+  since: z.iso.datetime(),
+})
+export type OrgLock = z.infer<typeof orgLock>
+
+/**
+ * **The one read everything about an org's plan comes from**: the console's
+ * Plan & billing page, its usage and limit gauges, every upgrade prompt and
+ * every gate a feature check renders. `limits` is the *effective* ceiling —
+ * the catalogue row plus `addons`, or an operator's `overrides` in place of
+ * either — so a consumer never has to recompute it from the catalogue and
+ * the add-on counts itself. `switch` is set only for an organization still
+ * on the beta and carries the date its plan changes on its own, and whether
+ * it still has to choose one.
+ */
+export const orgPlan = z.object({
+  plan: planId,
+  currency: planCurrency,
+  period_ends_at: z.iso.datetime(),
+  addons: orgAddons,
+  limits: planLimits,
+  features: planFeatures,
+  usage: orgPlanUsage,
+  pending_change: pendingPlanChange.nullable(),
+  lock: orgLock.nullable(),
+  switch: z.object({
+    at: z.iso.datetime().nullable(),
+    needs_choice: z.boolean(),
+  }).nullable(),
+})
+export type OrgPlan = z.infer<typeof orgPlan>
+
+/**
+ * What a developer may ask for on `PUT /api/org/plan/change`. `.strict()`
+ * for the same reason `planChangeKeep` is: a caller cannot send a field this
+ * shape does not name, `keep` included, and an owner cannot be smuggled into
+ * it through a typo that `.strict()` would otherwise swallow in silence.
+ */
+export const planChangeRequest = z.object({
+  target_plan: planId,
+  keep: planChangeKeep.nullable(),
+}).strict()
+export type PlanChangeRequest = z.infer<typeof planChangeRequest>
+
+/**
+ * An operator's per-org replacement for one or more catalogue limits —
+ * Enterprise's contracted numbers, most of all, which exist nowhere else.
+ * Every key is optional, so an operator sets only what differs from the
+ * plan; a key present with `null` clears an earlier override back to the
+ * plan's own number, which is why every value is nullable as well as
+ * optional — omitted and `null` are two different instructions.
+ */
+export const planOverrides = z.object(
+  Object.fromEntries(
+    planLimitKey.options.map((k) => [k, z.number().int().positive().nullable().optional()]),
+  ) as Record<PlanLimitKey, z.ZodOptional<z.ZodNullable<z.ZodNumber>>>,
+).strict()
+export type PlanOverrides = z.infer<typeof planOverrides>
+
+/**
+ * What the operator sends on `PATCH /api/admin/orgs/:id/plan`. Every field
+ * is optional because this one route carries every shape of change an
+ * operator makes to an org's plan — switching it, adding or removing
+ * add-ons, overriding a limit, changing the billing currency, or moving the
+ * period boundary — and a request that touched all of them at once would be
+ * no easier to audit than four small ones in its place. `addons` is a
+ * partial `orgAddons`: only the counts named change, the rest are left as
+ * they are. `overrides` follows `planOverrides`: a key present with `null`
+ * clears that override.
+ */
+export const adminPlanChangeRequest = z.object({
+  plan: planId,
+  addons: orgAddons.partial().strict().optional(),
+  overrides: planOverrides.optional(),
+  currency: planCurrency.optional(),
+  period_ends_at: z.iso.datetime().nullable().optional(),
+}).strict()
+export type AdminPlanChangeRequest = z.infer<typeof adminPlanChangeRequest>

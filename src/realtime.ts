@@ -319,6 +319,12 @@ export const liveSessionEndReason = z.enum([
   /** The robot was deleted out from under the session. */
   'robot_deleted',
   /**
+   * The organization's live video for app users reached its plan's monthly
+   * limit (2026-10-02, fleetless/fleetless#103); `detail` carries the
+   * sentence the viewer shows.
+   */
+  'plan_limit',
+  /**
    * The cloud ended it and cannot say which of the above applied. **Kept
    * deliberately**: a channel that cannot say "I do not know" will say
    * something false instead, which is the costlier failure in

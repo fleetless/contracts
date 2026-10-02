@@ -233,7 +233,7 @@ describe('audit', () => {
    */
   it('still parses a stored end_user row, alongside the app_user rows written now', () => {
     expect(auditActor.safeParse({ kind: 'end_user', id: UUID, label: 'old@example.com' }).success).toBe(true)
-    expect(auditActor.shape.kind.options).toEqual(['developer', 'end_user', 'app_user', 'server_key', 'bridge'])
+    expect(auditActor.shape.kind.options).toEqual(['developer', 'end_user', 'app_user', 'server_key', 'bridge', 'fleetless'])
   })
 
   it('allows an event with no target', () => {
