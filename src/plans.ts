@@ -342,12 +342,14 @@ export const orgPlanUsage = z.object({
 export type OrgPlanUsage = z.infer<typeof orgPlanUsage>
 
 /**
- * What a plan change keeps, by id, when the target plan cannot hold
+ * What a downward plan change keeps, by id, when the target plan cannot hold
  * everything the org has today. `owners` is deliberately not a field: an
- * owner is never a candidate for deletion, so a chooser cannot even name one
- * here, and the schema says so by omission rather than by a rule that would
- * have to be checked. `.strict()` so an extra key — `owners` most of all —
- * is refused at the door rather than silently ignored.
+ * owner is never a candidate for deletion and always stays, so a chooser
+ * cannot even name one here — but an owner still counts against the target
+ * plan's `seats`, and if the owners alone already exceed it the change is
+ * refused `409 plan_limit` naming `seats`, before anything else about the
+ * choice is even considered. `.strict()` so an extra key — `owners` most of
+ * all — is refused at the door rather than silently ignored.
  */
 export const planChangeKeep = z.object({
   robots: z.array(z.uuid()),
@@ -358,19 +360,31 @@ export const planChangeKeep = z.object({
 export type PlanChangeKeep = z.infer<typeof planChangeKeep>
 
 /**
- * Why a change is pending. `downgrade` and `cancel` are a developer's own
- * choice; `migration` is a plan the platform is moving every org on the
- * beta through; `lock` is a change the platform queued because the org is
- * locked (see `orgLock`) and must land on Basic.
+ * Why a change is pending. `downgrade` and `cancel` (to Basic) are a
+ * developer's own choice — `PUT /api/org/plan/change` only ever moves an org
+ * down; an upgrade or an add-on needs payment this route does not collect,
+ * and today goes through a Feedback request that Fleetless applies through
+ * the admin route. `migration` is a plan the platform is moving every org on
+ * the beta through; `lock` is a change the platform queued because the org
+ * is locked (see `orgLock`) and must land on Basic.
  */
 export const planChangeReason = z.enum(['downgrade', 'cancel', 'migration', 'lock'])
 export type PlanChangeReason = z.infer<typeof planChangeReason>
 
 /**
- * A plan change the org has chosen or been queued for, not yet in effect.
- * `effective_at` is `null` only while a `migration` has no date yet — every
- * other reason always carries one. `keep` is `null` when nothing has to be
- * deleted at all: the target's limits already hold everything the org has.
+ * A downward plan change the org has chosen, or been queued for by the
+ * platform, not yet in effect. `effective_at` is normally
+ * `orgPlan.period_ends_at`, so the org keeps full use of what it has until
+ * the billing period actually turns over — except a choice made while the
+ * org was locked, which takes effect at once, and a `migration`, which takes
+ * effect at the platform's switch date instead; it is `null` only while that
+ * date is not yet set. `keep` is `null` when the org's usage already fits
+ * the target plan outright and nothing is deleted; otherwise it is exactly
+ * what the confirmation counted — anything created while the choice is still
+ * pending is checked against the target plan too and, passing, is folded
+ * into `keep`, so what lands at `effective_at` is never a surprise. A later
+ * `PUT /api/org/plan/change` replaces a still-pending choice outright;
+ * `DELETE` withdraws it and leaves the org on its current plan.
  * `history_days_after` is what the confirmation announces to whoever chose
  * it, so the warning they read before confirming is the same number that
  * lands.
@@ -387,11 +401,13 @@ export const pendingPlanChange = z.object({
 export type PendingPlanChange = z.infer<typeof pendingPlanChange>
 
 /**
- * An org locked out of changing its own plan upward. `payment` is a failed
- * charge; `migration` is the platform's own move off the beta. Either way
- * the only plan a developer may choose while locked is Basic — see
- * `target_state_conflict` with rule `locked_basic_only` on
- * `PUT /api/org/plan/change`.
+ * An org restricted, while locked, to moving straight to Basic — narrower
+ * still than the already-downward-only `PUT /api/org/plan/change`. `payment`
+ * is a failed charge; `migration` is the platform's own move off the beta.
+ * Either way the only plan a developer may choose while locked is Basic —
+ * see `target_state_conflict` with rule `locked_basic_only` on
+ * `PUT /api/org/plan/change`; a choice made while locked takes effect at
+ * once rather than waiting for the billing period to turn over.
  */
 export const orgLock = z.object({
   reason: z.enum(['payment', 'migration']),
@@ -415,7 +431,8 @@ export const orgPlan = z.object({
   period_ends_at: z.iso.datetime().meta({
     description:
       "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar " +
-      'month. A scheduled `pending_change` takes effect at this exact instant.',
+      'month. A pending downward plan change normally takes effect at this exact instant — except one chosen while the org was locked, ' +
+      "which lands at once, and the platform's own move off the beta, which lands at its switch date instead.",
   }),
   addons: orgAddons,
   limits: planLimits,
@@ -431,10 +448,14 @@ export const orgPlan = z.object({
 export type OrgPlan = z.infer<typeof orgPlan>
 
 /**
- * What a developer may ask for on `PUT /api/org/plan/change`. `.strict()`
- * for the same reason `planChangeKeep` is: a caller cannot send a field this
- * shape does not name, `keep` included, and an owner cannot be smuggled into
- * it through a typo that `.strict()` would otherwise swallow in silence.
+ * What a developer may ask for on `PUT /api/org/plan/change` — **a downward
+ * move only**: a lower plan, or Basic as a cancellation. An upgrade or an
+ * add-on needs payment this route does not collect, and is not reachable
+ * through it at all today; it goes through a Feedback request that Fleetless
+ * applies through the admin route instead. `.strict()` for the same reason
+ * `planChangeKeep` is: a caller cannot send a field this shape does not
+ * name, `keep` included, and an owner cannot be smuggled into it through a
+ * typo that `.strict()` would otherwise swallow in silence.
  */
 export const planChangeRequest = z.object({
   target_plan: planId,

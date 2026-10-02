@@ -9492,7 +9492,7 @@
     "/api/org/plan/change": {
       "put": {
         "operationId": "put_api_org_plan_change",
-        "summary": "Chooses the org's next plan, queuing the change rather than applying it at once.",
+        "summary": "Moves the org's plan down — a lower plan or a cancellation to Basic — queuing the change rather than applying it at once.",
         "tags": [
           "org"
         ],
@@ -9524,7 +9524,7 @@
             }
           }
         },
-        "description": "Owner tier. An upgrade that the org's current usage already fits takes effect immediately; a downgrade or a cancellation is queued as `pending_change` and takes effect at `period_ends_at` — **everything not named in `keep` is deleted at that moment**, never before, so the org keeps full use of what it has until the period actually turns over. `409 target_state_conflict` names `target_plan` with rule `not_lower` when the chosen plan is not above the org's current one and `keep` was not sent to confirm a deliberate downgrade; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen plan is anything but Basic; and with rule `migration_basic_only` when the org is still being moved off the beta and has not yet landed on a priced plan, where Basic is likewise the only choice. `409 plan_limit` is answered instead when `keep` would leave more robots, apps, app users or developers than the target plan allows — naming what still needs to be named in `keep` or removed first.",
+        "description": "Owner tier, and **downward only**: this route moves the org to a lower plan or cancels it outright to Basic. It never moves the org up — until payment exists, an upgrade or an add-on is not this route's job at all, and is handled today as a Feedback request that Fleetless then applies through the admin route. `409 target_state_conflict` names `target_plan` with rule `not_lower` when the chosen plan is not below the org's current one; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen plan is anything but Basic; and with rule `migration_basic_only` when the org is still on the beta, awaiting the switch to priced plans, and the chosen plan is anything but Basic — that choice is exactly what the org lands on at the switch. An owner is never named in `keep` and always stays, but still counts against the target plan's `seats`; `409 plan_limit` names `seats` when the owners alone already exceed it, and names whichever other limit `keep` still exceeds otherwise. `keep` is `null` when the org's current usage already fits the target plan outright and nothing is deleted; named, it lists exactly the robots, apps, app users and developers that stay. The choice is stored as `pending_change` and takes effect at `period_ends_at` — **everything of the chosen kind not named in `keep` is deleted at that instant, never before** — except a choice made while the org is locked, which takes effect at once, and a beta org's choice, which takes effect at the switch date instead. Anything created while the choice is pending is checked against the target plan too and, when it passes, is folded into `keep`, so exactly what the confirmation counted is what is actually deleted. A later `PUT` replaces a still-pending choice outright.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9538,7 +9538,7 @@
       },
       "delete": {
         "operationId": "delete_api_org_plan_change",
-        "summary": "Cancels a plan change that was queued but has not taken effect yet.",
+        "summary": "Withdraws a plan change that was queued but has not taken effect yet.",
         "tags": [
           "org"
         ],
@@ -9563,7 +9563,7 @@
             }
           }
         },
-        "description": "Owner tier. `404 not_found` when the org has no `pending_change` to cancel. The org stays on its current plan, unchanged, as if the change had never been chosen; a developer who wants a different one still sends a new `PUT`."
+        "description": "Owner tier. `404 not_found` when the org has no `pending_change` to withdraw. The org stays on its current plan, unchanged, as if the choice had never been made; a developer who wants a different one sends a new `PUT`, which would have replaced this one outright anyway."
       }
     }
   },
@@ -17981,7 +17981,7 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
-            "description": "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar month. A scheduled `pending_change` takes effect at this exact instant."
+            "description": "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar month. A pending downward plan change normally takes effect at this exact instant — except one chosen while the org was locked, which lands at once, and the platform's own move off the beta, which lands at its switch date instead."
           },
           "addons": {
             "type": "object",
