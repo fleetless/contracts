@@ -11,12 +11,24 @@ version.
 
 ### Added
 
+- **The plan catalogue.** `src/plans.ts`: `planId` (`basic`, `plus`, `pro`,
+  `enterprise`, cheapest first in `PLAN_ORDER`), and per plan in `PLANS` the
+  limits (`planLimits`: `seats`, `robots`, `apps`, `app_users`,
+  `live_video_ms_per_month`, `asset_bytes_per_robot`, `history_days`,
+  `audit_days`; `null` means by contract), the feature flags
+  (`planFeatures`), the prices in integer cents excluding VAT
+  (`planPrices`: EUR and USD, monthly and yearly; `null` on request) and the
+  support tier. `ADDONS` lists the Pro add-ons and the limit each raises.
+  `usdCentsFromEurCents`, `yearlyEurCents` and `pricesFromEurMonth` state the
+  price rule (USD = EUR × 1.15 up to the next whole dollar, yearly = twelve
+  months less 15 %); `requiredPlanFor` and `nextPlanRaising` name the plan
+  that unlocks a feature or lifts a limit.
 - **The organization's plan.** `GET /api/org/plan` (`orgPlan`): the plan, its
   effective `limits` (the catalogue row raised by `addons` or an operator's
   `overrides`), `features`, fresh `usage` (`orgPlanUsage`), any
   `pending_change` (`pendingPlanChange`), an `orgLock` and, for an
   organization still on the beta, `switch`. `PUT /api/org/plan/change`
-  (`planChangeRequest`, Owner tier) queues an upgrade or a downgrade —
+  (`planChangeRequest`, Owner tier) records the owner's move to a lower plan or a cancellation —
   everything not named in `keep` (`planChangeKeep`) is deleted at
   `period_ends_at`, never before — and `DELETE /api/org/plan/change` (Owner
   tier) cancels one still pending.
