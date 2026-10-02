@@ -412,7 +412,11 @@ export type OrgLock = z.infer<typeof orgLock>
 export const orgPlan = z.object({
   plan: planId,
   currency: planCurrency,
-  period_ends_at: z.iso.datetime(),
+  period_ends_at: z.iso.datetime().meta({
+    description:
+      "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar " +
+      'month. A scheduled `pending_change` takes effect at this exact instant.',
+  }),
   addons: orgAddons,
   limits: planLimits,
   features: planFeatures,
