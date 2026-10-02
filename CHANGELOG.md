@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.0.0] — 2026-10-02
+
 ### Added
 
 - **App sign-in methods, two-factor policy, hosted pages and look.**
