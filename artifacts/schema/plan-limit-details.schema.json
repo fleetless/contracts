@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "string",
+      "enum": [
+        "seats",
+        "robots",
+        "apps",
+        "app_users",
+        "live_video_ms_per_month",
+        "asset_bytes_per_robot"
+      ]
+    },
+    "used": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "max": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "plus",
+        "pro",
+        "enterprise"
+      ]
+    },
+    "lifted_by": {
+      "type": "object",
+      "properties": {
+        "plan": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "basic",
+                "plus",
+                "pro",
+                "enterprise"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "addon": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "seats",
+                "robots",
+                "apps",
+                "app_user_packs",
+                "live_video_packs"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "plan",
+        "addon"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "limit",
+    "used",
+    "max",
+    "plan",
+    "lifted_by"
+  ],
+  "additionalProperties": false
+}

@@ -273,7 +273,27 @@ import {
   resourceHealthState,
   resourceHealthListResponse,
 } from '../src/rest.js'
-import { planId, planLimits, planFeatures, planPrices, planCatalogueEntry, addonKey, addonCatalogueEntry } from '../src/plans.js'
+import {
+  planId,
+  planLimits,
+  planFeatures,
+  planPrices,
+  planCatalogueEntry,
+  addonKey,
+  addonCatalogueEntry,
+  planCurrency,
+  orgAddons,
+  orgPlanUsage,
+  planChangeKeep,
+  planChangeReason,
+  pendingPlanChange,
+  orgLock,
+  orgPlan,
+  planChangeRequest,
+  planOverrides,
+  adminPlanChangeRequest,
+} from '../src/plans.js'
+import { planLimitDetails, assetPlanLimitDetails, planRequiredDetails, orgLockedDetails } from '../src/errors.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -530,6 +550,24 @@ export const exportedSchemas = {
   'plan-catalogue-entry': planCatalogueEntry,
   'addon-key': addonKey,
   'addon-catalogue-entry': addonCatalogueEntry,
+
+  // The organization's plan, plan changes, the admin route and plan errors
+  // (2026-10-02, fleetless/fleetless#103, I-2 and I-3).
+  'plan-currency': planCurrency,
+  'org-addons': orgAddons,
+  'org-plan-usage': orgPlanUsage,
+  'plan-change-keep': planChangeKeep,
+  'plan-change-reason': planChangeReason,
+  'pending-plan-change': pendingPlanChange,
+  'org-lock': orgLock,
+  'org-plan': orgPlan,
+  'plan-change-request': planChangeRequest,
+  'plan-overrides': planOverrides,
+  'admin-plan-change-request': adminPlanChangeRequest,
+  'plan-limit-details': planLimitDetails,
+  'asset-plan-limit-details': assetPlanLimitDetails,
+  'plan-required-details': planRequiredDetails,
+  'org-locked-details': orgLockedDetails,
 
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
@@ -814,6 +852,13 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'oauth-authorize-query', 'org-alerts-query',
   'robot-delete-query', 'org-health-query', 'missing-asset-query',
   'feedback-request', 'role-rename-request', 'role-delete-query',
+  // The organization's plan changes (2026-10-02, fleetless/fleetless#103,
+  // I-2). `plan-change-keep` travels inside both `PUT /api/org/plan/change`'s
+  // body and `orgPlan.pending_change`, the same reason `robot-config-doc`
+  // below is `input`: it is validated as an incoming document on the `PUT`,
+  // and on the read it is only ever a readback of what was already accepted
+  // there — never a response shape of its own.
+  'plan-change-request', 'admin-plan-change-request', 'plan-overrides', 'plan-change-keep',
 
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
@@ -888,6 +933,15 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
 
   // --- The plan catalogue (2026-10-02, fleetless/fleetless#103, I-1) -------
   'plan-id', 'plan-limits', 'plan-features', 'plan-prices', 'plan-catalogue-entry', 'addon-key', 'addon-catalogue-entry',
+
+  // --- The organization's plan, plan changes, the admin route and plan
+  // errors (2026-10-02, fleetless/fleetless#103, I-2 and I-3). Every one of
+  // these is read off `GET /api/org/plan` or rides an `apiError.details`
+  // the server sends — a document somebody receives, never one the server
+  // validates on arrival.
+  'plan-currency', 'org-addons', 'org-plan-usage', 'plan-change-reason', 'pending-plan-change',
+  'org-lock', 'org-plan', 'plan-limit-details', 'asset-plan-limit-details', 'plan-required-details',
+  'org-locked-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
@@ -1071,6 +1125,9 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
   developer_or_client: [{ developerSession: [] }, { clientToken: [] }, { serverKey: [] }],
   none: [],
   robot_upload: [],
+  // 2026-10-02 — plans (#103). The operator bearer token, never reachable
+  // through a public host; see `RouteAuth`'s own doc comment.
+  ops: [{ opsToken: [] }],
 }
 
 /**
@@ -1300,6 +1357,7 @@ export function openApiDocument(): Record<string, any> {
         developerSession: { type: 'http', scheme: 'bearer', description: 'A developer session token from the console login.' },
         clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
         serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
+        opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
       },
       // Code point, not `localeCompare`: that one's ordering depends on the
       // host's ICU data, so the same source could emit two different documents

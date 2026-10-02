@@ -9,6 +9,34 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **The organization's plan.** `GET /api/org/plan` (`orgPlan`): the plan, its
+  effective `limits` (the catalogue row raised by `addons` or an operator's
+  `overrides`), `features`, fresh `usage` (`orgPlanUsage`), any
+  `pending_change` (`pendingPlanChange`), an `orgLock` and, for an
+  organization still on the beta, `switch`. `PUT /api/org/plan/change`
+  (`planChangeRequest`, Owner tier) queues an upgrade or a downgrade —
+  everything not named in `keep` (`planChangeKeep`) is deleted at
+  `period_ends_at`, never before — and `DELETE /api/org/plan/change` (Owner
+  tier) cancels one still pending.
+- **The admin plan route.** `PATCH /api/admin/orgs/:id/plan`
+  (`adminPlanChangeRequest`) lets the operator change an org's plan,
+  add-ons, limit overrides (`planOverrides`), currency or billing period at
+  once, never queued. A new `RouteAuth` value, `ops`: a bearer token the
+  operator holds (`OPS_API_TOKEN`), reachable only on the cloud's private
+  address — every public host answers `404` for `/api/admin/*`.
+- **The plan errors.** `409 plan_limit` (`planLimitDetails`, or
+  `assetPlanLimitDetails` for an asset-storage refusal), `403 plan_required`
+  (`planRequiredDetails`) and `403 org_locked` (`orgLockedDetails`), answered
+  before anything is written.
+- **Two small additive changes that ride with the plan work.**
+  `liveSessionEndReason` gains `plan_limit`: a live session ended because the
+  org's monthly video limit was reached. `auditActor.kind` gains `fleetless`,
+  for an event the platform recorded with no member behind it — the admin
+  plan route, a queued change landing, a lock taking effect, the beta
+  switch.
+
 ## [6.0.0] — 2026-10-02
 
 ### Added

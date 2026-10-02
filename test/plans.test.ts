@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import { ADDONS, PLANS, PLAN_ORDER, nextPlanRaising, pricesFromEurMonth, requiredPlanFor, usdCentsFromEurCents, yearlyEurCents } from '../src/plans.js'
+import { adminPlanChangeRequest, planChangeRequest } from '../src/plans.js'
+import { ERROR_CODES, planLimitDetails, assetPlanLimitDetails } from '../src/errors.js'
+import { liveSessionEndReason } from '../src/realtime.js'
+import { auditActor } from '../src/audit.js'
 
 describe('the plan catalogue matches the decision table (2026-09-30)', () => {
   it('limits', () => {
@@ -53,5 +57,31 @@ describe('helpers', () => {
     expect(nextPlanRaising('basic', 'robots')).toBe('plus')
     expect(nextPlanRaising('pro', 'robots')).toBe('enterprise')
     expect(nextPlanRaising('enterprise', 'robots')).toBeNull()
+  })
+})
+
+describe("the organization's plan: changes, the admin request and plan errors (2026-10-02, fleetless/fleetless#103)", () => {
+  it('a choice never names an owner field and is strict', () => {
+    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: { robots: [], apps: [], app_users: [], developers: [] } }).success).toBe(true)
+    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: null }).success).toBe(true)
+    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: { robots: [], apps: [], app_users: [], developers: [], owners: [] } }).success).toBe(false)
+  })
+
+  it('the admin request takes overrides that clear with null', () => {
+    expect(adminPlanChangeRequest.safeParse({ plan: 'enterprise', overrides: { robots: 40, history_days: 365, seats: null } }).success).toBe(true)
+    expect(adminPlanChangeRequest.safeParse({ plan: 'pro', addons: { robots: 2 } }).success).toBe(true)
+    expect(adminPlanChangeRequest.safeParse({ plan: 'gold' }).success).toBe(false)
+  })
+
+  it('plan_limit details carry what lifts the limit', () => {
+    expect(planLimitDetails.safeParse({ limit: 'robots', used: 1, max: 1, plan: 'basic', lifted_by: { plan: 'plus', addon: null } }).success).toBe(true)
+    expect(planLimitDetails.safeParse({ limit: 'history_days', used: 1, max: 1, plan: 'basic', lifted_by: { plan: 'plus', addon: null } }).success).toBe(false)
+    expect(assetPlanLimitDetails.safeParse({ limit: 'asset_bytes_per_robot', used: 9, max: 10, plan: 'basic', lifted_by: { plan: 'plus', addon: null }, store_bytes: 10, used_bytes: 9, size_bytes: 2 }).success).toBe(true)
+  })
+
+  it('knows the new codes, reason and actor', () => {
+    for (const c of ['plan_limit', 'plan_required', 'org_locked']) expect(ERROR_CODES).toContain(c)
+    expect(liveSessionEndReason.options).toContain('plan_limit')
+    expect(auditActor.shape.kind.options).toContain('fleetless')
   })
 })

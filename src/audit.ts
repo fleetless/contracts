@@ -30,9 +30,16 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  *
  * `developer` is a Fleetless user. It kept its name through both redesigns
  * because it was always right: the person who configures robots.
+ *
+ * `fleetless` (2026-10-02, fleetless/fleetless#103) records what the
+ * platform itself did, with no member behind it: the admin plan route, a
+ * plan change landing at its `effective_at`, a lock taking effect, and the
+ * beta-to-plan switch. Its `id` is the nil uuid and its `label` is always
+ * `Fleetless`, because there is no row to look up — the actor and the label
+ * are the same constant for every one of these events.
  */
 export const auditActor = z.object({
-  kind: z.enum(['developer', 'end_user', 'app_user', 'server_key', 'bridge']),
+  kind: z.enum(['developer', 'end_user', 'app_user', 'server_key', 'bridge', 'fleetless']),
   id: z.uuid(),
   label: z.string().min(1).max(200),
 })

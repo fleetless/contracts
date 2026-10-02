@@ -141,6 +141,7 @@ import {
   oauthTokenResponse,
   protectedResourceMetadata,
 } from './oauth.js'
+import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
 import {
   cameraListResponse,
   cancelRequest,
@@ -193,7 +194,11 @@ import {
 
 export type RouteMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type RouteAudience = 'developer' | 'client' | 'internal'
-export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_upload' | 'in_handler'
+/**
+ * `ops` (2026-10-02, fleetless/fleetless#103): a bearer token the operator
+ * holds (`OPS_API_TOKEN`); never reachable through a public host.
+ */
+export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_upload' | 'in_handler' | 'ops'
 export type RouteTransport = 'http' | 'websocket'
 export type RouteSection =
   | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'users' | 'apps'
@@ -3289,6 +3294,62 @@ export const ROUTES: readonly RouteEntry[] = [
       '`not_configured` when this cloud has no feedback address. At most 10 messages per developer per hour; the 11th answers ' +
       '`429 rate_limited` with `retry_after_ms`. Replies come by mail, to the sender\'s address.',
   },
+
+  /* ----------------------------------------------------------- org (plan) */
+  {
+    method: 'GET', path: '/api/org/plan', section: 'org',
+    summary: "Reads the org's plan: its limits, its usage against them, its add-ons and any change already queued.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: orgPlan,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      "The one read the console's Plan & billing page, its usage and limit gauges, and every upgrade prompt and feature gate draw from — " +
+      'nothing else computes `limits` or `usage` on its own. `limits` is already the effective ceiling, the catalogue row raised by ' +
+      '`addons` or replaced by an operator\'s override, so a consumer never recomputes it from the catalogue. `usage` is counted fresh on ' +
+      'every call, never cached. `switch` is present only for an organization still on the beta that has not yet landed on a priced plan.',
+  },
+  {
+    method: 'PUT', path: '/api/org/plan/change', section: 'org',
+    summary: 'Chooses the org\'s next plan, queuing the change rather than applying it at once.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: planChangeRequest, response: orgPlan,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
+    notes:
+      'Owner tier. An upgrade that the org\'s current usage already fits takes effect immediately; a downgrade or a cancellation is queued ' +
+      'as `pending_change` and takes effect at `period_ends_at` — **everything not named in `keep` is deleted at that moment**, never ' +
+      'before, so the org keeps full use of what it has until the period actually turns over. `409 target_state_conflict` names ' +
+      '`target_plan` with rule `not_lower` when the chosen plan is not above the org\'s current one and `keep` was not sent to confirm a ' +
+      'deliberate downgrade; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen plan is anything but Basic; ' +
+      'and with rule `migration_basic_only` when the org is still being moved off the beta and has not yet landed on a priced plan, where ' +
+      'Basic is likewise the only choice. `409 plan_limit` is answered instead when `keep` would leave more robots, apps, app users or ' +
+      'developers than the target plan allows — naming what still needs to be named in `keep` or removed first.',
+  },
+  {
+    method: 'DELETE', path: '/api/org/plan/change', section: 'org',
+    summary: 'Cancels a plan change that was queued but has not taken effect yet.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    params: [], query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
+    notes:
+      'Owner tier. `404 not_found` when the org has no `pending_change` to cancel. The org stays on its current plan, unchanged, as if the ' +
+      'change had never been chosen; a developer who wants a different one still sends a new `PUT`.',
+  },
+  {
+    method: 'PATCH', path: '/api/admin/orgs/:id/plan', section: 'org',
+    summary: "Changes an org's plan, add-ons, limit overrides, currency or billing period as the operator.",
+    audience: 'internal', auth: 'ops', rateLimited: true, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The org\'s uuid, whose plan, add-ons or overrides the operator is changing.' }],
+    query: null, request: adminPlanChangeRequest, response: orgPlan,
+    errors: ['unauthorized', 'not_found', 'validation_error', 'plan_limit', 'rate_limited'], transport: 'http',
+    notes:
+      'Every public host answers `404 not_found` for every `/api/admin/*` path — this route is reachable only on the cloud\'s private ' +
+      'address — and that same address answers `404` here too while `OPS_API_TOKEN` is not configured, so a door with no key behind it ' +
+      'reads exactly like one nobody opened. An unknown `:id` is the same `404`. Applies at once: an operator\'s plan, add-on or override ' +
+      'change is never queued as a `pending_change`, unlike a developer\'s own downgrade. `409 plan_limit` when a lowered override or a ' +
+      'removed add-on would leave the org\'s current usage over its new ceiling. Every change here is audited with the `fleetless` actor, ' +
+      'never a developer\'s — the row names what an operator did, not who in the org asked for it.',
+  },
+
   /* ------------------------------------------------- assets (robot upload) */
   {
     method: 'POST', path: '/api/bridge/assets', section: 'assets',

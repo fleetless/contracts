@@ -9,6 +9,7 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
+  orgPlan,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -65,8 +66,13 @@ describe('the route manifest', () => {
     }
   })
 
-  it('keeps internal entries to the sections where browser pages, machine hooks and the bridge live', () => {
-    const allowed = new Set(['health', 'developer-auth', 'client-auth', 'users', 'oauth', 'mcp', 'assets', 'transports'])
+  it('keeps internal entries to the sections where browser pages, machine hooks, the bridge and the operator live', () => {
+    // 'org' joined this set 2026-10-02 (fleetless/fleetless#103): the operator
+    // route `PATCH /api/admin/orgs/:id/plan` is internal audience, `auth: 'ops'`
+    // — a machine credential nobody but the operator holds — and lives beside
+    // the other org-plan routes rather than carving out a section of its own
+    // for one entry.
+    const allowed = new Set(['health', 'developer-auth', 'client-auth', 'users', 'oauth', 'mcp', 'assets', 'transports', 'org'])
     for (const r of ROUTES.filter((r) => r.audience === 'internal')) expect(allowed.has(r.section), `${key(r)} is internal in section ${r.section}`).toBe(true)
   })
 
@@ -2087,5 +2093,17 @@ describe('the Fleetless-hosted app pages (#98)', () => {
     const notes = ROUTES.find((r) => key(r) === 'GET /app/:appIdentifier/logo')?.notes ?? ''
     expect(notes).toContain('nosniff')
     expect(notes).toContain('sandbox')
+  })
+})
+
+describe("the organization's plan routes (2026-10-02, fleetless/fleetless#103)", () => {
+  it('reads, changes and cancels the plan with the right auth and response shapes', () => {
+    const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
+    expect(r('GET', '/api/org/plan')?.response).toBe(orgPlan)
+    expect(r('PUT', '/api/org/plan/change')?.ownerTier).toBe(true)
+    expect(r('DELETE', '/api/org/plan/change')?.ownerTier).toBe(true)
+    const admin = r('PATCH', '/api/admin/orgs/:id/plan')
+    expect(admin).toMatchObject({ audience: 'internal', auth: 'ops', rateLimited: true })
+    expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops')).toBe(true)
   })
 })

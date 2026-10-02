@@ -749,8 +749,31 @@ export type {
   DatapointDisplay,
   PutDatapointDisplayRequest,
 } from './alerts.js'
-export { apiError, parameterViolation, parameterInvalidDetails, cancelRejectedDetails, invalidCodeDetails, ERROR_CODES } from './errors.js'
-export type { ApiError, ParameterViolation, ParameterInvalidDetails, CancelRejectedDetails, InvalidCodeDetails, ErrorCode } from './errors.js'
+export {
+  apiError,
+  parameterViolation,
+  parameterInvalidDetails,
+  cancelRejectedDetails,
+  invalidCodeDetails,
+  ERROR_CODES,
+  // 2026-10-02 — plans (#103). The plan errors (I-3).
+  planLimitDetails,
+  assetPlanLimitDetails,
+  planRequiredDetails,
+  orgLockedDetails,
+} from './errors.js'
+export type {
+  ApiError,
+  ParameterViolation,
+  ParameterInvalidDetails,
+  CancelRejectedDetails,
+  InvalidCodeDetails,
+  ErrorCode,
+  PlanLimitDetails,
+  AssetPlanLimitDetails,
+  PlanRequiredDetails,
+  OrgLockedDetails,
+} from './errors.js'
 export {
   oauthErrorCode,
   oauthError,
@@ -828,4 +851,32 @@ export type {
   PlanCatalogueEntry,
   AddonKey,
   AddonCatalogueEntry,
+} from './plans.js'
+// 2026-10-02 — plans (#103). The organization's plan, plan changes and the
+// admin request (I-2).
+export {
+  planCurrency,
+  orgAddons,
+  orgPlanUsage,
+  planChangeKeep,
+  planChangeReason,
+  pendingPlanChange,
+  orgLock,
+  orgPlan,
+  planChangeRequest,
+  planOverrides,
+  adminPlanChangeRequest,
+} from './plans.js'
+export type {
+  PlanCurrency,
+  OrgAddons,
+  OrgPlanUsage,
+  PlanChangeKeep,
+  PlanChangeReason,
+  PendingPlanChange,
+  OrgLock,
+  OrgPlan,
+  PlanChangeRequest,
+  PlanOverrides,
+  AdminPlanChangeRequest,
 } from './plans.js'
