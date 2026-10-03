@@ -17963,14 +17963,16 @@
               "plus",
               "pro",
               "enterprise"
-            ]
+            ],
+            "description": "The org's current plan."
           },
           "currency": {
             "type": "string",
             "enum": [
               "eur",
               "usd"
-            ]
+            ],
+            "description": "The currency the org's prices are shown and billed in."
           },
           "period_ends_at": {
             "type": "string",
@@ -17984,27 +17986,32 @@
               "seats": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Extra developer seats, one each."
               },
               "robots": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Extra robots, one each."
               },
               "apps": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Extra apps, one each."
               },
               "app_user_packs": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Packs of five extra app users."
               },
               "live_video_packs": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Packs of 250 extra hours of app-user live video per month."
               }
             },
             "required": [
@@ -18014,7 +18021,8 @@
               "app_user_packs",
               "live_video_packs"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "The add-ons the org has bought. All zero on a plan without the `addons` feature."
           },
           "limits": {
             "type": "object",
@@ -18029,7 +18037,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Developers, owners included, plus pending team invitations."
               },
               "robots": {
                 "anyOf": [
@@ -18041,7 +18050,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Robots in the org."
               },
               "apps": {
                 "anyOf": [
@@ -18053,7 +18063,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Apps in the org."
               },
               "app_users": {
                 "anyOf": [
@@ -18065,7 +18076,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "App users across every app of the org, plus pending app-user invitations."
               },
               "live_video_ms_per_month": {
                 "anyOf": [
@@ -18077,7 +18089,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Live video watched by app users in one UTC calendar month, in milliseconds, across the org. Console sessions do not count."
               },
               "asset_bytes_per_robot": {
                 "anyOf": [
@@ -18089,7 +18102,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Asset storage per robot, in bytes (decimal: 1 GB = 1,000,000,000). The org stores up to robots × this value in total."
               },
               "history_days": {
                 "anyOf": [
@@ -18101,7 +18115,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Days the org's robot history is kept."
               },
               "audit_days": {
                 "anyOf": [
@@ -18113,7 +18128,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Days the org's audit log is kept."
               }
             },
             "required": [
@@ -18126,31 +18142,39 @@
               "history_days",
               "audit_days"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "The org's effective limits: the plan's, raised by its add-ons, or an operator's override in their place. `null` means unlimited for a count, and 90 days for `history_days` and `audit_days`."
           },
           "features": {
             "type": "object",
             "properties": {
               "app_mcp": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "An app's own MCP endpoint, for its app users."
               },
               "two_factor": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Two-factor sign-in for developers."
               },
               "require_two_factor": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "An owner may require two-factor sign-in for every developer of the org."
               },
               "app_oidc": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "An app may let its users sign in through an OpenID Connect identity provider."
               },
               "hosted_logo": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "An app's hosted pages show its logo and accent colour, not only its name."
               },
               "audit_export": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "The audit log can be exported as CSV."
               },
               "addons": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Add-ons can be bought on top of the plan."
               }
             },
             "required": [
@@ -18162,7 +18186,8 @@
               "audit_export",
               "addons"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "What the org's plan unlocks."
           },
           "usage": {
             "type": "object",
@@ -18170,32 +18195,38 @@
               "seats": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Developers, owners included, plus pending team invitations."
               },
               "robots": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Robots in the org."
               },
               "apps": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Apps in the org."
               },
               "app_users": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "App users across every app, plus pending app-user invitations."
               },
               "live_video_ms_this_month": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Live video watched by app users in the current UTC calendar month, in milliseconds. Console sessions do not count."
               },
               "asset_bytes": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 9007199254740991
+                "maximum": 9007199254740991,
+                "description": "Bytes the assets of every robot of the org occupy, together."
               }
             },
             "required": [
@@ -18206,7 +18237,8 @@
               "live_video_ms_this_month",
               "asset_bytes"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "description": "What the org uses now, counted the way each limit counts it."
           },
           "pending_change": {
             "anyOf": [
@@ -18220,7 +18252,8 @@
                       "plus",
                       "pro",
                       "enterprise"
-                    ]
+                    ],
+                    "description": "The plan the org moves to."
                   },
                   "reason": {
                     "type": "string",
@@ -18229,7 +18262,8 @@
                       "cancel",
                       "migration",
                       "lock"
-                    ]
+                    ],
+                    "description": "Why the change is pending: `downgrade`, `cancel`, `migration` or `lock`."
                   },
                   "effective_at": {
                     "anyOf": [
@@ -18241,7 +18275,8 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "When the change takes effect. `null` only for a move off the beta whose date is not set yet."
                   },
                   "keep": {
                     "anyOf": [
@@ -18254,7 +18289,8 @@
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            }
+                            },
+                            "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
                           },
                           "apps": {
                             "type": "array",
@@ -18262,7 +18298,8 @@
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            }
+                            },
+                            "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
                           },
                           "app_users": {
                             "type": "array",
@@ -18270,7 +18307,8 @@
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            }
+                            },
+                            "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
                           },
                           "developers": {
                             "type": "array",
@@ -18278,7 +18316,8 @@
                               "type": "string",
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            }
+                            },
+                            "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
                           }
                         },
                         "required": [
@@ -18292,22 +18331,26 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "What stays. `null` when the org already fits the target plan and nothing is deleted."
                   },
                   "history_days_after": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
+                    "maximum": 9007199254740991,
+                    "description": "Days of history and audit log the org keeps on the target plan."
                   },
                   "chosen_by": {
                     "type": "string",
                     "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The user id of the owner who chose the change, or the nil UUID when Fleetless queued it."
                   },
                   "chosen_at": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the change was chosen."
                   }
                 },
                 "required": [
@@ -18324,7 +18367,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "A move to a lower plan that has not taken effect yet, or `null`."
           },
           "lock": {
             "anyOf": [
@@ -18336,12 +18380,14 @@
                     "enum": [
                       "payment",
                       "migration"
-                    ]
+                    ],
+                    "description": "`payment`: a payment is missing. `migration`: the org did not choose what stays when the beta ended."
                   },
                   "since": {
                     "type": "string",
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the org was locked."
                   }
                 },
                 "required": [
@@ -18353,7 +18399,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Why and since when the org is locked, or `null` when it is not."
           },
           "switch": {
             "anyOf": [
@@ -18370,10 +18417,12 @@
                       {
                         "type": "null"
                       }
-                    ]
+                    ],
+                    "description": "When the org moves from the beta onto its plan. `null` while the date is not set."
                   },
                   "needs_choice": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "Whether the org uses more than Basic allows, so an owner has to choose what stays before `at`."
                   }
                 },
                 "required": [
@@ -18385,7 +18434,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Set only while the org is still on the beta; `null` for every other org."
           }
         },
         "required": [
@@ -18884,7 +18934,8 @@
               "plus",
               "pro",
               "enterprise"
-            ]
+            ],
+            "description": "The lower plan to move to; `basic` cancels."
           },
           "keep": {
             "anyOf": [
@@ -18897,7 +18948,8 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
+                    },
+                    "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
                   },
                   "apps": {
                     "type": "array",
@@ -18905,7 +18957,8 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
+                    },
+                    "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
                   },
                   "app_users": {
                     "type": "array",
@@ -18913,7 +18966,8 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
+                    },
+                    "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
                   },
                   "developers": {
                     "type": "array",
@@ -18921,7 +18975,8 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    }
+                    },
+                    "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
                   }
                 },
                 "required": [
@@ -18935,7 +18990,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "What stays. `null` when the org already fits the target plan, so nothing is deleted."
           }
         },
         "required": [

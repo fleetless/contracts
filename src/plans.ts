@@ -41,14 +41,18 @@ export type PlanLimitKey = z.infer<typeof planLimitKey>
 const limit = z.number().int().positive().nullable()
 
 export const planLimits = z.object({
-  seats: limit,
-  robots: limit,
-  apps: limit,
-  app_users: limit,
-  live_video_ms_per_month: limit,
-  asset_bytes_per_robot: limit,
-  history_days: limit,
-  audit_days: limit,
+  seats: limit.meta({ description: 'Developers, owners included, plus pending team invitations.' }),
+  robots: limit.meta({ description: 'Robots in the org.' }),
+  apps: limit.meta({ description: 'Apps in the org.' }),
+  app_users: limit.meta({ description: 'App users across every app of the org, plus pending app-user invitations.' }),
+  live_video_ms_per_month: limit.meta({
+    description: 'Live video watched by app users in one UTC calendar month, in milliseconds, across the org. Console sessions do not count.',
+  }),
+  asset_bytes_per_robot: limit.meta({
+    description: 'Asset storage per robot, in bytes (decimal: 1 GB = 1,000,000,000). The org stores up to robots × this value in total.',
+  }),
+  history_days: limit.meta({ description: 'Days the org\'s robot history is kept.' }),
+  audit_days: limit.meta({ description: 'Days the org\'s audit log is kept.' }),
 })
 export type PlanLimits = z.infer<typeof planLimits>
 
@@ -63,8 +67,21 @@ export type PlanLimits = z.infer<typeof planLimits>
 export const planFeature = z.enum(['app_mcp', 'two_factor', 'require_two_factor', 'app_oidc', 'hosted_logo', 'audit_export', 'addons'])
 export type PlanFeature = z.infer<typeof planFeature>
 
+const FEATURE_DESCRIPTIONS: Record<PlanFeature, string> = {
+  app_mcp: 'An app\'s own MCP endpoint, for its app users.',
+  two_factor: 'Two-factor sign-in for developers.',
+  require_two_factor: 'An owner may require two-factor sign-in for every developer of the org.',
+  app_oidc: 'An app may let its users sign in through an OpenID Connect identity provider.',
+  hosted_logo: 'An app\'s hosted pages show its logo and accent colour, not only its name.',
+  audit_export: 'The audit log can be exported as CSV.',
+  addons: 'Add-ons can be bought on top of the plan.',
+}
+
 export const planFeatures = z.object(
-  Object.fromEntries(planFeature.options.map((f) => [f, z.boolean()])) as Record<PlanFeature, z.ZodBoolean>,
+  Object.fromEntries(planFeature.options.map((f) => [f, z.boolean().meta({ description: FEATURE_DESCRIPTIONS[f] })])) as Record<
+    PlanFeature,
+    z.ZodBoolean
+  >,
 )
 export type PlanFeatures = z.infer<typeof planFeatures>
 
@@ -72,10 +89,10 @@ export type PlanFeatures = z.infer<typeof planFeatures>
 const cents = z.number().int().nonnegative()
 
 export const planPrices = z.object({
-  eur_month: cents,
-  usd_month: cents,
-  eur_year: cents,
-  usd_year: cents,
+  eur_month: cents.meta({ description: 'Per month in euro cents, excluding VAT.' }),
+  usd_month: cents.meta({ description: 'Per month in US dollar cents, excluding VAT: the euro price × 1.15, rounded up to a whole dollar.' }),
+  eur_year: cents.meta({ description: 'Per year in euro cents, excluding VAT: twelve months less 15 %.' }),
+  usd_year: cents.meta({ description: 'Per year in US dollar cents, excluding VAT: the yearly euro price × 1.15, rounded up to a whole dollar.' }),
 })
 export type PlanPrices = z.infer<typeof planPrices>
 
@@ -83,12 +100,12 @@ export const planSupport = z.enum(['community', 'email', 'priority', 'named_cont
 export type PlanSupport = z.infer<typeof planSupport>
 
 export const planCatalogueEntry = z.object({
-  id: planId,
+  id: planId.meta({ description: 'The plan.' }),
   name: z.string().min(1).meta({ description: 'The plan\'s display name: Basic, Plus, Pro or Enterprise.' }),
-  limits: planLimits,
-  features: planFeatures,
+  limits: planLimits.meta({ description: 'What the plan allows. `null` means by contract.' }),
+  features: planFeatures.meta({ description: 'What the plan unlocks.' }),
   prices: planPrices.nullable().meta({ description: '`null` for Enterprise: sold by contract, on request.' }),
-  support: planSupport,
+  support: planSupport.meta({ description: 'The support that comes with the plan.' }),
 })
 export type PlanCatalogueEntry = z.infer<typeof planCatalogueEntry>
 
@@ -101,10 +118,10 @@ export const addonKey = z.enum(['seats', 'robots', 'apps', 'app_user_packs', 'li
 export type AddonKey = z.infer<typeof addonKey>
 
 export const addonCatalogueEntry = z.object({
-  key: addonKey,
+  key: addonKey.meta({ description: 'The add-on.' }),
   raises: planLimitKey.meta({ description: 'The plan limit this add-on raises.' }),
   per_unit: z.number().int().positive().meta({ description: 'How much one unit of this add-on raises `raises` by.' }),
-  prices: planPrices,
+  prices: planPrices.meta({ description: 'The price of one unit.' }),
 })
 export type AddonCatalogueEntry = z.infer<typeof addonCatalogueEntry>
 
@@ -309,12 +326,14 @@ export type PlanCurrency = z.infer<typeof planCurrency>
  * `addons` feature may buy them (see `planFeature.addons`); `orgPlan.limits`
  * already includes what they add.
  */
+const addonCount = z.number().int().nonnegative()
+
 export const orgAddons = z.object({
-  seats: z.number().int().nonnegative(),
-  robots: z.number().int().nonnegative(),
-  apps: z.number().int().nonnegative(),
-  app_user_packs: z.number().int().nonnegative(),
-  live_video_packs: z.number().int().nonnegative(),
+  seats: addonCount.meta({ description: 'Extra developer seats, one each.' }),
+  robots: addonCount.meta({ description: 'Extra robots, one each.' }),
+  apps: addonCount.meta({ description: 'Extra apps, one each.' }),
+  app_user_packs: addonCount.meta({ description: 'Packs of five extra app users.' }),
+  live_video_packs: addonCount.meta({ description: 'Packs of 250 extra hours of app-user live video per month.' }),
 })
 export type OrgAddons = z.infer<typeof orgAddons>
 
@@ -329,13 +348,17 @@ export type OrgAddons = z.infer<typeof orgAddons>
  * `GET /api/org/quotas` already keeps, so a number here is never one call
  * behind the limit it is compared against.
  */
+const usageCount = z.number().int().nonnegative()
+
 export const orgPlanUsage = z.object({
-  seats: z.number().int().nonnegative(),
-  robots: z.number().int().nonnegative(),
-  apps: z.number().int().nonnegative(),
-  app_users: z.number().int().nonnegative(),
-  live_video_ms_this_month: z.number().int().nonnegative(),
-  asset_bytes: z.number().int().nonnegative(),
+  seats: usageCount.meta({ description: 'Developers, owners included, plus pending team invitations.' }),
+  robots: usageCount.meta({ description: 'Robots in the org.' }),
+  apps: usageCount.meta({ description: 'Apps in the org.' }),
+  app_users: usageCount.meta({ description: 'App users across every app, plus pending app-user invitations.' }),
+  live_video_ms_this_month: usageCount.meta({
+    description: 'Live video watched by app users in the current UTC calendar month, in milliseconds. Console sessions do not count.',
+  }),
+  asset_bytes: usageCount.meta({ description: 'Bytes the assets of every robot of the org occupy, together.' }),
 })
 export type OrgPlanUsage = z.infer<typeof orgPlanUsage>
 
@@ -350,10 +373,16 @@ export type OrgPlanUsage = z.infer<typeof orgPlanUsage>
  * all — is refused at the door rather than silently ignored.
  */
 export const planChangeKeep = z.object({
-  robots: z.array(z.uuid()),
-  apps: z.array(z.uuid()),
-  app_users: z.array(z.uuid()),
-  developers: z.array(z.uuid()),
+  robots: z.array(z.uuid()).meta({ description: 'The robots that stay, by id. Every other robot is deleted when the change takes effect.' }),
+  apps: z.array(z.uuid()).meta({ description: 'The apps that stay, by id. Every other app is deleted when the change takes effect.' }),
+  app_users: z.array(z.uuid()).meta({
+    description: 'The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect.',
+  }),
+  developers: z.array(z.uuid()).meta({
+    description:
+      'The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org ' +
+      'when the change takes effect.',
+  }),
 }).strict()
 export type PlanChangeKeep = z.infer<typeof planChangeKeep>
 
@@ -388,13 +417,19 @@ export type PlanChangeReason = z.infer<typeof planChangeReason>
  * lands.
  */
 export const pendingPlanChange = z.object({
-  target_plan: planId,
-  reason: planChangeReason,
-  effective_at: z.iso.datetime().nullable(),
-  keep: planChangeKeep.nullable(),
-  history_days_after: z.number().int().positive(),
-  chosen_by: z.uuid(),
-  chosen_at: z.iso.datetime(),
+  target_plan: planId.meta({ description: 'The plan the org moves to.' }),
+  reason: planChangeReason.meta({ description: 'Why the change is pending: `downgrade`, `cancel`, `migration` or `lock`.' }),
+  effective_at: z.iso.datetime().nullable().meta({
+    description: 'When the change takes effect. `null` only for a move off the beta whose date is not set yet.',
+  }),
+  keep: planChangeKeep.nullable().meta({
+    description: 'What stays. `null` when the org already fits the target plan and nothing is deleted.',
+  }),
+  history_days_after: z.number().int().positive().meta({
+    description: 'Days of history and audit log the org keeps on the target plan.',
+  }),
+  chosen_by: z.uuid().meta({ description: 'The user id of the owner who chose the change, or the nil UUID when Fleetless queued it.' }),
+  chosen_at: z.iso.datetime().meta({ description: 'When the change was chosen.' }),
 })
 export type PendingPlanChange = z.infer<typeof pendingPlanChange>
 
@@ -409,8 +444,10 @@ export type PendingPlanChange = z.infer<typeof pendingPlanChange>
  * once rather than waiting for the billing period to turn over.
  */
 export const orgLock = z.object({
-  reason: z.enum(['payment', 'migration']),
-  since: z.iso.datetime(),
+  reason: z.enum(['payment', 'migration']).meta({
+    description: '`payment`: a payment is missing. `migration`: the org did not choose what stays when the beta ended.',
+  }),
+  since: z.iso.datetime().meta({ description: 'When the org was locked.' }),
 })
 export type OrgLock = z.infer<typeof orgLock>
 
@@ -425,24 +462,35 @@ export type OrgLock = z.infer<typeof orgLock>
  * it still has to choose one.
  */
 export const orgPlan = z.object({
-  plan: planId,
-  currency: planCurrency,
+  plan: planId.meta({ description: 'The org\'s current plan.' }),
+  currency: planCurrency.meta({ description: 'The currency the org\'s prices are shown and billed in.' }),
   period_ends_at: z.iso.datetime().meta({
     description:
       "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar " +
       'month. A pending downward plan change normally takes effect at this exact instant — except one chosen while the org was locked, ' +
       "which lands at once, and the platform's own move off the beta, which lands at its switch date instead.",
   }),
-  addons: orgAddons,
-  limits: planLimits,
-  features: planFeatures,
-  usage: orgPlanUsage,
-  pending_change: pendingPlanChange.nullable(),
-  lock: orgLock.nullable(),
-  switch: z.object({
-    at: z.iso.datetime().nullable(),
-    needs_choice: z.boolean(),
-  }).nullable(),
+  addons: orgAddons.meta({ description: 'The add-ons the org has bought. All zero on a plan without the `addons` feature.' }),
+  limits: planLimits.meta({
+    description:
+      'The org\'s effective limits: the plan\'s, raised by its add-ons, or an operator\'s override in their place. `null` means ' +
+      'unlimited for a count, and 90 days for `history_days` and `audit_days`.',
+  }),
+  features: planFeatures.meta({ description: 'What the org\'s plan unlocks.' }),
+  usage: orgPlanUsage.meta({ description: 'What the org uses now, counted the way each limit counts it.' }),
+  pending_change: pendingPlanChange.nullable().meta({ description: 'A move to a lower plan that has not taken effect yet, or `null`.' }),
+  lock: orgLock.nullable().meta({ description: 'Why and since when the org is locked, or `null` when it is not.' }),
+  switch: z
+    .object({
+      at: z.iso.datetime().nullable().meta({
+        description: 'When the org moves from the beta onto its plan. `null` while the date is not set.',
+      }),
+      needs_choice: z.boolean().meta({
+        description: 'Whether the org uses more than Basic allows, so an owner has to choose what stays before `at`.',
+      }),
+    })
+    .nullable()
+    .meta({ description: 'Set only while the org is still on the beta; `null` for every other org.' }),
 })
 export type OrgPlan = z.infer<typeof orgPlan>
 
@@ -457,8 +505,10 @@ export type OrgPlan = z.infer<typeof orgPlan>
  * typo that `.strict()` would otherwise swallow in silence.
  */
 export const planChangeRequest = z.object({
-  target_plan: planId,
-  keep: planChangeKeep.nullable(),
+  target_plan: planId.meta({ description: 'The lower plan to move to; `basic` cancels.' }),
+  keep: planChangeKeep.nullable().meta({
+    description: 'What stays. `null` when the org already fits the target plan, so nothing is deleted.',
+  }),
 }).strict()
 export type PlanChangeRequest = z.infer<typeof planChangeRequest>
 
@@ -472,7 +522,10 @@ export type PlanChangeRequest = z.infer<typeof planChangeRequest>
  */
 export const planOverrides = z.object(
   Object.fromEntries(
-    planLimitKey.options.map((k) => [k, limit.optional()]),
+    planLimitKey.options.map((k) => [
+      k,
+      limit.optional().meta({ description: `Replaces the plan's \`${k}\`. \`null\` clears the override.` }),
+    ]),
   ) as Record<PlanLimitKey, z.ZodOptional<typeof limit>>,
 ).strict()
 export type PlanOverrides = z.infer<typeof planOverrides>
@@ -488,10 +541,12 @@ export type PlanOverrides = z.infer<typeof planOverrides>
  * clears that override.
  */
 export const adminPlanChangeRequest = z.object({
-  plan: planId,
-  addons: orgAddons.partial().strict().optional(),
-  overrides: planOverrides.optional(),
-  currency: planCurrency.optional(),
-  period_ends_at: z.iso.datetime().nullable().optional(),
+  plan: planId.meta({ description: 'The plan the org is on after this request.' }),
+  addons: orgAddons.partial().strict().optional().meta({ description: 'Add-on counts to set. Counts not named stay as they are.' }),
+  overrides: planOverrides.optional().meta({ description: 'Limits to override. `null` clears an override.' }),
+  currency: planCurrency.optional().meta({ description: 'The currency the org is billed in.' }),
+  period_ends_at: z.iso.datetime().nullable().optional().meta({
+    description: 'The end of the org\'s billing period. `null` falls back to the end of the current UTC month.',
+  }),
 }).strict()
 export type AdminPlanChangeRequest = z.infer<typeof adminPlanChangeRequest>

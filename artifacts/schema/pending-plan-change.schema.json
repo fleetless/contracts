@@ -9,7 +9,8 @@
         "plus",
         "pro",
         "enterprise"
-      ]
+      ],
+      "description": "The plan the org moves to."
     },
     "reason": {
       "type": "string",
@@ -18,7 +19,8 @@
         "cancel",
         "migration",
         "lock"
-      ]
+      ],
+      "description": "Why the change is pending: `downgrade`, `cancel`, `migration` or `lock`."
     },
     "effective_at": {
       "anyOf": [
@@ -30,7 +32,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "When the change takes effect. `null` only for a move off the beta whose date is not set yet."
     },
     "keep": {
       "anyOf": [
@@ -43,7 +46,8 @@
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              }
+              },
+              "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
             },
             "apps": {
               "type": "array",
@@ -51,7 +55,8 @@
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              }
+              },
+              "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
             },
             "app_users": {
               "type": "array",
@@ -59,7 +64,8 @@
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              }
+              },
+              "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
             },
             "developers": {
               "type": "array",
@@ -67,7 +73,8 @@
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              }
+              },
+              "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
             }
           },
           "required": [
@@ -81,22 +88,26 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "What stays. `null` when the org already fits the target plan and nothing is deleted."
     },
     "history_days_after": {
       "type": "integer",
       "exclusiveMinimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Days of history and audit log the org keeps on the target plan."
     },
     "chosen_by": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The user id of the owner who chose the change, or the nil UUID when Fleetless queued it."
     },
     "chosen_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the change was chosen."
     }
   },
   "required": [

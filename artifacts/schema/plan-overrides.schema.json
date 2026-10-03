@@ -3,6 +3,7 @@
   "type": "object",
   "properties": {
     "seats": {
+      "description": "Replaces the plan's `seats`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -15,6 +16,7 @@
       ]
     },
     "robots": {
+      "description": "Replaces the plan's `robots`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -27,6 +29,7 @@
       ]
     },
     "apps": {
+      "description": "Replaces the plan's `apps`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -39,6 +42,7 @@
       ]
     },
     "app_users": {
+      "description": "Replaces the plan's `app_users`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -51,6 +55,7 @@
       ]
     },
     "live_video_ms_per_month": {
+      "description": "Replaces the plan's `live_video_ms_per_month`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -63,6 +68,7 @@
       ]
     },
     "asset_bytes_per_robot": {
+      "description": "Replaces the plan's `asset_bytes_per_robot`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -75,6 +81,7 @@
       ]
     },
     "history_days": {
+      "description": "Replaces the plan's `history_days`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",
@@ -87,6 +94,7 @@
       ]
     },
     "audit_days": {
+      "description": "Replaces the plan's `audit_days`. `null` clears the override.",
       "anyOf": [
         {
           "type": "integer",

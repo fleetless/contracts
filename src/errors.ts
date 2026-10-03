@@ -90,14 +90,20 @@ export type InvalidCodeDetails = z.infer<typeof invalidCodeDetails>
  * that cannot buy add-ons has nothing in that field.
  */
 export const planLimitDetails = z.object({
-  limit: planLimitKey.exclude(['history_days', 'audit_days']),
-  used: z.number().int().nonnegative(),
-  max: z.number().int().nonnegative(),
-  plan: planId,
-  lifted_by: z.object({
-    plan: planId.nullable(),
-    addon: addonKey.nullable(),
+  limit: planLimitKey.exclude(['history_days', 'audit_days']).meta({ description: 'The limit the action would exceed.' }),
+  used: z.number().int().nonnegative().meta({ description: 'How much of the limit the org uses now.' }),
+  max: z.number().int().nonnegative().meta({
+    description: 'The limit. For `asset_bytes_per_robot`, the org\'s whole pool: robots × the plan\'s bytes per robot.',
   }),
+  plan: planId.meta({ description: 'The plan whose limit refused: the target plan while a move to a lower plan is pending.' }),
+  lifted_by: z
+    .object({
+      plan: planId.nullable().meta({ description: 'The cheapest higher plan that raises this limit, or `null` when none does.' }),
+      addon: addonKey.nullable().meta({
+        description: 'The add-on that raises this limit, when the org\'s plan can buy add-ons; otherwise `null`.',
+      }),
+    })
+    .meta({ description: 'What would lift the limit.' }),
 })
 export type PlanLimitDetails = z.infer<typeof planLimitDetails>
 
@@ -134,15 +140,17 @@ export type AssetPlanLimitDetails = z.infer<typeof assetPlanLimitDetails>
 
 /** The `details` of a `403 plan_required` refusal: the feature, the org's own plan, and the cheapest plan that has it (`requiredPlanFor`). */
 export const planRequiredDetails = z.object({
-  feature: planFeature,
-  plan: planId,
-  required_plan: planId,
+  feature: planFeature.meta({ description: 'The feature the action needs.' }),
+  plan: planId.meta({ description: 'The org\'s current plan.' }),
+  required_plan: planId.meta({ description: 'The cheapest plan that has the feature.' }),
 })
 export type PlanRequiredDetails = z.infer<typeof planRequiredDetails>
 
 /** The `details` of a `403 org_locked` refusal: why the org is locked, matching `orgLock.reason`. */
 export const orgLockedDetails = z.object({
-  reason: z.enum(['payment', 'migration']),
+  reason: z.enum(['payment', 'migration']).meta({
+    description: '`payment`: a payment is missing. `migration`: the org did not choose what stays when the beta ended.',
+  }),
 })
 export type OrgLockedDetails = z.infer<typeof orgLockedDetails>
 
