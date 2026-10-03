@@ -2052,12 +2052,15 @@ describe('the robot-detail routes phase 4 adds', () => {
     expect(r!.errors).toContain('not_found')
   })
 
-  it('no longer lets any route refuse an upload for its own size', () => {
-    // The per-file ceiling is gone; the robot's store is what refuses now,
-    // and it refuses as `quota_exceeded`.
+  it('refuses one file over the per-file limit as file_too_large, and a full store as before', () => {
+    // One file over ASSET_FILE_MAX_BYTES has its own code; the store codes
+    // mean only "the store is full". The old per-file code stays gone.
     const upload = find('POST', '/api/bridge/assets')
-    expect(upload!.errors).not.toContain('asset_too_large')
+    expect(upload!.errors).toContain('file_too_large')
     expect(upload!.errors).toContain('quota_exceeded')
+    expect(upload!.errors).toContain('plan_limit')
+    expect(upload!.notes).toContain('413 file_too_large')
+    expect(upload!.notes).not.toContain('Nothing is refused for its own size')
     for (const r of ROUTES) expect(r.errors, key(r)).not.toContain('asset_too_large')
   })
 })

@@ -6488,11 +6488,13 @@
         "rate_limited",
         "validation_error",
         "not_found",
+        "file_too_large",
+        "plan_limit",
         "quota_exceeded",
         "bad_request"
       ],
       "transport": "http",
-      "notes": "The body is the **raw file bytes**, not JSON, so it has no request schema; everything about the file — its kind, its name, its sync id and its announced size — rides in the `x-fleetless-asset-*` headers `ASSET_UPLOAD_HEADERS` names. The credential is a short-lived upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than following it: a `preHandler` would already have buffered the whole file. **Nothing is refused for its own size** — the robot's asset store is the only limit, so the announced size is checked there against `ROBOT_ASSET_STORE_BYTES` and a file with no room left answers `409 quota_exceeded` carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Past that, the server's own body limit answers a bare `413 bad_request` with none of those numbers in it. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route. The URDF itself is never refused for the store; only meshes and textures are charged against it."
+      "notes": "The body is the **raw file bytes**, not JSON, so it has no request schema; everything about the file — its kind, its name, its sync id and its announced size — rides in the `x-fleetless-asset-*` headers `ASSET_UPLOAD_HEADERS` names. The credential is a short-lived upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than following it: a `preHandler` would already have buffered the whole file. **One file can be at most `ASSET_FILE_MAX_BYTES`**, on every plan and for every kind, the URDF included: an announced size over it answers `413 file_too_large` with `max_bytes` and `size_bytes` before a byte is buffered, and a body over the server's body limit without a truthful size answers the same code with `size_bytes: null`. Retrying does not help. A file that fits but finds the store full answers `409 plan_limit` (or `409 quota_exceeded` for an organisation still on the beta) carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Rate limited per robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route. The URDF itself is never refused for the store; only meshes and textures are charged against it."
     },
     {
       "method": "GET",
