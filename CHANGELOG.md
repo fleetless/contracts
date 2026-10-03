@@ -18,6 +18,12 @@ version.
   arrived; `null` only when the body limit stopped the upload.
   `ASSET_FILE_MAX_BYTES` is in `constants.json`. `plan_limit` and
   `quota_exceeded` on an asset upload now mean only that the store is full.
+- **`plan_limit` in `clientOidcErrorCode`.** A federated sign-in that would
+  create an app user beyond the org's plan `app_users` limit now redirects
+  with `?error=plan_limit`, so an app can tell that the plan is full.
+  `quota_exceeded` keeps one meaning there: the `max_end_users` protection
+  ceiling, which also covers orgs still on the beta. A consumer that switches
+  exhaustively over `ClientOidcErrorCode` gains one case.
 
 ### Changed
 

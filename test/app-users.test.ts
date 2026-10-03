@@ -218,7 +218,7 @@ describe('the enums, by arity AND content', () => {
     expect(mailTemplateKind.options).toEqual(['invite', 'verify', 'reset', 'login_code'])
   })
 
-  it('clientOidcErrorCode is exactly the twelve callback outcomes', () => {
+  it('clientOidcErrorCode is exactly the thirteen callback outcomes', () => {
     expect(clientOidcErrorCode.options).toEqual([
       'no_access',
       'email_taken',
@@ -231,12 +231,20 @@ describe('the enums, by arity AND content', () => {
       'provider_misconfigured',
       'provider_disabled',
       'invalid_request',
-      // The twelfth: the org is at `max_end_users` and this identity would
-      // need a new account. Its own code, not `no_access` — same reason as
-      // `domain_not_allowed`: not about the person, remedy is the
-      // developer's.
+      // The org is at `max_end_users`, the protection ceiling, and this
+      // identity would need a new account. Its own code, not `no_access` —
+      // same reason as `domain_not_allowed`: not about the person, remedy is
+      // the developer's.
       'quota_exceeded',
+      // The org's plan has no room for another app user (fleetless/fleetless#137).
+      // Distinct from `quota_exceeded`: the remedy is a higher plan or an
+      // add-on, not a raised protection limit.
+      'plan_limit',
     ])
+  })
+
+  it('clientOidcErrorCode parses plan_limit', () => {
+    expect(clientOidcErrorCode.parse('plan_limit')).toBe('plan_limit')
   })
 
   it('MAIL_TEMPLATE_VARIABLES is exactly what a Liquid template may name', () => {
