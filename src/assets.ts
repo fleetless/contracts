@@ -279,8 +279,8 @@ export const ROBOT_ASSET_STORE_BYTES = 1_000_000_000
  * store says how much a robot may keep, this says how much the cloud will
  * take in one request. A file over it is refused `413 file_too_large` with
  * `fileTooLargeDetails`, before a byte is buffered when the size was
- * announced (`ASSET_UPLOAD_HEADERS.size`) and by the server's body limit when
- * it was not. That refusal is not a store or plan limit, applies to the URDF
+ * announced (`ASSET_UPLOAD_HEADERS.size`), and otherwise on the bytes that
+ * arrived, or by the server's body limit when the body ran past it. That refusal is not a store or plan limit, applies to the URDF
  * as well, and retrying does not help.
  *
  * In `constants.json` for the same reason as `ROBOT_ASSET_STORE_BYTES`.

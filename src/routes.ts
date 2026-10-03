@@ -3371,7 +3371,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'upload token minted by `POST /api/robots/:id/assets/sync`, verified in a `preParsing` hook so a refusal precedes the work rather than ' +
       'following it: a `preHandler` would already have buffered the whole file. **One file can be at most `ASSET_FILE_MAX_BYTES`**, on every ' +
       'plan and for every kind, the URDF included: an announced size over it answers `413 file_too_large` with `max_bytes` and `size_bytes` ' +
-      'before a byte is buffered, and a body over the server\'s body limit without a truthful size answers the same code with `size_bytes: null`. ' +
+      'before a byte is buffered; without a truthful size, a body over the limit answers the same code with the bytes that arrived as `size_bytes`, ' +
+      'or with `size_bytes: null` when it ran past the server\'s body limit and nobody counted the bytes. ' +
       'Retrying does not help. A file that fits but finds the store full answers `409 plan_limit` (or `409 quota_exceeded` for an organisation ' +
       'still on the beta) carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Rate limited per ' +
       'robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route. The ' +

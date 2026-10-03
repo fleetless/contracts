@@ -13,8 +13,9 @@ version.
 
 - **`file_too_large`** (`413`): one asset file is larger than
   `ASSET_FILE_MAX_BYTES` (one gigabyte, every plan, the URDF included).
-  `details` is `fileTooLargeDetails`: `max_bytes` and `size_bytes`, which is
-  `null` when no size was announced and the body limit stopped the upload.
+  `details` is `fileTooLargeDetails`: `max_bytes` and `size_bytes`, the
+  announced size or, when none (or a false one) was announced, the bytes that
+  arrived; `null` only when the body limit stopped the upload.
   `ASSET_FILE_MAX_BYTES` is in `constants.json`. `plan_limit` and
   `quota_exceeded` on an asset upload now mean only that the store is full.
 
