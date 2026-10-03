@@ -159,16 +159,18 @@ export type OrgLockedDetails = z.infer<typeof orgLockedDetails>
  * fleetless/fleetless#136): one file is larger than `ASSET_FILE_MAX_BYTES`.
  * Not a store and not a plan limit — those are `409 plan_limit` and
  * `409 quota_exceeded`, and mean only "the store is full". `size_bytes` is
- * the announced size; it is `null` only when the sender announced none (or a
- * false one) and the server's body limit stopped the upload, because then
- * nobody counted the bytes.
+ * the file's size: the announced one when the refusal came before the body
+ * was read, or the bytes that arrived when no size (or a false one) was
+ * announced and the body still fit the server's body limit. It is `null` only
+ * when the body limit stopped the upload, because then nobody counted the
+ * bytes.
  */
 export const fileTooLargeDetails = z.object({
   max_bytes: z.number().int().positive().meta({
     description: 'The most one asset file can be, in bytes: `ASSET_FILE_MAX_BYTES`, the same on every plan.',
   }),
   size_bytes: z.number().int().positive().nullable().meta({
-    description: 'The refused file\'s announced size, in bytes; `null` when no size was announced and the body limit stopped the upload.',
+    description: 'The refused file\'s size, in bytes: the announced size, or the bytes that arrived when none (or a false one) was announced; `null` only when the body limit stopped the upload and nobody counted the bytes.',
   }),
 })
 export type FileTooLargeDetails = z.infer<typeof fileTooLargeDetails>
@@ -1039,7 +1041,8 @@ export const ERROR_CODES = [
   /**
    * `413`: one asset file is larger than `ASSET_FILE_MAX_BYTES`. Refused on
    * the announced size before the body is read, for every kind including the
-   * URDF, or by the body limit when no size was announced. `details` is
+   * URDF, otherwise on the bytes that arrived, or by the body limit when the
+   * body ran past it. `details` is
    * `fileTooLargeDetails`. Not a store or plan limit, on any plan; retrying
    * does not help, only a smaller file does.
    */

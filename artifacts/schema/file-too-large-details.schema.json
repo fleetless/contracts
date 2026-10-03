@@ -19,7 +19,7 @@
           "type": "null"
         }
       ],
-      "description": "The refused file's announced size, in bytes; `null` when no size was announced and the body limit stopped the upload."
+      "description": "The refused file's size, in bytes: the announced size, or the bytes that arrived when none (or a false one) was announced; `null` only when the body limit stopped the upload and nobody counted the bytes."
     }
   },
   "required": [
