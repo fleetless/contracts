@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "max_bytes": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The most one asset file can be, in bytes: `ASSET_FILE_MAX_BYTES`, the same on every plan."
+    },
+    "size_bytes": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The refused file's announced size, in bytes; `null` when no size was announced and the body limit stopped the upload."
+    }
+  },
+  "required": [
+    "max_bytes",
+    "size_bytes"
+  ],
+  "additionalProperties": false
+}

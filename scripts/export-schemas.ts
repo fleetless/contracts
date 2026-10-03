@@ -209,7 +209,7 @@ import {
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
 import { missingAssetQuery } from '../src/assets.js'
 import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
-import { ROBOT_ASSET_STORE_BYTES } from '../src/assets.js'
+import { ASSET_FILE_MAX_BYTES, ROBOT_ASSET_STORE_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
 import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
@@ -293,7 +293,7 @@ import {
   planOverrides,
   adminPlanChangeRequest,
 } from '../src/plans.js'
-import { planLimitDetails, assetPlanLimitDetails, planRequiredDetails, orgLockedDetails } from '../src/errors.js'
+import { planLimitDetails, assetPlanLimitDetails, planRequiredDetails, orgLockedDetails, fileTooLargeDetails } from '../src/errors.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -568,6 +568,7 @@ export const exportedSchemas = {
   'asset-plan-limit-details': assetPlanLimitDetails,
   'plan-required-details': planRequiredDetails,
   'org-locked-details': orgLockedDetails,
+  'file-too-large-details': fileTooLargeDetails,
 
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
@@ -740,6 +741,11 @@ export const exportedConstants = {
    * which is two numbers again.**
    */
   ROBOT_ASSET_STORE_BYTES,
+  /**
+   * The per-file limit, next to the store and for the same reason: the bridge
+   * reads only this artifact, and a limit one side cannot read is two numbers.
+   */
+  ASSET_FILE_MAX_BYTES,
   SNAPSHOT_HEADERS,
   URDF_ASSET_NAME,
   /**
@@ -942,6 +948,10 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'plan-currency', 'org-addons', 'org-plan-usage', 'plan-change-reason', 'pending-plan-change',
   'org-lock', 'org-plan', 'plan-limit-details', 'asset-plan-limit-details', 'plan-required-details',
   'org-locked-details',
+
+  // --- The per-file asset limit (2026-10-03, fleetless/fleetless#136) ------
+  // Rides an `apiError.details` the server sends, never one it validates.
+  'file-too-large-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

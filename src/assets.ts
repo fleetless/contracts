@@ -273,6 +273,21 @@ export type AssetSyncResponse = z.infer<typeof assetSyncResponse>
 export const ROBOT_ASSET_STORE_BYTES = 1_000_000_000
 
 /**
+ * **How large one asset file may be, on every plan.**
+ *
+ * Its own number, not the store's, although both are a gigabyte today: the
+ * store says how much a robot may keep, this says how much the cloud will
+ * take in one request. A file over it is refused `413 file_too_large` with
+ * `fileTooLargeDetails`, before a byte is buffered when the size was
+ * announced (`ASSET_UPLOAD_HEADERS.size`) and by the server's body limit when
+ * it was not. That refusal is not a store or plan limit, applies to the URDF
+ * as well, and retrying does not help.
+ *
+ * In `constants.json` for the same reason as `ROBOT_ASSET_STORE_BYTES`.
+ */
+export const ASSET_FILE_MAX_BYTES = 1_000_000_000
+
+/**
  * What a full store tells the caller — the same discipline as `job_queue_full`
  * and `publisher_busy`: a refusal that names a state and no number leaves the
  * caller unable to decide anything.
@@ -316,9 +331,11 @@ export type AssetStoreRefusedDetails = z.infer<typeof assetStoreRefusedDetails>
  *   unexamined.
  *
  * There was a fourth, `too_large`, for a file over a per-file ceiling. That
- * ceiling is gone — a robot has one store and nothing is refused for its own
- * size — so the kind had no producer left and one fewer thing to branch on is
- * the whole of the gain.
+ * ceiling is gone from this enum, not from the cloud: a file over
+ * `ASSET_FILE_MAX_BYTES` is refused by the cloud as `413 file_too_large`; a
+ * producer that relays it reports `refused` with no details — so the kind
+ * had no producer left here and one fewer thing to branch on is the whole of
+ * the gain.
  *
  * A consumer that cannot act on the distinction may still print `reference`
  * alone and lose nothing it had before.
