@@ -1017,6 +1017,10 @@ export const ERROR_CODES = [
    * The existing `quota_exceeded` protection ceiling is still checked, and
    * only after this one: it exists to stop runaway consumption, not to tell
    * a developer what their plan allows.
+   *
+   * At an OIDC callback the same refusal reaches the app as the
+   * `clientOidcErrorCode` of the same name, redirected rather than answered
+   * as JSON.
    */
   'plan_limit',
   /**
