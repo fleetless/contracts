@@ -41,7 +41,7 @@ const listBase = {
 describe('assets after the per-robot store', () => {
   it('knows three kinds and three failure kinds', () => {
     // `other` never reached the wire and `too_large` has no producer left:
-    // nothing is refused for its own size any more, only for the store.
+    // the per-file limit is a cloud refusal (`file_too_large`), not a failure kind.
     expect(assetKind.options).toEqual(['urdf', 'mesh', 'texture'])
     expect(assetFailureKind.options).toEqual(['unresolvable', 'upload_failed', 'refused'])
   })

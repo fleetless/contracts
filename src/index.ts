@@ -708,6 +708,7 @@ export {
   assetStoreRefusedDetails,
   assetSyncBusyDetails,
   ROBOT_ASSET_STORE_BYTES,
+  ASSET_FILE_MAX_BYTES,
 } from './assets.js'
 export type {
   AssetKind,
@@ -761,6 +762,8 @@ export {
   assetPlanLimitDetails,
   planRequiredDetails,
   orgLockedDetails,
+  // 2026-10-03 — the per-file asset limit (#136).
+  fileTooLargeDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -773,6 +776,7 @@ export type {
   AssetPlanLimitDetails,
   PlanRequiredDetails,
   OrgLockedDetails,
+  FileTooLargeDetails,
 } from './errors.js'
 export {
   oauthErrorCode,

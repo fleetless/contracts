@@ -155,6 +155,25 @@ export const orgLockedDetails = z.object({
 export type OrgLockedDetails = z.infer<typeof orgLockedDetails>
 
 /**
+ * The `details` of a `413 file_too_large` refusal (2026-10-03,
+ * fleetless/fleetless#136): one file is larger than `ASSET_FILE_MAX_BYTES`.
+ * Not a store and not a plan limit — those are `409 plan_limit` and
+ * `409 quota_exceeded`, and mean only "the store is full". `size_bytes` is
+ * the announced size; it is `null` only when the sender announced none (or a
+ * false one) and the server's body limit stopped the upload, because then
+ * nobody counted the bytes.
+ */
+export const fileTooLargeDetails = z.object({
+  max_bytes: z.number().int().positive().meta({
+    description: 'The most one asset file can be, in bytes: `ASSET_FILE_MAX_BYTES`, the same on every plan.',
+  }),
+  size_bytes: z.number().int().positive().nullable().meta({
+    description: 'The refused file\'s announced size, in bytes; `null` when no size was announced and the body limit stopped the upload.',
+  }),
+})
+export type FileTooLargeDetails = z.infer<typeof fileTooLargeDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -1016,5 +1035,14 @@ export const ERROR_CODES = [
    * payment, or the platform's own move off the beta.
    */
   'org_locked',
+  // 2026-10-03 — the per-file asset limit (#136).
+  /**
+   * `413`: one asset file is larger than `ASSET_FILE_MAX_BYTES`. Refused on
+   * the announced size before the body is read, for every kind including the
+   * URDF, or by the body limit when no size was announced. `details` is
+   * `fileTooLargeDetails`. Not a store or plan limit, on any plan; retrying
+   * does not help, only a smaller file does.
+   */
+  'file_too_large',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
