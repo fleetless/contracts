@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.1.0] — 2026-10-03
+
 ### Added
 
 - **The plan catalogue.** `src/plans.ts`: `planId` (`basic`, `plus`, `pro`,
