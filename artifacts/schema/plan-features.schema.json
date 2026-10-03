@@ -3,25 +3,32 @@
   "type": "object",
   "properties": {
     "app_mcp": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "An app's own MCP endpoint, for its app users."
     },
     "two_factor": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Two-factor sign-in for developers."
     },
     "require_two_factor": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "An owner may require two-factor sign-in for every developer of the org."
     },
     "app_oidc": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "An app may let its users sign in through an OpenID Connect identity provider."
     },
     "hosted_logo": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "An app's hosted pages show its logo and accent colour, not only its name."
     },
     "audit_export": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The audit log can be exported as CSV."
     },
     "addons": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Add-ons can be bought on top of the plan."
     }
   },
   "required": [

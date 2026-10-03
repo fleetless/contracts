@@ -5,32 +5,38 @@
     "seats": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Developers, owners included, plus pending team invitations."
     },
     "robots": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Robots in the org."
     },
     "apps": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Apps in the org."
     },
     "app_users": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "App users across every app, plus pending app-user invitations."
     },
     "live_video_ms_this_month": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Live video watched by app users in the current UTC calendar month, in milliseconds. Console sessions do not count."
     },
     "asset_bytes": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "Bytes the assets of every robot of the org occupy, together."
     }
   },
   "required": [

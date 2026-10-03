@@ -12,7 +12,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Developers, owners included, plus pending team invitations."
     },
     "robots": {
       "anyOf": [
@@ -24,7 +25,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Robots in the org."
     },
     "apps": {
       "anyOf": [
@@ -36,7 +38,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Apps in the org."
     },
     "app_users": {
       "anyOf": [
@@ -48,7 +51,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "App users across every app of the org, plus pending app-user invitations."
     },
     "live_video_ms_per_month": {
       "anyOf": [
@@ -60,7 +64,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Live video watched by app users in one UTC calendar month, in milliseconds, across the org. Console sessions do not count."
     },
     "asset_bytes_per_robot": {
       "anyOf": [
@@ -72,7 +77,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Asset storage per robot, in bytes (decimal: 1 GB = 1,000,000,000). The org stores up to robots × this value in total."
     },
     "history_days": {
       "anyOf": [
@@ -84,7 +90,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Days the org's robot history is kept."
     },
     "audit_days": {
       "anyOf": [
@@ -96,7 +103,8 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Days the org's audit log is kept."
     }
   },
   "required": [

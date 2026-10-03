@@ -9,7 +9,8 @@
         "plus",
         "pro",
         "enterprise"
-      ]
+      ],
+      "description": "The plan."
     },
     "name": {
       "type": "string",
@@ -29,7 +30,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Developers, owners included, plus pending team invitations."
         },
         "robots": {
           "anyOf": [
@@ -41,7 +43,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Robots in the org."
         },
         "apps": {
           "anyOf": [
@@ -53,7 +56,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Apps in the org."
         },
         "app_users": {
           "anyOf": [
@@ -65,7 +69,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "App users across every app of the org, plus pending app-user invitations."
         },
         "live_video_ms_per_month": {
           "anyOf": [
@@ -77,7 +82,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Live video watched by app users in one UTC calendar month, in milliseconds, across the org. Console sessions do not count."
         },
         "asset_bytes_per_robot": {
           "anyOf": [
@@ -89,7 +95,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Asset storage per robot, in bytes (decimal: 1 GB = 1,000,000,000). The org stores up to robots × this value in total."
         },
         "history_days": {
           "anyOf": [
@@ -101,7 +108,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Days the org's robot history is kept."
         },
         "audit_days": {
           "anyOf": [
@@ -113,7 +121,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "Days the org's audit log is kept."
         }
       },
       "required": [
@@ -126,31 +135,39 @@
         "history_days",
         "audit_days"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "What the plan allows. `null` means by contract."
     },
     "features": {
       "type": "object",
       "properties": {
         "app_mcp": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "An app's own MCP endpoint, for its app users."
         },
         "two_factor": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Two-factor sign-in for developers."
         },
         "require_two_factor": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "An owner may require two-factor sign-in for every developer of the org."
         },
         "app_oidc": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "An app may let its users sign in through an OpenID Connect identity provider."
         },
         "hosted_logo": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "An app's hosted pages show its logo and accent colour, not only its name."
         },
         "audit_export": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "The audit log can be exported as CSV."
         },
         "addons": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Add-ons can be bought on top of the plan."
         }
       },
       "required": [
@@ -162,7 +179,8 @@
         "audit_export",
         "addons"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "description": "What the plan unlocks."
     },
     "prices": {
       "anyOf": [
@@ -172,22 +190,26 @@
             "eur_month": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "Per month in euro cents, excluding VAT."
             },
             "usd_month": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "Per month in US dollar cents, excluding VAT: the euro price × 1.15, rounded up to a whole dollar."
             },
             "eur_year": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "Per year in euro cents, excluding VAT: twelve months less 15 %."
             },
             "usd_year": {
               "type": "integer",
               "minimum": 0,
-              "maximum": 9007199254740991
+              "maximum": 9007199254740991,
+              "description": "Per year in US dollar cents, excluding VAT: the yearly euro price × 1.15, rounded up to a whole dollar."
             }
           },
           "required": [
@@ -211,7 +233,8 @@
         "email",
         "priority",
         "named_contact"
-      ]
+      ],
+      "description": "The support that comes with the plan."
     }
   },
   "required": [

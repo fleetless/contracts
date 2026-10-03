@@ -12,7 +12,8 @@
         "hosted_logo",
         "audit_export",
         "addons"
-      ]
+      ],
+      "description": "The feature the action needs."
     },
     "plan": {
       "type": "string",
@@ -21,7 +22,8 @@
         "plus",
         "pro",
         "enterprise"
-      ]
+      ],
+      "description": "The org's current plan."
     },
     "required_plan": {
       "type": "string",
@@ -30,7 +32,8 @@
         "plus",
         "pro",
         "enterprise"
-      ]
+      ],
+      "description": "The cheapest plan that has the feature."
     }
   },
   "required": [

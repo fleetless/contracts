@@ -8,7 +8,8 @@
         "type": "string",
         "format": "uuid",
         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
+      },
+      "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
     },
     "apps": {
       "type": "array",
@@ -16,7 +17,8 @@
         "type": "string",
         "format": "uuid",
         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
+      },
+      "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
     },
     "app_users": {
       "type": "array",
@@ -24,7 +26,8 @@
         "type": "string",
         "format": "uuid",
         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
+      },
+      "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
     },
     "developers": {
       "type": "array",
@@ -32,7 +35,8 @@
         "type": "string",
         "format": "uuid",
         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-      }
+      },
+      "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
     }
   },
   "required": [
