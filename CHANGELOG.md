@@ -9,6 +9,46 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **Billing.** `src/billing.ts`: `EU_COUNTRIES`, `countryCode`,
+  `currencyForCountry`, `normalizeVatId` and `viesCountry`; `vatFor`, who
+  may pay and at which VAT rate (Germany 19 %, a company in another EU
+  country with a VAT ID VIES confirms 0 % reverse charge, outside the EU
+  0 %, everyone else refused with a named rule); the money functions in
+  integer cents (`periodNetCents`, `periodDays`, `remainingDays`,
+  `prorateCents`, `changeNetCents`, `chargeAmounts`, `checkoutQuote`); and
+  the dunning schedule `BILLING_RETRY_DAYS` and `BILLING_LOCK_DAY`.
+- **The billing read model and requests.** `billingView` (the account, the
+  payment method on file, the last 24 invoices), `billingAccount`,
+  `billingInvoice`, `paymentMethod`, `billingDetails` and `billingAddress`;
+  the requests `checkoutRequest`, `vatIdCheckRequest`,
+  `billingChangeRequest` (absolute counts, not deltas),
+  `billingCancelRequest`, `billingDetailsUpdate` and
+  `paymentMethodChangeRequest`; the answers `checkoutResponse`,
+  `checkoutStatus`, `vatIdCheckResponse` and `billingChangeResponse`. Each
+  has a JSON Schema in `artifacts/schema/`.
+- **The `billing` route section**, twelve routes: `GET /api/billing`, the
+  checkout and its status, the VAT-ID check, billing details, changes,
+  the payment method, cancel and resume, an invoice's PDF and paying an
+  open invoice, all owner-tier; and Mollie's webhook
+  (`POST /api/billing/mollie/webhook`, internal, no auth).
+- **`billing_unavailable`** (`503`): this cloud has no payment provider
+  configured, so it takes no payments. Retrying does not help.
+- **`payment_provider_unavailable`** (`502`): Mollie did not answer, or
+  answered with an error; nothing was charged. `details` is
+  `paymentProviderUnavailableDetails` (`provider`, Mollie's HTTP `status`
+  or `null` for a timeout). Retrying may work.
+
+### Changed
+
+- **`PATCH /api/admin/orgs/:id/plan`** lists `target_state_conflict`: rule
+  `billed` when the org has a billing account and the change would touch
+  its currency or period.
+- The notes of **`PUT /api/org/plan/change`** and the admin route no longer
+  say payment is missing; an upgrade of a billed org goes through the
+  billing routes.
+
 ## [6.2.0] — 2026-10-04
 
 ### Added
