@@ -3408,7 +3408,7 @@ export const ROUTES: readonly RouteEntry[] = [
       '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that ' +
       'charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; cancel, resume, the details and the ' +
       'VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan ' +
-      'and its limits still come from `GET /api/org/plan` (#103) and are not repeated here.',
+      'and its limits still come from `GET /api/org/plan` (fleetless/fleetless issue 103) and are not repeated here.',
   },
   {
     method: 'POST', path: '/api/billing/checkout', section: 'billing',
@@ -3481,7 +3481,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'fails later, its open invoice enters dunning like a failed renewal. If Mollie refuses or does not answer, nothing is applied ' +
       'and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — ' +
       'is stored as a pending change and applied at the period\'s end, same as `PUT /api/org/plan/change`; a lower plan over the target\'s ' +
-      'limits answers `409 plan_limit` and the console opens #103\'s choose-what-stays page. Any increase first withdraws a pending ' +
+      'limits answers `409 plan_limit` and the console opens its choose-what-stays page. Any increase first withdraws a pending ' +
       'downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no ' +
       'checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the ' +
       'payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part ' +
@@ -3497,7 +3497,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the ' +
       'existing Mollie customer, restricted to the chosen method (`card` → Mollie\'s `creditcard`, `paypal`, `applepay`). For `card` ' +
-      'and `paypal` it is a payment of **0.00** in the org\'s currency that pays no open invoice: the invoice stays open, the next ' +
+      'and `paypal` it is a payment of `0.00` in the org\'s currency that pays no open invoice: the invoice stays open, the next ' +
       'dunning retry charges the new mandate, and `POST /api/billing/invoices/:id/pay` still pays it at once. `applepay` behaves the ' +
       'same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together ' +
       'with paying an open invoice — the payment is then that invoice\'s amount and pays it — and without one this answers ' +
@@ -3515,7 +3515,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'A body is optional — `reason` alone, and nobody but Fleetless reads it. `404 not_found` when the org has no billing account to ' +
       'cancel. Takes effect at the period\'s end, nothing credited or refunded; over Basic\'s limits this is refused `409 ' +
-      'plan_limit` and the console sends the owner to #103\'s choose-what-stays page instead, the same as a plan downgrade. "Cancel at ' +
+      'plan_limit` and the console sends the owner to its choose-what-stays page instead, the same as a plan downgrade. "Cancel at ' +
       'period end" is not a flag here — it reads as `pending_change.target_plan === \'basic\'` on `GET /api/org/plan`.',
   },
   {

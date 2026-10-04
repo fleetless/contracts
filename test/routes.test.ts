@@ -106,6 +106,19 @@ describe('the route manifest', () => {
     }
   })
 
+  it('writes notes the docs style check reads as what they are', () => {
+    // The docs render every note onto `reference/api/routes`, and their style
+    // check (`site/scripts/check-style.mjs`) reads `#` plus three to eight hex
+    // digits as a colour literal — `#103` was one — and a bare number set in
+    // bold or italics as a machine value outside mono. An issue is named as
+    // `fleetless/fleetless issue 103`, a number goes in code.
+    for (const r of ROUTES) {
+      const notes = r.notes ?? ''
+      expect(notes, `${key(r)} has a # the docs read as a colour`).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+      expect(notes, `${key(r)} sets a bare number in emphasis, not in code`).not.toMatch(/\*{1,2}\s*\d+(?:[.,]\d+)?\s*\*{1,2}/)
+    }
+  })
+
   it('marks a body optional only where there is a body to describe', () => {
     for (const r of ROUTES) {
       if (r.requestOptional === undefined) continue
