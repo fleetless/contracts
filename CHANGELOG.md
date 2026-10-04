@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.2.0] — 2026-10-04
+
 ### Added
 
 - **`file_too_large`** (`413`): one asset file is larger than
