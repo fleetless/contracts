@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The invoice's id."
+    },
+    "number": {
+      "type": "string",
+      "pattern": "^FL-\\d{4}-\\d{4,}$",
+      "description": "The invoice number: `FL-<year>-<seq>`, `seq` zero-padded to four digits, gapless per calendar year in `Europe/Berlin`."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the invoice was issued."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "paid",
+        "uncollectible"
+      ],
+      "description": "This invoice's own status."
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "eur",
+        "usd"
+      ],
+      "description": "The org's billing currency."
+    },
+    "net_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The charge, excluding VAT, in integer cents."
+    },
+    "vat_rate_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "The VAT rate applied, in whole percent."
+    },
+    "vat_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "VAT, in integer cents (`vatCents`)."
+    },
+    "gross_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Net plus VAT, in integer cents."
+    }
+  },
+  "required": [
+    "id",
+    "number",
+    "issued_at",
+    "status",
+    "currency",
+    "net_cents",
+    "vat_rate_percent",
+    "vat_cents",
+    "gross_cents"
+  ],
+  "additionalProperties": false
+}

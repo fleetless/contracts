@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "description": "An optional free-text reason. Shown to nobody but Fleetless.",
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "additionalProperties": false
+}

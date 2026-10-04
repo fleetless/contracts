@@ -176,6 +176,19 @@ export const fileTooLargeDetails = z.object({
 export type FileTooLargeDetails = z.infer<typeof fileTooLargeDetails>
 
 /**
+ * The `details` of a `502 payment_provider_unavailable` refusal (2026-10-04,
+ * fleetless/fleetless#104): Mollie did not answer, or answered with an
+ * error, so nothing was charged and nothing changed. `status` is Mollie's
+ * own HTTP status, `null` for a timeout — the two ways "did not answer"
+ * happens, told apart for whoever reads a support ticket.
+ */
+export const paymentProviderUnavailableDetails = z.object({
+  provider: z.literal('mollie').meta({ description: 'The payment provider. Always `mollie` today.' }),
+  status: z.number().int().nullable().meta({ description: "Mollie's own HTTP status, or `null` when the request timed out instead of answering." }),
+})
+export type PaymentProviderUnavailableDetails = z.infer<typeof paymentProviderUnavailableDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -1051,5 +1064,26 @@ export const ERROR_CODES = [
    * does not help, only a smaller file does.
    */
   'file_too_large',
+
+  // 2026-10-04 — billing through Mollie (#104).
+  /**
+   * `503`: this cloud takes no payments, because no payment provider is
+   * configured — `MOLLIE_API_KEY` is unset. Every mutating
+   * billing route answers it, and `GET /api/billing` answers `200` with
+   * `available: false` instead, so a caller can render "billing is off"
+   * without parsing an error. An upgrade or an add-on is a request to
+   * Fleetless instead, exactly as it is today (#103's Feedback request).
+   * Retrying does not help: nothing here changes until a key is
+   * configured.
+   */
+  'billing_unavailable',
+  /**
+   * `502`: Mollie did not answer, or answered with an error, so nothing was
+   * charged and nothing changed. `details` is `paymentProviderUnavailableDetails`: Mollie's own
+   * HTTP status, or `null` for a timeout. Distinct from `billing_unavailable`,
+   * which is this cloud's own configuration and never Mollie's fault.
+   * Retrying may work.
+   */
+  'payment_provider_unavailable',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

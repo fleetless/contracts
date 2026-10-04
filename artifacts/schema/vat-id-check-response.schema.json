@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "valid",
+        "unverified",
+        "invalid"
+      ],
+      "description": "VIES's answer."
+    },
+    "vat_id": {
+      "type": "string",
+      "description": "The normalized VAT ID that was checked."
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The registered holder, when VIES named one; `null` otherwise."
+    }
+  },
+  "required": [
+    "status",
+    "vat_id",
+    "name"
+  ],
+  "additionalProperties": false
+}

@@ -28,6 +28,10 @@
       "description": "Org"
     },
     {
+      "name": "billing",
+      "description": "Billing"
+    },
+    {
       "name": "users",
       "description": "Team"
     },
@@ -9524,7 +9528,7 @@
             }
           }
         },
-        "description": "Owner tier, and **downward only**: this route moves the org to a lower plan or cancels it outright to Basic. It never moves the org up — until payment exists, an upgrade or an add-on is not this route's job at all, and is handled today as a Feedback request that Fleetless then applies through the admin route. `409 target_state_conflict` names `target_plan` with rule `not_lower` when the chosen plan is not below the org's current one; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen plan is anything but Basic; and with rule `migration_basic_only` when the org is still on the beta, awaiting the switch to priced plans, and the chosen plan is anything but Basic — that choice is exactly what the org lands on at the switch. An owner is never named in `keep` and always stays, but still counts against the target plan's `seats`; `409 plan_limit` names `seats` when the owners alone already exceed it, and names whichever other limit `keep` still exceeds otherwise. `keep` is `null` when the org's current usage already fits the target plan outright and nothing is deleted; named, it lists exactly the robots, apps, app users and developers that stay. The choice is stored as `pending_change` and takes effect at `period_ends_at` — **everything of the chosen kind not named in `keep` is deleted at that instant, never before** — except a choice made while the org is locked, which takes effect at once, and a beta org's choice, which takes effect at the switch date instead. Anything created while the choice is pending is checked against the target plan too and, when it passes, is folded into `keep`, so exactly what the confirmation counted is what is actually deleted. A later `PUT` replaces a still-pending choice outright.",
+        "description": "Owner tier, and **downward only**: this route moves the org to a lower plan or cancels it outright to Basic. It never moves the org up — an upgrade or an add-on goes through the billing routes instead (`POST /api/billing/checkout`, `POST /api/billing/change`). `409 target_state_conflict` names `target_plan` with rule `not_lower` when the chosen plan is not below the org's current one; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen plan is anything but Basic; and with rule `migration_basic_only` when the org is still on the beta, awaiting the switch to priced plans, and the chosen plan is anything but Basic — that choice is exactly what the org lands on at the switch. An owner is never named in `keep` and always stays, but still counts against the target plan's `seats`; `409 plan_limit` names `seats` when the owners alone already exceed it, and names whichever other limit `keep` still exceeds otherwise. `keep` is `null` when the org's current usage already fits the target plan outright and nothing is deleted; named, it lists exactly the robots, apps, app users and developers that stay. The choice is stored as `pending_change` and takes effect at `period_ends_at` — **everything of the chosen kind not named in `keep` is deleted at that instant, never before** — except a choice made while the org is locked, which takes effect at once, and a beta org's choice, which takes effect at the switch date instead. Anything created while the choice is pending is checked against the target plan too and, when it passes, is folded into `keep`, so exactly what the confirmation counted is what is actually deleted. A later `PUT` replaces a still-pending choice outright.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9564,6 +9568,515 @@
           }
         },
         "description": "Owner tier. `404 not_found` when the org has no `pending_change` to withdraw. The org stays on its current plan, unchanged, as if the choice had never been made; a developer who wants a different one sends a new `PUT`, which would have replaced this one outright anyway."
+      }
+    },
+    "/api/billing": {
+      "get": {
+        "operationId": "get_api_billing",
+        "summary": "Reads the org's billing account, payment method and invoices.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-view"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every mutating route on this page answers `503 billing_unavailable` instead of acting. `account` is `null` before the org has ever checked out; the plan and its limits still come from `GET /api/org/plan` (#103) and are not repeated here."
+      }
+    },
+    "/api/billing/checkout": {
+      "post": {
+        "operationId": "post_api_billing_checkout",
+        "summary": "Starts a Mollie checkout for a plan, or an upgrade paid at once.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/checkout-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `plan_limit`, `target_state_conflict`, `rate_limited`, `billing_unavailable`, `payment_provider_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/payment-method` and `POST /api/billing/invoices/:id/pay` — the three routes that mint a Mollie checkout. `400 validation_error` names who may not pay with these rules: `{ field: 'billing.address.country', rule: 'eu_person' }` for a person in another EU country, `{ field: 'billing.vat_id', rule: 'vat_id_required' }` for a company there with no VAT ID, `{ field: 'billing.vat_id', rule: 'vat_id_invalid' }` once VIES has said so, and `{ field: 'accept_withdrawal', rule: 'required' }` for a person who did not confirm it. `409 target_state_conflict` names `plan` with rule `already_billed` when the org already has an `active` or `past_due` billing account — checkout is for the first payment only, every later change is `POST /api/billing/change`. `checkout_url` is Mollie's hosted page; the return lands on `<console>/settings/billing?checkout=<checkout_id>`, which polls `GET /api/billing/checkout/:id` until the webhook — or the poll itself — has reconciled the payment. `409 plan_limit` is the org's own usage against the plan being bought.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/checkout-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/checkout/{id}": {
+      "get": {
+        "operationId": "get_api_billing_checkout_id",
+        "summary": "Reads a checkout's status, for the return page's poll.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The checkout id from `checkoutResponse.checkout_id`, carried on the return URL.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/checkout-status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Calls the same `reconcilePayment(deps, molliePaymentId)` the webhook calls, so a return page that lands before the webhook does still sees the payment applied — this route, not the webhook, is what the dev stack and the test-mode suite rely on, since Mollie refuses an unreachable webhook URL. `plan` is the org's plan after applying, unchanged unless `purpose` is `upgrade` and `status` is `paid`."
+      }
+    },
+    "/api/billing/vat-id/check": {
+      "post": {
+        "operationId": "post_api_billing_vat_id_check",
+        "summary": "Checks a VAT ID against VIES, for the checkout form and the details page.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/vat-id-check-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `rate_limited`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Rate limited on its own `billing.vat_check` bucket, sized for a form checked on blur rather than for a checkout. Never refuses for an `unverified` VIES answer — the checkout itself accepts `unverified` and the hourly sweep re-checks it — this route only reports what VIES currently says, in a different place for the same ID, entered either at checkout or on `PATCH /api/billing/details`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/vat-id-check-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/details": {
+      "patch": {
+        "operationId": "patch_api_billing_details",
+        "summary": "Edits the billing account's invoice email or VAT ID.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-view"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`404 not_found` when the org has no billing account yet — there is nothing here to edit before the first checkout. A new `vat_id` is re-checked through VIES the same way `POST /api/billing/vat-id/check` does; a valid ID entered here lifts the block a definitive `invalid` answer placed on the next renewal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/billing-details-update"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/change": {
+      "post": {
+        "operationId": "post_api_billing_change",
+        "summary": "Moves the org's plan, cycle or add-ons, charging increases at once.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-change-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `plan_limit`, `target_state_conflict`, `billing_unavailable`, `payment_provider_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The body names the **absolute** target — plan, cycle and add-ons — never a delta: the route compares it with the org's current state and splits the difference. The increasing part is charged now, through the same proration `changeNetCents` computes, and takes effect the moment Mollie accepts the `recurring` payment with anything but `failed`, `canceled` or `expired` — cards answer within seconds, SEPA stays `pending` for days; if Mollie refuses or does not answer, nothing is applied and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — is stored as a pending change and applied at the period's end, same as `PUT /api/org/plan/change`; a lower plan over the target's limits answers `409 plan_limit` and the console opens #103's choose-what-stays page. Any increase first withdraws a pending downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part charged now, or `null` when the whole request was a decrease.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/billing-change-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/payment-method": {
+      "post": {
+        "operationId": "post_api_billing_payment_method",
+        "summary": "Starts a Mollie checkout for a new payment method.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/checkout-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `not_found`, `rate_limited`, `billing_unavailable`, `payment_provider_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a `first` payment on the existing Mollie customer: with an open invoice, the new payment **is** that invoice's amount, for any method the currency allows, and pays it; without one, `card` and `paypal` use a zero amount and `sepa` is refused — Mollie allows a zero-amount first payment for card and PayPal only — `400 validation_error` with `{ field: 'method', rule: 'sepa_needs_open_invoice' }`. SEPA is also refused outside the org's EUR currency, `{ field: 'method', rule: 'sepa_eur_only' }`. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid`, every other mandate of the customer is revoked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/payment-method-change-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/cancel": {
+      "post": {
+        "operationId": "post_api_billing_cancel",
+        "summary": "Schedules the org's plan to cancel to Basic at the period's end.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-view"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`, `not_found`, `plan_limit`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A body is optional — `reason` alone, and nobody but Fleetless reads it. `404 not_found` when the org has no billing account to cancel. Takes effect at the period's end, nothing credited or refunded; over Basic's limits this is refused `409 plan_limit` and the console sends the owner to #103's choose-what-stays page instead, the same as a plan downgrade. \"Cancel at period end\" is not a flag here — it reads as `pending_change.target_plan === 'basic'` on `GET /api/org/plan`.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/billing-cancel-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/resume": {
+      "post": {
+        "operationId": "post_api_billing_resume",
+        "summary": "Withdraws a scheduled cancel, keeping the current plan.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-view"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`404 not_found` when nothing is pending — there is no scheduled cancel to withdraw. The org stays on its current plan, unchanged."
+      }
+    },
+    "/api/billing/invoices/{id}/pdf": {
+      "get": {
+        "operationId": "get_api_billing_invoices_id_pdf",
+        "summary": "Downloads one invoice's rendered PDF.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The invoice id, from `billingInvoice.id` in `GET /api/billing`'s `invoices`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org."
+      }
+    },
+    "/api/billing/invoices/{id}/pay": {
+      "post": {
+        "operationId": "post_api_billing_invoices_id_pay",
+        "summary": "Pays one open invoice, through a new Mollie payment.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The invoice id, from `billingInvoice.id`, of the open invoice to pay.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/checkout-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `not_found`, `target_state_conflict`, `rate_limited`, `billing_unavailable`, `payment_provider_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open invoice of a locked org unlocks it and keeps the plan running to the period's end, the same as a renewal that succeeds on a retry. `404 not_found` for an unknown id or one from another org."
       }
     }
   },
@@ -11815,6 +12328,1534 @@
         ],
         "additionalProperties": false
       },
+      "billing-cancel-request": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "description": "An optional free-text reason. Shown to nobody but Fleetless.",
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "billing-change-request": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "description": "The target plan. Omitted leaves the plan as it is.",
+            "type": "string",
+            "enum": [
+              "plus",
+              "pro"
+            ]
+          },
+          "cycle": {
+            "description": "The target cycle. Omitted leaves the cycle as it is.",
+            "type": "string",
+            "enum": [
+              "monthly",
+              "yearly"
+            ]
+          },
+          "addons": {
+            "description": "Absolute add-on counts to end up with, not a delta. Omitted leaves add-ons as they are.",
+            "type": "object",
+            "properties": {
+              "seats": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra developer seats, one each."
+              },
+              "robots": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra robots, one each."
+              },
+              "apps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra apps, one each."
+              },
+              "app_user_packs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Packs of five extra app users."
+              },
+              "live_video_packs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Packs of 250 extra hours of app-user live video per month."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "billing-change-response": {
+        "type": "object",
+        "properties": {
+          "billing": {
+            "type": "object",
+            "properties": {
+              "available": {
+                "type": "boolean",
+                "description": "Whether this cloud takes payments at all — `false` when no Mollie key is configured."
+              },
+              "account": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "payer": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "company",
+                                "description": "Billed as a company."
+                              },
+                              "company_name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "description": "The company's legal name, printed on the invoice."
+                              },
+                              "vat_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 20
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "line1": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200,
+                                    "description": "Street and number, or the first address line."
+                                  },
+                                  "line2": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "A second address line, or `null` when there is none."
+                                  },
+                                  "postal_code": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 20,
+                                    "description": "Postal or ZIP code."
+                                  },
+                                  "city": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100,
+                                    "description": "City or town."
+                                  },
+                                  "country": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{2}$",
+                                    "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                                  }
+                                },
+                                "required": [
+                                  "line1",
+                                  "line2",
+                                  "postal_code",
+                                  "city",
+                                  "country"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The billing address."
+                              },
+                              "invoice_email": {
+                                "type": "string",
+                                "format": "email",
+                                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                                "description": "Where invoices and billing mail are sent."
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "company_name",
+                              "vat_id",
+                              "address",
+                              "invoice_email"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A company: name and an optional VAT ID, never 'full name'."
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "const": "person",
+                                "description": "Billed as a person."
+                              },
+                              "full_name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "description": "The person's full name, printed on the invoice."
+                              },
+                              "address": {
+                                "type": "object",
+                                "properties": {
+                                  "line1": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200,
+                                    "description": "Street and number, or the first address line."
+                                  },
+                                  "line2": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "A second address line, or `null` when there is none."
+                                  },
+                                  "postal_code": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 20,
+                                    "description": "Postal or ZIP code."
+                                  },
+                                  "city": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 100,
+                                    "description": "City or town."
+                                  },
+                                  "country": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{2}$",
+                                    "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                                  }
+                                },
+                                "required": [
+                                  "line1",
+                                  "line2",
+                                  "postal_code",
+                                  "city",
+                                  "country"
+                                ],
+                                "additionalProperties": false,
+                                "description": "The billing address."
+                              },
+                              "invoice_email": {
+                                "type": "string",
+                                "format": "email",
+                                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                                "description": "Where invoices and billing mail are sent."
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "full_name",
+                              "address",
+                              "invoice_email"
+                            ],
+                            "additionalProperties": false,
+                            "description": "A person: a full name, never a VAT ID — only a company can be VAT-registered."
+                          }
+                        ],
+                        "description": "Who is paying, and the invoice address and email."
+                      },
+                      "vat_id_status": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "valid",
+                              "unverified",
+                              "invalid"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The payer's VAT ID check, or `null` when no VAT ID was given."
+                      },
+                      "vat": {
+                        "type": "object",
+                        "properties": {
+                          "treatment": {
+                            "type": "string",
+                            "enum": [
+                              "de_standard",
+                              "reverse_charge",
+                              "outside_eu"
+                            ],
+                            "description": "How the account is taxed."
+                          },
+                          "rate_percent": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "The VAT rate, in whole percent."
+                          }
+                        },
+                        "required": [
+                          "treatment",
+                          "rate_percent"
+                        ],
+                        "additionalProperties": false,
+                        "description": "The VAT treatment and rate this account charges at (`vatFor`)."
+                      },
+                      "currency": {
+                        "type": "string",
+                        "enum": [
+                          "eur",
+                          "usd"
+                        ],
+                        "description": "The org's billing currency, fixed at the first payment."
+                      },
+                      "cycle": {
+                        "type": "string",
+                        "enum": [
+                          "monthly",
+                          "yearly"
+                        ],
+                        "description": "The current billing cycle."
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "active",
+                          "past_due",
+                          "canceled"
+                        ],
+                        "description": "The account's own status."
+                      },
+                      "period_starts_at": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The current period's start. `null` before the first payment."
+                      },
+                      "period_ends_at": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The current period's end. `null` before the first payment."
+                      },
+                      "next_charge": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                                "description": "When the next charge is due."
+                              },
+                              "net_cents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "The next charge, excluding VAT, in integer cents."
+                              },
+                              "vat_cents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "VAT on the next charge, in integer cents."
+                              },
+                              "gross_cents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "The next charge including VAT, in integer cents."
+                              }
+                            },
+                            "required": [
+                              "at",
+                              "net_cents",
+                              "vat_cents",
+                              "gross_cents"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "`null` while a cancel is pending or nothing else renews."
+                      },
+                      "scheduled": {
+                        "type": "object",
+                        "properties": {
+                          "cycle": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "monthly",
+                                  "yearly"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "A cycle change queued for the period's end, or `null`."
+                          },
+                          "addons": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "seats": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "Extra developer seats, one each."
+                                  },
+                                  "robots": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "Extra robots, one each."
+                                  },
+                                  "apps": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "Extra apps, one each."
+                                  },
+                                  "app_user_packs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "Packs of five extra app users."
+                                  },
+                                  "live_video_packs": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991,
+                                    "description": "Packs of 250 extra hours of app-user live video per month."
+                                  }
+                                },
+                                "required": [
+                                  "seats",
+                                  "robots",
+                                  "apps",
+                                  "app_user_packs",
+                                  "live_video_packs"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Add-on counts queued for the period's end, or `null`."
+                          }
+                        },
+                        "required": [
+                          "cycle",
+                          "addons"
+                        ],
+                        "additionalProperties": false,
+                        "description": "What takes effect at the period's end."
+                      },
+                      "dunning": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "invoice_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "description": "The open invoice dunning is chasing."
+                              },
+                              "gross_cents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "The amount owed, in integer cents."
+                              },
+                              "due_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                                "description": "The charge's due date; retries and the lock count from here."
+                              },
+                              "next_retry_at": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The next retry, or `null` once retries are exhausted."
+                              },
+                              "lock_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                                "description": "When the org is locked if still unpaid (`BILLING_LOCK_DAY`)."
+                              },
+                              "failure": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                              }
+                            },
+                            "required": [
+                              "invoice_id",
+                              "gross_cents",
+                              "due_at",
+                              "next_retry_at",
+                              "lock_at",
+                              "failure"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "`null` while nothing is overdue."
+                      }
+                    },
+                    "required": [
+                      "payer",
+                      "vat_id_status",
+                      "vat",
+                      "currency",
+                      "cycle",
+                      "status",
+                      "period_starts_at",
+                      "period_ends_at",
+                      "next_charge",
+                      "scheduled",
+                      "dunning"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "`null` before the org has ever checked out."
+              },
+              "payment_method": {
+                "anyOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "card",
+                            "description": "A card mandate."
+                          },
+                          "brand": {
+                            "type": "string",
+                            "description": "The card network, as Mollie's mandate reports it, e.g. 'Visa'."
+                          },
+                          "last4": {
+                            "type": "string",
+                            "pattern": "^\\d{4}$",
+                            "description": "The last four digits of the card."
+                          },
+                          "expires": {
+                            "type": "string",
+                            "pattern": "^\\d{2}\\/\\d{2}$",
+                            "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "brand",
+                          "last4",
+                          "expires"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "sepa",
+                            "description": "A SEPA direct-debit mandate."
+                          },
+                          "holder": {
+                            "type": "string",
+                            "description": "The account holder's name on the mandate."
+                          },
+                          "iban_last4": {
+                            "type": "string",
+                            "pattern": "^[0-9A-Z]{4}$",
+                            "description": "The last four characters of the IBAN."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "holder",
+                          "iban_last4"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "paypal",
+                            "description": "A PayPal mandate."
+                          },
+                          "account": {
+                            "type": "string",
+                            "description": "The PayPal account Mollie's mandate names."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "account"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The payment method on file, or `null`."
+              },
+              "invoices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "description": "The invoice's id."
+                    },
+                    "number": {
+                      "type": "string",
+                      "pattern": "^FL-\\d{4}-\\d{4,}$",
+                      "description": "The invoice number: `FL-<year>-<seq>`, `seq` zero-padded to four digits, gapless per calendar year in `Europe/Berlin`."
+                    },
+                    "issued_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "When the invoice was issued."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "open",
+                        "paid",
+                        "uncollectible"
+                      ],
+                      "description": "This invoice's own status."
+                    },
+                    "currency": {
+                      "type": "string",
+                      "enum": [
+                        "eur",
+                        "usd"
+                      ],
+                      "description": "The org's billing currency."
+                    },
+                    "net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "The charge, excluding VAT, in integer cents."
+                    },
+                    "vat_rate_percent": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100,
+                      "description": "The VAT rate applied, in whole percent."
+                    },
+                    "vat_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "VAT, in integer cents (`vatCents`)."
+                    },
+                    "gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991,
+                      "description": "Net plus VAT, in integer cents."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "number",
+                    "issued_at",
+                    "status",
+                    "currency",
+                    "net_cents",
+                    "vat_rate_percent",
+                    "vat_cents",
+                    "gross_cents"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Newest first, at most 24."
+              }
+            },
+            "required": [
+              "available",
+              "account",
+              "payment_method",
+              "invoices"
+            ],
+            "additionalProperties": false,
+            "description": "The billing view after the change."
+          },
+          "charged": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The invoice's id."
+                  },
+                  "number": {
+                    "type": "string",
+                    "pattern": "^FL-\\d{4}-\\d{4,}$",
+                    "description": "The invoice number: `FL-<year>-<seq>`, `seq` zero-padded to four digits, gapless per calendar year in `Europe/Berlin`."
+                  },
+                  "issued_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                    "description": "When the invoice was issued."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "paid",
+                      "uncollectible"
+                    ],
+                    "description": "This invoice's own status."
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "eur",
+                      "usd"
+                    ],
+                    "description": "The org's billing currency."
+                  },
+                  "net_cents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "The charge, excluding VAT, in integer cents."
+                  },
+                  "vat_rate_percent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "The VAT rate applied, in whole percent."
+                  },
+                  "vat_cents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "VAT, in integer cents (`vatCents`)."
+                  },
+                  "gross_cents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Net plus VAT, in integer cents."
+                  }
+                },
+                "required": [
+                  "id",
+                  "number",
+                  "issued_at",
+                  "status",
+                  "currency",
+                  "net_cents",
+                  "vat_rate_percent",
+                  "vat_cents",
+                  "gross_cents"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The invoice charged now, or `null` when the change was only scheduled for the period's end."
+          }
+        },
+        "required": [
+          "billing",
+          "charged"
+        ],
+        "additionalProperties": false
+      },
+      "billing-details-update": {
+        "type": "object",
+        "properties": {
+          "invoice_email": {
+            "description": "Replaces the invoice email. Omitted leaves it as it is.",
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "vat_id": {
+            "description": "Replaces the VAT ID; `null` clears it. Omitted leaves it as it is. A new ID is re-checked through VIES.",
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "billing-view": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Whether this cloud takes payments at all — `false` when no Mollie key is configured."
+          },
+          "account": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "payer": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "company",
+                            "description": "Billed as a company."
+                          },
+                          "company_name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "The company's legal name, printed on the invoice."
+                          },
+                          "vat_id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 20
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "description": "Street and number, or the first address line."
+                              },
+                              "line2": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "A second address line, or `null` when there is none."
+                              },
+                              "postal_code": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 20,
+                                "description": "Postal or ZIP code."
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100,
+                                "description": "City or town."
+                              },
+                              "country": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$",
+                                "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "postal_code",
+                              "city",
+                              "country"
+                            ],
+                            "additionalProperties": false,
+                            "description": "The billing address."
+                          },
+                          "invoice_email": {
+                            "type": "string",
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                            "description": "Where invoices and billing mail are sent."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "company_name",
+                          "vat_id",
+                          "address",
+                          "invoice_email"
+                        ],
+                        "additionalProperties": false,
+                        "description": "A company: name and an optional VAT ID, never 'full name'."
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "person",
+                            "description": "Billed as a person."
+                          },
+                          "full_name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "The person's full name, printed on the invoice."
+                          },
+                          "address": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "description": "Street and number, or the first address line."
+                              },
+                              "line2": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "A second address line, or `null` when there is none."
+                              },
+                              "postal_code": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 20,
+                                "description": "Postal or ZIP code."
+                              },
+                              "city": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 100,
+                                "description": "City or town."
+                              },
+                              "country": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{2}$",
+                                "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "postal_code",
+                              "city",
+                              "country"
+                            ],
+                            "additionalProperties": false,
+                            "description": "The billing address."
+                          },
+                          "invoice_email": {
+                            "type": "string",
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                            "description": "Where invoices and billing mail are sent."
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "full_name",
+                          "address",
+                          "invoice_email"
+                        ],
+                        "additionalProperties": false,
+                        "description": "A person: a full name, never a VAT ID — only a company can be VAT-registered."
+                      }
+                    ],
+                    "description": "Who is paying, and the invoice address and email."
+                  },
+                  "vat_id_status": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "valid",
+                          "unverified",
+                          "invalid"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The payer's VAT ID check, or `null` when no VAT ID was given."
+                  },
+                  "vat": {
+                    "type": "object",
+                    "properties": {
+                      "treatment": {
+                        "type": "string",
+                        "enum": [
+                          "de_standard",
+                          "reverse_charge",
+                          "outside_eu"
+                        ],
+                        "description": "How the account is taxed."
+                      },
+                      "rate_percent": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "The VAT rate, in whole percent."
+                      }
+                    },
+                    "required": [
+                      "treatment",
+                      "rate_percent"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The VAT treatment and rate this account charges at (`vatFor`)."
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "eur",
+                      "usd"
+                    ],
+                    "description": "The org's billing currency, fixed at the first payment."
+                  },
+                  "cycle": {
+                    "type": "string",
+                    "enum": [
+                      "monthly",
+                      "yearly"
+                    ],
+                    "description": "The current billing cycle."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "active",
+                      "past_due",
+                      "canceled"
+                    ],
+                    "description": "The account's own status."
+                  },
+                  "period_starts_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The current period's start. `null` before the first payment."
+                  },
+                  "period_ends_at": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The current period's end. `null` before the first payment."
+                  },
+                  "next_charge": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "When the next charge is due."
+                          },
+                          "net_cents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "The next charge, excluding VAT, in integer cents."
+                          },
+                          "vat_cents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "VAT on the next charge, in integer cents."
+                          },
+                          "gross_cents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "The next charge including VAT, in integer cents."
+                          }
+                        },
+                        "required": [
+                          "at",
+                          "net_cents",
+                          "vat_cents",
+                          "gross_cents"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "`null` while a cancel is pending or nothing else renews."
+                  },
+                  "scheduled": {
+                    "type": "object",
+                    "properties": {
+                      "cycle": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "monthly",
+                              "yearly"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "A cycle change queued for the period's end, or `null`."
+                      },
+                      "addons": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "seats": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Extra developer seats, one each."
+                              },
+                              "robots": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Extra robots, one each."
+                              },
+                              "apps": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Extra apps, one each."
+                              },
+                              "app_user_packs": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Packs of five extra app users."
+                              },
+                              "live_video_packs": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991,
+                                "description": "Packs of 250 extra hours of app-user live video per month."
+                              }
+                            },
+                            "required": [
+                              "seats",
+                              "robots",
+                              "apps",
+                              "app_user_packs",
+                              "live_video_packs"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Add-on counts queued for the period's end, or `null`."
+                      }
+                    },
+                    "required": [
+                      "cycle",
+                      "addons"
+                    ],
+                    "additionalProperties": false,
+                    "description": "What takes effect at the period's end."
+                  },
+                  "dunning": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "invoice_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "description": "The open invoice dunning is chasing."
+                          },
+                          "gross_cents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "The amount owed, in integer cents."
+                          },
+                          "due_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "The charge's due date; retries and the lock count from here."
+                          },
+                          "next_retry_at": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "The next retry, or `null` once retries are exhausted."
+                          },
+                          "lock_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "When the org is locked if still unpaid (`BILLING_LOCK_DAY`)."
+                          },
+                          "failure": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                          }
+                        },
+                        "required": [
+                          "invoice_id",
+                          "gross_cents",
+                          "due_at",
+                          "next_retry_at",
+                          "lock_at",
+                          "failure"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "`null` while nothing is overdue."
+                  }
+                },
+                "required": [
+                  "payer",
+                  "vat_id_status",
+                  "vat",
+                  "currency",
+                  "cycle",
+                  "status",
+                  "period_starts_at",
+                  "period_ends_at",
+                  "next_charge",
+                  "scheduled",
+                  "dunning"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` before the org has ever checked out."
+          },
+          "payment_method": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "card",
+                        "description": "A card mandate."
+                      },
+                      "brand": {
+                        "type": "string",
+                        "description": "The card network, as Mollie's mandate reports it, e.g. 'Visa'."
+                      },
+                      "last4": {
+                        "type": "string",
+                        "pattern": "^\\d{4}$",
+                        "description": "The last four digits of the card."
+                      },
+                      "expires": {
+                        "type": "string",
+                        "pattern": "^\\d{2}\\/\\d{2}$",
+                        "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "brand",
+                      "last4",
+                      "expires"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "sepa",
+                        "description": "A SEPA direct-debit mandate."
+                      },
+                      "holder": {
+                        "type": "string",
+                        "description": "The account holder's name on the mandate."
+                      },
+                      "iban_last4": {
+                        "type": "string",
+                        "pattern": "^[0-9A-Z]{4}$",
+                        "description": "The last four characters of the IBAN."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "holder",
+                      "iban_last4"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "const": "paypal",
+                        "description": "A PayPal mandate."
+                      },
+                      "account": {
+                        "type": "string",
+                        "description": "The PayPal account Mollie's mandate names."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "account"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The payment method on file, or `null`."
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The invoice's id."
+                },
+                "number": {
+                  "type": "string",
+                  "pattern": "^FL-\\d{4}-\\d{4,}$",
+                  "description": "The invoice number: `FL-<year>-<seq>`, `seq` zero-padded to four digits, gapless per calendar year in `Europe/Berlin`."
+                },
+                "issued_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the invoice was issued."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "paid",
+                    "uncollectible"
+                  ],
+                  "description": "This invoice's own status."
+                },
+                "currency": {
+                  "type": "string",
+                  "enum": [
+                    "eur",
+                    "usd"
+                  ],
+                  "description": "The org's billing currency."
+                },
+                "net_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "The charge, excluding VAT, in integer cents."
+                },
+                "vat_rate_percent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "The VAT rate applied, in whole percent."
+                },
+                "vat_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "VAT, in integer cents (`vatCents`)."
+                },
+                "gross_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Net plus VAT, in integer cents."
+                }
+              },
+              "required": [
+                "id",
+                "number",
+                "issued_at",
+                "status",
+                "currency",
+                "net_cents",
+                "vat_rate_percent",
+                "vat_cents",
+                "gross_cents"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Newest first, at most 24."
+          }
+        },
+        "required": [
+          "available",
+          "account",
+          "payment_method",
+          "invoices"
+        ],
+        "additionalProperties": false
+      },
       "camera-list-response": {
         "type": "object",
         "properties": {
@@ -11889,6 +13930,326 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "checkout-request": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "plus",
+              "pro"
+            ],
+            "description": "The plan to buy."
+          },
+          "cycle": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "yearly"
+            ],
+            "description": "Monthly, or yearly at 15 % off."
+          },
+          "addons": {
+            "description": "Add-on counts to buy alongside the plan. Pro only; named on `plus`, or without the feature, `400 validation_error`.",
+            "type": "object",
+            "properties": {
+              "seats": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra developer seats, one each."
+              },
+              "robots": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra robots, one each."
+              },
+              "apps": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Extra apps, one each."
+              },
+              "app_user_packs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Packs of five extra app users."
+              },
+              "live_video_packs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Packs of 250 extra hours of app-user live video per month."
+              }
+            },
+            "additionalProperties": false
+          },
+          "billing": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "company",
+                    "description": "Billed as a company."
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The company's legal name, printed on the invoice."
+                  },
+                  "vat_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "line1": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "Street and number, or the first address line."
+                      },
+                      "line2": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "A second address line, or `null` when there is none."
+                      },
+                      "postal_code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20,
+                        "description": "Postal or ZIP code."
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "description": "City or town."
+                      },
+                      "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                      }
+                    },
+                    "required": [
+                      "line1",
+                      "line2",
+                      "postal_code",
+                      "city",
+                      "country"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The billing address."
+                  },
+                  "invoice_email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "description": "Where invoices and billing mail are sent."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "company_name",
+                  "vat_id",
+                  "address",
+                  "invoice_email"
+                ],
+                "additionalProperties": false,
+                "description": "A company: name and an optional VAT ID, never 'full name'."
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "person",
+                    "description": "Billed as a person."
+                  },
+                  "full_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The person's full name, printed on the invoice."
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "line1": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "description": "Street and number, or the first address line."
+                      },
+                      "line2": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "A second address line, or `null` when there is none."
+                      },
+                      "postal_code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20,
+                        "description": "Postal or ZIP code."
+                      },
+                      "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "description": "City or town."
+                      },
+                      "country": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{2}$",
+                        "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                      }
+                    },
+                    "required": [
+                      "line1",
+                      "line2",
+                      "postal_code",
+                      "city",
+                      "country"
+                    ],
+                    "additionalProperties": false,
+                    "description": "The billing address."
+                  },
+                  "invoice_email": {
+                    "type": "string",
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "description": "Where invoices and billing mail are sent."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "full_name",
+                  "address",
+                  "invoice_email"
+                ],
+                "additionalProperties": false,
+                "description": "A person: a full name, never a VAT ID — only a company can be VAT-registered."
+              }
+            ],
+            "description": "Who is paying, and where the invoice goes."
+          },
+          "accept_terms": {
+            "type": "boolean",
+            "const": true,
+            "description": "Confirms Fleetless's terms of service. Always required."
+          },
+          "accept_withdrawal": {
+            "description": "Confirms the plan starts at once and the 14-day right of withdrawal ends with it. Required for a person; a company sending it is `400 validation_error` — it has no withdrawal right to confirm.",
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "plan",
+          "cycle",
+          "billing",
+          "accept_terms"
+        ],
+        "additionalProperties": false
+      },
+      "checkout-response": {
+        "type": "object",
+        "properties": {
+          "checkout_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "Identifies this checkout: polled by `GET /api/billing/checkout/:id` and carried on the return URL."
+          },
+          "checkout_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Mollie's hosted checkout page. The caller's browser is sent here."
+          }
+        },
+        "required": [
+          "checkout_id",
+          "checkout_url"
+        ],
+        "additionalProperties": false
+      },
+      "checkout-status": {
+        "type": "object",
+        "properties": {
+          "checkout_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The checkout this status is for."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "paid",
+              "failed",
+              "canceled",
+              "expired"
+            ],
+            "description": "Mollie's payment status, as `reconcilePayment` last read it."
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "upgrade",
+              "payment_method",
+              "invoice"
+            ],
+            "description": "What this checkout paid for: a plan upgrade, a payment-method change, or an open invoice."
+          },
+          "plan": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "plus",
+              "pro",
+              "enterprise"
+            ],
+            "description": "The org's plan after applying — unchanged unless `purpose` is `upgrade` and `status` is `paid`."
+          }
+        },
+        "required": [
+          "checkout_id",
+          "status",
+          "purpose",
+          "plan"
+        ],
         "additionalProperties": false
       },
       "client-accept-invitation-request": {
@@ -18873,6 +21234,24 @@
         ],
         "additionalProperties": false
       },
+      "payment-method-change-request": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "card",
+              "paypal",
+              "sepa"
+            ],
+            "description": "The new mandate's method. `sepa` needs an open invoice to charge a real amount against; without one it is `400 validation_error`."
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "additionalProperties": false
+      },
       "pending-team-invite-list-response": {
         "type": "object",
         "properties": {
@@ -20876,6 +23255,62 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "vat-id-check-request": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "description": "The VAT ID's country."
+          },
+          "vat_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "description": "The VAT ID as typed; normalized before the VIES lookup (`normalizeVatId`)."
+          }
+        },
+        "required": [
+          "country",
+          "vat_id"
+        ],
+        "additionalProperties": false
+      },
+      "vat-id-check-response": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "unverified",
+              "invalid"
+            ],
+            "description": "VIES's answer."
+          },
+          "vat_id": {
+            "type": "string",
+            "description": "The normalized VAT ID that was checked."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The registered holder, when VIES named one; `null` otherwise."
+          }
+        },
+        "required": [
+          "status",
+          "vat_id",
+          "name"
+        ],
         "additionalProperties": false
       },
       "waitlist-request": {

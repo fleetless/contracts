@@ -143,6 +143,19 @@ import {
 } from './oauth.js'
 import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
 import {
+  billingCancelRequest,
+  billingChangeRequest,
+  billingChangeResponse,
+  billingDetailsUpdate,
+  billingView,
+  checkoutRequest,
+  checkoutResponse,
+  checkoutStatus,
+  paymentMethodChangeRequest,
+  vatIdCheckRequest,
+  vatIdCheckResponse,
+} from './billing.js'
+import {
   cameraListResponse,
   cancelRequest,
   configDraftResponse,
@@ -201,7 +214,7 @@ export type RouteAudience = 'developer' | 'client' | 'internal'
 export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_upload' | 'in_handler' | 'ops'
 export type RouteTransport = 'http' | 'websocket'
 export type RouteSection =
-  | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'users' | 'apps'
+  | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'billing' | 'users' | 'apps'
   | 'robots' | 'config' | 'alerts' | 'commands' | 'cameras' | 'assets'
   | 'mcp' | 'transports'
 
@@ -265,6 +278,7 @@ export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly titl
   { id: 'developer-auth', title: 'Developer auth' },
   { id: 'client-auth', title: 'App-user (client) auth' },
   { id: 'org', title: 'Org' },
+  { id: 'billing', title: 'Billing' },
   { id: 'users', title: 'Team' },
   { id: 'apps', title: 'Apps' },
   { id: 'robots', title: 'Robots' },
@@ -344,6 +358,17 @@ export const IN_HANDLER_ROUTES: readonly string[] = [
  * than an undocumented one: a consumer branches on it and the branch is dead.
  */
 const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked'] as const satisfies readonly ErrorCode[]
+
+/**
+ * The billing section's shorthand for the two refusals that come from
+ * billing's own infrastructure rather than from what the caller sent
+ * (2026-10-04, fleetless/fleetless#104): `BILLING_OFF` is no payment
+ * provider configured at all, `MOLLIE` is Mollie itself not
+ * answering. Every mutating billing route that talks to Mollie
+ * lists both; a route that only reads or edits local state lists neither.
+ */
+const BILLING_OFF = ['billing_unavailable'] as const satisfies readonly ErrorCode[]
+const MOLLIE = ['payment_provider_unavailable'] as const satisfies readonly ErrorCode[]
 
 /**
  * The same, for `auth: 'developer_or_client'` — one guard resolving a developer
@@ -3316,8 +3341,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
     notes:
       'Owner tier, and **downward only**: this route moves the org to a lower plan or cancels it outright to Basic. It never moves the org ' +
-      'up — until payment exists, an upgrade or an add-on is not this route\'s job at all, and is handled today as a Feedback request that ' +
-      'Fleetless then applies through the admin route. `409 target_state_conflict` names `target_plan` with rule `not_lower` when the ' +
+      'up — an upgrade or an add-on goes through the billing routes instead (`POST /api/billing/checkout`, `POST /api/billing/change`). ' +
+      '`409 target_state_conflict` names `target_plan` with rule `not_lower` when the ' +
       'chosen plan is not below the org\'s current one; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen ' +
       'plan is anything but Basic; and with rule `migration_basic_only` when the org is still on the beta, awaiting the switch to priced ' +
       'plans, and the chosen plan is anything but Basic — that choice is exactly what the org lands on at the switch. An owner is never ' +
@@ -3347,7 +3372,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'internal', auth: 'ops', rateLimited: true, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The org\'s uuid, whose plan, add-ons or overrides the operator is changing.' }],
     query: null, request: adminPlanChangeRequest, response: orgPlan,
-    errors: ['unauthorized', 'not_found', 'validation_error', 'plan_limit', 'rate_limited'], transport: 'http',
+    errors: ['unauthorized', 'not_found', 'validation_error', 'plan_limit', 'rate_limited', 'target_state_conflict'], transport: 'http',
     notes:
       'Every public host answers `404 not_found` for every `/api/admin/*` path — this route is reachable only on the cloud\'s private ' +
       'address — and that same address answers `404` here too while `OPS_API_TOKEN` is not configured, so a door with no key behind it ' +
@@ -3355,7 +3380,184 @@ export const ROUTES: readonly RouteEntry[] = [
       'and only when the org\'s current usage fits the result: `409 plan_limit` when a lower plan, a lowered override or a removed add-on ' +
       'would leave the org over a limit — the operator never deletes an org\'s things, only the owner\'s own choice does. On success it ' +
       'also withdraws any `pending_change`, ends a beta org\'s wait for the switch and lifts a lock. Audited as `org.plan_changed` with ' +
-      'the `fleetless` actor, never a developer\'s — the row names what an operator did, not who in the org asked for it.',
+      'the `fleetless` actor, never a developer\'s — the row names what an operator did, not who in the org asked for it. ' +
+      '`409 target_state_conflict` names `currency` or `period_ends_at` with rule `billed` when the org has a billing account ' +
+      'in `active` or `past_due` and the request names either field: both are fixed at the first payment and billing, not the operator, ' +
+      'owns them from then on. The plan itself keeps working on a billed org — a plan, an add-on or an override the operator sets here is ' +
+      'charged from the next renewal, except `enterprise` and `basic`, which the sweep cancels the billing account for instead.',
+  },
+
+  /* --- billing (2026-10-04, fleetless/fleetless#104) ----------------------
+   *
+   * Every route here but the webhook is owner-only (`ownerTier: true`), a
+   * developer answers `403 tier_required` and `GET /api/billing`
+   * is no exception — a developer reads #103's plan cards from
+   * `GET /api/org/plan` instead, without the payer, payment method or
+   * invoices (Offene Punkte 5). `billing_unavailable` and
+   * `payment_provider_unavailable` are declared in full on the two routes
+   * above as `BILLING_OFF` and `MOLLIE`.
+   */
+  {
+    method: 'GET', path: '/api/billing', section: 'billing',
+    summary: "Reads the org's billing account, payment method and invoices.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: null, response: billingView,
+    errors: [...DEVELOPER_GUARD, 'tier_required'], transport: 'http',
+    notes:
+      '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every mutating route on ' +
+      'this page answers `503 billing_unavailable` instead of acting. `account` is `null` before the org has ever checked out; the plan ' +
+      'and its limits still come from `GET /api/org/plan` (#103) and are not repeated here.',
+  },
+  {
+    method: 'POST', path: '/api/billing/checkout', section: 'billing',
+    summary: 'Starts a Mollie checkout for a plan, or an upgrade paid at once.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
+    params: [], query: null, request: checkoutRequest, response: checkoutResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    transport: 'http',
+    notes:
+      'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/payment-method` and `POST /api/billing/invoices/:id/pay` ' +
+      '— the three routes that mint a Mollie checkout. `400 validation_error` names who may not pay with these rules: ' +
+      '`{ field: \'billing.address.country\', rule: \'eu_person\' }` for a person in another EU country, ' +
+      '`{ field: \'billing.vat_id\', rule: \'vat_id_required\' }` for a company there with no VAT ID, ' +
+      '`{ field: \'billing.vat_id\', rule: \'vat_id_invalid\' }` once VIES has said so, and ' +
+      '`{ field: \'accept_withdrawal\', rule: \'required\' }` for a person who did not confirm it. `409 target_state_conflict` names ' +
+      '`plan` with rule `already_billed` when the org already has an `active` or `past_due` billing account — checkout is for the first ' +
+      'payment only, every later change is `POST /api/billing/change`. `checkout_url` is Mollie\'s hosted page; the return lands on ' +
+      '`<console>/settings/billing?checkout=<checkout_id>`, which polls `GET /api/billing/checkout/:id` until the webhook — or the poll ' +
+      'itself — has reconciled the payment. `409 plan_limit` is the org\'s own usage against the plan being bought.',
+  },
+  {
+    method: 'GET', path: '/api/billing/checkout/:id', section: 'billing',
+    summary: "Reads a checkout's status, for the return page's poll.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The checkout id from `checkoutResponse.checkout_id`, carried on the return URL.' }],
+    query: null, request: null, response: checkoutStatus,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
+    notes:
+      'Calls the same `reconcilePayment(deps, molliePaymentId)` the webhook calls, so a return page that lands before the ' +
+      'webhook does still sees the payment applied — this route, not the webhook, is what the dev stack and the test-mode suite rely on, ' +
+      'since Mollie refuses an unreachable webhook URL. `plan` is the org\'s plan after applying, unchanged unless `purpose` ' +
+      'is `upgrade` and `status` is `paid`.',
+  },
+  {
+    method: 'POST', path: '/api/billing/vat-id/check', section: 'billing',
+    summary: 'Checks a VAT ID against VIES, for the checkout form and the details page.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 200,
+    params: [], query: null, request: vatIdCheckRequest, response: vatIdCheckResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'rate_limited'], transport: 'http',
+    notes:
+      'Rate limited on its own `billing.vat_check` bucket, sized for a form checked on blur rather than for a checkout. Never refuses for ' +
+      'an `unverified` VIES answer — the checkout itself accepts `unverified` and the hourly sweep re-checks it — this route ' +
+      'only reports what VIES currently says, in a different place for the same ID, entered either at checkout or on `PATCH ' +
+      '/api/billing/details`.',
+  },
+  {
+    method: 'PATCH', path: '/api/billing/details', section: 'billing',
+    summary: "Edits the billing account's invoice email or VAT ID.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: billingDetailsUpdate, response: billingView,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      '`404 not_found` when the org has no billing account yet — there is nothing here to edit before the first checkout. A new `vat_id` ' +
+      'is re-checked through VIES the same way `POST /api/billing/vat-id/check` does; a valid ID entered here lifts the block a definitive ' +
+      '`invalid` answer placed on the next renewal.',
+  },
+  {
+    method: 'POST', path: '/api/billing/change', section: 'billing',
+    summary: "Moves the org's plan, cycle or add-ons, charging increases at once.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: billingChangeRequest, response: billingChangeResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', ...BILLING_OFF, ...MOLLIE],
+    transport: 'http',
+    notes:
+      'The body names the **absolute** target — plan, cycle and add-ons — never a delta: the route compares it with the ' +
+      'org\'s current state and splits the difference. The increasing part is charged now, through the same proration `changeNetCents` ' +
+      'computes, and takes effect the moment Mollie accepts the `recurring` payment with anything but `failed`, `canceled` or `expired` ' +
+      '— cards answer within seconds, SEPA stays `pending` for days; if Mollie refuses or does not answer, nothing is applied ' +
+      'and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — ' +
+      'is stored as a pending change and applied at the period\'s end, same as `PUT /api/org/plan/change`; a lower plan over the target\'s ' +
+      'limits answers `409 plan_limit` and the console opens #103\'s choose-what-stays page. Any increase first withdraws a pending ' +
+      'downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no ' +
+      'checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the ' +
+      'payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part ' +
+      'charged now, or `null` when the whole request was a decrease.',
+  },
+  {
+    method: 'POST', path: '/api/billing/payment-method', section: 'billing',
+    summary: 'Starts a Mollie checkout for a new payment method.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
+    params: [], query: null, request: paymentMethodChangeRequest, response: checkoutResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    transport: 'http',
+    notes:
+      'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a `first` payment on the existing ' +
+      'Mollie customer: with an open invoice, the new payment **is** that invoice\'s amount, for any method the currency ' +
+      'allows, and pays it; without one, `card` and `paypal` use a zero amount and `sepa` is refused — Mollie allows a zero-amount first ' +
+      'payment for card and PayPal only — `400 validation_error` with `{ field: \'method\', rule: \'sepa_needs_open_invoice\' }`. SEPA is ' +
+      'also refused outside the org\'s EUR currency, `{ field: \'method\', rule: \'sepa_eur_only\' }`. `404 not_found` when the org has no ' +
+      'billing account yet. When the new mandate turns `valid`, every other mandate of the customer is revoked.',
+  },
+  {
+    method: 'POST', path: '/api/billing/cancel', section: 'billing',
+    summary: "Schedules the org's plan to cancel to Basic at the period's end.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: billingCancelRequest, requestOptional: true, response: billingView,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'plan_limit'], transport: 'http',
+    notes:
+      'A body is optional — `reason` alone, and nobody but Fleetless reads it. `404 not_found` when the org has no billing account to ' +
+      'cancel. Takes effect at the period\'s end, nothing credited or refunded; over Basic\'s limits this is refused `409 ' +
+      'plan_limit` and the console sends the owner to #103\'s choose-what-stays page instead, the same as a plan downgrade. "Cancel at ' +
+      'period end" is not a flag here — it reads as `pending_change.target_plan === \'basic\'` on `GET /api/org/plan`.',
+  },
+  {
+    method: 'POST', path: '/api/billing/resume', section: 'billing',
+    summary: 'Withdraws a scheduled cancel, keeping the current plan.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: null, response: billingView,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
+    notes: '`404 not_found` when nothing is pending — there is no scheduled cancel to withdraw. The org stays on its current plan, unchanged.',
+  },
+  {
+    method: 'GET', path: '/api/billing/invoices/:id/pdf', section: 'billing',
+    summary: "Downloads one invoice's rendered PDF.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id` in `GET /api/billing`\'s `invoices`.' }],
+    query: null, request: null, response: null, contentType: 'application/pdf',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
+    notes:
+      'Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always ' +
+      'answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org.',
+  },
+  {
+    method: 'POST', path: '/api/billing/invoices/:id/pay', section: 'billing',
+    summary: 'Pays one open invoice, through a new Mollie payment.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
+    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id`, of the open invoice to pay.' }],
+    query: null, request: null, response: checkoutResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    transport: 'http',
+    notes:
+      'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` ' +
+      'with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open ' +
+      'invoice of a locked org unlocks it and keeps the plan running to the period\'s end, the same as a renewal that ' +
+      'succeeds on a retry. `404 not_found` for an unknown id or one from another org.',
+  },
+  {
+    method: 'POST', path: '/api/billing/mollie/webhook', section: 'billing',
+    summary: "Takes Mollie's payment-changed notification and reconciles the payment.",
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: null,
+    errors: [], transport: 'http',
+    notes:
+      '**The body is never trusted**: it names only a payment id (`id=tr_…`, form-encoded, Mollie\'s own shape), and this route ' +
+      'does nothing with it but call `reconcilePayment(deps, molliePaymentId)` — the same function `GET /api/billing/checkout/:id` and ' +
+      'the hourly sweep call — which fetches the payment from Mollie itself and applies what Mollie says, idempotently. Rate limited on ' +
+      'the `billing.webhook` bucket, per ip, 600/min — generous, because this is Mollie\'s own infrastructure calling, not a browser. ' +
+      '**Every answer is `200`**, including an id this cloud does not recognise, which is logged and otherwise ignored, **except a ' +
+      'processing fault, which is `500`** so Mollie retries the notification rather than this cloud losing it. `auth: \'none\'` because ' +
+      'Mollie signs nothing Fleetless checks here — the payment is only ever trusted once fetched back from Mollie\'s own API with the ' +
+      'configured key.',
   },
 
   /* ------------------------------------------------- assets (robot upload) */

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "checkout_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Identifies this checkout: polled by `GET /api/billing/checkout/:id` and carried on the return URL."
+    },
+    "checkout_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Mollie's hosted checkout page. The caller's browser is sent here."
+    }
+  },
+  "required": [
+    "checkout_id",
+    "checkout_url"
+  ],
+  "additionalProperties": false
+}

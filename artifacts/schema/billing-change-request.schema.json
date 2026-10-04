@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "description": "The target plan. Omitted leaves the plan as it is.",
+      "type": "string",
+      "enum": [
+        "plus",
+        "pro"
+      ]
+    },
+    "cycle": {
+      "description": "The target cycle. Omitted leaves the cycle as it is.",
+      "type": "string",
+      "enum": [
+        "monthly",
+        "yearly"
+      ]
+    },
+    "addons": {
+      "description": "Absolute add-on counts to end up with, not a delta. Omitted leaves add-ons as they are.",
+      "type": "object",
+      "properties": {
+        "seats": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Extra developer seats, one each."
+        },
+        "robots": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Extra robots, one each."
+        },
+        "apps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Extra apps, one each."
+        },
+        "app_user_packs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Packs of five extra app users."
+        },
+        "live_video_packs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Packs of 250 extra hours of app-user live video per month."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

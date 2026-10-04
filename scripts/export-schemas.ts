@@ -293,7 +293,31 @@ import {
   planOverrides,
   adminPlanChangeRequest,
 } from '../src/plans.js'
-import { planLimitDetails, assetPlanLimitDetails, planRequiredDetails, orgLockedDetails, fileTooLargeDetails } from '../src/errors.js'
+import {
+  planLimitDetails,
+  assetPlanLimitDetails,
+  planRequiredDetails,
+  orgLockedDetails,
+  fileTooLargeDetails,
+  paymentProviderUnavailableDetails,
+} from '../src/errors.js'
+import {
+  billingAddress,
+  billingDetails,
+  checkoutRequest,
+  checkoutResponse,
+  checkoutStatus,
+  vatIdCheckRequest,
+  vatIdCheckResponse,
+  billingChangeRequest,
+  billingCancelRequest,
+  billingDetailsUpdate,
+  paymentMethodChangeRequest,
+  billingInvoice,
+  paymentMethod,
+  billingView,
+  billingChangeResponse,
+} from '../src/billing.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -569,6 +593,24 @@ export const exportedSchemas = {
   'plan-required-details': planRequiredDetails,
   'org-locked-details': orgLockedDetails,
   'file-too-large-details': fileTooLargeDetails,
+
+  // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
+  'billing-address': billingAddress,
+  'billing-details': billingDetails,
+  'checkout-request': checkoutRequest,
+  'vat-id-check-request': vatIdCheckRequest,
+  'billing-change-request': billingChangeRequest,
+  'billing-cancel-request': billingCancelRequest,
+  'billing-details-update': billingDetailsUpdate,
+  'payment-method-change-request': paymentMethodChangeRequest,
+  'checkout-response': checkoutResponse,
+  'checkout-status': checkoutStatus,
+  'vat-id-check-response': vatIdCheckResponse,
+  'billing-view': billingView,
+  'billing-change-response': billingChangeResponse,
+  'billing-invoice': billingInvoice,
+  'payment-method': paymentMethod,
+  'payment-provider-unavailable-details': paymentProviderUnavailableDetails,
 
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
@@ -866,6 +908,13 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // there — never a response shape of its own.
   'plan-change-request', 'admin-plan-change-request', 'plan-overrides', 'plan-change-keep',
 
+  // Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2). The
+  // bodies of the billing routes; `billing-address` and `billing-details`
+  // travel inside `checkout-request`, and on the read (`billing-view`) they
+  // are only a readback of what the checkout accepted.
+  'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
+  'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
+
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
   // frame, so it is an accepted document on two surfaces and never a response
@@ -952,6 +1001,12 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // --- The per-file asset limit (2026-10-03, fleetless/fleetless#136) ------
   // Rides an `apiError.details` the server sends, never one it validates.
   'file-too-large-details',
+
+  // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104) ---------
+  // The billing routes' answers, and the `details` of a `502
+  // payment_provider_unavailable` — documents the server sends.
+  'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
+  'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

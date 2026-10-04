@@ -1,0 +1,671 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "available": {
+      "type": "boolean",
+      "description": "Whether this cloud takes payments at all — `false` when no Mollie key is configured."
+    },
+    "account": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "payer": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "company",
+                      "description": "Billed as a company."
+                    },
+                    "company_name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "The company's legal name, printed on the invoice."
+                    },
+                    "vat_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 20
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+                    },
+                    "address": {
+                      "type": "object",
+                      "properties": {
+                        "line1": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "Street and number, or the first address line."
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "A second address line, or `null` when there is none."
+                        },
+                        "postal_code": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 20,
+                          "description": "Postal or ZIP code."
+                        },
+                        "city": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "description": "City or town."
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                        }
+                      },
+                      "required": [
+                        "line1",
+                        "line2",
+                        "postal_code",
+                        "city",
+                        "country"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The billing address."
+                    },
+                    "invoice_email": {
+                      "type": "string",
+                      "format": "email",
+                      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                      "description": "Where invoices and billing mail are sent."
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "company_name",
+                    "vat_id",
+                    "address",
+                    "invoice_email"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A company: name and an optional VAT ID, never 'full name'."
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "person",
+                      "description": "Billed as a person."
+                    },
+                    "full_name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "The person's full name, printed on the invoice."
+                    },
+                    "address": {
+                      "type": "object",
+                      "properties": {
+                        "line1": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "Street and number, or the first address line."
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "A second address line, or `null` when there is none."
+                        },
+                        "postal_code": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 20,
+                          "description": "Postal or ZIP code."
+                        },
+                        "city": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "description": "City or town."
+                        },
+                        "country": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$",
+                          "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                        }
+                      },
+                      "required": [
+                        "line1",
+                        "line2",
+                        "postal_code",
+                        "city",
+                        "country"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The billing address."
+                    },
+                    "invoice_email": {
+                      "type": "string",
+                      "format": "email",
+                      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                      "description": "Where invoices and billing mail are sent."
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "full_name",
+                    "address",
+                    "invoice_email"
+                  ],
+                  "additionalProperties": false,
+                  "description": "A person: a full name, never a VAT ID — only a company can be VAT-registered."
+                }
+              ],
+              "description": "Who is paying, and the invoice address and email."
+            },
+            "vat_id_status": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "unverified",
+                    "invalid"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The payer's VAT ID check, or `null` when no VAT ID was given."
+            },
+            "vat": {
+              "type": "object",
+              "properties": {
+                "treatment": {
+                  "type": "string",
+                  "enum": [
+                    "de_standard",
+                    "reverse_charge",
+                    "outside_eu"
+                  ],
+                  "description": "How the account is taxed."
+                },
+                "rate_percent": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "The VAT rate, in whole percent."
+                }
+              },
+              "required": [
+                "treatment",
+                "rate_percent"
+              ],
+              "additionalProperties": false,
+              "description": "The VAT treatment and rate this account charges at (`vatFor`)."
+            },
+            "currency": {
+              "type": "string",
+              "enum": [
+                "eur",
+                "usd"
+              ],
+              "description": "The org's billing currency, fixed at the first payment."
+            },
+            "cycle": {
+              "type": "string",
+              "enum": [
+                "monthly",
+                "yearly"
+              ],
+              "description": "The current billing cycle."
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "active",
+                "past_due",
+                "canceled"
+              ],
+              "description": "The account's own status."
+            },
+            "period_starts_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The current period's start. `null` before the first payment."
+            },
+            "period_ends_at": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The current period's end. `null` before the first payment."
+            },
+            "next_charge": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "When the next charge is due."
+                    },
+                    "net_cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "The next charge, excluding VAT, in integer cents."
+                    },
+                    "vat_cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "VAT on the next charge, in integer cents."
+                    },
+                    "gross_cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "The next charge including VAT, in integer cents."
+                    }
+                  },
+                  "required": [
+                    "at",
+                    "net_cents",
+                    "vat_cents",
+                    "gross_cents"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`null` while a cancel is pending or nothing else renews."
+            },
+            "scheduled": {
+              "type": "object",
+              "properties": {
+                "cycle": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "yearly"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "A cycle change queued for the period's end, or `null`."
+                },
+                "addons": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "seats": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra developer seats, one each."
+                        },
+                        "robots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra robots, one each."
+                        },
+                        "apps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra apps, one each."
+                        },
+                        "app_user_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of five extra app users."
+                        },
+                        "live_video_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of 250 extra hours of app-user live video per month."
+                        }
+                      },
+                      "required": [
+                        "seats",
+                        "robots",
+                        "apps",
+                        "app_user_packs",
+                        "live_video_packs"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Add-on counts queued for the period's end, or `null`."
+                }
+              },
+              "required": [
+                "cycle",
+                "addons"
+              ],
+              "additionalProperties": false,
+              "description": "What takes effect at the period's end."
+            },
+            "dunning": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "invoice_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "description": "The open invoice dunning is chasing."
+                    },
+                    "gross_cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "The amount owed, in integer cents."
+                    },
+                    "due_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "The charge's due date; retries and the lock count from here."
+                    },
+                    "next_retry_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The next retry, or `null` once retries are exhausted."
+                    },
+                    "lock_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "When the org is locked if still unpaid (`BILLING_LOCK_DAY`)."
+                    },
+                    "failure": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                    }
+                  },
+                  "required": [
+                    "invoice_id",
+                    "gross_cents",
+                    "due_at",
+                    "next_retry_at",
+                    "lock_at",
+                    "failure"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`null` while nothing is overdue."
+            }
+          },
+          "required": [
+            "payer",
+            "vat_id_status",
+            "vat",
+            "currency",
+            "cycle",
+            "status",
+            "period_starts_at",
+            "period_ends_at",
+            "next_charge",
+            "scheduled",
+            "dunning"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`null` before the org has ever checked out."
+    },
+    "payment_method": {
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "card",
+                  "description": "A card mandate."
+                },
+                "brand": {
+                  "type": "string",
+                  "description": "The card network, as Mollie's mandate reports it, e.g. 'Visa'."
+                },
+                "last4": {
+                  "type": "string",
+                  "pattern": "^\\d{4}$",
+                  "description": "The last four digits of the card."
+                },
+                "expires": {
+                  "type": "string",
+                  "pattern": "^\\d{2}\\/\\d{2}$",
+                  "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
+                }
+              },
+              "required": [
+                "kind",
+                "brand",
+                "last4",
+                "expires"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "sepa",
+                  "description": "A SEPA direct-debit mandate."
+                },
+                "holder": {
+                  "type": "string",
+                  "description": "The account holder's name on the mandate."
+                },
+                "iban_last4": {
+                  "type": "string",
+                  "pattern": "^[0-9A-Z]{4}$",
+                  "description": "The last four characters of the IBAN."
+                }
+              },
+              "required": [
+                "kind",
+                "holder",
+                "iban_last4"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "paypal",
+                  "description": "A PayPal mandate."
+                },
+                "account": {
+                  "type": "string",
+                  "description": "The PayPal account Mollie's mandate names."
+                }
+              },
+              "required": [
+                "kind",
+                "account"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The payment method on file, or `null`."
+    },
+    "invoices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The invoice's id."
+          },
+          "number": {
+            "type": "string",
+            "pattern": "^FL-\\d{4}-\\d{4,}$",
+            "description": "The invoice number: `FL-<year>-<seq>`, `seq` zero-padded to four digits, gapless per calendar year in `Europe/Berlin`."
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the invoice was issued."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "paid",
+              "uncollectible"
+            ],
+            "description": "This invoice's own status."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "eur",
+              "usd"
+            ],
+            "description": "The org's billing currency."
+          },
+          "net_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "The charge, excluding VAT, in integer cents."
+          },
+          "vat_rate_percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "The VAT rate applied, in whole percent."
+          },
+          "vat_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "VAT, in integer cents (`vatCents`)."
+          },
+          "gross_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Net plus VAT, in integer cents."
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "issued_at",
+          "status",
+          "currency",
+          "net_cents",
+          "vat_rate_percent",
+          "vat_cents",
+          "gross_cents"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Newest first, at most 24."
+    }
+  },
+  "required": [
+    "available",
+    "account",
+    "payment_method",
+    "invoices"
+  ],
+  "additionalProperties": false
+}
