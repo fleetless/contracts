@@ -107,8 +107,7 @@ export function viesCountry(country: string): string {
 /**
  * Upper-case, without spaces, dots and dashes, and without a leading
  * country prefix: the VIES code (`EL` for Greece) or, for Greece only, the
- * address code `GR` as well — a payer typing their own country's postal
- * code ahead of the number is as likely as the VIES one. `null` for an
+ * address code `GR` as well, since a payer is as likely to type that. `null` for an
  * empty string (trimmed).
  */
 export function normalizeVatId(country: string, raw: string): string | null {
@@ -214,16 +213,10 @@ export interface BillingState {
  *    10), like every other decrease.
  * 3. **Same cycle**: the increase only — the plan difference when `to` is
  *    the higher plan (`PLAN_ORDER`), plus each add-on's added units × its
- *    unit price, prorated once over the remaining days. A plan decrease
- *    contributes 0 to the plan term; add-ons count only when `to.plan` is
- *    `pro`, so moving down and away from Pro makes `to`'s add-ons
- *    irrelevant even if the caller still sends them — both the plan
- *    decrease and the add-on drop wait for the period's end. A plan
- *    *increase* combined with an add-on *increase* in the same request
- *    simply sums both terms before the single proration; a plan decrease
- *    combined with an add-on *increase* still charges the add-on term (it
- *    is priced independently of the plan term), unless the add-on increase
- *    is itself on the now-irrelevant `to`'s Pro-only add-ons.
+ *    unit price, summed and prorated once over the remaining days. A plan
+ *    decrease and fewer add-ons contribute 0; add-ons count only when
+ *    `to.plan` is `pro`, and units held on a plan other than Pro count as
+ *    none.
  */
 export function changeNetCents(input: {
   from: BillingState
