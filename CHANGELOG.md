@@ -20,14 +20,22 @@ version.
   `prorateCents`, `changeNetCents`, `chargeAmounts`, `checkoutQuote`); and
   the dunning schedule `BILLING_RETRY_DAYS` and `BILLING_LOCK_DAY`.
 - **The billing read model and requests.** `billingView` (the account, the
-  payment method on file, the last 24 invoices), `billingAccount`,
-  `billingInvoice`, `paymentMethod`, `billingDetails` and `billingAddress`;
+  payment method on file, the `payment_method_options` a change may offer
+  now, the last 24 invoices), `billingAccount`, `billingInvoice`,
+  `paymentMethod`, `billingDetails` and `billingAddress`;
   the requests `checkoutRequest`, `vatIdCheckRequest`,
   `billingChangeRequest` (absolute counts, not deltas),
   `billingCancelRequest`, `billingDetailsUpdate` and
   `paymentMethodChangeRequest`; the answers `checkoutResponse`,
   `checkoutStatus`, `vatIdCheckResponse` and `billingChangeResponse`. Each
   has a JSON Schema in `artifacts/schema/`.
+- **Card, PayPal and Apple Pay.** `paymentMethodKind`
+  (`card | paypal | applepay`) is what `paymentMethodChangeRequest` names
+  and what `paymentMethod` shows: `applepay` carries the card fields,
+  because Mollie stores an Apple Pay mandate as a card mandate. A change
+  to Apple Pay may be refused with `400 validation_error`, rule
+  `applepay_needs_open_invoice`, where it can only be made while paying an
+  open invoice; `payment_method_options` says which applies.
 - **The `billing` route section**, twelve routes: `GET /api/billing`, the
   checkout and its status, the VAT-ID check, billing details, changes,
   the payment method, cancel and resume, an invoice's PDF and paying an
