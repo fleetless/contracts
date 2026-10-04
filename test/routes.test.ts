@@ -72,7 +72,12 @@ describe('the route manifest', () => {
     // — a machine credential nobody but the operator holds — and lives beside
     // the other org-plan routes rather than carving out a section of its own
     // for one entry.
-    const allowed = new Set(['health', 'developer-auth', 'client-auth', 'users', 'oauth', 'mcp', 'assets', 'transports', 'org'])
+    // 'billing' joined this set 2026-10-04 (fleetless/fleetless#104): the
+    // Mollie webhook is internal audience, `auth: 'none'` — a machine
+    // notification nobody but Mollie sends — and lives beside the other
+    // billing routes rather than carving out a section of its own for one
+    // entry.
+    const allowed = new Set(['health', 'developer-auth', 'client-auth', 'users', 'oauth', 'mcp', 'assets', 'transports', 'org', 'billing'])
     for (const r of ROUTES.filter((r) => r.audience === 'internal')) expect(allowed.has(r.section), `${key(r)} is internal in section ${r.section}`).toBe(true)
   })
 
@@ -1711,6 +1716,7 @@ describe('the parked-items round', () => {
     expect(ROUTES.filter((r) => r.contentType !== undefined).map(key).sort()).toEqual([
       'GET /api/asset-links/:token',
       'GET /api/audit/export',
+      'GET /api/billing/invoices/:id/pdf',
       'GET /api/robots/:id/assets/:assetId',
       'GET /api/robots/:id/cameras/:slug/snapshot',
       'GET /api/robots/:id/urdf',
@@ -1760,7 +1766,10 @@ describe('the parked-items round', () => {
     // route's parameter quoted inside this one's response. Listed with its
     // reason rather than pattern-matched away, because the next exemption
     // should have to be argued for too.
-    const quotesAnothersQuery = ['GET /.well-known/oauth-authorization-server/:appIdentifier']
+    // The checkout quotes the console page Mollie returns the browser to,
+    // `<console>/settings/billing?checkout=<checkout_id>` — the console's own
+    // parameter, not one this route reads (2026-10-04, fleetless/fleetless#104).
+    const quotesAnothersQuery = ['GET /.well-known/oauth-authorization-server/:appIdentifier', 'POST /api/billing/checkout']
     const undeclared = ROUTES.filter(
       (r) =>
         r.audience !== 'internal' &&
@@ -1999,7 +2008,7 @@ describe('openapi hygiene', () => {
     expect(Object.keys(doc.components.schemas).sort()).toEqual([...refs].sort())
   })
 
-  it('answers bytes with a content entry on the five byte routes', () => {
+  it('answers bytes with a content entry on the six byte routes', () => {
     const doc = openApiDocument()
     const op = doc.paths['/api/audit/export'].get
     expect(op.responses['200'].content['text/csv'].schema).toEqual({ type: 'string' })
@@ -2012,7 +2021,7 @@ describe('openapi hygiene', () => {
     expect(carriers.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
       ROUTES.filter((r) => r.contentType !== undefined).map(key).sort(),
     )
-    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(5)
+    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(6)
     // Key order is what the documentation site reads: `contentType` sits
     // between `response` and `errors`, not appended past `transport`.
     for (const r of carriers) {
@@ -2108,5 +2117,30 @@ describe("the organization's plan routes (2026-10-02, fleetless/fleetless#103)",
     const admin = r('PATCH', '/api/admin/orgs/:id/plan')
     expect(admin).toMatchObject({ audience: 'internal', auth: 'ops', rateLimited: true })
     expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops')).toBe(true)
+  })
+})
+
+describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
+  it('the billing routes', () => {
+    const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
+    const billing = ROUTES.filter((x) => x.section === 'billing')
+    expect(billing).toHaveLength(12)
+    expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
+    expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
+    expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
+    expect(r('POST', '/api/billing/checkout')?.errors).toEqual(expect.arrayContaining(['billing_unavailable', 'payment_provider_unavailable', 'plan_limit']))
+    expect(r('PATCH', '/api/admin/orgs/:id/plan')?.errors).toContain('target_state_conflict')
+    expect(r('PUT', '/api/org/plan/change')?.notes).not.toMatch(/until payment exists/)
+    expect(ROUTE_SECTIONS.map((s) => s.id)).toContain('billing')
+  })
+
+  it("the admin route's target_state_conflict names the billed rule", () => {
+    const admin = ROUTES.find((x) => x.method === 'PATCH' && x.path === '/api/admin/orgs/:id/plan')!
+    expect(admin.notes ?? '').toContain('`billed`')
+  })
+
+  it("the PUT /api/org/plan/change note sends an upgrade to the billing routes instead", () => {
+    const put = ROUTES.find((x) => x.method === 'PUT' && x.path === '/api/org/plan/change')!
+    expect(put.notes ?? '').toContain('billing routes')
   })
 })

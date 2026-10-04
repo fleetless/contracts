@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "checkout_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The checkout this status is for."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "failed",
+        "canceled",
+        "expired"
+      ],
+      "description": "Mollie's payment status, as `reconcilePayment` last read it."
+    },
+    "purpose": {
+      "type": "string",
+      "enum": [
+        "upgrade",
+        "payment_method",
+        "invoice"
+      ],
+      "description": "What this checkout paid for: a plan upgrade, a payment-method change, or an open invoice."
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "plus",
+        "pro",
+        "enterprise"
+      ],
+      "description": "The org's plan after applying — unchanged unless `purpose` is `upgrade` and `status` is `paid`."
+    }
+  },
+  "required": [
+    "checkout_id",
+    "status",
+    "purpose",
+    "plan"
+  ],
+  "additionalProperties": false
+}

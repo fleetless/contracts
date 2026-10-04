@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "card",
+          "description": "A card mandate."
+        },
+        "brand": {
+          "type": "string",
+          "description": "The card network, as Mollie's mandate reports it, e.g. 'Visa'."
+        },
+        "last4": {
+          "type": "string",
+          "pattern": "^\\d{4}$",
+          "description": "The last four digits of the card."
+        },
+        "expires": {
+          "type": "string",
+          "pattern": "^\\d{2}\\/\\d{2}$",
+          "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
+        }
+      },
+      "required": [
+        "kind",
+        "brand",
+        "last4",
+        "expires"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "sepa",
+          "description": "A SEPA direct-debit mandate."
+        },
+        "holder": {
+          "type": "string",
+          "description": "The account holder's name on the mandate."
+        },
+        "iban_last4": {
+          "type": "string",
+          "pattern": "^[0-9A-Z]{4}$",
+          "description": "The last four characters of the IBAN."
+        }
+      },
+      "required": [
+        "kind",
+        "holder",
+        "iban_last4"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "paypal",
+          "description": "A PayPal mandate."
+        },
+        "account": {
+          "type": "string",
+          "description": "The PayPal account Mollie's mandate names."
+        }
+      },
+      "required": [
+        "kind",
+        "account"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

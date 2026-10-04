@@ -764,6 +764,8 @@ export {
   orgLockedDetails,
   // 2026-10-03 — the per-file asset limit (#136).
   fileTooLargeDetails,
+  // 2026-10-04 — billing through Mollie (#104).
+  paymentProviderUnavailableDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -777,6 +779,7 @@ export type {
   PlanRequiredDetails,
   OrgLockedDetails,
   FileTooLargeDetails,
+  PaymentProviderUnavailableDetails,
 } from './errors.js'
 export {
   oauthErrorCode,
@@ -910,6 +913,25 @@ export {
   checkoutQuote,
   BILLING_RETRY_DAYS,
   BILLING_LOCK_DAY,
+  billingAddress,
+  billingDetails,
+  checkoutRequest,
+  checkoutResponse,
+  checkoutStatus,
+  vatIdStatus,
+  vatIdCheckRequest,
+  vatIdCheckResponse,
+  billingChangeRequest,
+  billingCancelRequest,
+  billingDetailsUpdate,
+  paymentMethodChangeRequest,
+  billingAccountStatus,
+  paymentMethod,
+  invoiceStatus,
+  billingInvoice,
+  billingAccount,
+  billingView,
+  billingChangeResponse,
 } from './billing.js'
 export type {
   PayerKind,
@@ -921,4 +943,23 @@ export type {
   BillingState,
   QuoteLine,
   CheckoutQuote,
+  BillingAddress,
+  BillingDetails,
+  CheckoutRequest,
+  CheckoutResponse,
+  CheckoutStatus,
+  VatIdStatus,
+  VatIdCheckRequest,
+  VatIdCheckResponse,
+  BillingChangeRequest,
+  BillingCancelRequest,
+  BillingDetailsUpdate,
+  PaymentMethodChangeRequest,
+  BillingAccountStatus,
+  PaymentMethod,
+  InvoiceStatus,
+  BillingInvoice,
+  BillingAccount,
+  BillingView,
+  BillingChangeResponse,
 } from './billing.js'

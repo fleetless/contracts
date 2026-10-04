@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": [
+        "card",
+        "paypal",
+        "sepa"
+      ],
+      "description": "The new mandate's method. `sepa` needs an open invoice to charge a real amount against; without one it is `400 validation_error`."
+    }
+  },
+  "required": [
+    "method"
+  ],
+  "additionalProperties": false
+}

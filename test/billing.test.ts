@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
-import { BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, changeNetCents, chargeAmounts, checkoutQuote, currencyForCountry, normalizeVatId, periodDays, periodNetCents, prorateCents, remainingDays, vatFor, viesCountry } from '../src/billing.js'
+import {
+  BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingInvoice, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
+  billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
+  viesCountry,
+} from '../src/billing.js'
+import { ERROR_CODES, paymentProviderUnavailableDetails } from '../src/errors.js'
 
 const NONE = { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 }
 const at = (s: string) => new Date(s)
 
-describe('who may pay, and the VAT (spec table)', () => {
+describe('who may pay, and the VAT', () => {
   it('Germany: company or person, 19 %, VAT ID optional', () => {
     expect(vatFor({ kind: 'company', country: 'DE', vatIdValid: null })).toEqual({ allowed: true, treatment: 'de_standard', rate_percent: 19 })
     expect(vatFor({ kind: 'person', country: 'DE', vatIdValid: null })).toEqual({ allowed: true, treatment: 'de_standard', rate_percent: 19 })
@@ -40,7 +45,7 @@ describe('normalizeVatId', () => {
   it('VIES calls Greece EL', () => expect(viesCountry('GR')).toBe('EL'))
 })
 
-describe('money (spec examples)', () => {
+describe('money (worked examples)', () => {
   it('Pro monthly, German payer: 149,00 + 28,31 = 177,31', () => {
     expect(chargeAmounts(periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur' }), 19)).toEqual({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731 })
   })
@@ -82,5 +87,35 @@ describe('money (spec examples)', () => {
   it('dunning schedule', () => {
     expect(BILLING_RETRY_DAYS).toEqual([3, 7])
     expect(BILLING_LOCK_DAY).toBe(14)
+  })
+})
+
+describe('billing shapes (I-2)', () => {
+  const company = {
+    kind: 'company', company_name: 'Acme Robotics GmbH', vat_id: 'ATU12345678',
+    address: { line1: 'Ring 1', line2: null, postal_code: '1010', city: 'Wien', country: 'AT' },
+    invoice_email: 'billing@acme.example',
+  }
+  it('a checkout needs the terms; a person also the withdrawal sentence', () => {
+    expect(checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(true)
+    expect(checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: company, accept_terms: false }).success).toBe(false)
+    expect(checkoutRequest.safeParse({ plan: 'basic', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(false)
+    expect(
+      checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: { ...company, kind: 'person', full_name: 'Ada' }, accept_terms: true }).success,
+    ).toBe(false) // a person has no vat_id/company_name
+  })
+  it('a change names at least one thing, with absolute add-on counts', () => {
+    expect(billingChangeRequest.safeParse({}).success).toBe(false)
+    expect(billingChangeRequest.safeParse({ addons: { robots: 2 } }).success).toBe(true)
+    expect(billingChangeRequest.safeParse({ plan: 'basic' }).success).toBe(false)
+  })
+  it('the billing view parses an active account and the mockup invoice number', () => {
+    expect(billingInvoice.shape.number.safeParse('FL-2026-0142').success).toBe(true)
+    expect(billingInvoice.shape.number.safeParse('FL-2026-142').success).toBe(false)
+    expect(paymentMethod.safeParse({ kind: 'card', brand: 'Visa', last4: '4242', expires: '08/28' }).success).toBe(true)
+  })
+  it('knows the new codes', () => {
+    for (const c of ['billing_unavailable', 'payment_provider_unavailable']) expect(ERROR_CODES).toContain(c)
+    expect(paymentProviderUnavailableDetails.safeParse({ provider: 'mollie', status: null }).success).toBe(true)
   })
 })

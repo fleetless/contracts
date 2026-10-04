@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "line1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Street and number, or the first address line."
+    },
+    "line2": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "A second address line, or `null` when there is none."
+    },
+    "postal_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "description": "Postal or ZIP code."
+    },
+    "city": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "City or town."
+    },
+    "country": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+    }
+  },
+  "required": [
+    "line1",
+    "line2",
+    "postal_code",
+    "city",
+    "country"
+  ],
+  "additionalProperties": false
+}
