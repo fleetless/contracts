@@ -2178,3 +2178,14 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(put.notes ?? '').toContain('billing routes')
   })
 })
+
+describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)', () => {
+  it('the invoice-pay route documents due charges and the VAT-ID hold', () => {
+    const pay = ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/invoices/:id/pay')
+    expect(pay?.notes).toMatch(/vat_id_invalid/)
+    expect(pay?.notes).toMatch(/no number/)
+    expect(pay?.errors).toContain('target_state_conflict')
+    const change = ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/payment-method')
+    expect(change?.notes).toMatch(/charged back/)
+  })
+})

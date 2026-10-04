@@ -411,13 +411,13 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                      "description": "The open invoice dunning is chasing."
+                      "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
                     },
                     "gross_cents": {
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991,
-                      "description": "The amount owed, in integer cents."
+                      "description": "The amount owed, in integer cents — after a partial chargeback only the charged-back part."
                     },
                     "due_at": {
                       "type": "string",
@@ -436,7 +436,7 @@
                           "type": "null"
                         }
                       ],
-                      "description": "The next retry, or `null` once retries are exhausted."
+                      "description": "The next automatic retry, or `null` once retries are exhausted. Always `null` after a chargeback: a charged-back payment is never charged again automatically."
                     },
                     "lock_at": {
                       "type": "string",
@@ -453,7 +453,7 @@
                           "type": "null"
                         }
                       ],
-                      "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                      "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' while a renewal is held because VIES does not confirm the VAT ID; 'charged_back' after a chargeback or a lost PayPal dispute."
                     }
                   },
                   "required": [
@@ -470,7 +470,7 @@
                   "type": "null"
                 }
               ],
-              "description": "`null` while nothing is overdue."
+              "description": "`null` while nothing is overdue. During a VAT-ID hold the charge is due but not yet invoiced."
             }
           },
           "required": [

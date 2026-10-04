@@ -3498,7 +3498,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the ' +
       'existing Mollie customer, restricted to the chosen method (`card` → Mollie\'s `creditcard`, `paypal`, `applepay`). For `card` ' +
       'and `paypal` it is a payment of `0.00` in the org\'s currency that pays no open invoice: the invoice stays open, the next ' +
-      'dunning retry charges the new mandate, and `POST /api/billing/invoices/:id/pay` still pays it at once. `applepay` behaves the ' +
+      'dunning retry charges the new mandate — except for an invoice that was charged back, which is never charged again ' +
+      'automatically; pay it with `POST /api/billing/invoices/:id/pay` — and that route still pays any open invoice at once. ' +
+      '`applepay` behaves the ' +
       'same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together ' +
       'with paying an open invoice — the payment is then that invoice\'s amount and pays it — and without one this answers ' +
       '`400 validation_error` with `{ field: \'method\', rule: \'applepay_needs_open_invoice\' }`. A client offers what ' +
@@ -3541,7 +3543,7 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/billing/invoices/:id/pay', section: 'billing',
     summary: 'Pays one open invoice, through a new Mollie payment.',
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
-    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id`, of the open invoice to pay.' }],
+    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id`, of the open invoice to pay — or a due charge\'s id, from `dunning.invoice_id`.' }],
     query: null, request: null, response: checkoutResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
@@ -3549,7 +3551,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` ' +
       'with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open ' +
       'invoice of a locked org unlocks it and keeps the plan running to the period\'s end, the same as a renewal that ' +
-      'succeeds on a retry. `404 not_found` for an unknown id or one from another org.',
+      'succeeds on a retry. `:id` may also be a due charge\'s id from `dunning.invoice_id` in `GET /api/billing`: while the payer\'s ' +
+      'VAT ID is unsettled a held renewal is a due charge that has no number yet, and it is numbered and issued as an invoice ' +
+      'once this payment is paid. The payment charges the amount owed (`dunning.gross_cents`). While that due charge is held by ' +
+      'the VAT ID this answers `409 target_state_conflict` with `{ field: \'billing\', rule: \'vat_id_invalid\' }`. ' +
+      '`404 not_found` for an unknown id or one from another org.',
   },
   {
     method: 'POST', path: '/api/billing/mollie/webhook', section: 'billing',
