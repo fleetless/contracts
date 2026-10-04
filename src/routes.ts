@@ -364,8 +364,9 @@ const DEVELOPER_GUARD = ['unauthorized', 'token_expired', 'token_revoked'] as co
  * billing's own infrastructure rather than from what the caller sent
  * (2026-10-04, fleetless/fleetless#104): `BILLING_OFF` is no payment
  * provider configured at all, `MOLLIE` is Mollie itself not
- * answering. Every mutating billing route that talks to Mollie
- * lists both; a route that only reads or edits local state lists neither.
+ * answering. Every billing route that charges or opens a Mollie checkout
+ * lists both; a route that only reads or edits local state lists neither,
+ * and answers normally without a key.
  */
 const BILLING_OFF = ['billing_unavailable'] as const satisfies readonly ErrorCode[]
 const MOLLIE = ['payment_provider_unavailable'] as const satisfies readonly ErrorCode[]
@@ -3393,9 +3394,9 @@ export const ROUTES: readonly RouteEntry[] = [
    * developer answers `403 tier_required` and `GET /api/billing`
    * is no exception — a developer reads #103's plan cards from
    * `GET /api/org/plan` instead, without the payer, payment method or
-   * invoices (Offene Punkte 5). `billing_unavailable` and
-   * `payment_provider_unavailable` are declared in full on the two routes
-   * above as `BILLING_OFF` and `MOLLIE`.
+   * invoices. The routes that list `billing_unavailable` and
+   * `payment_provider_unavailable` spread them from the `BILLING_OFF` and
+   * `MOLLIE` constants near the top of this file.
    */
   {
     method: 'GET', path: '/api/billing', section: 'billing',
@@ -3404,8 +3405,9 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: billingView,
     errors: [...DEVELOPER_GUARD, 'tier_required'], transport: 'http',
     notes:
-      '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every mutating route on ' +
-      'this page answers `503 billing_unavailable` instead of acting. `account` is `null` before the org has ever checked out; the plan ' +
+      '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that ' +
+      'charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; cancel, resume, the details and the ' +
+      'VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan ' +
       'and its limits still come from `GET /api/org/plan` (#103) and are not repeated here.',
   },
   {
@@ -3548,13 +3550,13 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Takes Mollie's payment-changed notification and reconciles the payment.",
     audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null,
-    errors: [], transport: 'http',
+    errors: ['rate_limited'], transport: 'http',
     notes:
       '**The body is never trusted**: it names only a payment id (`id=tr_…`, form-encoded, Mollie\'s own shape), and this route ' +
       'does nothing with it but call `reconcilePayment(deps, molliePaymentId)` — the same function `GET /api/billing/checkout/:id` and ' +
       'the hourly sweep call — which fetches the payment from Mollie itself and applies what Mollie says, idempotently. Rate limited on ' +
-      'the `billing.webhook` bucket, per ip, 600/min — generous, because this is Mollie\'s own infrastructure calling, not a browser. ' +
-      '**Every answer is `200`**, including an id this cloud does not recognise, which is logged and otherwise ignored, **except a ' +
+      'the `billing.webhook` bucket, per ip, 600/min — generous, because this is Mollie\'s own infrastructure calling, not a browser; ' +
+      'over it the answer is `429 rate_limited`, and Mollie retries the notification later. **Every other answer is `200`**, including an id this cloud does not recognise, which is logged and otherwise ignored, **except a ' +
       'processing fault, which is `500`** so Mollie retries the notification rather than this cloud losing it. `auth: \'none\'` because ' +
       'Mollie signs nothing Fleetless checks here — the payment is only ever trusted once fetched back from Mollie\'s own API with the ' +
       'configured key.',

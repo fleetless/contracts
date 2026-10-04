@@ -2134,6 +2134,19 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(ROUTE_SECTIONS.map((s) => s.id)).toContain('billing')
   })
 
+  it('the webhook lists the 429 it can answer, like every rate-limited route', () => {
+    expect(ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/mollie/webhook')?.errors).toEqual(['rate_limited'])
+    expect(ROUTES.filter((x) => x.rateLimited && !x.errors.includes('rate_limited')).map(key)).toEqual([])
+  })
+
+  it('billing_unavailable is promised only where the manifest declares it', () => {
+    const view = ROUTES.find((x) => x.method === 'GET' && x.path === '/api/billing')!
+    expect(view.notes).not.toMatch(/every mutating/)
+    expect(view.notes).toMatch(/charges or opens a Mollie checkout/)
+    const off = ROUTES.filter((x) => x.section === 'billing' && x.errors.includes('billing_unavailable')).map(key).sort()
+    expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/checkout', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
+  })
+
   it("the admin route's target_state_conflict names the billed rule", () => {
     const admin = ROUTES.find((x) => x.method === 'PATCH' && x.path === '/api/admin/orgs/:id/plan')!
     expect(admin.notes ?? '').toContain('`billed`')

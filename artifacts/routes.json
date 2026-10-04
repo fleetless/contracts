@@ -6495,7 +6495,7 @@
         "tier_required"
       ],
       "transport": "http",
-      "notes": "`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every mutating route on this page answers `503 billing_unavailable` instead of acting. `account` is `null` before the org has ever checked out; the plan and its limits still come from `GET /api/org/plan` (#103) and are not repeated here."
+      "notes": "`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; cancel, resume, the details and the VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan and its limits still come from `GET /api/org/plan` (#103) and are not repeated here."
     },
     {
       "method": "POST",
@@ -6789,9 +6789,11 @@
       "query": null,
       "request": null,
       "response": null,
-      "errors": [],
+      "errors": [
+        "rate_limited"
+      ],
       "transport": "http",
-      "notes": "**The body is never trusted**: it names only a payment id (`id=tr_…`, form-encoded, Mollie's own shape), and this route does nothing with it but call `reconcilePayment(deps, molliePaymentId)` — the same function `GET /api/billing/checkout/:id` and the hourly sweep call — which fetches the payment from Mollie itself and applies what Mollie says, idempotently. Rate limited on the `billing.webhook` bucket, per ip, 600/min — generous, because this is Mollie's own infrastructure calling, not a browser. **Every answer is `200`**, including an id this cloud does not recognise, which is logged and otherwise ignored, **except a processing fault, which is `500`** so Mollie retries the notification rather than this cloud losing it. `auth: 'none'` because Mollie signs nothing Fleetless checks here — the payment is only ever trusted once fetched back from Mollie's own API with the configured key."
+      "notes": "**The body is never trusted**: it names only a payment id (`id=tr_…`, form-encoded, Mollie's own shape), and this route does nothing with it but call `reconcilePayment(deps, molliePaymentId)` — the same function `GET /api/billing/checkout/:id` and the hourly sweep call — which fetches the payment from Mollie itself and applies what Mollie says, idempotently. Rate limited on the `billing.webhook` bucket, per ip, 600/min — generous, because this is Mollie's own infrastructure calling, not a browser; over it the answer is `429 rate_limited`, and Mollie retries the notification later. **Every other answer is `200`**, including an id this cloud does not recognise, which is logged and otherwise ignored, **except a processing fault, which is `500`** so Mollie retries the notification rather than this cloud losing it. `auth: 'none'` because Mollie signs nothing Fleetless checks here — the payment is only ever trusted once fetched back from Mollie's own API with the configured key."
     },
     {
       "method": "POST",
