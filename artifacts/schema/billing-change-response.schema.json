@@ -537,23 +537,29 @@
                   "properties": {
                     "kind": {
                       "type": "string",
-                      "const": "sepa",
-                      "description": "A SEPA direct-debit mandate."
+                      "const": "applepay",
+                      "description": "A card mandate from an Apple Pay first payment — Mollie stores it as `creditcard`; Fleetless labels it Apple Pay."
                     },
-                    "holder": {
+                    "brand": {
                       "type": "string",
-                      "description": "The account holder's name on the mandate."
+                      "description": "The card network, as Mollie's mandate reports it, e.g. 'Mastercard'."
                     },
-                    "iban_last4": {
+                    "last4": {
                       "type": "string",
-                      "pattern": "^[0-9A-Z]{4}$",
-                      "description": "The last four characters of the IBAN."
+                      "pattern": "^\\d{4}$",
+                      "description": "The last four digits of the card behind Apple Pay."
+                    },
+                    "expires": {
+                      "type": "string",
+                      "pattern": "^\\d{2}\\/\\d{2}$",
+                      "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
                     }
                   },
                   "required": [
                     "kind",
-                    "holder",
-                    "iban_last4"
+                    "brand",
+                    "last4",
+                    "expires"
                   ],
                   "additionalProperties": false
                 },
@@ -583,6 +589,33 @@
             }
           ],
           "description": "The payment method on file, or `null`."
+        },
+        "payment_method_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "enum": [
+                  "card",
+                  "paypal",
+                  "applepay"
+                ],
+                "description": "A method `POST /api/billing/payment-method` accepts now."
+              },
+              "pays_invoice": {
+                "type": "boolean",
+                "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+              }
+            },
+            "required": [
+              "method",
+              "pays_invoice"
+            ],
+            "additionalProperties": false
+          },
+          "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
         },
         "invoices": {
           "type": "array",
@@ -668,6 +701,7 @@
         "available",
         "account",
         "payment_method",
+        "payment_method_options",
         "invoices"
       ],
       "additionalProperties": false,

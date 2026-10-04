@@ -470,10 +470,19 @@ export const billingDetailsUpdate = z.object({
 }).strict()
 export type BillingDetailsUpdate = z.infer<typeof billingDetailsUpdate>
 
+/**
+ * The payment methods Fleetless takes: card, PayPal and Apple Pay, in EUR and USD, and no others (André, 2026-10-04).
+ * Apple Pay is a Mollie method of its own at checkout and for a change, but the mandate it leaves is a card mandate.
+ */
+export const paymentMethodKind = z.enum(['card', 'paypal', 'applepay'])
+export type PaymentMethodKind = z.infer<typeof paymentMethodKind>
+
 /** `POST /api/billing/payment-method`'s body. */
 export const paymentMethodChangeRequest = z.object({
-  method: z.enum(['card', 'paypal', 'sepa']).meta({
-    description: "The new mandate's method. `sepa` needs an open invoice to charge a real amount against; without one it is `400 validation_error`.",
+  method: paymentMethodKind.meta({
+    description:
+      "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with " +
+      "`400 validation_error` `{ field: 'method', rule: 'applepay_needs_open_invoice' }` unless an invoice is open.",
   }),
 }).strict()
 export type PaymentMethodChangeRequest = z.infer<typeof paymentMethodChangeRequest>
@@ -491,9 +500,10 @@ export const paymentMethod = z.discriminatedUnion('kind', [
     expires: z.string().regex(/^\d{2}\/\d{2}$/).meta({ description: "Expiry as Mollie's mandate shows it, 'MM/YY'." }),
   }),
   z.object({
-    kind: z.literal('sepa').meta({ description: 'A SEPA direct-debit mandate.' }),
-    holder: z.string().meta({ description: "The account holder's name on the mandate." }),
-    iban_last4: z.string().regex(/^[0-9A-Z]{4}$/).meta({ description: 'The last four characters of the IBAN.' }),
+    kind: z.literal('applepay').meta({ description: "A card mandate from an Apple Pay first payment — Mollie stores it as `creditcard`; Fleetless labels it Apple Pay." }),
+    brand: z.string().meta({ description: "The card network, as Mollie's mandate reports it, e.g. 'Mastercard'." }),
+    last4: z.string().regex(/^\d{4}$/).meta({ description: 'The last four digits of the card behind Apple Pay.' }),
+    expires: z.string().regex(/^\d{2}\/\d{2}$/).meta({ description: "Expiry as Mollie's mandate shows it, 'MM/YY'." }),
   }),
   z.object({
     kind: z.literal('paypal').meta({ description: 'A PayPal mandate.' }),
@@ -569,6 +579,14 @@ export const billingView = z.object({
   available: z.boolean().meta({ description: 'Whether this cloud takes payments at all — `false` when no Mollie key is configured.' }),
   account: billingAccount.nullable().meta({ description: '`null` before the org has ever checked out.' }),
   payment_method: paymentMethod.nullable().meta({ description: 'The payment method on file, or `null`.' }),
+  payment_method_options: z.array(z.object({
+    method: paymentMethodKind.meta({ description: 'A method `POST /api/billing/payment-method` accepts now.' }),
+    pays_invoice: z.boolean().meta({ description: 'Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available.' }),
+  })).meta({
+    description:
+      'What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when ' +
+      'it needs an open invoice and none is open; `[]` when the org has no billing account.',
+  }),
   invoices: z.array(billingInvoice).meta({ description: 'Newest first, at most 24.' }),
 })
 export type BillingView = z.infer<typeof billingView>

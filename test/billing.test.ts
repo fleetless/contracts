@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingInvoice, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
-  billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
+  billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, paymentMethodChangeRequest, paymentMethodKind, billingView, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
   viesCountry,
 } from '../src/billing.js'
 import { ERROR_CODES, paymentProviderUnavailableDetails } from '../src/errors.js'
@@ -133,6 +133,15 @@ describe('billing shapes (I-2)', () => {
     expect(billingInvoice.shape.number.safeParse('FL-2026-0142').success).toBe(true)
     expect(billingInvoice.shape.number.safeParse('FL-2026-142').success).toBe(false)
     expect(paymentMethod.safeParse({ kind: 'card', brand: 'Visa', last4: '4242', expires: '08/28' }).success).toBe(true)
+  })
+  it('card, PayPal and Apple Pay; no SEPA (André, 2026-10-04)', () => {
+    expect(paymentMethodKind.options).toEqual(['card', 'paypal', 'applepay'])
+    expect(paymentMethodChangeRequest.safeParse({ method: 'applepay' }).success).toBe(true)
+    expect(paymentMethodChangeRequest.safeParse({ method: 'sepa' }).success).toBe(false)
+    expect(paymentMethod.safeParse({ kind: 'applepay', brand: 'Mastercard', last4: '0004', expires: '11/29' }).success).toBe(true)
+    expect(paymentMethod.safeParse({ kind: 'paypal', account: 'ada@example.com' }).success).toBe(true)
+    expect(paymentMethod.safeParse({ kind: 'sepa', holder: 'Ada', iban_last4: '0000' }).success).toBe(false)
+    expect(billingView.shape.payment_method_options.safeParse([{ method: 'card', pays_invoice: false }, { method: 'applepay', pays_invoice: true }]).success).toBe(true)
   })
   it('knows the new codes', () => {
     for (const c of ['billing_unavailable', 'payment_provider_unavailable']) expect(ERROR_CODES).toContain(c)

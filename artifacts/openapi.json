@@ -9643,7 +9643,7 @@
             }
           }
         },
-        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/payment-method` and `POST /api/billing/invoices/:id/pay` — the three routes that mint a Mollie checkout. `400 validation_error` names who may not pay with these rules: `{ field: 'billing.address.country', rule: 'eu_person' }` for a person in another EU country, `{ field: 'billing.vat_id', rule: 'vat_id_required' }` for a company there with no VAT ID, `{ field: 'billing.vat_id', rule: 'vat_id_invalid' }` once VIES has said so, and `{ field: 'accept_withdrawal', rule: 'required' }` for a person who did not confirm it. `409 target_state_conflict` names `plan` with rule `already_billed` when the org already has an `active` or `past_due` billing account — checkout is for the first payment only, every later change is `POST /api/billing/change`. `checkout_url` is Mollie's hosted page; the return lands on `<console>/settings/billing?checkout=<checkout_id>`, which polls `GET /api/billing/checkout/:id` until the webhook — or the poll itself — has reconciled the payment. `409 plan_limit` is the org's own usage against the plan being bought.",
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/payment-method` and `POST /api/billing/invoices/:id/pay` — the three routes that mint a Mollie checkout. `400 validation_error` names who may not pay with these rules: `{ field: 'billing.address.country', rule: 'eu_person' }` for a person in another EU country, `{ field: 'billing.vat_id', rule: 'vat_id_required' }` for a company there with no VAT ID, `{ field: 'billing.vat_id', rule: 'vat_id_invalid' }` once VIES has said so, and `{ field: 'accept_withdrawal', rule: 'required' }` for a person who did not confirm it. `409 target_state_conflict` names `plan` with rule `already_billed` when the org already has an `active` or `past_due` billing account — checkout is for the first payment only, every later change is `POST /api/billing/change`. `checkout_url` is Mollie's hosted page, where the payer chooses card, PayPal or Apple Pay; the return lands on `<console>/settings/billing?checkout=<checkout_id>`, which polls `GET /api/billing/checkout/:id` until the webhook — or the poll itself — has reconciled the payment. `409 plan_limit` is the org's own usage against the plan being bought.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9835,7 +9835,7 @@
             }
           }
         },
-        "description": "The body names the **absolute** target — plan, cycle and add-ons — never a delta: the route compares it with the org's current state and splits the difference. The increasing part is charged now, through the same proration `changeNetCents` computes, and takes effect the moment Mollie accepts the `recurring` payment with anything but `failed`, `canceled` or `expired` — cards answer within seconds, SEPA stays `pending` for days; if Mollie refuses or does not answer, nothing is applied and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — is stored as a pending change and applied at the period's end, same as `PUT /api/org/plan/change`; a lower plan over the target's limits answers `409 plan_limit` and the console opens #103's choose-what-stays page. Any increase first withdraws a pending downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part charged now, or `null` when the whole request was a decrease.",
+        "description": "The body names the **absolute** target — plan, cycle and add-ons — never a delta: the route compares it with the org's current state and splits the difference. The increasing part is charged now, through the same proration `changeNetCents` computes, and takes effect the moment Mollie accepts the `recurring` payment with anything but `failed`, `canceled` or `expired` — card mandates, Apple Pay's included, usually answer `paid` within seconds, a PayPal one may stay `pending` for a while; if it fails later, its open invoice enters dunning like a failed renewal. If Mollie refuses or does not answer, nothing is applied and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — is stored as a pending change and applied at the period's end, same as `PUT /api/org/plan/change`; a lower plan over the target's limits answers `409 plan_limit` and the console opens #103's choose-what-stays page. Any increase first withdraws a pending downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part charged now, or `null` when the whole request was a decrease.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9883,7 +9883,7 @@
             }
           }
         },
-        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a `first` payment on the existing Mollie customer: with an open invoice, the new payment **is** that invoice's amount, for any method the currency allows, and pays it; without one, `card` and `paypal` use a zero amount and `sepa` is refused — Mollie allows a zero-amount first payment for card and PayPal only — `400 validation_error` with `{ field: 'method', rule: 'sepa_needs_open_invoice' }`. SEPA is also refused outside the org's EUR currency, `{ field: 'method', rule: 'sepa_eur_only' }`. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid`, every other mandate of the customer is revoked.",
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the existing Mollie customer, restricted to the chosen method (`card` → Mollie's `creditcard`, `paypal`, `applepay`). For `card` and `paypal` it is a payment of **0.00** in the org's currency that pays no open invoice: the invoice stays open, the next dunning retry charges the new mandate, and `POST /api/billing/invoices/:id/pay` still pays it at once. `applepay` behaves the same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together with paying an open invoice — the payment is then that invoice's amount and pays it — and without one this answers `400 validation_error` with `{ field: 'method', rule: 'applepay_needs_open_invoice' }`. A client offers what `payment_method_options` in `GET /api/billing` lists. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid` it becomes the account's — an Apple Pay one is a card mandate, shown as `applepay` — and every other mandate of the customer is revoked.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12936,23 +12936,29 @@
                         "properties": {
                           "kind": {
                             "type": "string",
-                            "const": "sepa",
-                            "description": "A SEPA direct-debit mandate."
+                            "const": "applepay",
+                            "description": "A card mandate from an Apple Pay first payment — Mollie stores it as `creditcard`; Fleetless labels it Apple Pay."
                           },
-                          "holder": {
+                          "brand": {
                             "type": "string",
-                            "description": "The account holder's name on the mandate."
+                            "description": "The card network, as Mollie's mandate reports it, e.g. 'Mastercard'."
                           },
-                          "iban_last4": {
+                          "last4": {
                             "type": "string",
-                            "pattern": "^[0-9A-Z]{4}$",
-                            "description": "The last four characters of the IBAN."
+                            "pattern": "^\\d{4}$",
+                            "description": "The last four digits of the card behind Apple Pay."
+                          },
+                          "expires": {
+                            "type": "string",
+                            "pattern": "^\\d{2}\\/\\d{2}$",
+                            "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
                           }
                         },
                         "required": [
                           "kind",
-                          "holder",
-                          "iban_last4"
+                          "brand",
+                          "last4",
+                          "expires"
                         ],
                         "additionalProperties": false
                       },
@@ -12982,6 +12988,33 @@
                   }
                 ],
                 "description": "The payment method on file, or `null`."
+              },
+              "payment_method_options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "method": {
+                      "type": "string",
+                      "enum": [
+                        "card",
+                        "paypal",
+                        "applepay"
+                      ],
+                      "description": "A method `POST /api/billing/payment-method` accepts now."
+                    },
+                    "pays_invoice": {
+                      "type": "boolean",
+                      "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                    }
+                  },
+                  "required": [
+                    "method",
+                    "pays_invoice"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
               },
               "invoices": {
                 "type": "array",
@@ -13067,6 +13100,7 @@
               "available",
               "account",
               "payment_method",
+              "payment_method_options",
               "invoices"
             ],
             "additionalProperties": false,
@@ -13721,23 +13755,29 @@
                     "properties": {
                       "kind": {
                         "type": "string",
-                        "const": "sepa",
-                        "description": "A SEPA direct-debit mandate."
+                        "const": "applepay",
+                        "description": "A card mandate from an Apple Pay first payment — Mollie stores it as `creditcard`; Fleetless labels it Apple Pay."
                       },
-                      "holder": {
+                      "brand": {
                         "type": "string",
-                        "description": "The account holder's name on the mandate."
+                        "description": "The card network, as Mollie's mandate reports it, e.g. 'Mastercard'."
                       },
-                      "iban_last4": {
+                      "last4": {
                         "type": "string",
-                        "pattern": "^[0-9A-Z]{4}$",
-                        "description": "The last four characters of the IBAN."
+                        "pattern": "^\\d{4}$",
+                        "description": "The last four digits of the card behind Apple Pay."
+                      },
+                      "expires": {
+                        "type": "string",
+                        "pattern": "^\\d{2}\\/\\d{2}$",
+                        "description": "Expiry as Mollie's mandate shows it, 'MM/YY'."
                       }
                     },
                     "required": [
                       "kind",
-                      "holder",
-                      "iban_last4"
+                      "brand",
+                      "last4",
+                      "expires"
                     ],
                     "additionalProperties": false
                   },
@@ -13767,6 +13807,33 @@
               }
             ],
             "description": "The payment method on file, or `null`."
+          },
+          "payment_method_options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "card",
+                    "paypal",
+                    "applepay"
+                  ],
+                  "description": "A method `POST /api/billing/payment-method` accepts now."
+                },
+                "pays_invoice": {
+                  "type": "boolean",
+                  "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                }
+              },
+              "required": [
+                "method",
+                "pays_invoice"
+              ],
+              "additionalProperties": false
+            },
+            "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
           },
           "invoices": {
             "type": "array",
@@ -13852,6 +13919,7 @@
           "available",
           "account",
           "payment_method",
+          "payment_method_options",
           "invoices"
         ],
         "additionalProperties": false
@@ -21242,9 +21310,9 @@
             "enum": [
               "card",
               "paypal",
-              "sepa"
+              "applepay"
             ],
-            "description": "The new mandate's method. `sepa` needs an open invoice to charge a real amount against; without one it is `400 validation_error`."
+            "description": "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with `400 validation_error` `{ field: 'method', rule: 'applepay_needs_open_invoice' }` unless an invoice is open."
           }
         },
         "required": [

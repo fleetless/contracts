@@ -2147,6 +2147,14 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/checkout', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
   })
 
+  it('the payment-method notes name Apple Pay\'s rule, and no billing note names SEPA (André, 2026-10-04)', () => {
+    const change = ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/payment-method')!
+    expect(change.notes).toContain('applepay_needs_open_invoice')
+    expect(change.notes).toContain('payment_method_options')
+    expect(ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/checkout')!.notes).toMatch(/card, PayPal or Apple Pay/)
+    expect(ROUTES.filter((x) => x.section === 'billing' && /\bsepa\b|directdebit/i.test(x.notes ?? '')).map(key)).toEqual([])
+  })
+
   it("the admin route's target_state_conflict names the billed rule", () => {
     const admin = ROUTES.find((x) => x.method === 'PATCH' && x.path === '/api/admin/orgs/:id/plan')!
     expect(admin.notes ?? '').toContain('`billed`')

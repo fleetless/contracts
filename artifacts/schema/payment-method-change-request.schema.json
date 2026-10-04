@@ -7,9 +7,9 @@
       "enum": [
         "card",
         "paypal",
-        "sepa"
+        "applepay"
       ],
-      "description": "The new mandate's method. `sepa` needs an open invoice to charge a real amount against; without one it is `400 validation_error`."
+      "description": "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with `400 validation_error` `{ field: 'method', rule: 'applepay_needs_open_invoice' }` unless an invoice is open."
     }
   },
   "required": [
