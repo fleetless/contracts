@@ -562,15 +562,27 @@ export const billingAccount = z.object({
     addons: orgAddons.nullable().meta({ description: "Add-on counts queued for the period's end, or `null`." }),
   }).meta({ description: "What takes effect at the period's end." }),
   dunning: z.object({
-    invoice_id: z.uuid().meta({ description: 'The open invoice dunning is chasing.' }),
-    gross_cents: z.number().int().meta({ description: 'The amount owed, in integer cents.' }),
+    invoice_id: z.uuid().meta({
+      description:
+        'The open invoice dunning is chasing — or, while the payer\'s VAT ID is unsettled, the due charge that becomes one: it has ' +
+        'no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either.',
+    }),
+    gross_cents: z.number().int().meta({
+      description: 'The amount owed, in integer cents — after a partial chargeback only the charged-back part.',
+    }),
     due_at: z.iso.datetime().meta({ description: "The charge's due date; retries and the lock count from here." }),
-    next_retry_at: z.iso.datetime().nullable().meta({ description: 'The next retry, or `null` once retries are exhausted.' }),
+    next_retry_at: z.iso.datetime().nullable().meta({
+      description:
+        'The next automatic retry, or `null` once retries are exhausted. Always `null` after a chargeback: a charged-back ' +
+        'payment is never charged again automatically.',
+    }),
     lock_at: z.iso.datetime().meta({ description: 'When the org is locked if still unpaid (`BILLING_LOCK_DAY`).' }),
     failure: z.string().nullable().meta({
-      description: "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive.",
+      description:
+        "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' while a renewal is held because VIES does not confirm the " +
+        "VAT ID; 'charged_back' after a chargeback or a lost PayPal dispute.",
     }),
-  }).nullable().meta({ description: '`null` while nothing is overdue.' }),
+  }).nullable().meta({ description: '`null` while nothing is overdue. During a VAT-ID hold the charge is due but not yet invoiced.' }),
 })
 export type BillingAccount = z.infer<typeof billingAccount>
 

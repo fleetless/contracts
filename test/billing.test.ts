@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import {
-  BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingInvoice, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
+  BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingAccount, billingInvoice, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
   billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, paymentMethodChangeRequest, paymentMethodKind, billingView, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
   viesCountry,
 } from '../src/billing.js'
@@ -146,5 +146,15 @@ describe('billing shapes (I-2)', () => {
   it('knows the new codes', () => {
     for (const c of ['billing_unavailable', 'payment_provider_unavailable']) expect(ERROR_CODES).toContain(c)
     expect(paymentProviderUnavailableDetails.safeParse({ provider: 'mollie', status: null }).success).toBe(true)
+  })
+})
+
+describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)', () => {
+  it('dunning describes the VAT-ID hold and chargebacks', () => {
+    const d = billingAccount.shape.dunning.unwrap().shape
+    expect(d.invoice_id.meta()?.description).toMatch(/no number yet/)
+    expect(d.next_retry_at.meta()?.description).toMatch(/chargeback/)
+    expect(d.failure.meta()?.description).toMatch(/charged_back/)
+    expect(d.failure.meta()?.description).toMatch(/vat_id_invalid/)
   })
 })

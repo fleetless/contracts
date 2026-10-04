@@ -36,6 +36,13 @@ version.
   to Apple Pay may be refused with `400 validation_error`, rule
   `applepay_needs_open_invoice`, where it can only be made while paying an
   open invoice; `payment_method_options` says which applies.
+- **The VAT-ID hold and chargebacks** (descriptions only). A renewal held
+  by the VAT ID is a due charge without an invoice number until it is
+  paid: `dunning.invoice_id` names it, `failure` is `vat_id_invalid`, and
+  `POST /api/billing/invoices/:id/pay` answers `409 target_state_conflict`,
+  rule `vat_id_invalid`, while it is held. A charged-back payment is never
+  recharged automatically: `next_retry_at` is `null`, `failure` is
+  `charged_back`.
 - **The `billing` route section**, twelve routes: `GET /api/billing`, the
   checkout and its status, the VAT-ID check, billing details, changes,
   the payment method, cancel and resume, an invoice's PDF and paying an

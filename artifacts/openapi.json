@@ -9883,7 +9883,7 @@
             }
           }
         },
-        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the existing Mollie customer, restricted to the chosen method (`card` → Mollie's `creditcard`, `paypal`, `applepay`). For `card` and `paypal` it is a payment of `0.00` in the org's currency that pays no open invoice: the invoice stays open, the next dunning retry charges the new mandate, and `POST /api/billing/invoices/:id/pay` still pays it at once. `applepay` behaves the same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together with paying an open invoice — the payment is then that invoice's amount and pays it — and without one this answers `400 validation_error` with `{ field: 'method', rule: 'applepay_needs_open_invoice' }`. A client offers what `payment_method_options` in `GET /api/billing` lists. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid` it becomes the account's — an Apple Pay one is a card mandate, shown as `applepay` — and every other mandate of the customer is revoked.",
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the existing Mollie customer, restricted to the chosen method (`card` → Mollie's `creditcard`, `paypal`, `applepay`). For `card` and `paypal` it is a payment of `0.00` in the org's currency that pays no open invoice: the invoice stays open, the next dunning retry charges the new mandate — except for an invoice that was charged back, which is never charged again automatically; pay it with `POST /api/billing/invoices/:id/pay` — and that route still pays any open invoice at once. `applepay` behaves the same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together with paying an open invoice — the payment is then that invoice's amount and pays it — and without one this answers `400 validation_error` with `{ field: 'method', rule: 'applepay_needs_open_invoice' }`. A client offers what `payment_method_options` in `GET /api/billing` lists. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid` it becomes the account's — an Apple Pay one is a card mandate, shown as `applepay` — and every other mandate of the customer is revoked.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10048,7 +10048,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The invoice id, from `billingInvoice.id`, of the open invoice to pay.",
+            "description": "The invoice id, from `billingInvoice.id`, of the open invoice to pay — or a due charge's id, from `dunning.invoice_id`.",
             "schema": {
               "type": "string"
             }
@@ -10076,7 +10076,7 @@
             }
           }
         },
-        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open invoice of a locked org unlocks it and keeps the plan running to the period's end, the same as a renewal that succeeds on a retry. `404 not_found` for an unknown id or one from another org."
+        "description": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open invoice of a locked org unlocks it and keeps the plan running to the period's end, the same as a renewal that succeeds on a retry. `:id` may also be a due charge's id from `dunning.invoice_id` in `GET /api/billing`: while the payer's VAT ID is unsettled a held renewal is a due charge that has no number yet, and it is numbered and issued as an invoice once this payment is paid. The payment charges the amount owed (`dunning.gross_cents`). While that due charge is held by the VAT ID this answers `409 target_state_conflict` with `{ field: 'billing', rule: 'vat_id_invalid' }`. `404 not_found` for an unknown id or one from another org."
       }
     }
   },
@@ -12813,13 +12813,13 @@
                                 "type": "string",
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                "description": "The open invoice dunning is chasing."
+                                "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
                               },
                               "gross_cents": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "The amount owed, in integer cents."
+                                "description": "The amount owed, in integer cents — after a partial chargeback only the charged-back part."
                               },
                               "due_at": {
                                 "type": "string",
@@ -12838,7 +12838,7 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "The next retry, or `null` once retries are exhausted."
+                                "description": "The next automatic retry, or `null` once retries are exhausted. Always `null` after a chargeback: a charged-back payment is never charged again automatically."
                               },
                               "lock_at": {
                                 "type": "string",
@@ -12855,7 +12855,7 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                                "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' while a renewal is held because VIES does not confirm the VAT ID; 'charged_back' after a chargeback or a lost PayPal dispute."
                               }
                             },
                             "required": [
@@ -12872,7 +12872,7 @@
                             "type": "null"
                           }
                         ],
-                        "description": "`null` while nothing is overdue."
+                        "description": "`null` while nothing is overdue. During a VAT-ID hold the charge is due but not yet invoiced."
                       }
                     },
                     "required": [
@@ -13632,13 +13632,13 @@
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "description": "The open invoice dunning is chasing."
+                            "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
                           },
                           "gross_cents": {
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "The amount owed, in integer cents."
+                            "description": "The amount owed, in integer cents — after a partial chargeback only the charged-back part."
                           },
                           "due_at": {
                             "type": "string",
@@ -13657,7 +13657,7 @@
                                 "type": "null"
                               }
                             ],
-                            "description": "The next retry, or `null` once retries are exhausted."
+                            "description": "The next automatic retry, or `null` once retries are exhausted. Always `null` after a chargeback: a charged-back payment is never charged again automatically."
                           },
                           "lock_at": {
                             "type": "string",
@@ -13674,7 +13674,7 @@
                                 "type": "null"
                               }
                             ],
-                            "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' when VIES turned definitive."
+                            "description": "Mollie's own reason, e.g. 'card_expired'; 'vat_id_invalid' while a renewal is held because VIES does not confirm the VAT ID; 'charged_back' after a chargeback or a lost PayPal dispute."
                           }
                         },
                         "required": [
@@ -13691,7 +13691,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "`null` while nothing is overdue."
+                    "description": "`null` while nothing is overdue. During a VAT-ID hold the charge is due but not yet invoiced."
                   }
                 },
                 "required": [
