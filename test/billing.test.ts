@@ -84,6 +84,26 @@ describe('money (worked examples)', () => {
     expect(q.lines).toEqual([{ item: 'plan', quantity: 1, net_cents: 14900, gross_cents: 17731 }])
     expect(q).toMatchObject({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731, rate_percent: 19, currency: 'eur', cycle: 'monthly' })
   })
+  it('checkout quote: the gross lines add up to the gross charged', () => {
+    // EUR yearly with two seats: rounding each line's VAT on its own came to
+    // 2027,04 € while the charge is 2027,05 €.
+    const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, seats: 2 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
+    expect(q.gross_cents).toBe(202705)
+    expect(q.lines.reduce((sum, l) => sum + l.gross_cents, 0)).toBe(q.gross_cents)
+  })
+  it('checkout quote: every Pro basket, the gross lines add up to the gross charged', () => {
+    const keys = Object.keys(NONE) as (keyof typeof NONE)[]
+    for (const currency of ['eur', 'usd'] as const)
+      for (const cycle of ['monthly', 'yearly'] as const)
+        for (const rate_percent of [0, 19])
+          for (const k of keys)
+            for (let n = 1; n <= 5; n++) {
+              const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, [k]: n }, cycle, currency, rate_percent })
+              expect(q.lines.reduce((sum, l) => sum + l.gross_cents, 0), `${currency} ${cycle} ${rate_percent} % ${n} ${k}`).toBe(q.gross_cents)
+            }
+    const all = checkoutQuote({ plan: 'pro', addons: { seats: 3, robots: 5, apps: 2, app_user_packs: 4, live_video_packs: 1 }, cycle: 'yearly', currency: 'usd', rate_percent: 19 })
+    expect(all.lines.reduce((sum, l) => sum + l.gross_cents, 0)).toBe(all.gross_cents)
+  })
   it('dunning schedule', () => {
     expect(BILLING_RETRY_DAYS).toEqual([3, 7])
     expect(BILLING_LOCK_DAY).toBe(14)

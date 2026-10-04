@@ -1068,8 +1068,10 @@ export const ERROR_CODES = [
   // 2026-10-04 — billing through Mollie (#104).
   /**
    * `503`: this cloud takes no payments, because no payment provider is
-   * configured — `MOLLIE_API_KEY` is unset. Every mutating
-   * billing route answers it, and `GET /api/billing` answers `200` with
+   * configured — `MOLLIE_API_KEY` is unset. Every billing route that
+   * charges or opens a Mollie checkout answers it; the routes that need no
+   * Mollie (cancel, resume, the details, the VAT-ID check) answer normally,
+   * and `GET /api/billing` answers `200` with
    * `available: false` instead, so a caller can render "billing is off"
    * without parsing an error. An upgrade or an add-on is a request to
    * Fleetless instead, exactly as it is today (#103's Feedback request).

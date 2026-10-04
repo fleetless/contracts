@@ -284,6 +284,11 @@ export interface CheckoutQuote extends ChargeAmounts {
  * The first charge of a checkout: one full period of `plan` + `addons`.
  * One line for the plan, then one line per add-on actually bought
  * (quantity 0 is omitted, not a zero-amount line).
+ *
+ * The VAT is rounded once, over the whole net amount, because that is what
+ * is charged. Rounding it per line can land a cent off that total, so the
+ * plan line absorbs the difference: the gross lines always add up to
+ * `gross_cents`, and the amount a person sees is the amount charged.
  */
 export function checkoutQuote(input: {
   plan: 'plus' | 'pro'
@@ -310,7 +315,9 @@ export function checkoutQuote(input: {
   }
 
   const netCents = lines.reduce((sum, line) => sum + line.net_cents, 0)
-  return { ...chargeAmounts(netCents, rate_percent), lines, rate_percent, currency, cycle }
+  const total = chargeAmounts(netCents, rate_percent)
+  lines[0]!.gross_cents += total.gross_cents - lines.reduce((sum, line) => sum + line.gross_cents, 0)
+  return { ...total, lines, rate_percent, currency, cycle }
 }
 
 /** Dunning after a failed renewal: retries on these days after the charge's due date. */

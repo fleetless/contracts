@@ -9605,7 +9605,7 @@
             }
           }
         },
-        "description": "`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every mutating route on this page answers `503 billing_unavailable` instead of acting. `account` is `null` before the org has ever checked out; the plan and its limits still come from `GET /api/org/plan` (#103) and are not repeated here."
+        "description": "`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; cancel, resume, the details and the VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan and its limits still come from `GET /api/org/plan` (#103) and are not repeated here."
       }
     },
     "/api/billing/checkout": {
