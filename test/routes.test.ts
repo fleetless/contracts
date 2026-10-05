@@ -2189,3 +2189,14 @@ describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)',
     expect(change?.notes).toMatch(/charged back/)
   })
 })
+
+describe('the slug rename during the history migration (2026-10-05, fleetless/fleetless#185)', () => {
+  it('can refuse while recorded history is migrating, and no longer claims to rewrite history rows', () => {
+    const rename = ROUTES.find((r) => key(r) === 'POST /api/robots/:id/config/rename-slug')!
+    expect(rename.errors).toContain('history_migrating')
+    expect(ERROR_CODES).toContain('history_migrating')
+    expect(rename.summary).not.toMatch(/history row/i)
+    expect(rename.notes ?? '').not.toMatch(/history rows/i)
+    expect(rename.notes ?? '').toMatch(/history_migrating/)
+  })
+})

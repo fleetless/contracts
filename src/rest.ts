@@ -2012,13 +2012,14 @@ export type PatchRobotRequest = z.infer<typeof patchRobotRequest>
 
 /**
  * `POST /api/robots/:id/config/rename-slug` — atomic server-side rename:
- * rewrites the **draft** config, every app-role grant carrying
- * `{robot_id, from}`, and the recorded history rows, in one transaction.
- * Job runs and audit events keep the old slug as historical fact. The
- * published config is immutable, so the caller must publish afterwards
- * (`requires_publish`); samples arriving between rename and the applied
- * publish still land under the old slug — named residual, not migrated.
- * Second residual in that same window: grants and the draft already name
+ * rewrites the **draft** config and every app-role grant carrying
+ * `{robot_id, from}`, and moves the recorded history with the name, in one
+ * transaction, without rewriting stored samples. Job runs and audit events
+ * keep the old slug as historical fact. The published config is immutable,
+ * so the caller must publish afterwards (`requires_publish`); samples the
+ * robot sends under the old slug between the rename and the publish join the
+ * renamed history.
+ * One residual remains in that same window: grants and the draft already name
  * `to`, but the still-published config exposes only `from` until the
  * publish lands — an end user's app has no working name for the datapoint
  * at all for however long that gap lasts, since `to` isn't published yet

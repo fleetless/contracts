@@ -54,6 +54,11 @@ version.
   answered with an error; nothing was charged. `details` is
   `paymentProviderUnavailableDetails` (`provider`, Mollie's HTTP `status`
   or `null` for a timeout). Retrying may work.
+- **`history_migrating`** (`409`): a slug rename refused while the robot's
+  recorded history is being migrated to a new storage layout. Temporary;
+  nothing is written, and the same request succeeds once the migration has
+  finished. Listed on `POST /api/robots/:id/config/rename-slug`. A consumer
+  that switches exhaustively over `ErrorCode` gains one case.
 
 ### Changed
 
@@ -63,6 +68,10 @@ version.
 - The notes of **`PUT /api/org/plan/change`** and the admin route no longer
   say payment is missing; an upgrade of a billed org goes through the
   billing routes.
+- `POST /api/robots/:id/config/rename-slug`: the summary and notes, and the
+  `renameSlugRequest` doc comment, now say the history moves with the name
+  without rewriting stored samples, and that samples sent under the old slug
+  before the publish join the renamed history. No wire shape changed.
 
 ## [6.2.0] — 2026-10-04
 
