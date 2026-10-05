@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.3.0] — 2026-10-05
+
 ### Added
 
 - **Billing.** `src/billing.ts`: `EU_COUNTRIES`, `countryCode`,
