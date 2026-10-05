@@ -2803,18 +2803,21 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/api/robots/:id/config/rename-slug', section: 'config',
-    summary: 'Renames a slug in the draft and rewrites every role grant and history row that named it.',
+    summary: 'Renames a slug in the draft and moves every role grant and the recorded history with the name.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: renameSlugRequest, response: renameSlugResponse,
     errors: [
       ...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'draft_not_a_document',
-      'unknown_slug', 'reserved_slug', 'duplicate_slug', 'internal_error',
+      'unknown_slug', 'reserved_slug', 'duplicate_slug', 'history_migrating', 'internal_error',
     ], transport: 'http',
     notes:
-      'One transaction over three places a slug is written down: the draft document, every app-role grant carrying it, and the recorded ' +
-      'history rows. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft ' +
-      'that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state.',
+      'One transaction: the draft document and every app-role grant carrying the slug are rewritten, and the recorded history moves with ' +
+      'the name without rewriting any stored sample, so a rename takes the same time however much history there is. Samples the robot ' +
+      'still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so ' +
+      '`requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the ' +
+      'same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with ' +
+      '`409 history_migrating`; nothing is written, and the same request succeeds once the migration has finished.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/slug-usage/:slug', section: 'config',

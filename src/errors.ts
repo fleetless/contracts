@@ -1087,5 +1087,14 @@ export const ERROR_CODES = [
    * Retrying may work.
    */
   'payment_provider_unavailable',
+
+  // 2026-10-05 — the datapoint series key (#185).
+  /**
+   * `409`: a slug rename was refused because the robot's recorded history is
+   * being migrated to a new storage layout. The refusal is temporary and
+   * nothing was written: the same request succeeds once the migration has
+   * finished. Retry later; nothing in the request needs to change.
+   */
+  'history_migrating',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
