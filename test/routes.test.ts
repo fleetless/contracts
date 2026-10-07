@@ -2256,4 +2256,25 @@ describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
     expect(of('GET', '/api/admin/search').operator).toEqual({ roles: all })
     for (const e of entries) expect('operator' in e, `${e.method} ${e.path}`).toBe(e.auth === 'operator')
   })
+  it('says in the notes what a missing role gets: 404 on a read, 403 on a command', () => {
+    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
+      const command = r.method === 'POST' && r.path.startsWith('/api/admin/commands/')
+      if (command) {
+        expect(r.notes ?? '', key(r)).toMatch(/role[^.]*`403 forbidden`/)
+        expect(r.errors, key(r)).toContain('forbidden')
+      } else {
+        expect(r.notes ?? '', key(r)).toMatch(/role[^.]*`404 not_found`/)
+        expect(r.errors, key(r)).toContain('not_found')
+        expect(r.errors, key(r)).not.toContain('forbidden')
+      }
+    }
+  })
+  it('names no stage label and no section of a document the reader does not have', () => {
+    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
+      for (const text of [r.summary, r.notes ?? '', ...r.params.map((p) => p.description)]) {
+        expect(text, key(r)).not.toMatch(/\bS\d\b/)
+        expect(text, key(r)).not.toMatch(/§/)
+      }
+    }
+  })
 })

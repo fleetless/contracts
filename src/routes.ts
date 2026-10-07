@@ -3427,7 +3427,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'Reachable only where the cloud enables it (`OPERATOR_NOOP_COMMAND=true`; refused in production). Proves the command path end to ' +
       'end without a real effect: a preview always answers one `keeps` effect, and an execute writes the operator audit plus an ' +
       '`operator.noop` row in the named org\'s audit, and nothing else. Every public host, and the private address while the operator ' +
-      'API is not enabled, answers `404 not_found` for this path like any other unregistered one.',
+      'API is not enabled, answers `404 not_found` for this path like any other unregistered one. A role the route does not list is ' +
+      'refused with `403 forbidden`: a command says no where a read stays silent.',
   },
   {
     method: 'GET', path: '/api/admin/search', section: 'org',
@@ -3435,12 +3436,13 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'internal', auth: 'operator', rateLimited: true, ownerTier: false, status: 200,
     operator: { roles: OPERATOR_ROLES },
     params: [], query: adminSearchQuery, request: null, response: adminSearchResponse,
-    errors: ['unauthorized', 'validation_error', 'rate_limited'], transport: 'http',
+    errors: ['unauthorized', 'not_found', 'validation_error', 'rate_limited'], transport: 'http',
     notes:
       '`q` is matched literally — `%`, `_` and `\\` carry no wildcard meaning — never as an `ILIKE` pattern, so a two-character query ' +
       'never dumps a table. At most `ADMIN_SEARCH_LIMIT` hits come back; `truncated` says whether more exist. A hit kind the caller\'s ' +
       'role may not see is left out rather than refused: `operator-support` gets no `invoice` or `payment` hits. Every public host, and ' +
-      'the private address while the operator API is not enabled, answers `404 not_found` for this path.',
+      'the private address while the operator API is not enabled, answers `404 not_found` for this path. A role the route does not ' +
+      'list gets that same `404 not_found`, so a read never reveals that it exists.',
   },
   {
     method: 'GET', path: '/api/admin/orgs/:id', section: 'org',
@@ -3451,9 +3453,9 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: adminOrgDetail,
     errors: ['unauthorized', 'not_found', 'rate_limited'], transport: 'http',
     notes:
-      '`billing` carries the account\'s state and next charge only — never the payer, address or payment method, which the operator ' +
-      'reads nowhere in S1. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this ' +
-      'path while the operator API is not enabled.',
+      '`billing` carries the account\'s state and next charge only — never the payer, address or payment method. An unknown `:id` is ' +
+      '`404 not_found`, the same every public host and the private address answer for this path while the operator API is not ' +
+      'enabled. A role the route does not list gets that same `404 not_found`, so a read never reveals that it exists.',
   },
   {
     method: 'GET', path: '/api/admin/orgs/:id/usage', section: 'org',
@@ -3466,7 +3468,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       "Identical to `GET /api/org/usage` for the named org: the same window rule, the same `from_day <= to_day` cross-field check, and " +
       'the same echoed window. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for ' +
-      'this path while the operator API is not enabled.',
+      'this path while the operator API is not enabled. A role the route does not list gets that same `404 not_found`, so a read ' +
+      'never reveals that it exists.',
   },
 
   /* --- billing (2026-10-04, fleetless/fleetless#104) ----------------------
