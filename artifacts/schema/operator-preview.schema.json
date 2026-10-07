@@ -15,7 +15,8 @@
               "changes",
               "triggers",
               "keeps"
-            ]
+            ],
+            "description": "`changes`: a value moves from `from` to `to`. `triggers`: something is set off (a mail, a refund, a document). `keeps`: something explicitly stays as it is."
           },
           "label": {
             "type": "string",

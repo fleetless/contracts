@@ -9,7 +9,7 @@ import { OPERATOR_REASON_MAX_LENGTH, OPERATOR_REASON_MIN_LENGTH } from './operat
  * it is.
  */
 export const previewEffect = z.object({
-  kind: z.enum(['changes', 'triggers', 'keeps']),
+  kind: z.enum(['changes', 'triggers', 'keeps']).meta({ description: '`changes`: a value moves from `from` to `to`. `triggers`: something is set off (a mail, a refund, a document). `keeps`: something explicitly stays as it is.' }),
   label: z.string().min(1).max(300),
   from: z.string().max(300).nullable().optional(),
   to: z.string().max(300).nullable().optional(),
