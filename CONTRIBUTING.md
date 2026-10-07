@@ -72,10 +72,10 @@ developer machine path or a first-name attribution.
 an issue first — so we can say what else has to move with it.
 
 **CI runs on GitHub Actions**, in this repository
-(`.github/workflows/verify.yml`) — the suite, on every push and every pull
-request. `release.yml` (the **Release** button) calls that same file on the
-commit it publishes, so a release is never checked by a different pipeline
-than a push.
+(`.github/workflows/verify.yml`) — the suite, on every pull request and
+every push to `main`. `release.yml` (the **Release** button) calls that same
+file on the commit it publishes, so a release is never checked by a different
+pipeline than a push.
 
 **Your pull request is verified, a fork's included** — the same file, the
 same suite. The first run by a first-time contributor waits for a maintainer
