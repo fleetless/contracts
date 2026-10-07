@@ -11,7 +11,7 @@ version.
 
 ### Added
 
-- **The operator's admin API, S1 (fleetless/fleetless#268).** `RouteAuth`
+- **The operator's admin API (fleetless/fleetless#268).** `RouteAuth`
   gains `operator`: a short-lived EdDSA-signed assertion naming the acting
   person and their roles (`operatorRole`: `operator-admin`,
   `operator-finance`, `operator-support`), carried as

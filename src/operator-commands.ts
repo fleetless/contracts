@@ -3,7 +3,7 @@ import { z, type ZodType } from 'zod'
 import { OPERATOR_REASON_MAX_LENGTH, OPERATOR_REASON_MIN_LENGTH } from './operator.js'
 
 /**
- * One line of a command's preview (§5.6, fleetless/fleetless#268): `changes`
+ * One line of a command's preview (fleetless/fleetless#268): `changes`
  * moves a value from `from` to `to`, `triggers` sets something off (a mail,
  * a refund, a document), `keeps` states that something explicitly stays as
  * it is.
@@ -26,7 +26,7 @@ const reason = z.string().trim().min(OPERATOR_REASON_MIN_LENGTH).max(OPERATOR_RE
 /**
  * The request body of an operator command, parameterised over its own
  * input shape: a `preview` that only reads, or an `execute` that carries the
- * reason, the preview it confirms and a replay key (§5.6, fleetless/fleetless#268).
+ * reason, the preview it confirms and a replay key (fleetless/fleetless#268).
  */
 export function operatorCommandRequest<I extends ZodType>(input: I) {
   return z.discriminatedUnion('mode', [

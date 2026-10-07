@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import { orgPlan } from './plans.js'
 
-/** The kinds `GET /api/admin/search` can answer, in S1 (fleetless/fleetless#268). A further kind joins the same union as its data arrives. */
+/** The kinds `GET /api/admin/search` can answer today (fleetless/fleetless#268). A further kind joins the same union as its data arrives. */
 export const ADMIN_SEARCH_KINDS = ['org', 'person', 'invoice', 'payment', 'robot'] as const
 /** The most hits one search answers; past it, `truncated` says so. */
 export const ADMIN_SEARCH_LIMIT = 50
@@ -30,7 +30,7 @@ export type AdminSearchResponse = z.infer<typeof adminSearchResponse>
 /**
  * `none` means no `billing_accounts` row; the other values mirror
  * `billingAccountStatus`. The payer, address and payment method never
- * appear here (§6, fleetless/fleetless#268): support may see exactly this
+ * appear here (fleetless/fleetless#268): support may see exactly this
  * billing block, the status chip and next charge only.
  */
 export const adminOrgBillingState = z.enum(['none', 'pending', 'active', 'past_due', 'canceled'])

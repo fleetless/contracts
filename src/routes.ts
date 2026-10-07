@@ -233,7 +233,7 @@ export interface RouteParam {
 
 /** Set exactly when `auth` is `operator` (fleetless/fleetless#268). */
 export interface RouteOperatorAccess {
-  /** The roles that may call this route (§6, fleetless/fleetless#268). Never empty. */
+  /** The roles that may call this route (fleetless/fleetless#268). Never empty. */
   readonly roles: readonly OperatorRole[]
   /** Set on command routes only: how the operator app confirms an execute. */
   readonly confirmation?: ConfirmationLevel

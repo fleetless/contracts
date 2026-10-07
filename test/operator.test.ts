@@ -8,7 +8,7 @@ import {
 
 const valid = { iss: OPERATOR_ASSERTION_ISSUER, aud: 'fleetless-cloud-admin', sub: 'ak-123', name: 'Test Operator', email: 'op@example.com', roles: ['operator-admin'], iat: 1_800_000_000, exp: 1_800_000_060, jti: 'a'.repeat(16) }
 
-describe('operator vocabulary (§5.4, §5.6, §6; fleetless/fleetless#268)', () => {
+describe('operator vocabulary (fleetless/fleetless#268)', () => {
   it('names exactly three roles and three confirmation levels', () => {
     expect([...OPERATOR_ROLES]).toEqual(['operator-admin', 'operator-finance', 'operator-support'])
     expect([...CONFIRMATION_LEVELS]).toEqual(['click', 'second_click', 'type_to_confirm'])
@@ -30,7 +30,7 @@ describe('operator vocabulary (§5.4, §5.6, §6; fleetless/fleetless#268)', () 
 const ORG = '6f9619ff-8b86-4d01-b42d-00cf4fc964ff'
 const KEY = '0b9c7e3e-6c1a-4a8e-9a4f-2d8f1f3c5b7a'
 
-describe('the command protocol (§5.6; fleetless/fleetless#268)', () => {
+describe('the command protocol (fleetless/fleetless#268)', () => {
   it('takes a preview', () => {
     expect(noopCommandRequest.parse({ mode: 'preview', input: { org_id: ORG } })).toEqual({ mode: 'preview', input: { org_id: ORG } })
   })
@@ -62,7 +62,7 @@ describe('the command protocol (§5.6; fleetless/fleetless#268)', () => {
   })
 })
 
-describe('the read schemas (§7.7, §5.4; fleetless/fleetless#268)', () => {
+describe('the read schemas (fleetless/fleetless#268)', () => {
   it('refuses a person hit without an org_id', () => {
     expect(adminSearchHit.safeParse({ kind: 'person', user_id: ORG, email: 'a@example.com', display_name: null, org_name: 'Acme' }).success).toBe(false)
   })
