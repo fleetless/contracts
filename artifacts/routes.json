@@ -6499,7 +6499,7 @@
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "Reachable only where the cloud enables it (`OPERATOR_NOOP_COMMAND=true`; refused in production). Proves the command path end to end without a real effect: a preview always answers one `keeps` effect, and an execute writes the operator audit plus an `operator.noop` row in the named org's audit, and nothing else. Every public host, and the private address while the operator API is not enabled, answers `404 not_found` for this path like any other unregistered one.",
+      "notes": "Reachable only where the cloud enables it (`OPERATOR_NOOP_COMMAND=true`; refused in production). Proves the command path end to end without a real effect: a preview always answers one `keeps` effect, and an execute writes the operator audit plus an `operator.noop` row in the named org's audit, and nothing else. Every public host, and the private address while the operator API is not enabled, answers `404 not_found` for this path like any other unregistered one. A role the route does not list is refused with `403 forbidden`: a command says no where a read stays silent.",
       "operator": {
         "roles": [
           "operator-admin",
@@ -6525,11 +6525,12 @@
       "response": "admin-search-response",
       "errors": [
         "unauthorized",
+        "not_found",
         "validation_error",
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "`q` is matched literally — `%`, `_` and `\\` carry no wildcard meaning — never as an `ILIKE` pattern, so a two-character query never dumps a table. At most `ADMIN_SEARCH_LIMIT` hits come back; `truncated` says whether more exist. A hit kind the caller's role may not see is left out rather than refused: `operator-support` gets no `invoice` or `payment` hits. Every public host, and the private address while the operator API is not enabled, answers `404 not_found` for this path.",
+      "notes": "`q` is matched literally — `%`, `_` and `\\` carry no wildcard meaning — never as an `ILIKE` pattern, so a two-character query never dumps a table. At most `ADMIN_SEARCH_LIMIT` hits come back; `truncated` says whether more exist. A hit kind the caller's role may not see is left out rather than refused: `operator-support` gets no `invoice` or `payment` hits. Every public host, and the private address while the operator API is not enabled, answers `404 not_found` for this path. A role the route does not list gets that same `404 not_found`, so a read never reveals that it exists.",
       "operator": {
         "roles": [
           "operator-admin",
@@ -6563,7 +6564,7 @@
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "`billing` carries the account's state and next charge only — never the payer, address or payment method, which the operator reads nowhere in S1. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this path while the operator API is not enabled.",
+      "notes": "`billing` carries the account's state and next charge only — never the payer, address or payment method. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this path while the operator API is not enabled. A role the route does not list gets that same `404 not_found`, so a read never reveals that it exists.",
       "operator": {
         "roles": [
           "operator-admin",
@@ -6598,7 +6599,7 @@
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "Identical to `GET /api/org/usage` for the named org: the same window rule, the same `from_day <= to_day` cross-field check, and the same echoed window. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this path while the operator API is not enabled.",
+      "notes": "Identical to `GET /api/org/usage` for the named org: the same window rule, the same `from_day <= to_day` cross-field check, and the same echoed window. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this path while the operator API is not enabled. A role the route does not list gets that same `404 not_found`, so a read never reveals that it exists.",
       "operator": {
         "roles": [
           "operator-admin",
