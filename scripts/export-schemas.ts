@@ -319,18 +319,14 @@ import {
   billingChangeResponse,
 } from '../src/billing.js'
 import {
-  previewEffect,
   operatorPreview,
   operatorAuditRef,
   previewStaleDetails,
-  noopCommandInput,
-  noopCommandResult,
   noopCommandRequest,
   noopCommandResponse,
 } from '../src/operator-commands.js'
 import {
   adminSearchQuery,
-  adminSearchHit,
   adminSearchResponse,
   adminOrgDetail,
 } from '../src/admin.js'
@@ -616,6 +612,11 @@ export const exportedSchemas = {
   'admin-search-response': adminSearchResponse,
   'admin-org-detail': adminOrgDetail,
   'noop-command-response': noopCommandResponse,
+  // What every command shares, whatever its own input and result: the
+  // preview, the audit rows an execute names, and `409 preview_stale`'s details.
+  'operator-preview': operatorPreview,
+  'operator-audit-ref': operatorAuditRef,
+  'preview-stale-details': previewStaleDetails,
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
   'billing-address': billingAddress,
@@ -1036,9 +1037,10 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 
   // --- The operator's admin API (fleetless/fleetless#268) ------------------
-  // Documents the server sends: a search or org-detail answer, and the
-  // no-op command's answer.
+  // Documents the server sends: a search or org-detail answer, the no-op
+  // command's answer, and the shapes every command's answer is built from.
   'admin-search-response', 'admin-org-detail', 'noop-command-response',
+  'operator-preview', 'operator-audit-ref', 'preview-stale-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
