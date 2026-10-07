@@ -9,7 +9,7 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
-  orgPlan,
+  orgPlan, operatorAccess,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -2129,7 +2129,7 @@ describe("the organization's plan routes (2026-10-02, fleetless/fleetless#103)",
     expect(r('DELETE', '/api/org/plan/change')?.ownerTier).toBe(true)
     const admin = r('PATCH', '/api/admin/orgs/:id/plan')
     expect(admin).toMatchObject({ audience: 'internal', auth: 'ops', rateLimited: true })
-    expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops')).toBe(true)
+    expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops' || x.auth === 'operator')).toBe(true)
   })
 })
 
@@ -2198,5 +2198,36 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
     expect(rename.summary).not.toMatch(/history row/i)
     expect(rename.notes ?? '').not.toMatch(/history rows/i)
     expect(rename.notes ?? '').toMatch(/history_migrating/)
+  })
+})
+
+describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
+  const admin = ROUTES.filter((r) => r.path.startsWith('/api/admin/'))
+  it('every admin route is internal and authenticated by the ops token or an operator assertion', () => {
+    for (const r of admin) {
+      expect(r.audience, key(r)).toBe('internal')
+      expect(['ops', 'operator'], key(r)).toContain(r.auth)
+    }
+  })
+  it('lists the roles on every operator route, and only there', () => {
+    for (const r of ROUTES) {
+      if (r.auth === 'operator') {
+        expect(r.operator?.roles.length, `${key(r)} has no roles`).toBeGreaterThan(0)
+        expect(new Set(r.operator!.roles).size, `${key(r)} repeats a role`).toBe(r.operator!.roles.length)
+        expect(r.path.startsWith('/api/admin/'), key(r)).toBe(true)
+      } else {
+        expect(r.operator, `${key(r)} carries operator access without auth: operator`).toBeUndefined()
+      }
+    }
+  })
+  it('gives every command a confirmation level, and no read one', () => {
+    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
+      const command = r.method === 'POST' && r.path.startsWith('/api/admin/commands/')
+      expect(r.operator!.confirmation !== undefined, key(r)).toBe(command)
+    }
+  })
+  it('looks up operator access by method and path', () => {
+    for (const r of ROUTES.filter((x) => x.auth === 'operator')) expect(operatorAccess(r.method, r.path)).toBe(r.operator)
+    expect(() => operatorAccess('PATCH', '/api/admin/orgs/:id/plan')).toThrow(/not an operator route/)
   })
 })

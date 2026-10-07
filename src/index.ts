@@ -813,7 +813,7 @@ export type {
   AuthorizationServerMetadata,
   ProtectedResourceMetadata,
 } from './oauth.js'
-export { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, developerSignInRoutes } from './routes.js'
+export { ROUTES, ROUTE_SECTIONS, IN_HANDLER_ROUTES, developerSignInRoutes, operatorAccess } from './routes.js'
 export type {
   RouteEntry,
   RouteParam,
@@ -822,7 +822,29 @@ export type {
   RouteSection,
   RouteMethod,
   RouteTransport,
+  RouteOperatorAccess,
 } from './routes.js'
+// fleetless/fleetless#268 — the operator platform's admin API foundation.
+export {
+  OPERATOR_ROLES,
+  operatorRole,
+  CONFIRMATION_LEVELS,
+  confirmationLevel,
+  OPERATOR_ASSERTION_ISSUER,
+  OPERATOR_AUTH_SCHEME,
+  OPERATOR_ASSERTION_MAX_LIFETIME_SECONDS,
+  OPERATOR_ASSERTION_MAX_FUTURE_SKEW_SECONDS,
+  OPERATOR_ASSERTION_REPLAY_WINDOW_SECONDS,
+  OPERATOR_REASON_MIN_LENGTH,
+  OPERATOR_REASON_MAX_LENGTH,
+  OPERATOR_PREVIEW_MAX_AGE_MS,
+  operatorAssertionClaims,
+} from './operator.js'
+export type {
+  OperatorRole,
+  ConfirmationLevel,
+  OperatorAssertionClaims,
+} from './operator.js'
 // 2026-10-02 — plans (#103). The catalogue (I-1) only: `PLANS` and `ADDONS`
 // are deliberately not constants exports (`constants.json` is vendored by
 // the bridge and must stay unchanged) but are exported values of this
