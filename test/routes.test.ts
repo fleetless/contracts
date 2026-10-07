@@ -9,9 +9,7 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
-  orgPlan, operatorAccess, noopCommandRequest, noopCommandResponse, adminSearchQuery,
-  adminSearchResponse, adminOrgDetail, orgUsageQuery, orgUsageResponse,
-  operatorPreview, operatorAuditRef, previewStaleDetails,
+  orgPlan,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -2131,7 +2129,7 @@ describe("the organization's plan routes (2026-10-02, fleetless/fleetless#103)",
     expect(r('DELETE', '/api/org/plan/change')?.ownerTier).toBe(true)
     const admin = r('PATCH', '/api/admin/orgs/:id/plan')
     expect(admin).toMatchObject({ audience: 'internal', auth: 'ops', rateLimited: true })
-    expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops' || x.auth === 'operator')).toBe(true)
+    expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops')).toBe(true)
   })
 })
 
@@ -2200,81 +2198,5 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
     expect(rename.summary).not.toMatch(/history row/i)
     expect(rename.notes ?? '').not.toMatch(/history rows/i)
     expect(rename.notes ?? '').toMatch(/history_migrating/)
-  })
-})
-
-describe('operator routes (fleetless/fleetless#268)', () => {
-  const admin = ROUTES.filter((r) => r.path.startsWith('/api/admin/'))
-  it('every admin route is internal and authenticated by the ops token or an operator assertion', () => {
-    for (const r of admin) {
-      expect(r.audience, key(r)).toBe('internal')
-      expect(['ops', 'operator'], key(r)).toContain(r.auth)
-    }
-  })
-  it('lists the roles on every operator route, and only there', () => {
-    for (const r of ROUTES) {
-      if (r.auth === 'operator') {
-        expect(r.operator?.roles.length, `${key(r)} has no roles`).toBeGreaterThan(0)
-        expect(new Set(r.operator!.roles).size, `${key(r)} repeats a role`).toBe(r.operator!.roles.length)
-        expect(r.path.startsWith('/api/admin/'), key(r)).toBe(true)
-      } else {
-        expect(r.operator, `${key(r)} carries operator access without auth: operator`).toBeUndefined()
-      }
-    }
-  })
-  it('gives every command a confirmation level, and no read one', () => {
-    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
-      const command = r.method === 'POST' && r.path.startsWith('/api/admin/commands/')
-      expect(r.operator!.confirmation !== undefined, key(r)).toBe(command)
-    }
-  })
-  it('looks up operator access by method and path', () => {
-    for (const r of ROUTES.filter((x) => x.auth === 'operator')) expect(operatorAccess(r.method, r.path)).toBe(r.operator)
-    expect(() => operatorAccess('PATCH', '/api/admin/orgs/:id/plan')).toThrow(/not an operator route/)
-  })
-  it('lists the first operator routes with their roles (fleetless/fleetless#268)', () => {
-    const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
-    const all = ['operator-admin', 'operator-finance', 'operator-support']
-    expect(r('POST', '/api/admin/commands/noop')).toMatchObject({ auth: 'operator', audience: 'internal', rateLimited: true, status: 200, request: noopCommandRequest, response: noopCommandResponse, operator: { roles: all, confirmation: 'click' } })
-    expect(r('GET', '/api/admin/search')).toMatchObject({ auth: 'operator', query: adminSearchQuery, response: adminSearchResponse, operator: { roles: all } })
-    expect(r('GET', '/api/admin/orgs/:id')).toMatchObject({ auth: 'operator', response: adminOrgDetail, operator: { roles: all } })
-    expect(r('GET', '/api/admin/orgs/:id/usage')).toMatchObject({ auth: 'operator', query: orgUsageQuery, response: orgUsageResponse, operator: { roles: all } })
-    expect(r('POST', '/api/admin/commands/noop')!.errors).toEqual(expect.arrayContaining(['unauthorized', 'forbidden', 'not_found', 'validation_error', 'preview_stale', 'idempotency_key_reused', 'rate_limited']))
-  })
-  it('exports the shapes every command shares, so a consumer without the package can read them', () => {
-    expect(exportedSchemas['operator-preview']).toBe(operatorPreview)
-    expect(exportedSchemas['operator-audit-ref']).toBe(operatorAuditRef)
-    // The `details` of `409 preview_stale`, beside every other error's details.
-    expect(exportedSchemas['preview-stale-details']).toBe(previewStaleDetails)
-    for (const name of ['operator-preview', 'operator-audit-ref', 'preview-stale-details']) expect(schemaIo(name), name).toBe('output')
-  })
-  it('carries the roles and the confirmation level into routes.json, and nothing on any other route', () => {
-    const entries = routesArtifact().routes
-    const of = (m: string, p: string) => entries.find((x) => x.method === m && x.path === p)!
-    const all = ['operator-admin', 'operator-finance', 'operator-support']
-    expect(of('POST', '/api/admin/commands/noop').operator).toEqual({ roles: all, confirmation: 'click' })
-    expect(of('GET', '/api/admin/search').operator).toEqual({ roles: all })
-    for (const e of entries) expect('operator' in e, `${e.method} ${e.path}`).toBe(e.auth === 'operator')
-  })
-  it('says in the notes what a missing role gets: 404 on a read, 403 on a command', () => {
-    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
-      const command = r.method === 'POST' && r.path.startsWith('/api/admin/commands/')
-      if (command) {
-        expect(r.notes ?? '', key(r)).toMatch(/role[^.]*`403 forbidden`/)
-        expect(r.errors, key(r)).toContain('forbidden')
-      } else {
-        expect(r.notes ?? '', key(r)).toMatch(/role[^.]*`404 not_found`/)
-        expect(r.errors, key(r)).toContain('not_found')
-        expect(r.errors, key(r)).not.toContain('forbidden')
-      }
-    }
-  })
-  it('names no stage label and no section of a document the reader does not have', () => {
-    for (const r of ROUTES.filter((x) => x.auth === 'operator')) {
-      for (const text of [r.summary, r.notes ?? '', ...r.params.map((p) => p.description)]) {
-        expect(text, key(r)).not.toMatch(/\bS\d\b/)
-        expect(text, key(r)).not.toMatch(/§/)
-      }
-    }
   })
 })

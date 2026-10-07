@@ -9,34 +9,6 @@ version.
 
 ## [Unreleased]
 
-### Added
-
-- **The operator's admin API (fleetless/fleetless#268).** `RouteAuth`
-  gains `operator`: a short-lived EdDSA-signed assertion naming the acting
-  person and their roles (`operatorRole`: `operator-admin`,
-  `operator-finance`, `operator-support`), carried as
-  `Authorization: Operator <jwt>` and verified against
-  `operatorAssertionClaims`. Every `auth: 'operator'` route is
-  `audience: 'internal'` and carries a `RouteEntry.operator` block (roles,
-  and a `confirmationLevel` on a command), looked up by `operatorAccess`
-  and written into `routes.json` as `operator`.
-- **The command protocol.** `operatorCommandRequest`/`operatorCommandResponse`
-  describe a preview-reason-execute cycle: a `preview` mode answering
-  `operatorPreview` and a token, an `execute` mode taking a `reason`, that
-  token and an `idempotency_key`, and a result carrying `operatorAuditRef`.
-  `409 preview_stale` carries a fresh preview in `previewStaleDetails`.
-  The no-op command (`POST /api/admin/commands/noop`,
-  `noopCommandRequest`/`noopCommandResponse`) proves the protocol without
-  changing anything.
-- **Search and org reads.** `GET /api/admin/search`
-  (`adminSearchQuery`/`adminSearchResponse`, hit kinds org, person, invoice,
-  payment, robot), `GET /api/admin/orgs/:id` (`adminOrgDetail`) and
-  `GET /api/admin/orgs/:id/usage`, identical to the developer's own usage
-  read for the named org.
-- **Two error codes**: `preview_stale` (409, an execute's preview is no
-  longer current) and `idempotency_key_reused` (409, the key was already
-  used for a different command, input or operator).
-
 ## [6.3.0] — 2026-10-05
 
 ### Added

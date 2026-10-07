@@ -318,18 +318,6 @@ import {
   billingView,
   billingChangeResponse,
 } from '../src/billing.js'
-import {
-  operatorPreview,
-  operatorAuditRef,
-  previewStaleDetails,
-  noopCommandRequest,
-  noopCommandResponse,
-} from '../src/operator-commands.js'
-import {
-  adminSearchQuery,
-  adminSearchResponse,
-  adminOrgDetail,
-} from '../src/admin.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -605,18 +593,6 @@ export const exportedSchemas = {
   'plan-required-details': planRequiredDetails,
   'org-locked-details': orgLockedDetails,
   'file-too-large-details': fileTooLargeDetails,
-
-  // --- The operator's admin API (fleetless/fleetless#268) ------------------
-  'admin-search-query': adminSearchQuery,
-  'noop-command-request': noopCommandRequest,
-  'admin-search-response': adminSearchResponse,
-  'admin-org-detail': adminOrgDetail,
-  'noop-command-response': noopCommandResponse,
-  // What every command shares, whatever its own input and result: the
-  // preview, the audit rows an execute names, and `409 preview_stale`'s details.
-  'operator-preview': operatorPreview,
-  'operator-audit-ref': operatorAuditRef,
-  'preview-stale-details': previewStaleDetails,
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
   'billing-address': billingAddress,
@@ -939,10 +915,6 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
 
-  // The operator's admin API (fleetless/fleetless#268): the query and the
-  // no-op command's request, validated as incoming documents.
-  'admin-search-query', 'noop-command-request',
-
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
   // frame, so it is an accepted document on two surfaces and never a response
@@ -1035,12 +1007,6 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // payment_provider_unavailable` — documents the server sends.
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
-
-  // --- The operator's admin API (fleetless/fleetless#268) ------------------
-  // Documents the server sends: a search or org-detail answer, the no-op
-  // command's answer, and the shapes every command's answer is built from.
-  'admin-search-response', 'admin-org-detail', 'noop-command-response',
-  'operator-preview', 'operator-audit-ref', 'preview-stale-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
@@ -1178,8 +1144,6 @@ export interface RouteArtifactEntry {
   errors: string[]
   transport: string
   notes?: string
-  /** Set exactly when `auth` is `operator`: the roles that may call the route, and a command's confirmation level. */
-  operator?: { roles: string[]; confirmation?: string }
 }
 
 export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: RouteArtifactEntry[] } {
@@ -1216,14 +1180,6 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
         transport: r.transport,
       }
       if (r.notes !== undefined) entry.notes = r.notes
-      // The manifest is the one place that says which role may call which
-      // operator route; a reader of `routes.json` has to find it there too.
-      if (r.operator !== undefined) {
-        entry.operator = {
-          roles: [...r.operator.roles],
-          ...(r.operator.confirmation !== undefined ? { confirmation: r.operator.confirmation } : {}),
-        }
-      }
       return entry
     }),
   }
@@ -1237,10 +1193,6 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
   // 2026-10-02 — plans (#103). The operator bearer token, never reachable
   // through a public host; see `RouteAuth`'s own doc comment.
   ops: [{ opsToken: [] }],
-  // fleetless/fleetless#268. A short-lived operator assertion; see
-  // `RouteAuth`'s own doc comment. Never referenced in a document, because
-  // every operator route is `audience: 'internal'`.
-  operator: [{ operatorAssertion: [] }],
 }
 
 /**
@@ -1256,7 +1208,6 @@ const ALL_SECURITY_SCHEMES: Record<string, object> = {
   clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
   serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
   opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
-  operatorAssertion: { type: 'http', scheme: 'Operator', description: 'A short-lived operator assertion (EdDSA JWT); never reachable through a public host.' },
 }
 
 /**
