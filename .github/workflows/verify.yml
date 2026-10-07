@@ -1,7 +1,7 @@
-# The suite on every push and every pull request, and the same file a release
-# calls: a release is never verified by a different pipeline than a push. The
-# release passes the commit to check out and the version it is about to
-# publish; a push or pull request passes neither.
+# The suite on every pull request and every push to `main`, and the same file
+# a release calls: a release is never verified by a different pipeline than a
+# push. The release passes the commit to check out and the version it is about
+# to publish; a push or pull request passes neither.
 #
 # Hosted runners, because this repository is public — a pull request is a
 # stranger's code, and hosted minutes are free here.
@@ -131,8 +131,9 @@ jobs:
       # regenerates it; a dirty `artifacts/` afterwards means somebody edited
       # a schema and did not regenerate, so the package would ship a schema
       # that disagrees with its own source. A local test catches that too, but
-      # only if somebody runs it. This is the copy that runs on every push,
-      # and it is the reason the tarball packed below can be trusted.
+      # only if somebody runs it. This is the copy that runs on every pull
+      # request and every push to `main`, and it is the reason the tarball
+      # packed below can be trusted.
       #
       # `--porcelain` and not `git diff`: `git diff` exits 0 on an UNTRACKED
       # new schema, which is exactly what a newly registered export produces.
