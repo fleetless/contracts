@@ -2,7 +2,7 @@
 import { z } from 'zod'
 
 /**
- * The three roles an operator assertion may name (operator spec §6). The
+ * The three roles an operator assertion may name (§6, fleetless/fleetless#268). The
  * cloud looks up which of them a route needs from `RouteEntry.operator`;
  * a role not listed here makes an assertion malformed (`401`).
  */
@@ -11,7 +11,7 @@ export const operatorRole = z.enum(OPERATOR_ROLES)
 export type OperatorRole = z.infer<typeof operatorRole>
 
 /**
- * How the operator app confirms a command's execute (operator spec §5.6).
+ * How the operator app confirms a command's execute (§5.6, fleetless/fleetless#268).
  * Set only on command routes, never on a read.
  */
 export const CONFIRMATION_LEVELS = ['click', 'second_click', 'type_to_confirm'] as const
@@ -36,7 +36,7 @@ export const OPERATOR_REASON_MAX_LENGTH = 2000
 export const OPERATOR_PREVIEW_MAX_AGE_MS = 10 * 60 * 1000
 
 /**
- * The claims of an operator assertion (operator spec §5.4): an EdDSA JWT
+ * The claims of an operator assertion (§5.4, fleetless/fleetless#268): an EdDSA JWT
  * naming the acting person and their roles. The cloud verifies the
  * signature against `OPERATOR_ASSERTION_KEYS` and this shape against the
  * claims before trusting any of it.
