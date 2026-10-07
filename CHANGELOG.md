@@ -18,11 +18,13 @@ version.
   `Authorization: Operator <jwt>` and verified against
   `operatorAssertionClaims`. Every `auth: 'operator'` route is
   `audience: 'internal'` and carries a `RouteEntry.operator` block (roles,
-  and a `confirmationLevel` on a command), looked up by `operatorAccess`.
+  and a `confirmationLevel` on a command), looked up by `operatorAccess`
+  and written into `routes.json` as `operator`.
 - **The command protocol.** `operatorCommandRequest`/`operatorCommandResponse`
   describe a preview-reason-execute cycle: a `preview` mode answering
   `operatorPreview` and a token, an `execute` mode taking a `reason`, that
   token and an `idempotency_key`, and a result carrying `operatorAuditRef`.
+  `409 preview_stale` carries a fresh preview in `previewStaleDetails`.
   The no-op command (`POST /api/admin/commands/noop`,
   `noopCommandRequest`/`noopCommandResponse`) proves the protocol without
   changing anything.

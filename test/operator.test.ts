@@ -4,6 +4,7 @@ import {
   OPERATOR_ROLES, CONFIRMATION_LEVELS, operatorAssertionClaims, OPERATOR_ASSERTION_ISSUER,
   noopCommandRequest, noopCommandResponse, previewStaleDetails, ERROR_CODES,
   adminSearchHit, adminOrgDetail, PLANS,
+  ADMIN_SEARCH_KINDS, adminOrgBillingState, billingAccountStatus,
 } from '../src/index.js'
 
 const valid = { iss: OPERATOR_ASSERTION_ISSUER, aud: 'fleetless-cloud-admin', sub: 'ak-123', name: 'Test Operator', email: 'op@example.com', roles: ['operator-admin'], iat: 1_800_000_000, exp: 1_800_000_060, jti: 'a'.repeat(16) }
@@ -63,6 +64,12 @@ describe('the command protocol (fleetless/fleetless#268)', () => {
 })
 
 describe('the read schemas (fleetless/fleetless#268)', () => {
+  it('answers exactly the kinds ADMIN_SEARCH_KINDS names', () => {
+    expect(adminSearchHit.options.map((o) => o.shape.kind.value)).toEqual([...ADMIN_SEARCH_KINDS])
+  })
+  it("mirrors the billing account's statuses, with `none` for an org that has no account", () => {
+    expect(adminOrgBillingState.options).toEqual(['none', ...billingAccountStatus.options])
+  })
   it('refuses a person hit without an org_id', () => {
     expect(adminSearchHit.safeParse({ kind: 'person', user_id: ORG, email: 'a@example.com', display_name: null, org_name: 'Acme' }).success).toBe(false)
   })
