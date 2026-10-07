@@ -1193,6 +1193,10 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
   // 2026-10-02 — plans (#103). The operator bearer token, never reachable
   // through a public host; see `RouteAuth`'s own doc comment.
   ops: [{ opsToken: [] }],
+  // fleetless/fleetless#268. A short-lived operator assertion; see
+  // `RouteAuth`'s own doc comment. Never referenced in a document, because
+  // every operator route is `audience: 'internal'`.
+  operator: [{ operatorAssertion: [] }],
 }
 
 /**
@@ -1208,6 +1212,7 @@ const ALL_SECURITY_SCHEMES: Record<string, object> = {
   clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
   serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
   opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
+  operatorAssertion: { type: 'http', scheme: 'Operator', description: 'A short-lived operator assertion (EdDSA JWT); never reachable through a public host.' },
 }
 
 /**

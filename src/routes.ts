@@ -142,6 +142,7 @@ import {
   protectedResourceMetadata,
 } from './oauth.js'
 import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
+import type { ConfirmationLevel, OperatorRole } from './operator.js'
 import {
   billingCancelRequest,
   billingChangeRequest,
@@ -210,8 +211,11 @@ export type RouteAudience = 'developer' | 'client' | 'internal'
 /**
  * `ops` (2026-10-02, fleetless/fleetless#103): a bearer token the operator
  * holds (`OPS_API_TOKEN`); never reachable through a public host.
+ *
+ * `operator` (fleetless/fleetless#268): a short-lived assertion naming the
+ * acting person and their roles; the roles a route needs are in `operator`.
  */
-export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_upload' | 'in_handler' | 'ops'
+export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_upload' | 'in_handler' | 'ops' | 'operator'
 export type RouteTransport = 'http' | 'websocket'
 export type RouteSection =
   | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'billing' | 'users' | 'apps'
@@ -222,6 +226,14 @@ export interface RouteParam {
   readonly name: string
   /** One sentence: what the segment identifies and where a caller gets it. */
   readonly description: string
+}
+
+/** Set exactly when `auth` is `operator` (fleetless/fleetless#268). */
+export interface RouteOperatorAccess {
+  /** The roles that may call this route (§6, fleetless/fleetless#268). Never empty. */
+  readonly roles: readonly OperatorRole[]
+  /** Set on command routes only: how the operator app confirms an execute. */
+  readonly confirmation?: ConfirmationLevel
 }
 
 export interface RouteEntry {
@@ -271,6 +283,8 @@ export interface RouteEntry {
   readonly transport: RouteTransport
   /** Markdown rendered under the route; the place for what the schema cannot say. */
   readonly notes?: string
+  /** Set exactly when `auth` is `operator`. */
+  readonly operator?: RouteOperatorAccess
 }
 
 export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly title: string }[] = [
@@ -3613,3 +3627,17 @@ export const ROUTES: readonly RouteEntry[] = [
     notes: 'Authentication happens in the first frame, not on the upgrade. The frame types are the `realtime` schemas.',
   },
 ]
+
+/** Every `auth: 'operator'` route, keyed `METHOD path`, for `operatorAccess`. */
+const OPERATOR_ACCESS = new Map(ROUTES.filter((r) => r.auth === 'operator').map((r) => [`${r.method} ${r.path}`, r.operator!]))
+
+/**
+ * The roles (and, for a command, the confirmation level) a caller of this
+ * operator route needs, looked up by method and path (fleetless/fleetless#268).
+ * Throws for a route that is not `auth: 'operator'`.
+ */
+export function operatorAccess(method: RouteMethod, path: string): RouteOperatorAccess {
+  const access = OPERATOR_ACCESS.get(`${method} ${path}`)
+  if (!access) throw new Error(`${method} ${path} is not an operator route`)
+  return access
+}
