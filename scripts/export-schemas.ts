@@ -1178,6 +1178,8 @@ export interface RouteArtifactEntry {
   errors: string[]
   transport: string
   notes?: string
+  /** Set exactly when `auth` is `operator`: the roles that may call the route, and a command's confirmation level. */
+  operator?: { roles: string[]; confirmation?: string }
 }
 
 export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: RouteArtifactEntry[] } {
@@ -1214,6 +1216,14 @@ export function routesArtifact(): { sections: typeof ROUTE_SECTIONS; routes: Rou
         transport: r.transport,
       }
       if (r.notes !== undefined) entry.notes = r.notes
+      // The manifest is the one place that says which role may call which
+      // operator route; a reader of `routes.json` has to find it there too.
+      if (r.operator !== undefined) {
+        entry.operator = {
+          roles: [...r.operator.roles],
+          ...(r.operator.confirmation !== undefined ? { confirmation: r.operator.confirmation } : {}),
+        }
+      }
       return entry
     }),
   }
