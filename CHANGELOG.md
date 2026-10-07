@@ -9,6 +9,15 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Final releases publish under the npm dist-tag `staging`;** `latest` moves
+  when the release is promoted to production, and never backwards. `npm i
+  @fleetless/contracts` therefore installs what runs in production. A release
+  that is still being tested is installable by its version number or as
+  `@fleetless/contracts@staging`. Pre-releases stay under `next`. No wire
+  shape changes.
+
 ## [6.3.0] — 2026-10-05
 
 ### Added

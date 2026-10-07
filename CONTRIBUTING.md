@@ -135,6 +135,15 @@ itself once the required `verify` check passes; the merge commit is tagged,
 `verify.yml` runs again on it and packs the tarball, and `publish` ships
 exactly that tarball.
 
+**A release does not move `latest`.** It is published under the npm dist-tag
+`staging`, and the run ends by asking the ops repository to record the
+version for the staging environment. `latest` — what `npm i
+@fleetless/contracts` installs — moves when the staging generation that
+carries the release is promoted to production, and never backwards. Until
+then the version is installable by its number or as
+`@fleetless/contracts@staging`. The trusted publisher of this workflow may
+publish only; it has no permission to move a dist-tag.
+
 A person still writes the `## [Unreleased]` entries — in the feature's own
 pull request, as the change goes in — because the release only renames that
 heading to a version; it never writes prose. An empty `## [Unreleased]`
@@ -165,7 +174,8 @@ no `.npmrc` anywhere.
 again.** It sees that npm already has the version and does not publish
 twice — npm refuses to republish a version, and a second attempt would only
 read like a broken run. The rerun continues from there: it waits for the
-registry to serve it, then finishes. Check `npm view
+registry to serve it, asks the ops repository to record it for staging again,
+then finishes. Check `npm view
 @fleetless/contracts@<version>` first if you want to see for yourself before
 pressing anything.
 
