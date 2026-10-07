@@ -2203,7 +2203,7 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
   })
 })
 
-describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
+describe('operator routes (fleetless/fleetless#268)', () => {
   const admin = ROUTES.filter((r) => r.path.startsWith('/api/admin/'))
   it('every admin route is internal and authenticated by the ops token or an operator assertion', () => {
     for (const r of admin) {
@@ -2232,7 +2232,7 @@ describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
     for (const r of ROUTES.filter((x) => x.auth === 'operator')) expect(operatorAccess(r.method, r.path)).toBe(r.operator)
     expect(() => operatorAccess('PATCH', '/api/admin/orgs/:id/plan')).toThrow(/not an operator route/)
   })
-  it('lists the S1 operator routes with their roles (fleetless/fleetless#268)', () => {
+  it('lists the first operator routes with their roles (fleetless/fleetless#268)', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const all = ['operator-admin', 'operator-finance', 'operator-support']
     expect(r('POST', '/api/admin/commands/noop')).toMatchObject({ auth: 'operator', audience: 'internal', rateLimited: true, status: 200, request: noopCommandRequest, response: noopCommandResponse, operator: { roles: all, confirmation: 'click' } })
