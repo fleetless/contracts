@@ -11,6 +11,7 @@ import {
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
   orgPlan, operatorAccess, noopCommandRequest, noopCommandResponse, adminSearchQuery,
   adminSearchResponse, adminOrgDetail, orgUsageQuery, orgUsageResponse,
+  operatorPreview, operatorAuditRef, previewStaleDetails,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -2239,5 +2240,12 @@ describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
     expect(r('GET', '/api/admin/orgs/:id')).toMatchObject({ auth: 'operator', response: adminOrgDetail, operator: { roles: all } })
     expect(r('GET', '/api/admin/orgs/:id/usage')).toMatchObject({ auth: 'operator', query: orgUsageQuery, response: orgUsageResponse, operator: { roles: all } })
     expect(r('POST', '/api/admin/commands/noop')!.errors).toEqual(expect.arrayContaining(['unauthorized', 'forbidden', 'not_found', 'validation_error', 'preview_stale', 'idempotency_key_reused', 'rate_limited']))
+  })
+  it('exports the shapes every command shares, so a consumer without the package can read them', () => {
+    expect(exportedSchemas['operator-preview']).toBe(operatorPreview)
+    expect(exportedSchemas['operator-audit-ref']).toBe(operatorAuditRef)
+    // The `details` of `409 preview_stale`, beside every other error's details.
+    expect(exportedSchemas['preview-stale-details']).toBe(previewStaleDetails)
+    for (const name of ['operator-preview', 'operator-audit-ref', 'preview-stale-details']) expect(schemaIo(name), name).toBe('output')
   })
 })
