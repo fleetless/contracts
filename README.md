@@ -36,6 +36,10 @@ client in another language, or a bridge of your own.
 npm i @fleetless/contracts
 ```
 
+That installs `latest`, the version the Fleetless cloud runs in production. A
+newer release may already be on npm under the dist-tag `staging` while it is
+being tested; `next` carries pre-releases.
+
 TypeScript imports the schemas and the types inferred from them, all from the
 package root:
 
