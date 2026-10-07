@@ -2248,4 +2248,12 @@ describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
     expect(exportedSchemas['preview-stale-details']).toBe(previewStaleDetails)
     for (const name of ['operator-preview', 'operator-audit-ref', 'preview-stale-details']) expect(schemaIo(name), name).toBe('output')
   })
+  it('carries the roles and the confirmation level into routes.json, and nothing on any other route', () => {
+    const entries = routesArtifact().routes
+    const of = (m: string, p: string) => entries.find((x) => x.method === m && x.path === p)!
+    const all = ['operator-admin', 'operator-finance', 'operator-support']
+    expect(of('POST', '/api/admin/commands/noop').operator).toEqual({ roles: all, confirmation: 'click' })
+    expect(of('GET', '/api/admin/search').operator).toEqual({ roles: all })
+    for (const e of entries) expect('operator' in e, `${e.method} ${e.path}`).toBe(e.auth === 'operator')
+  })
 })
