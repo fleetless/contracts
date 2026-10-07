@@ -865,6 +865,22 @@ export type {
   NoopCommandInput,
   NoopCommandResult,
 } from './operator-commands.js'
+export {
+  ADMIN_SEARCH_KINDS,
+  ADMIN_SEARCH_LIMIT,
+  adminSearchQuery,
+  adminSearchHit,
+  adminSearchResponse,
+  adminOrgBillingState,
+  adminOrgDetail,
+} from './admin.js'
+export type {
+  AdminSearchQuery,
+  AdminSearchHit,
+  AdminSearchResponse,
+  AdminOrgBillingState,
+  AdminOrgDetail,
+} from './admin.js'
 // 2026-10-02 — plans (#103). The catalogue (I-1) only: `PLANS` and `ADDONS`
 // are deliberately not constants exports (`constants.json` is vendored by
 // the bridge and must stay unchanged) but are exported values of this

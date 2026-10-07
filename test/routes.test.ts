@@ -9,7 +9,8 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
-  orgPlan, operatorAccess,
+  orgPlan, operatorAccess, noopCommandRequest, noopCommandResponse, adminSearchQuery,
+  adminSearchResponse, adminOrgDetail, orgUsageQuery, orgUsageResponse,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -2229,5 +2230,14 @@ describe('operator routes (§5.6, §6, §16; fleetless/fleetless#268)', () => {
   it('looks up operator access by method and path', () => {
     for (const r of ROUTES.filter((x) => x.auth === 'operator')) expect(operatorAccess(r.method, r.path)).toBe(r.operator)
     expect(() => operatorAccess('PATCH', '/api/admin/orgs/:id/plan')).toThrow(/not an operator route/)
+  })
+  it('lists the S1 operator routes with their roles (fleetless/fleetless#268)', () => {
+    const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
+    const all = ['operator-admin', 'operator-finance', 'operator-support']
+    expect(r('POST', '/api/admin/commands/noop')).toMatchObject({ auth: 'operator', audience: 'internal', rateLimited: true, status: 200, request: noopCommandRequest, response: noopCommandResponse, operator: { roles: all, confirmation: 'click' } })
+    expect(r('GET', '/api/admin/search')).toMatchObject({ auth: 'operator', query: adminSearchQuery, response: adminSearchResponse, operator: { roles: all } })
+    expect(r('GET', '/api/admin/orgs/:id')).toMatchObject({ auth: 'operator', response: adminOrgDetail, operator: { roles: all } })
+    expect(r('GET', '/api/admin/orgs/:id/usage')).toMatchObject({ auth: 'operator', query: orgUsageQuery, response: orgUsageResponse, operator: { roles: all } })
+    expect(r('POST', '/api/admin/commands/noop')!.errors).toEqual(expect.arrayContaining(['unauthorized', 'forbidden', 'not_found', 'validation_error', 'preview_stale', 'idempotency_key_reused', 'rate_limited']))
   })
 })

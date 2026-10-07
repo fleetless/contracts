@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "q": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "q"
+  ]
+}

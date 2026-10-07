@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   OPERATOR_ROLES, CONFIRMATION_LEVELS, operatorAssertionClaims, OPERATOR_ASSERTION_ISSUER,
   noopCommandRequest, noopCommandResponse, previewStaleDetails, ERROR_CODES,
+  adminSearchHit, adminOrgDetail, PLANS,
 } from '../src/index.js'
 
 const valid = { iss: OPERATOR_ASSERTION_ISSUER, aud: 'fleetless-cloud-admin', sub: 'ak-123', name: 'Test Operator', email: 'op@example.com', roles: ['operator-admin'], iat: 1_800_000_000, exp: 1_800_000_060, jti: 'a'.repeat(16) }
@@ -58,5 +59,46 @@ describe('the command protocol (§5.6; fleetless/fleetless#268)', () => {
   it('knows the two new error codes', () => {
     expect(ERROR_CODES).toContain('preview_stale')
     expect(ERROR_CODES).toContain('idempotency_key_reused')
+  })
+})
+
+describe('the read schemas (§7.7, §5.4; fleetless/fleetless#268)', () => {
+  it('refuses a person hit without an org_id', () => {
+    expect(adminSearchHit.safeParse({ kind: 'person', user_id: ORG, email: 'a@example.com', display_name: null, org_name: 'Acme' }).success).toBe(false)
+  })
+  it("refuses a payment hit with matched: 'other'", () => {
+    expect(adminSearchHit.safeParse({ kind: 'payment', payment_id: null, mollie_id: 'tr_123', matched: 'other', org_id: ORG, org_name: 'Acme' }).success).toBe(false)
+  })
+  const plan = {
+    plan: 'basic' as const,
+    currency: 'eur' as const,
+    period_ends_at: '2026-10-01T00:00:00.000Z',
+    addons: { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 },
+    limits: PLANS.basic.limits,
+    features: PLANS.basic.features,
+    usage: { seats: 1, robots: 0, apps: 0, app_users: 0, live_video_ms_this_month: 0, asset_bytes: 0 },
+    pending_change: null,
+    lock: null,
+    switch: null,
+  }
+  it('refuses an org detail with negative counts', () => {
+    const detail = {
+      id: ORG, name: 'Acme', created_at: '2026-10-01T00:00:00.000Z', owner: null,
+      plan,
+      billing: { state: 'none', next_charge_at: null },
+      counts: { members: -1, robots: 0, robots_online: 0, apps: 0 },
+      last_activity_at: null,
+    }
+    expect(adminOrgDetail.safeParse(detail).success).toBe(false)
+  })
+  it('parses a valid org detail', () => {
+    const detail = {
+      id: ORG, name: 'Acme', created_at: '2026-10-01T00:00:00.000Z', owner: null,
+      plan,
+      billing: { state: 'none', next_charge_at: null },
+      counts: { members: 1, robots: 0, robots_online: 0, apps: 0 },
+      last_activity_at: null,
+    }
+    expect(adminOrgDetail.safeParse(detail).success).toBe(true)
   })
 })
