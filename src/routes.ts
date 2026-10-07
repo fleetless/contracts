@@ -143,6 +143,9 @@ import {
 } from './oauth.js'
 import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
 import type { ConfirmationLevel, OperatorRole } from './operator.js'
+import { OPERATOR_ROLES } from './operator.js'
+import { noopCommandRequest, noopCommandResponse } from './operator-commands.js'
+import { adminSearchQuery, adminSearchResponse, adminOrgDetail } from './admin.js'
 import {
   billingCancelRequest,
   billingChangeRequest,
@@ -3403,6 +3406,67 @@ export const ROUTES: readonly RouteEntry[] = [
       'in `active` or `past_due` and the request names either field: both are fixed at the first payment and billing, not the operator, ' +
       'owns them from then on. The plan itself keeps working on a billed org — a plan, an add-on or an override the operator sets here is ' +
       'charged from the next renewal, except `enterprise` and `basic`, which the sweep cancels the billing account for instead.',
+  },
+
+  /* --- operator admin API (fleetless/fleetless#268) -----------------------
+   *
+   * Every route below is `audience: 'internal'`, `section: 'org'` and
+   * reachable only on the cloud's private admin listener, behind the
+   * operator gate: with it off, each answers exactly what an unregistered
+   * path answers, even for a perfectly valid assertion.
+   */
+  {
+    method: 'POST', path: '/api/admin/commands/noop', section: 'org',
+    summary: 'Runs the no-op command: proves the preview-reason-execute protocol without changing anything.',
+    audience: 'internal', auth: 'operator', rateLimited: true, ownerTier: false, status: 200,
+    operator: { roles: OPERATOR_ROLES, confirmation: 'click' },
+    params: [], query: null, request: noopCommandRequest, response: noopCommandResponse,
+    errors: ['unauthorized', 'forbidden', 'not_found', 'validation_error', 'preview_stale', 'idempotency_key_reused', 'rate_limited'],
+    transport: 'http',
+    notes:
+      'Reachable only where the cloud enables it (`OPERATOR_NOOP_COMMAND=true`; refused in production). Proves the command path end to ' +
+      'end without a real effect: a preview always answers one `keeps` effect, and an execute writes the operator audit plus an ' +
+      '`operator.noop` row in the named org\'s audit, and nothing else. Every public host, and the private address while the operator ' +
+      'API is not enabled, answers `404 not_found` for this path like any other unregistered one.',
+  },
+  {
+    method: 'GET', path: '/api/admin/search', section: 'org',
+    summary: 'Finds an org, person, invoice, payment or robot by a literal, case-insensitive match.',
+    audience: 'internal', auth: 'operator', rateLimited: true, ownerTier: false, status: 200,
+    operator: { roles: OPERATOR_ROLES },
+    params: [], query: adminSearchQuery, request: null, response: adminSearchResponse,
+    errors: ['unauthorized', 'validation_error', 'rate_limited'], transport: 'http',
+    notes:
+      '`q` is matched literally — `%`, `_` and `\\` carry no wildcard meaning — never as an `ILIKE` pattern, so a two-character query ' +
+      'never dumps a table. At most `ADMIN_SEARCH_LIMIT` hits come back; `truncated` says whether more exist. A hit kind the caller\'s ' +
+      'role may not see is left out rather than refused: `operator-support` gets no `invoice` or `payment` hits. Every public host, and ' +
+      'the private address while the operator API is not enabled, answers `404 not_found` for this path.',
+  },
+  {
+    method: 'GET', path: '/api/admin/orgs/:id', section: 'org',
+    summary: "Reads an org's detail as the operator: its owner, plan, billing state and counts.",
+    audience: 'internal', auth: 'operator', rateLimited: true, ownerTier: false, status: 200,
+    operator: { roles: OPERATOR_ROLES },
+    params: [{ name: 'id', description: "The org's uuid, whose detail the operator is reading." }],
+    query: null, request: null, response: adminOrgDetail,
+    errors: ['unauthorized', 'not_found', 'rate_limited'], transport: 'http',
+    notes:
+      '`billing` carries the account\'s state and next charge only — never the payer, address or payment method, which the operator ' +
+      'reads nowhere in S1. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for this ' +
+      'path while the operator API is not enabled.',
+  },
+  {
+    method: 'GET', path: '/api/admin/orgs/:id/usage', section: 'org',
+    summary: "Reads what an org consumed per day, per app and per metric, as the operator.",
+    audience: 'internal', auth: 'operator', rateLimited: true, ownerTier: false, status: 200,
+    operator: { roles: OPERATOR_ROLES },
+    params: [{ name: 'id', description: "The org's uuid, whose usage the operator is reading." }],
+    query: orgUsageQuery, request: null, response: orgUsageResponse,
+    errors: ['unauthorized', 'not_found', 'validation_error', 'rate_limited'], transport: 'http',
+    notes:
+      "Identical to `GET /api/org/usage` for the named org: the same window rule, the same `from_day <= to_day` cross-field check, and " +
+      'the same echoed window. An unknown `:id` is `404 not_found`, the same every public host and the private address answer for ' +
+      'this path while the operator API is not enabled.',
   },
 
   /* --- billing (2026-10-04, fleetless/fleetless#104) ----------------------

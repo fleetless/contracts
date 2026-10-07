@@ -1,0 +1,641 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "owner": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "email": {
+              "type": "string"
+            },
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "user_id",
+            "email",
+            "display_name"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "plan": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "plus",
+            "pro",
+            "enterprise"
+          ],
+          "description": "The org's current plan."
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "eur",
+            "usd"
+          ],
+          "description": "The currency the org's prices are shown and billed in."
+        },
+        "period_ends_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "The end of the organization's current billing period; while no payment period exists yet, the end of the current UTC calendar month. A pending downward plan change normally takes effect at this exact instant — except one chosen while the org was locked, which lands at once, and the platform's own move off the beta, which lands at its switch date instead."
+        },
+        "addons": {
+          "type": "object",
+          "properties": {
+            "seats": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Extra developer seats, one each."
+            },
+            "robots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Extra robots, one each."
+            },
+            "apps": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Extra apps, one each."
+            },
+            "app_user_packs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Packs of five extra app users."
+            },
+            "live_video_packs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Packs of 250 extra hours of app-user live video per month."
+            }
+          },
+          "required": [
+            "seats",
+            "robots",
+            "apps",
+            "app_user_packs",
+            "live_video_packs"
+          ],
+          "additionalProperties": false,
+          "description": "The add-ons the org has bought. All zero on a plan without the `addons` feature."
+        },
+        "limits": {
+          "type": "object",
+          "properties": {
+            "seats": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Developers, owners included, plus pending team invitations."
+            },
+            "robots": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Robots in the org."
+            },
+            "apps": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Apps in the org."
+            },
+            "app_users": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "App users across every app of the org, plus pending app-user invitations."
+            },
+            "live_video_ms_per_month": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Live video watched by app users in one UTC calendar month, in milliseconds, across the org. Console sessions do not count."
+            },
+            "asset_bytes_per_robot": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Asset storage per robot, in bytes (decimal: 1 GB = 1,000,000,000). The org stores up to robots × this value in total."
+            },
+            "history_days": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Days the org's robot history is kept."
+            },
+            "audit_days": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Days the org's audit log is kept."
+            }
+          },
+          "required": [
+            "seats",
+            "robots",
+            "apps",
+            "app_users",
+            "live_video_ms_per_month",
+            "asset_bytes_per_robot",
+            "history_days",
+            "audit_days"
+          ],
+          "additionalProperties": false,
+          "description": "The org's effective limits: the plan's, raised by its add-ons, or an operator's override in their place. `null` means unlimited for a count, and 90 days for `history_days` and `audit_days`."
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "app_mcp": {
+              "type": "boolean",
+              "description": "An app's own MCP endpoint, for its app users."
+            },
+            "two_factor": {
+              "type": "boolean",
+              "description": "Two-factor sign-in for developers."
+            },
+            "require_two_factor": {
+              "type": "boolean",
+              "description": "An owner may require two-factor sign-in for every developer of the org."
+            },
+            "app_oidc": {
+              "type": "boolean",
+              "description": "An app may let its users sign in through an OpenID Connect identity provider."
+            },
+            "hosted_logo": {
+              "type": "boolean",
+              "description": "An app's hosted pages show its logo and accent colour, not only its name."
+            },
+            "audit_export": {
+              "type": "boolean",
+              "description": "The audit log can be exported as CSV."
+            },
+            "addons": {
+              "type": "boolean",
+              "description": "Add-ons can be bought on top of the plan."
+            }
+          },
+          "required": [
+            "app_mcp",
+            "two_factor",
+            "require_two_factor",
+            "app_oidc",
+            "hosted_logo",
+            "audit_export",
+            "addons"
+          ],
+          "additionalProperties": false,
+          "description": "What the org's plan unlocks."
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "seats": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Developers, owners included, plus pending team invitations."
+            },
+            "robots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Robots in the org."
+            },
+            "apps": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Apps in the org."
+            },
+            "app_users": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "App users across every app, plus pending app-user invitations."
+            },
+            "live_video_ms_this_month": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Live video watched by app users in the current UTC calendar month, in milliseconds. Console sessions do not count."
+            },
+            "asset_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Bytes the assets of every robot of the org occupy, together."
+            }
+          },
+          "required": [
+            "seats",
+            "robots",
+            "apps",
+            "app_users",
+            "live_video_ms_this_month",
+            "asset_bytes"
+          ],
+          "additionalProperties": false,
+          "description": "What the org uses now, counted the way each limit counts it."
+        },
+        "pending_change": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "target_plan": {
+                  "type": "string",
+                  "enum": [
+                    "basic",
+                    "plus",
+                    "pro",
+                    "enterprise"
+                  ],
+                  "description": "The plan the org moves to."
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "downgrade",
+                    "cancel",
+                    "migration",
+                    "lock"
+                  ],
+                  "description": "Why the change is pending: `downgrade`, `cancel`, `migration` or `lock`."
+                },
+                "effective_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "When the change takes effect. `null` only for a move off the beta whose date is not set yet."
+                },
+                "keep": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "robots": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
+                        },
+                        "apps": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
+                        },
+                        "app_users": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
+                        },
+                        "developers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
+                        }
+                      },
+                      "required": [
+                        "robots",
+                        "apps",
+                        "app_users",
+                        "developers"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "What stays. `null` when the org already fits the target plan and nothing is deleted."
+                },
+                "history_days_after": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Days of history and audit log the org keeps on the target plan."
+                },
+                "chosen_by": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The user id of the owner who chose the change, or the nil UUID when Fleetless queued it."
+                },
+                "chosen_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the change was chosen."
+                }
+              },
+              "required": [
+                "target_plan",
+                "reason",
+                "effective_at",
+                "keep",
+                "history_days_after",
+                "chosen_by",
+                "chosen_at"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A move to a lower plan that has not taken effect yet, or `null`."
+        },
+        "lock": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "payment",
+                    "migration"
+                  ],
+                  "description": "`payment`: a payment is missing. `migration`: the org did not choose what stays when the beta ended."
+                },
+                "since": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the org was locked."
+                }
+              },
+              "required": [
+                "reason",
+                "since"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Why and since when the org is locked, or `null` when it is not."
+        },
+        "switch": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "When the org moves from the beta onto its plan. `null` while the date is not set."
+                },
+                "needs_choice": {
+                  "type": "boolean",
+                  "description": "Whether the org uses more than Basic allows, so an owner has to choose what stays before `at`."
+                }
+              },
+              "required": [
+                "at",
+                "needs_choice"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Set only while the org is still on the beta; `null` for every other org."
+        }
+      },
+      "required": [
+        "plan",
+        "currency",
+        "period_ends_at",
+        "addons",
+        "limits",
+        "features",
+        "usage",
+        "pending_change",
+        "lock",
+        "switch"
+      ],
+      "additionalProperties": false
+    },
+    "billing": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "none",
+            "pending",
+            "active",
+            "past_due",
+            "canceled"
+          ]
+        },
+        "next_charge_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "next_charge_at"
+      ],
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "robots": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "robots_online": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "apps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "members",
+        "robots",
+        "robots_online",
+        "apps"
+      ],
+      "additionalProperties": false
+    },
+    "last_activity_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "created_at",
+    "owner",
+    "plan",
+    "billing",
+    "counts",
+    "last_activity_at"
+  ],
+  "additionalProperties": false
+}

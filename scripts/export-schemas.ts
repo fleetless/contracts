@@ -318,6 +318,22 @@ import {
   billingView,
   billingChangeResponse,
 } from '../src/billing.js'
+import {
+  previewEffect,
+  operatorPreview,
+  operatorAuditRef,
+  previewStaleDetails,
+  noopCommandInput,
+  noopCommandResult,
+  noopCommandRequest,
+  noopCommandResponse,
+} from '../src/operator-commands.js'
+import {
+  adminSearchQuery,
+  adminSearchHit,
+  adminSearchResponse,
+  adminOrgDetail,
+} from '../src/admin.js'
 
 export const exportedSchemas = {
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -593,6 +609,13 @@ export const exportedSchemas = {
   'plan-required-details': planRequiredDetails,
   'org-locked-details': orgLockedDetails,
   'file-too-large-details': fileTooLargeDetails,
+
+  // --- The operator's admin API (fleetless/fleetless#268) ------------------
+  'admin-search-query': adminSearchQuery,
+  'noop-command-request': noopCommandRequest,
+  'admin-search-response': adminSearchResponse,
+  'admin-org-detail': adminOrgDetail,
+  'noop-command-response': noopCommandResponse,
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
   'billing-address': billingAddress,
@@ -915,6 +938,10 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
 
+  // The operator's admin API (fleetless/fleetless#268): the query and the
+  // no-op command's request, validated as incoming documents.
+  'admin-search-query', 'noop-command-request',
+
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
   // frame, so it is an accepted document on two surfaces and never a response
@@ -1007,6 +1034,11 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // payment_provider_unavailable` — documents the server sends.
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
+
+  // --- The operator's admin API (fleetless/fleetless#268) ------------------
+  // Documents the server sends: a search or org-detail answer, and the
+  // no-op command's answer.
+  'admin-search-response', 'admin-org-detail', 'noop-command-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
