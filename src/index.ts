@@ -845,6 +845,26 @@ export type {
   ConfirmationLevel,
   OperatorAssertionClaims,
 } from './operator.js'
+export {
+  previewEffect,
+  operatorPreview,
+  operatorCommandRequest,
+  operatorAuditRef,
+  operatorCommandResponse,
+  previewStaleDetails,
+  noopCommandInput,
+  noopCommandResult,
+  noopCommandRequest,
+  noopCommandResponse,
+} from './operator-commands.js'
+export type {
+  PreviewEffect,
+  OperatorPreview,
+  OperatorAuditRef,
+  PreviewStaleDetails,
+  NoopCommandInput,
+  NoopCommandResult,
+} from './operator-commands.js'
 // 2026-10-02 — plans (#103). The catalogue (I-1) only: `PLANS` and `ADDONS`
 // are deliberately not constants exports (`constants.json` is vendored by
 // the bridge and must stay unchanged) but are exported values of this

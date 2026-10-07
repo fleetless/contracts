@@ -1096,5 +1096,20 @@ export const ERROR_CODES = [
    * finished. Retry later; nothing in the request needs to change.
    */
   'history_migrating',
+
+  // 2026-10 — the operator's admin API (fleetless/fleetless#268).
+  /**
+   * `409`: an execute named a preview that is no longer true — the state it
+   * read has changed, or it is older than ten minutes. Nothing was done.
+   * `details` (`previewStaleDetails`) carries a fresh preview and its token;
+   * confirm that one instead.
+   */
+  'preview_stale',
+  /**
+   * `409`: the `idempotency_key` was already used for a different command,
+   * input or operator. Nothing was done. A retry of the same execute reuses
+   * its key and gets the first answer; anything else needs a new key.
+   */
+  'idempotency_key_reused',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
