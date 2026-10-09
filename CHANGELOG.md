@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.4.0] — 2026-10-09
+
 ### Changed
 
 - **Final releases publish under the npm dist-tag `staging`;** `latest` moves
