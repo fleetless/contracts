@@ -51,6 +51,18 @@ describe('closed beta', () => {
     expect(codes).toContain('signup_closed')
     expect(codes).toContain('forbidden')
   })
+  it.each([
+    ['GET', '/console/oauth/signup/:id'],
+    ['POST', '/console/oauth/signup'],
+    ['POST', '/console/oauth/signup/code'],
+    ['POST', '/console/oauth/signup/organization'],
+  ])('documents the invite-only closed-signup exception on %s %s', (method, path) => {
+    const notes = ROUTES.find((r) => r.method === method && r.path === path)?.notes
+    expect(notes).toMatch(/Under `SIGNUP_MODE=closed`, only a valid invite-bound interaction may/)
+    expect(notes).toMatch(/invited normalized email address/)
+    expect(notes).toMatch(/unspent invitation generation, expiry/)
+    expect(notes).toMatch(/(?:ordinary public sign-up remains refused|Ordinary public sign-up still answers `403 signup_closed`)/)
+  })
   it('the waiting list takes an e-mail address and requires it', () => {
     expect(waitlistRequest.safeParse({ email: 'ops@example.com' }).success).toBe(true)
     expect(waitlistRequest.safeParse({ email: 'not-an-address' }).success).toBe(false)
