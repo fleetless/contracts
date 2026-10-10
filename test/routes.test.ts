@@ -25,6 +25,27 @@ import {
 const key = (r: { method: string; path: string }) => `${r.method} ${r.path}`
 
 describe('the route manifest', () => {
+  it('exports the waiting-list landing template without caller input or secret-bearing responses', () => {
+    const artifact = routesArtifact()
+    const landings = artifact.routes.filter((r) => r.path.includes('waitlist-invite'))
+    expect(landings).toHaveLength(1)
+    expect(landings[0]).toMatchObject({
+      method: 'GET', path: '/waitlist-invite/:token', section: 'developer-auth',
+      audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false,
+      status: 303, transport: 'http', errors: ['rate_limited'],
+      params: [{ name: 'token', description: expect.any(String) }],
+      query: null, request: null, response: null,
+    })
+    // Internal portal pages stay out of the app developer's OpenAPI surface.
+    expect(openApiDocument().paths).not.toHaveProperty('/waitlist-invite/{token}')
+    // Every mention in the published directory must use the template, never
+    // a recipient URL, query token, proof cookie value or concrete path token.
+    const mentions = JSON.stringify(artifact).match(/\/waitlist-invite\/[^\s"`\\]+/g)
+    expect(mentions?.length).toBeGreaterThan(0)
+    for (const mention of mentions ?? []) expect(mention).toBe('/waitlist-invite/:token')
+    expect(JSON.stringify(landings)).not.toMatch(/https?:\/\/|[?&](?:token|redirect|redirect_to|proof)=|Set-Cookie:/i)
+  })
+
   it('has no duplicate method+path', () => {
     const keys = ROUTES.map(key)
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)

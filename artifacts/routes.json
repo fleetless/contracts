@@ -3188,6 +3188,31 @@
     },
     {
       "method": "GET",
+      "path": "/waitlist-invite/:token",
+      "section": "developer-auth",
+      "summary": "Starts invite-bound console sign-up for a new Basic organization.",
+      "audience": "internal",
+      "auth": "none",
+      "rateLimited": true,
+      "ownerTier": false,
+      "status": 303,
+      "params": [
+        {
+          "name": "token",
+          "description": "The opaque waiting-list invitation token from the mailed link; never a query parameter."
+        }
+      ],
+      "query": null,
+      "request": null,
+      "response": null,
+      "errors": [
+        "rate_limited"
+      ],
+      "transport": "http",
+      "notes": "Exchanges a valid seven-day invitation for a short-lived browser-proof cookie, then redirects with `303` into console sign-up. The response uses `Cache-Control: no-store` and `Referrer-Policy: no-referrer`; no caller-supplied redirect is accepted. Invalid, expired, used, declined or replaced links render the same `410` page; the per-IP backstop answers `429 rate_limited`. Only the invited normalized email address may register a new Basic organization under `SIGNUP_MODE=closed`, and the signup code still proves control of that address. Every step rechecks the unspent generation, expiry and address; re-inviting immediately invalidates the old link and any signup it started. The GET does not consume the invitation: final organization/Owner creation, waiting-list transition and single-use consumption share one transaction. The interaction binds the invitation id/generation, never the raw token. Tokens, proof values and recipient links stay out of the directory, logs and operator responses. Team invitations through `/accept-invite/:token` still join an existing organization."
+    },
+    {
+      "method": "GET",
       "path": "/console/oauth/signup/:id",
       "section": "developer-auth",
       "summary": "Serves step one of console sign-up, the email card.",
@@ -3207,7 +3232,7 @@
       "response": null,
       "errors": [],
       "transport": "http",
-      "notes": "HTML: the email field and `Email me a code`, the first of three steps — email, code, organization. While the deployment runs in closed beta this renders the \"sign-up is closed\" card at `403` instead, keeping the interaction alive and pointing back at sign-in and the waiting list — the person may well already have an account."
+      "notes": "HTML: the email field and `Email me a code`, the first of three steps — email, code, organization. While the deployment runs in closed beta this renders the \"sign-up is closed\" card at `403` instead, keeping the interaction alive and pointing back at sign-in and the waiting list — the person may well already have an account. Under `SIGNUP_MODE=closed`, only a valid invite-bound interaction may continue for the invited normalized email address and a new Basic organization. Each step rechecks its unspent invitation generation, expiry and address; ordinary public sign-up remains refused."
     },
     {
       "method": "POST",
@@ -3231,7 +3256,7 @@
         "email_taken"
       ],
       "transport": "http",
-      "notes": "A browser form post gets the code card; a JSON caller gets `{ \"next\", \"email\" }`, which has no schema. **No password**: the code mailed here, six digits valid ten minutes, proves the address. A per-interaction proof cookie is set here — it is what stops a third party from finishing a sign-up somebody else started. Sign-up is the one surface whose job is to say an address is taken, so `409 email_taken` is not a leak here."
+      "notes": "A browser form post gets the code card; a JSON caller gets `{ \"next\", \"email\" }`, which has no schema. **No password**: the code mailed here, six digits valid ten minutes, proves the address. A per-interaction proof cookie is set here — it is what stops a third party from finishing a sign-up somebody else started. Sign-up is the one surface whose job is to say an address is taken, so `409 email_taken` is not a leak here. Under `SIGNUP_MODE=closed`, only a valid invite-bound interaction may request the code for the invited normalized email address; the unspent invitation generation, expiry and address are rechecked. Ordinary public sign-up still answers `403 signup_closed`."
     },
     {
       "method": "POST",
@@ -3256,7 +3281,7 @@
         "invalid_code"
       ],
       "transport": "http",
-      "notes": "A wrong code renders the code card again with the attempts left (`400 invalid_code`); a spent, expired or exhausted one is `410 token_spent`. The step before must have run in **this** browser (`401 wrong_browser`). A browser form post gets the organization card, the address shown `confirmed`; a JSON caller gets `{ \"next\" }`, which has no schema."
+      "notes": "A wrong code renders the code card again with the attempts left (`400 invalid_code`); a spent, expired or exhausted one is `410 token_spent`. The step before must have run in **this** browser (`401 wrong_browser`). A browser form post gets the organization card, the address shown `confirmed`; a JSON caller gets `{ \"next\" }`, which has no schema. Under `SIGNUP_MODE=closed`, only a valid invite-bound interaction may continue after rechecking its unspent invitation generation, expiry and invited normalized email address. Ordinary public sign-up still answers `403 signup_closed`."
     },
     {
       "method": "POST",
@@ -3281,7 +3306,7 @@
         "email_taken"
       ],
       "transport": "http",
-      "notes": "The form carries `org_name` only. The org and its founding Owner are created in one transaction, and only after the code step confirmed the address. Both steps before must have run in **this** browser: a missing or mismatched proof cookie is `401 wrong_browser` and the person is sent back to step one. `409 email_taken` when the address was taken meanwhile. A browser form post gets a `303` to the console callback; a JSON caller gets `redirect_to` at `200`. This is the only way an organisation is created: `POST /api/auth/signup` is gone, because without a password it would hand a session to anybody who names an address."
+      "notes": "The form carries `org_name` only. The org and its founding Owner are created in one transaction, and only after the code step confirmed the address. Both steps before must have run in **this** browser: a missing or mismatched proof cookie is `401 wrong_browser` and the person is sent back to step one. `409 email_taken` when the address was taken meanwhile. A browser form post gets a `303` to the console callback; a JSON caller gets `redirect_to` at `200`. This is the only way an organisation is created: `POST /api/auth/signup` is gone, because without a password it would hand a session to anybody who names an address. Under `SIGNUP_MODE=closed`, only a valid invite-bound interaction may create a new Basic organization for the invited normalized email address. Rechecking the unspent invitation generation, expiry and address, creating the org/Owner, transitioning the waiting-list entry and consuming the invitation happen in that same transaction. Ordinary public sign-up still answers `403 signup_closed`."
     },
     {
       "method": "POST",

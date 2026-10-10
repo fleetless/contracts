@@ -9,6 +9,19 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- The internal auth-portal route template `GET /waitlist-invite/:token`,
+  unauthenticated and rate-limited, for waiting-list invitations to a new
+  Basic organization. It describes the browser-proof redirect and invalid
+  link handling without publishing recipient links or secret values.
+
+### Changed
+
+- Console signup route notes describe the invite-bound exception under
+  `SIGNUP_MODE=closed`. Ordinary public signup remains closed; the existing
+  signup auth/rate-limit metadata and team invitation routes are unchanged.
+
 ## [6.4.0] — 2026-10-09
 
 ### Changed
