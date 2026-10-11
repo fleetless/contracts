@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [6.5.0] — 2026-10-11
+
 ### Added
 
 - The internal auth-portal route template `GET /waitlist-invite/:token`,
