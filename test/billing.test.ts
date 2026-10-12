@@ -5,30 +5,37 @@ import {
   billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, paymentMethodChangeRequest, paymentMethodKind, billingView, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
   viesCountry,
 } from '../src/billing.js'
+import * as billing from '../src/billing.js'
+import { operationKey, company, intentBase, pendingIntent, eligibleIntent, heldIntent, startedIntent } from './purchase-fixtures.js'
 import { ERROR_CODES, paymentProviderUnavailableDetails } from '../src/errors.js'
 
 const NONE = { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 }
 const at = (s: string) => new Date(s)
 
-describe('who may pay, and the VAT', () => {
-  it('Germany: company or person, 19 %, VAT ID optional', () => {
-    expect(vatFor({ kind: 'company', country: 'DE', vatIdValid: null })).toEqual({ allowed: true, treatment: 'de_standard', rate_percent: 19 })
-    expect(vatFor({ kind: 'person', country: 'DE', vatIdValid: null })).toEqual({ allowed: true, treatment: 'de_standard', rate_percent: 19 })
+describe('new paid VAT decisions', () => {
+  it.each(['DE', 'NL', 'US'])('refuses a person in %s', (country) => {
+    expect(vatFor({ kind: 'person', country, vies: null })).toEqual({ state: 'refused', rule: 'company_required' })
   })
-  it('another EU country: only a company with a VAT ID VIES confirms, 0 % reverse charge', () => {
-    expect(vatFor({ kind: 'company', country: 'AT', vatIdValid: true })).toEqual({ allowed: true, treatment: 'reverse_charge', rate_percent: 0 })
-    expect(vatFor({ kind: 'company', country: 'AT', vatIdValid: null })).toEqual({ allowed: false, rule: 'vat_id_required' })
-    expect(vatFor({ kind: 'company', country: 'AT', vatIdValid: false })).toEqual({ allowed: false, rule: 'vat_id_invalid' })
-    expect(vatFor({ kind: 'person', country: 'AT', vatIdValid: null })).toEqual({ allowed: false, rule: 'eu_person' })
+  it('Germany taxes the company at 19 percent without VIES', () => {
+    expect(vatFor({ kind: 'company', country: 'DE', vies: null })).toEqual({ state: 'eligible', treatment: 'de_standard', rate_percent: 19 })
   })
-  it('outside the EU: everyone, 0 %', () => {
-    expect(vatFor({ kind: 'person', country: 'US', vatIdValid: null })).toEqual({ allowed: true, treatment: 'outside_eu', rate_percent: 0 })
-    expect(vatFor({ kind: 'company', country: 'CH', vatIdValid: null })).toEqual({ allowed: true, treatment: 'outside_eu', rate_percent: 0 })
+  it.each([
+    [null, { state: 'refused', rule: 'vat_id_required' }],
+    [{ status: 'invalid' }, { state: 'refused', rule: 'vat_id_invalid' }],
+    [{ status: 'unavailable' }, { state: 'pending', reason: 'vies_unavailable' }],
+    [{ status: 'unverified' }, { state: 'pending', reason: 'vies_unverified' }],
+    [{ status: 'valid' }, { state: 'pending', reason: 'vies_identifier_missing' }],
+    [{ status: 'valid', requestIdentifier: null }, { state: 'pending', reason: 'vies_identifier_missing' }],
+    [{ status: 'valid', requestIdentifier: '   ' }, { state: 'pending', reason: 'vies_identifier_missing' }],
+    [{ status: 'valid', requestIdentifier: 'confirmation-1' }, { state: 'eligible', treatment: 'reverse_charge', rate_percent: 0 }],
+  ] as const)('requires definitive EU evidence: %j', (vies, expected) => {
+    expect(vatFor({ kind: 'company', country: 'NL', vies })).toEqual(expected)
   })
-  it('currency: EUR in the EU, USD elsewhere', () => {
-    expect(EU_COUNTRIES).toHaveLength(27)
-    expect(currencyForCountry('FR')).toBe('eur')
-    expect(currencyForCountry('GB')).toBe('usd')
+  it('classifies a non-EU company separately from its purchase-detail validation', () => {
+    expect(vatFor({ kind: 'company', country: 'US', vies: null })).toEqual({ state: 'eligible', treatment: 'outside_eu', rate_percent: 0 })
+  })
+  it.each(['DE', 'FR', 'GB', 'US', 'CH'])('quotes new purchases in EUR in %s', (country) => {
+    expect(currencyForCountry(country)).toBe('eur')
   })
 })
 
@@ -65,7 +72,6 @@ describe('money (worked examples)', () => {
   it('Plus → Pro: (Pro − Plus) × remaining / days', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
     expect(changeNetCents({ from: { plan: 'plus', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'monthly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(8400)
-    expect(changeNetCents({ from: { plan: 'plus', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'monthly' }, currency: 'usd', periodStart: start, periodEnd: end, now })).toBe(Math.round((17200 - 3400) * 21 / 30))
   })
   it('monthly → yearly: the yearly price minus the unused share of the month', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
@@ -77,7 +83,7 @@ describe('money (worked examples)', () => {
   })
   it('add-ons count only on Pro', () => {
     expect(periodNetCents({ plan: 'plus', addons: { ...NONE, robots: 3 }, cycle: 'monthly', currency: 'eur' })).toBe(2900)
-    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'usd' })).toBe(174800 + 2 * 22300 + 11800)
+    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'eur' })).toBe(151980 + 2 * 19380 + 10200)
   })
   it('checkout quote: lines in net and gross, a person sees 177,31', () => {
     const q = checkoutQuote({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur', rate_percent: 19 })
@@ -93,7 +99,7 @@ describe('money (worked examples)', () => {
   })
   it('checkout quote: every Pro basket, the gross lines add up to the gross charged', () => {
     const keys = Object.keys(NONE) as (keyof typeof NONE)[]
-    for (const currency of ['eur', 'usd'] as const)
+    for (const currency of ['eur'] as const)
       for (const cycle of ['monthly', 'yearly'] as const)
         for (const rate_percent of [0, 19])
           for (const k of keys)
@@ -101,7 +107,7 @@ describe('money (worked examples)', () => {
               const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, [k]: n }, cycle, currency, rate_percent })
               expect(q.lines.reduce((sum, l) => sum + l.gross_cents, 0), `${currency} ${cycle} ${rate_percent} % ${n} ${k}`).toBe(q.gross_cents)
             }
-    const all = checkoutQuote({ plan: 'pro', addons: { seats: 3, robots: 5, apps: 2, app_user_packs: 4, live_video_packs: 1 }, cycle: 'yearly', currency: 'usd', rate_percent: 19 })
+    const all = checkoutQuote({ plan: 'pro', addons: { seats: 3, robots: 5, apps: 2, app_user_packs: 4, live_video_packs: 1 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
     expect(all.lines.reduce((sum, l) => sum + l.gross_cents, 0)).toBe(all.gross_cents)
   })
   it('dunning schedule', () => {
@@ -116,17 +122,17 @@ describe('billing shapes (I-2)', () => {
     address: { line1: 'Ring 1', line2: null, postal_code: '1010', city: 'Wien', country: 'AT' },
     invoice_email: 'billing@acme.example',
   }
-  it('a checkout needs the terms; a person also the withdrawal sentence', () => {
-    expect(checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(true)
-    expect(checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: company, accept_terms: false }).success).toBe(false)
+  it('a company checkout requires the terms', () => {
+    expect(checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(true)
+    expect(checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company, accept_terms: false }).success).toBe(false)
     expect(checkoutRequest.safeParse({ plan: 'basic', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(false)
     expect(
-      checkoutRequest.safeParse({ plan: 'pro', cycle: 'monthly', billing: { ...company, kind: 'person', full_name: 'Ada' }, accept_terms: true }).success,
+      checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: { ...company, kind: 'person', full_name: 'Ada' }, accept_terms: true }).success,
     ).toBe(false) // a person has no vat_id/company_name
   })
   it('a change names at least one thing, with absolute add-on counts', () => {
     expect(billingChangeRequest.safeParse({}).success).toBe(false)
-    expect(billingChangeRequest.safeParse({ addons: { robots: 2 } }).success).toBe(true)
+    expect(billingChangeRequest.safeParse({ operation_key: operationKey, addons: { robots: 2 } }).success).toBe(true)
     expect(billingChangeRequest.safeParse({ plan: 'basic' }).success).toBe(false)
   })
   it('the billing view parses an active account and the mockup invoice number', () => {
@@ -136,7 +142,7 @@ describe('billing shapes (I-2)', () => {
   })
   it('card, PayPal and Apple Pay; no SEPA (André, 2026-10-04)', () => {
     expect(paymentMethodKind.options).toEqual(['card', 'paypal', 'applepay'])
-    expect(paymentMethodChangeRequest.safeParse({ method: 'applepay' }).success).toBe(true)
+    expect(paymentMethodChangeRequest.safeParse({ operation_key: operationKey, method: 'applepay' }).success).toBe(true)
     expect(paymentMethodChangeRequest.safeParse({ method: 'sepa' }).success).toBe(false)
     expect(paymentMethod.safeParse({ kind: 'applepay', brand: 'Mastercard', last4: '0004', expires: '11/29' }).success).toBe(true)
     expect(paymentMethod.safeParse({ kind: 'paypal', account: 'ada@example.com' }).success).toBe(true)
@@ -157,4 +163,97 @@ describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)',
     expect(d.failure.meta()?.description).toMatch(/charged_back/)
     expect(d.failure.meta()?.description).toMatch(/vat_id_invalid/)
   })
+})
+
+
+describe('purchase contracts and historical reads', () => {
+  const request = { operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company, accept_terms: true }
+  it.each(['DE', 'NL', 'US'])('keeps person reads but rejects paid person writes in %s', (country) => {
+    const person = { kind: 'person', full_name: 'Ada', address: { ...company.address, country }, invoice_email: 'ada@example.com' }
+    expect(billing.billingDetails.safeParse(person).success).toBe(true)
+    expect(checkoutRequest.safeParse({ ...request, billing: person }).success).toBe(false)
+  })
+  it('requires a stable operation key and refuses consumer withdrawal on company purchases', () => {
+    expect(checkoutRequest.safeParse(request).success).toBe(true)
+    expect(checkoutRequest.safeParse({ ...request, operation_key: undefined }).success).toBe(false)
+    expect(checkoutRequest.safeParse({ ...request, accept_withdrawal: true }).success).toBe(false)
+  })
+  it('requires VAT ID in other EU countries, Tax ID outside and state for US purchases', () => {
+    expect(checkoutRequest.safeParse({ ...request, billing: { ...company, vat_id: null } }).success).toBe(false)
+    const us = { ...company, vat_id: null, address: { ...company.address, country: 'US' } }
+    expect(checkoutRequest.safeParse({ ...request, billing: us }).success).toBe(false)
+    expect(checkoutRequest.safeParse({ ...request, billing: { ...us, tax_id: 'TIN 42' } }).success).toBe(false)
+    expect(checkoutRequest.safeParse({ ...request, billing: { ...us, tax_id: 'TIN 42', address: { ...us.address, state: 'CA' } } }).success).toBe(true)
+    expect(checkoutRequest.safeParse({ ...request, billing: { ...us, tax_id: ' ', address: { ...us.address, state: 'CA' } } }).success).toBe(false)
+  })
+  it('allows owner detail corrections without claiming they are already verified', () => {
+    expect(billing.billingDetailsUpdate.parse({ company_name: 'New Buyer', tax_id: 'TIN 42', address: { ...company.address, country: 'US', state: 'NY' }, invoice_email: 'finance@buyer.example' })).toMatchObject({ tax_id: 'TIN 42', address: { state: 'NY' } })
+  })
+  it('retains a person/USD account and invoice without changing the currency', () => {
+    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, scheduled: { cycle: null, addons: null }, dunning: null }
+    expect(billingAccount.parse(account).currency).toBe('usd')
+    expect(billingInvoice.parse({ id: intentBase.intent_id, number: 'FL-2026-0001', issued_at: '2026-10-01T00:00:00Z', status: 'open', currency: 'usd', net_cents: 17200, vat_rate_percent: 0, vat_cents: 0, gross_cents: 17200 }).currency).toBe('usd')
+  })
+  it.each([pendingIntent, eligibleIntent, heldIntent])('has no redirect before payment: $state', (intent) => {
+    expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)
+    expect(billing.checkoutResponse.safeParse({ ...intent, checkout_url: startedIntent.payment.checkout_url }).success).toBe(false)
+    expect(billing.billingChangeResponse.safeParse({ intent }).success).toBe(true)
+  })
+  it('rejects USD eligible quotes and mandate setup pretending to be eligible', () => {
+    expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, quote: { ...eligibleIntent.quote, currency: 'usd' } }).success).toBe(false)
+    expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, operation: 'mandate_setup' }).success).toBe(false)
+  })
+  it('exposes a redirect only with a persisted payment identity', () => {
+    expect(billing.checkoutResponse.safeParse(startedIntent).success).toBe(true)
+    expect(billing.checkoutResponse.safeParse({ ...startedIntent, payment_id: undefined }).success).toBe(false)
+    expect(billing.checkoutResponse.safeParse({ ...startedIntent, payment: { ...startedIntent.payment, checkout_url: undefined } }).success).toBe(false)
+  })
+  it('shows unpaid accounts without inventing a tax treatment', () => {
+    expect(billingAccount.shape.vat.safeParse(null).success).toBe(true)
+  })
+  it('does not expose full VIES evidence in a public check response', () => {
+    const pending = { status: 'valid', state: 'pending', reason: 'vies_identifier_missing', vat_id: 'NL123', name: null }
+    expect(billing.vatIdCheckResponse.safeParse(pending).success).toBe(true)
+    expect(billing.vatIdCheckResponse.safeParse({ ...pending, requestIdentifier: 'protected' }).success).toBe(false)
+  })
+})
+
+
+it('returns the current intent on a stale confirmation, with no stale payment URL', () => {
+  expect(billing.purchaseConflictDetails.parse({ field: 'intent', rule: 'stale_quote', current_intent: eligibleIntent })).toMatchObject({ current_intent: { quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2' } })
+  expect(billing.purchaseConflictDetails.safeParse({ field: 'intent', rule: 'stale_quote' }).success).toBe(false)
+  expect(billing.purchaseConflictDetails.safeParse({ field: 'operation_key', rule: 'operation_key_reused' }).success).toBe(true)
+})
+
+it('holds original USD balances and does not emit a mandate-only payment', () => {
+  const held = { ...heldIntent, operation: 'invoice_payment', invoice_id: intentBase.intent_id, reason: 'legacy_usd_invoice', original_amount: { currency: 'usd', gross_cents: 17200 } }
+  expect(billing.checkoutResponse.parse(held)).toMatchObject({ original_amount: { currency: 'usd', gross_cents: 17200 } })
+  expect(billing.checkoutResponse.safeParse({ ...startedIntent, operation: 'mandate_setup' }).success).toBe(false)
+})
+
+it('keeps the payment identity in a completed paid-change response', () => {
+  const view = { available: true, account: null, payment_method: null, payment_method_options: [], invoices: [] }
+  const result = { billing: view, charged: null, intent: { ...startedIntent, operation: 'paid_change', payment: { kind: 'mandate' } } }
+  expect(billing.billingChangeResponse.parse(result)).toHaveProperty('intent.payment_id', startedIntent.payment_id)
+  expect(billing.purchaseIntentResponse.parse(result)).toEqual(result)
+  expect(billing.billingChangeResponse.safeParse({ billing: view, charged: null }).success).toBe(true)
+})
+
+it('rejects historical currency when calculating a new charge, even a zero-charge change', () => {
+  // Simulates a JS caller or a historic account crossing the new-write boundary.
+  const currency = 'usd' as 'eur'
+  expect(() => periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency })).toThrow(/EUR/)
+  expect(() => checkoutQuote({ plan: 'pro', addons: NONE, cycle: 'monthly', currency, rate_percent: 0 })).toThrow(/EUR/)
+  expect(() => changeNetCents({ from: { plan: 'pro', addons: NONE, cycle: 'yearly' }, to: { plan: 'plus', addons: NONE, cycle: 'monthly' }, currency, periodStart: at('2026-01-01'), periodEnd: at('2027-01-01'), now: at('2026-06-01') })).toThrow(/EUR/)
+})
+
+
+it('binds invoice-paying intents to an invoice and mandate setup to its unresolved hold', () => {
+  for (const operation of ['invoice_payment', 'payment_method_invoice']) {
+    expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, operation }).success).toBe(false)
+    expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, operation, invoice_id: intentBase.intent_id }).success).toBe(true)
+  }
+  expect(billing.checkoutResponse.safeParse({ ...heldIntent, reason: 'legacy_payer_unresolved' }).success).toBe(false)
+  expect(billing.checkoutResponse.safeParse({ ...heldIntent, operation: 'checkout' }).success).toBe(false)
+  expect(billing.checkoutResponse.safeParse({ ...startedIntent, payment: { kind: 'mandate' } }).success).toBe(false)
 })

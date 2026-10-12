@@ -19,18 +19,18 @@ describe('the plan catalogue matches the decision table (2026-09-30)', () => {
     expect(PLANS.pro.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: true, app_oidc: true, hosted_logo: true, audit_export: true, addons: true })
     expect(Object.values(PLANS.enterprise.features).every(Boolean)).toBe(true)
   })
-  it('prices in cents, EU and elsewhere, monthly and yearly', () => {
-    expect(PLANS.basic.prices).toEqual({ eur_month: 0, usd_month: 0, eur_year: 0, usd_year: 0 })
-    expect(PLANS.plus.prices).toEqual({ eur_month: 2900, usd_month: 3400, eur_year: 29580, usd_year: 34100 })
-    expect(PLANS.pro.prices).toEqual({ eur_month: 14900, usd_month: 17200, eur_year: 151980, usd_year: 174800 })
+  it('worldwide EUR prices in cents, monthly and yearly', () => {
+    expect(PLANS.basic.prices).toEqual({ eur_month: 0, eur_year: 0 })
+    expect(PLANS.plus.prices).toEqual({ eur_month: 2900, eur_year: 29580 })
+    expect(PLANS.pro.prices).toEqual({ eur_month: 14900, eur_year: 151980 })
     expect(PLANS.enterprise.prices).toBeNull()
   })
   it('add-ons', () => {
-    expect(ADDONS.seats).toMatchObject({ raises: 'seats', per_unit: 1, prices: { eur_month: 900, usd_month: 1100, eur_year: 9180, usd_year: 10600 } })
-    expect(ADDONS.robots).toMatchObject({ raises: 'robots', per_unit: 1, prices: { eur_month: 1900, usd_month: 2200, eur_year: 19380, usd_year: 22300 } })
-    expect(ADDONS.apps).toMatchObject({ raises: 'apps', per_unit: 1, prices: { eur_month: 900, usd_month: 1100, eur_year: 9180, usd_year: 10600 } })
-    expect(ADDONS.app_user_packs).toMatchObject({ raises: 'app_users', per_unit: 5, prices: { eur_month: 1000, usd_month: 1200, eur_year: 10200, usd_year: 11800 } })
-    expect(ADDONS.live_video_packs).toMatchObject({ raises: 'live_video_ms_per_month', per_unit: 900_000_000, prices: { eur_month: 900, usd_month: 1100, eur_year: 9180, usd_year: 10600 } })
+    expect(ADDONS.seats).toMatchObject({ raises: 'seats', per_unit: 1, prices: { eur_month: 900, eur_year: 9180 } })
+    expect(ADDONS.robots).toMatchObject({ raises: 'robots', per_unit: 1, prices: { eur_month: 1900, eur_year: 19380 } })
+    expect(ADDONS.apps).toMatchObject({ raises: 'apps', per_unit: 1, prices: { eur_month: 900, eur_year: 9180 } })
+    expect(ADDONS.app_user_packs).toMatchObject({ raises: 'app_users', per_unit: 5, prices: { eur_month: 1000, eur_year: 10200 } })
+    expect(ADDONS.live_video_packs).toMatchObject({ raises: 'live_video_ms_per_month', per_unit: 900_000_000, prices: { eur_month: 900, eur_year: 9180 } })
   })
 })
 
@@ -42,7 +42,7 @@ describe('the USD rule: EUR × 1.15, up to the next whole dollar', () => {
   it('yearly is 15 % off twelve months', () => {
     expect(yearlyEurCents(2900)).toBe(29580)
     expect(yearlyEurCents(14900)).toBe(151980)
-    expect(pricesFromEurMonth(1000)).toEqual({ eur_month: 1000, usd_month: 1200, eur_year: 10200, usd_year: 11800 })
+    expect(pricesFromEurMonth(1000)).toEqual({ eur_month: 1000, eur_year: 10200 })
   })
 })
 

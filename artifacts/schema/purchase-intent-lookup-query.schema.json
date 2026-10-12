@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "operation_key": {
+      "description": "The client operation key; supply this or intent_id, never both.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "intent_id": {
+      "description": "The persisted intent ID; supply this or operation_key, never both.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "checkout",
+        "paid_change",
+        "invoice_payment",
+        "payment_method_invoice",
+        "mandate_setup"
+      ],
+      "description": "Expected operation; a mismatch returns 404 without disclosure."
+    }
+  },
+  "required": [
+    "operation"
+  ],
+  "additionalProperties": false,
+  "description": "Owner lookup by exactly one identity and the expected operation.",
+  "oneOf": [
+    {
+      "required": [
+        "operation_key"
+      ],
+      "not": {
+        "required": [
+          "intent_id"
+        ]
+      }
+    },
+    {
+      "required": [
+        "intent_id"
+      ],
+      "not": {
+        "required": [
+          "operation_key"
+        ]
+      }
+    }
+  ]
+}

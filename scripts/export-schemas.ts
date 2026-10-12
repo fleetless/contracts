@@ -302,6 +302,19 @@ import {
   paymentProviderUnavailableDetails,
 } from '../src/errors.js'
 import {
+  purchaseBillingDetails,
+  purchaseOperationKey,
+  purchaseOperation,
+  purchaseQuote,
+  purchaseHoldReason,
+  purchaseRefusalRule,
+  purchaseIntentLookupQuery,
+  purchaseIntentConfirmRequest,
+  purchaseConflictDetails,
+  invoicePayRequest,
+  purchaseIntentResponse,
+  vatDecision,
+  viesPendingReason,
   billingAddress,
   billingDetails,
   checkoutRequest,
@@ -595,6 +608,19 @@ export const exportedSchemas = {
   'file-too-large-details': fileTooLargeDetails,
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
+  'purchase-billing-details': purchaseBillingDetails,
+  'purchase-operation-key': purchaseOperationKey,
+  'purchase-operation': purchaseOperation,
+  'purchase-quote': purchaseQuote,
+  'purchase-hold-reason': purchaseHoldReason,
+  'purchase-refusal-rule': purchaseRefusalRule,
+  'purchase-intent-lookup-query': purchaseIntentLookupQuery,
+  'purchase-intent-confirm-request': purchaseIntentConfirmRequest,
+  'purchase-conflict-details': purchaseConflictDetails,
+  'invoice-pay-request': invoicePayRequest,
+  'purchase-intent-response': purchaseIntentResponse,
+  'vat-decision': vatDecision,
+  'vies-pending-reason': viesPendingReason,
   'billing-address': billingAddress,
   'billing-details': billingDetails,
   'checkout-request': checkoutRequest,
@@ -909,9 +935,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'plan-change-request', 'admin-plan-change-request', 'plan-overrides', 'plan-change-keep',
 
   // Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2). The
-  // bodies of the billing routes; `billing-address` and `billing-details`
-  // travel inside `checkout-request`, and on the read (`billing-view`) they
-  // are only a readback of what the checkout accepted.
+  // New company purchase writes are stricter than the historical billing-details
+  // reads. Address/detail edits are revalidated as a complete buyer before charging.
+  'purchase-billing-details', 'purchase-operation-key', 'purchase-intent-lookup-query', 'purchase-intent-confirm-request', 'invoice-pay-request',
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
 
@@ -1005,6 +1031,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104) ---------
   // The billing routes' answers, and the `details` of a `502
   // payment_provider_unavailable` — documents the server sends.
+  'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'vat-decision', 'vies-pending-reason',
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 ]
