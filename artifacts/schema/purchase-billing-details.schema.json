@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "const": "company",
+      "description": "Billed as a company."
+    },
+    "company_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The company's legal name, printed on the invoice."
+    },
+    "vat_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 20
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The company's VAT ID, or `null` for none. Required for a new purchase in another EU country; direct VIES must confirm it with an identifier."
+    },
+    "tax_id": {
+      "description": "Free-text Tax ID. Required for a new non-EU purchase; historical records may omit it.",
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "address": {
+      "type": "object",
+      "properties": {
+        "line1": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Street and number, or the first address line."
+        },
+        "line2": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A second address line, or `null` when there is none."
+        },
+        "postal_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "description": "Postal or ZIP code."
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "City or town."
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "The billing country, used for purchase eligibility and VAT."
+        },
+        "state": {
+          "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "line1",
+        "line2",
+        "postal_code",
+        "city",
+        "country"
+      ],
+      "additionalProperties": false,
+      "description": "The billing address."
+    },
+    "invoice_email": {
+      "type": "string",
+      "format": "email",
+      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+      "description": "Where invoices and billing mail are sent."
+    }
+  },
+  "required": [
+    "kind",
+    "company_name",
+    "vat_id",
+    "address",
+    "invoice_email"
+  ],
+  "additionalProperties": false,
+  "description": "New company purchase. Other EU countries require VAT ID; non-EU requires Tax ID; US requires two-letter state. Cloud additionally checks the versioned public-email policy and current VIES evidence."
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "currency": {
+      "type": "string",
+      "const": "eur",
+      "description": "Every new quote is in EUR."
+    },
+    "net_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Current charge excluding VAT, in cents."
+    },
+    "vat_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "VAT on the current charge, in cents."
+    },
+    "gross_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Total to confirm, including VAT, in cents."
+    },
+    "rate_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "VAT rate in whole percent."
+    }
+  },
+  "required": [
+    "currency",
+    "net_cents",
+    "vat_cents",
+    "gross_cents",
+    "rate_percent"
+  ],
+  "additionalProperties": false
+}

@@ -25,7 +25,19 @@
               "type": "null"
             }
           ],
-          "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+          "description": "The company's VAT ID, or `null` for none. Required for a new purchase in another EU country; direct VIES must confirm it with an identifier."
+        },
+        "tax_id": {
+          "description": "Free-text Tax ID. Required for a new non-EU purchase; historical records may omit it.",
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "address": {
           "type": "object",
@@ -63,7 +75,13 @@
             "country": {
               "type": "string",
               "pattern": "^[A-Z]{2}$",
-              "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+              "description": "The billing country, used for purchase eligibility and VAT."
+            },
+            "state": {
+              "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
             }
           },
           "required": [
@@ -143,7 +161,13 @@
             "country": {
               "type": "string",
               "pattern": "^[A-Z]{2}$",
-              "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+              "description": "The billing country, used for purchase eligibility and VAT."
+            },
+            "state": {
+              "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
             }
           },
           "required": [

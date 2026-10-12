@@ -9,6 +9,33 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** new paid purchases require company billing details. Other EU
+  countries require a VAT ID, non-EU purchases a Tax ID, and US purchases a
+  two-letter state. Owner edits can update company name, address/state and Tax ID.
+  Historical person payers and USD accounts/invoices remain readable.
+- **Breaking:** `vatFor` consumes a definitive VIES verdict and confirmation
+  identifier, returning `eligible`, `pending` or `refused`. Unavailable VIES or
+  a missing identifier never authorizes reverse charge. Public VAT checks expose
+  pending reasons without protected evidence; an unsettled account may have `vat: null`.
+- **Breaking:** catalogue prices and new charge/quote helpers are EUR-only.
+  USD amounts are read from historical snapshots, never recalculated as new prices.
+- **Breaking:** checkout, paid changes, invoice payments and method changes require
+  a stable `operation_key`. Their intent responses distinguish unpaid pending,
+  eligible, refused and held states from `payment_started`. Hosted redirects live
+  at `payment.checkout_url` only after a persisted payment exists. A paid change
+  can carry its intent alongside the resulting billing view.
+
+### Added
+
+- Owner intent lookup by operation key or intent ID, and current-quote confirmation
+  with quote revision and buyer fingerprint. Typed conflict details return the
+  current intent for stale confirmations and identify conflicting key reuse.
+- Explicit integration holds for legacy USD invoices, legacy payers and unresolved
+  zero-amount mandate setup. Invoice-paying Apple Pay is a separate operation.
+  These holds do not authorize a migration or a new provider payment.
+
 ## [6.5.0] — 2026-10-11
 
 ### Added

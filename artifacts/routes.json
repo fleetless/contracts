@@ -6527,7 +6527,7 @@
       "method": "POST",
       "path": "/api/billing/checkout",
       "section": "billing",
-      "summary": "Starts a Mollie checkout for a plan, or an upgrade paid at once.",
+      "summary": "Records a company purchase intent for the first paid plan.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -6550,7 +6550,67 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/payment-method` and `POST /api/billing/invoices/:id/pay` — the three routes that mint a Mollie checkout. `400 validation_error` names who may not pay with these rules: `{ field: 'billing.address.country', rule: 'eu_person' }` for a person in another EU country, `{ field: 'billing.vat_id', rule: 'vat_id_required' }` for a company there with no VAT ID, `{ field: 'billing.vat_id', rule: 'vat_id_invalid' }` once VIES has said so, and `{ field: 'accept_withdrawal', rule: 'required' }` for a person who did not confirm it. `409 target_state_conflict` names `plan` with rule `already_billed` when the org already has an `active` or `past_due` billing account — checkout is for the first payment only, every later change is `POST /api/billing/change`. `checkout_url` is Mollie's hosted page, where the payer chooses card, PayPal or Apple Pay; the return lands on `<console>/settings/billing?checkout=<checkout_id>`, which polls `GET /api/billing/checkout/:id` until the webhook — or the poll itself — has reconciled the payment. `409 plan_limit` is the org's own usage against the plan being bought."
+      "notes": "Basic stays free for every payer. New paid checkout requires a company, terms, current buyer eligibility and an EUR quote. Other EU countries require direct VIES valid with an identifier; unavailable/unverified or missing identifier returns awaiting_vies without payment or redirect. Cloud checks the non-EU Tax ID and versioned public-email policy, and US state. Persist operation_key before POST; the same org/key/input returns the same intent, different input is 409 target_state_conflict with purchaseConflictDetails rule operation_key_reused. Owner lookup recovers a lost response. Only explicit confirmation of the current quote may create a payment; a worker cannot start it. payment_started.payment.checkout_url exists only for a hosted payment, where the buyer chooses card, PayPal or Apple Pay. Its return is <console>/settings/billing?checkout=<checkout_id>; GET /api/billing/checkout/:id reconciles the recorded payment. An active/past_due account uses billing/change; already_billed and plan_limit retain their existing meanings."
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/intents",
+      "section": "billing",
+      "summary": "Recovers a purchase intent by operation key or intent ID.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": true,
+      "status": 200,
+      "params": [],
+      "query": "purchase-intent-lookup-query",
+      "request": null,
+      "response": "purchase-intent-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required",
+        "validation_error",
+        "not_found"
+      ],
+      "transport": "http",
+      "notes": "Supply exactly one of operation_key or intent_id and the expected operation. Scope lookup to the authenticated owner and org; unknown, foreign-org or mismatched-operation intents return 404 without disclosure. Repeating a lookup after restart or lost response returns the same intent/payment identity and, for a paid change, its billing result. Awaiting VIES and eligible states never start payment; Console polls at a bounded interval and asks for fresh confirmation of the displayed quote."
+    },
+    {
+      "method": "POST",
+      "path": "/api/billing/intents/:id/confirm",
+      "section": "billing",
+      "summary": "Confirms the current purchase quote exactly once.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": true,
+      "ownerTier": true,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The intent ID returned by the start or lookup response."
+        }
+      ],
+      "query": null,
+      "request": "purchase-intent-confirm-request",
+      "response": "purchase-intent-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required",
+        "validation_error",
+        "not_found",
+        "target_state_conflict",
+        "plan_limit",
+        "rate_limited",
+        "billing_unavailable",
+        "payment_provider_unavailable"
+      ],
+      "transport": "http",
+      "notes": "Require the same operation_key and operation plus the displayed quote_revision and buyer_fingerprint. Under the org lock compare current buyer, country, VAT ID, Tax ID, invoice email/policy version, US state, EUR quote, invoice status/amount/currency and integration holds. A stale revision is 409 target_state_conflict with purchaseConflictDetails/current_intent; the owner must confirm again. Foreign or mismatched operation is 404 without disclosure. Pending or held cannot charge. Persist one payment row before the provider call and use its ID as the provider idempotency key. Repeated confirmations and lost responses recover that payment/result; never create another. Look up/adopt a possibly-created payment before resending after a timeout; ambiguity is not permission to charge again."
     },
     {
       "method": "GET",
@@ -6585,7 +6645,7 @@
       "method": "POST",
       "path": "/api/billing/vat-id/check",
       "section": "billing",
-      "summary": "Checks a VAT ID against VIES, for the checkout form and the details page.",
+      "summary": "Checks a VAT ID using requester-aware direct VIES.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -6604,13 +6664,13 @@
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "Rate limited on its own `billing.vat_check` bucket, sized for a form checked on blur rather than for a checkout. Never refuses for an `unverified` VIES answer — the checkout itself accepts `unverified` and the hourly sweep re-checks it — this route only reports what VIES currently says, in a different place for the same ID, entered either at checkout or on `PATCH /api/billing/details`."
+      "notes": "Reports status and optional display name only; full evidence stays in protected Finance storage. valid with a missing identifier remains pending/vies_identifier_missing. unverified or unavailable remains pending without zero rating or payment. A form check never authorizes a later charge; Cloud binds current evidence to the buyer and quote at confirmation. Rate limited on billing.vat_check."
     },
     {
       "method": "PATCH",
       "path": "/api/billing/details",
       "section": "billing",
-      "summary": "Edits the billing account's invoice email or VAT ID.",
+      "summary": "Edits company billing details for revalidation before the next charge.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -6629,13 +6689,13 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "`404 not_found` when the org has no billing account yet — there is nothing here to edit before the first checkout. A new `vat_id` is re-checked through VIES the same way `POST /api/billing/vat-id/check` does; a valid ID entered here lifts the block a definitive `invalid` answer placed on the next renewal."
+      "notes": "404 not_found when no billing account exists. Edits may change company name, full address/state, Tax ID, VAT ID and invoice email. Validate the merged buyer before a later charge; edits invalidate old evidence and quote revisions. Revalidate the email policy and country requirements. An edit does not create a payment, activate a plan, pay an invoice, clear dunning or lift a lock."
     },
     {
       "method": "POST",
       "path": "/api/billing/change",
       "section": "billing",
-      "summary": "Moves the org's plan, cycle or add-ons, charging increases at once.",
+      "summary": "Records a paid-change intent or schedules a decrease.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -6657,13 +6717,13 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "The body names the **absolute** target — plan, cycle and add-ons — never a delta: the route compares it with the org's current state and splits the difference. The increasing part is charged now, through the same proration `changeNetCents` computes, and takes effect the moment Mollie accepts the `recurring` payment with anything but `failed`, `canceled` or `expired` — card mandates, Apple Pay's included, usually answer `paid` within seconds, a PayPal one may stay `pending` for a while; if it fails later, its open invoice enters dunning like a failed renewal. If Mollie refuses or does not answer, nothing is applied and this answers `502 payment_provider_unavailable` instead. The decreasing part — a lower plan, yearly → monthly, fewer add-ons — is stored as a pending change and applied at the period's end, same as `PUT /api/org/plan/change`; a lower plan over the target's limits answers `409 plan_limit` and the console opens its choose-what-stays page. Any increase first withdraws a pending downgrade or cancel, exactly as the admin route does. `409 target_state_conflict` names `billing` with rule `no_account` (no checkout yet — use `POST /api/billing/checkout`), `past_due` (an open invoice has to be paid first) or `no_valid_mandate` (the payment method needs renewing first, `POST /api/billing/payment-method`). `charged` in the response is the invoice from the part charged now, or `null` when the whole request was a decrease."
+      "notes": "The request names an absolute plan/cycle/add-on target and a stable operation_key. Increases need a current company/EUR decision and explicit owner confirmation even after a worker resolves VIES. billingChangeResponse carries intent while awaiting_vies, eligible, refused or held; the old plan stays in effect. Confirm under the org lock, comparing buyer/policy fingerprint and quote revision; use one persisted payment row for provider idempotency. A started paid change returns billing, charged and intent with payment_started. An immediate accepted decrease retains the billing/charged branch (charged null); decreases are scheduled for period end. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain. Do not advance periods, cancel existing choices or begin dunning merely because an intent is pending."
     },
     {
       "method": "POST",
       "path": "/api/billing/payment-method",
       "section": "billing",
-      "summary": "Starts a Mollie checkout for a new payment method.",
+      "summary": "Records an invoice-paying method intent or a held mandate setup.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -6674,6 +6734,7 @@
       "request": "payment-method-change-request",
       "response": "checkout-response",
       "errors": [
+        "target_state_conflict",
         "unauthorized",
         "token_expired",
         "token_revoked",
@@ -6685,7 +6746,7 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. Creates a hosted `first` payment on the existing Mollie customer, restricted to the chosen method (`card` → Mollie's `creditcard`, `paypal`, `applepay`). For `card` and `paypal` it is a payment of `0.00` in the org's currency that pays no open invoice: the invoice stays open, the next dunning retry charges the new mandate — except for an invoice that was charged back, which is never charged again automatically; pay it with `POST /api/billing/invoices/:id/pay` — and that route still pays any open invoice at once. `applepay` behaves the same where Mollie accepts a zero-amount Apple Pay payment; where it does not, a change to Apple Pay is only offered together with paying an open invoice — the payment is then that invoice's amount and pays it — and without one this answers `400 validation_error` with `{ field: 'method', rule: 'applepay_needs_open_invoice' }`. A client offers what `payment_method_options` in `GET /api/billing` lists. `404 not_found` when the org has no billing account yet. When the new mandate turns `valid` it becomes the account's — an Apple Pay one is a card mandate, shown as `applepay` — and every other mandate of the customer is revoked."
+      "notes": "Use a stable operation_key and owner intent lookup after reload/timeout. Offer payment_method_options. Apple Pay with zero-amount changes disabled pays an open invoice through operation payment_method_invoice; without one, 400 validation_error has field method and rule applepay_needs_open_invoice. Apply the same buyer/VIES gate, current-amount reconfirmation and USD legacy hold as invoices/:id/pay. Pending, eligible and held contain no checkout URL; redirect only on payment_started.payment.kind hosted. A 0.00 mandate-only setup uses operation mandate_setup and held/mandate_policy_unresolved until the integration decision settles eligibility and currency. It pays no invoice and clears no dunning or lock. An invoice charged back is never retried automatically. 404 not_found when no account exists. Same key with changed input is a typed operation_key_reused conflict."
     },
     {
       "method": "POST",
@@ -6772,7 +6833,7 @@
       "method": "POST",
       "path": "/api/billing/invoices/:id/pay",
       "section": "billing",
-      "summary": "Pays one open invoice, through a new Mollie payment.",
+      "summary": "Records an owner-confirmed payment intent for an open invoice or due charge.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -6785,9 +6846,10 @@
         }
       ],
       "query": null,
-      "request": null,
+      "request": "invoice-pay-request",
       "response": "checkout-response",
       "errors": [
+        "validation_error",
         "unauthorized",
         "token_expired",
         "token_revoked",
@@ -6799,7 +6861,7 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Rate limited on the `billing.checkout` bucket, same as `POST /api/billing/checkout`. `409 target_state_conflict` names `invoice` with rule `not_open` when the invoice is already `paid` or `uncollectible` — there is nothing left to pay. Paying the open invoice of a locked org unlocks it and keeps the plan running to the period's end, the same as a renewal that succeeds on a retry. `:id` may also be a due charge's id from `dunning.invoice_id` in `GET /api/billing`: while the payer's VAT ID is unsettled a held renewal is a due charge that has no number yet, and it is numbered and issued as an invoice once this payment is paid. The payment charges the amount owed (`dunning.gross_cents`). While that due charge is held by the VAT ID this answers `409 target_state_conflict` with `{ field: 'billing', rule: 'vat_id_invalid' }`. `404 not_found` for an unknown id or one from another org."
+      "notes": "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning."
     },
     {
       "method": "POST",

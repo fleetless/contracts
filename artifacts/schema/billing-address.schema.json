@@ -35,7 +35,13 @@
     "country": {
       "type": "string",
       "pattern": "^[A-Z]{2}$",
-      "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+      "description": "The billing country, used for purchase eligibility and VAT."
+    },
+    "state": {
+      "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
     }
   },
   "required": [

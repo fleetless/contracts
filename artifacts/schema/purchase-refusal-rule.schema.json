@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "string",
+  "enum": [
+    "company_required",
+    "vat_id_required",
+    "vat_id_invalid",
+    "tax_id_required",
+    "us_state_required",
+    "public_email_domain",
+    "invoice_not_open"
+  ]
+}

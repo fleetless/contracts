@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { operationKey, intentBase, pendingIntent, eligibleIntent, heldIntent, startedIntent } from './purchase-fixtures.js'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -2158,7 +2159,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it('the billing routes', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const billing = ROUTES.filter((x) => x.section === 'billing')
-    expect(billing).toHaveLength(12)
+    expect(billing).toHaveLength(14)
     expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
     expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
@@ -2178,7 +2179,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(view.notes).not.toMatch(/every mutating/)
     expect(view.notes).toMatch(/charges or opens a Mollie checkout/)
     const off = ROUTES.filter((x) => x.section === 'billing' && x.errors.includes('billing_unavailable')).map(key).sort()
-    expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/checkout', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
+    expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/checkout', 'POST /api/billing/intents/:id/confirm', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
   })
 
   it('the payment-method notes name Apple Pay\'s rule, and no billing note names SEPA (André, 2026-10-04)', () => {
@@ -2220,4 +2221,42 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
     expect(rename.notes ?? '').not.toMatch(/history rows/i)
     expect(rename.notes ?? '').toMatch(/history_migrating/)
   })
+})
+
+
+describe('owner purchase intents', () => {
+  it('requires operation keys on both hosted payment entries and supports unpaid responses', () => {
+    for (const path of ['/api/billing/invoices/:id/pay', '/api/billing/payment-method']) {
+      const route = ROUTES.find((r) => r.method === 'POST' && r.path === path)!
+      const body = path.endsWith('payment-method') ? { method: 'applepay' } : {}
+      expect(route.request?.safeParse(body).success).toBe(false)
+      expect(route.request?.safeParse({ ...body, operation_key: operationKey }).success).toBe(true)
+      for (const intent of [pendingIntent, eligibleIntent, heldIntent, startedIntent]) expect(route.response?.safeParse(intent).success).toBe(true)
+      expect(route.errors).toContain('target_state_conflict')
+    }
+  })
+  it('looks up by exactly one identity, scoped to owner and operation', () => {
+    const route = ROUTES.find((r) => r.method === 'GET' && r.path === '/api/billing/intents')
+    expect(route).toMatchObject({ ownerTier: true, auth: 'developer', response: expect.anything() })
+    expect(route?.query?.safeParse({ operation_key: operationKey, operation: 'checkout' }).success).toBe(true)
+    expect(route?.query?.safeParse({ intent_id: intentBase.intent_id, operation: 'checkout' }).success).toBe(true)
+    expect(route?.query?.safeParse({ operation_key: operationKey, intent_id: intentBase.intent_id, operation: 'checkout' }).success).toBe(false)
+    expect(route?.query?.safeParse({}).success).toBe(false)
+    expect(route?.errors).toEqual(expect.arrayContaining(['tier_required', 'not_found']))
+  })
+  it('requires the displayed revision and fingerprint for confirmation', () => {
+    const route = ROUTES.find((r) => r.method === 'POST' && r.path === '/api/billing/intents/:id/confirm')
+    expect(route).toMatchObject({ ownerTier: true, auth: 'developer' })
+    const body = { operation_key: operationKey, operation: 'checkout', quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2' }
+    expect(route?.request?.safeParse(body).success).toBe(true)
+    expect(route?.request?.safeParse({ ...body, quote_revision: undefined }).success).toBe(false)
+    expect(route?.request?.safeParse({ ...body, buyer_fingerprint: '' }).success).toBe(false)
+    expect(route?.errors).toContain('target_state_conflict')
+  })
+})
+
+
+it('publishes lookup identities as query parameters in OpenAPI', () => {
+  const route = openApiDocument().paths['/api/billing/intents']?.get as { parameters?: { name: string }[] } | undefined
+  expect(route?.parameters?.map((p) => p.name)).toEqual(expect.arrayContaining(['operation_key', 'intent_id', 'operation']))
 })
