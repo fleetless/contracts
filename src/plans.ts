@@ -90,9 +90,7 @@ const cents = z.number().int().nonnegative()
 
 export const planPrices = z.object({
   eur_month: cents.meta({ description: 'Per month in euro cents, excluding VAT.' }),
-  usd_month: cents.meta({ description: 'Per month in US dollar cents, excluding VAT: the euro price × 1.15, rounded up to a whole dollar.' }),
   eur_year: cents.meta({ description: 'Per year in euro cents, excluding VAT: twelve months less 15 %.' }),
-  usd_year: cents.meta({ description: 'Per year in US dollar cents, excluding VAT: the yearly euro price × 1.15, rounded up to a whole dollar.' }),
 })
 export type PlanPrices = z.infer<typeof planPrices>
 
@@ -126,6 +124,7 @@ export const addonCatalogueEntry = z.object({
 export type AddonCatalogueEntry = z.infer<typeof addonCatalogueEntry>
 
 /**
+ * Historical conversion helper only; the current catalogue and all new quotes are EUR.
  * **No floating-point money, anywhere.** `eurCents * 1.15` would introduce
  * the fraction of a cent that floating point cannot hold exactly, so the
  * conversion is integer arithmetic throughout: scale by 115, add 9_999 to
@@ -145,16 +144,14 @@ export function yearlyEurCents(monthEurCents: number): number {
 
 /**
  * The catalogue writes every price through this one function, from the
- * monthly EUR cents alone — never as the other three numbers as literals —
- * so the USD and yearly rules can only ever be applied once, here.
+ * monthly EUR cents alone — never as yearly numbers typed separately —
+ * so the yearly rule is applied once, here. New catalogue prices are EUR-only.
  */
 export function pricesFromEurMonth(eurMonthCents: number): PlanPrices {
   const eurYear = yearlyEurCents(eurMonthCents)
   return {
     eur_month: eurMonthCents,
-    usd_month: usdCentsFromEurCents(eurMonthCents),
     eur_year: eurYear,
-    usd_year: usdCentsFromEurCents(eurYear),
   }
 }
 
@@ -317,7 +314,7 @@ export function nextPlanRaising(plan: PlanId, key: PlanLimitKey): PlanId | null 
  * ---------------------------------------------------------------------------
  */
 
-/** What an org is billed in. The catalogue's prices are fixed in both; this picks which one an invoice reads in. */
+/** Recorded currency. USD remains readable for historical accounts, invoices and payments. */
 export const planCurrency = z.enum(['eur', 'usd'])
 export type PlanCurrency = z.infer<typeof planCurrency>
 

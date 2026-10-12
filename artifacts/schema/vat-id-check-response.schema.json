@@ -1,36 +1,122 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "status": {
-      "type": "string",
-      "enum": [
-        "valid",
-        "unverified",
-        "invalid"
-      ],
-      "description": "VIES's answer."
-    },
-    "vat_id": {
-      "type": "string",
-      "description": "The normalized VAT ID that was checked."
-    },
-    "name": {
-      "anyOf": [
-        {
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "vat_id": {
           "type": "string"
         },
-        {
-          "type": "null"
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "const": "eligible"
+        },
+        "status": {
+          "type": "string",
+          "const": "valid"
         }
+      },
+      "required": [
+        "vat_id",
+        "name",
+        "state",
+        "status"
       ],
-      "description": "The registered holder, when VIES named one; `null` otherwise."
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "vat_id": {
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "const": "refused"
+        },
+        "status": {
+          "type": "string",
+          "const": "invalid"
+        },
+        "rule": {
+          "type": "string",
+          "const": "vat_id_invalid"
+        }
+      },
+      "required": [
+        "vat_id",
+        "name",
+        "state",
+        "status",
+        "rule"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "vat_id": {
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "const": "pending"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "valid",
+            "unverified",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "vies_unavailable",
+            "vies_unverified",
+            "vies_identifier_missing"
+          ]
+        }
+      },
+      "required": [
+        "vat_id",
+        "name",
+        "state",
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
     }
-  },
-  "required": [
-    "status",
-    "vat_id",
-    "name"
-  ],
-  "additionalProperties": false
+  ]
 }

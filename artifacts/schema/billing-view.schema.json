@@ -37,7 +37,19 @@
                           "type": "null"
                         }
                       ],
-                      "description": "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany."
+                      "description": "The company's VAT ID, or `null` for none. Required for a new purchase in another EU country; direct VIES must confirm it with an identifier."
+                    },
+                    "tax_id": {
+                      "description": "Free-text Tax ID. Required for a new non-EU purchase; historical records may omit it.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "address": {
                       "type": "object",
@@ -75,7 +87,13 @@
                         "country": {
                           "type": "string",
                           "pattern": "^[A-Z]{2}$",
-                          "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                          "description": "The billing country, used for purchase eligibility and VAT."
+                        },
+                        "state": {
+                          "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
                         }
                       },
                       "required": [
@@ -155,7 +173,13 @@
                         "country": {
                           "type": "string",
                           "pattern": "^[A-Z]{2}$",
-                          "description": "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)."
+                          "description": "The billing country, used for purchase eligibility and VAT."
+                        },
+                        "state": {
+                          "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
                         }
                       },
                       "required": [
@@ -194,7 +218,8 @@
                   "enum": [
                     "valid",
                     "unverified",
-                    "invalid"
+                    "invalid",
+                    "unavailable"
                   ]
                 },
                 {
@@ -204,30 +229,37 @@
               "description": "The payer's VAT ID check, or `null` when no VAT ID was given."
             },
             "vat": {
-              "type": "object",
-              "properties": {
-                "treatment": {
-                  "type": "string",
-                  "enum": [
-                    "de_standard",
-                    "reverse_charge",
-                    "outside_eu"
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "treatment": {
+                      "type": "string",
+                      "enum": [
+                        "de_standard",
+                        "reverse_charge",
+                        "outside_eu"
+                      ],
+                      "description": "How the account is taxed."
+                    },
+                    "rate_percent": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "The VAT rate, in whole percent."
+                    }
+                  },
+                  "required": [
+                    "treatment",
+                    "rate_percent"
                   ],
-                  "description": "How the account is taxed."
+                  "additionalProperties": false
                 },
-                "rate_percent": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991,
-                  "description": "The VAT rate, in whole percent."
+                {
+                  "type": "null"
                 }
-              },
-              "required": [
-                "treatment",
-                "rate_percent"
               ],
-              "additionalProperties": false,
-              "description": "The VAT treatment and rate this account charges at (`vatFor`)."
+              "description": "Recorded VAT treatment; null while the current buyer has no eligible decision. Never infer zero rating from a pending account."
             },
             "currency": {
               "type": "string",

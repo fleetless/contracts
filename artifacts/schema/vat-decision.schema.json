@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "eligible"
+        },
+        "treatment": {
+          "type": "string",
+          "enum": [
+            "de_standard",
+            "reverse_charge",
+            "outside_eu"
+          ]
+        },
+        "rate_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "state",
+        "treatment",
+        "rate_percent"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "pending"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "vies_unavailable",
+            "vies_unverified",
+            "vies_identifier_missing"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "refused"
+        },
+        "rule": {
+          "type": "string",
+          "enum": [
+            "company_required",
+            "vat_id_required",
+            "vat_id_invalid"
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "rule"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

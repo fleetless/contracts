@@ -965,3 +965,15 @@ export type {
   BillingView,
   BillingChangeResponse,
 } from './billing.js'
+
+export {
+  purchaseBillingDetails, purchaseOperationKey, purchaseOperation, purchaseQuote,
+  purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,
+  purchaseIntentConfirmRequest, purchaseConflictDetails, invoicePayRequest,
+  purchaseIntentResponse, vatDecision, viesPendingReason,
+} from './billing.js'
+export type {
+  PurchaseBillingDetails, PurchaseOperation, PurchaseQuote, PurchaseIntent,
+  PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
+  InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
+} from './billing.js'

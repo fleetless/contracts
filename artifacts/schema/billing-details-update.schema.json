@@ -2,6 +2,76 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "company_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "address": {
+      "type": "object",
+      "properties": {
+        "line1": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Street and number, or the first address line."
+        },
+        "line2": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "A second address line, or `null` when there is none."
+        },
+        "postal_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "description": "Postal or ZIP code."
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "City or town."
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "The billing country, used for purchase eligibility and VAT."
+        },
+        "state": {
+          "description": "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "line1",
+        "line2",
+        "postal_code",
+        "city",
+        "country"
+      ],
+      "additionalProperties": false
+    },
+    "tax_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "invoice_email": {
       "description": "Replaces the invoice email. Omitted leaves it as it is.",
       "type": "string",

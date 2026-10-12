@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "string",
+  "enum": [
+    "vies_unavailable",
+    "vies_unverified",
+    "vies_identifier_missing"
+  ]
+}

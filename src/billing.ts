@@ -10,7 +10,6 @@ import {
   planId,
   type AddonKey,
   type OrgAddons,
-  type PlanCurrency,
   type PlanId,
   type PlanPrices,
 } from './plans.js'
@@ -47,9 +46,9 @@ export function isEuCountry(country: string): boolean {
   return (EU_COUNTRIES as readonly string[]).includes(country)
 }
 
-/** EUR in the EU, USD elsewhere. */
-export function currencyForCountry(country: string): PlanCurrency {
-  return isEuCountry(country) ? 'eur' : 'usd'
+/** All new purchase prices are EUR, independent of the billing country. */
+export function currencyForCountry(_country: string): 'eur' {
+  return 'eur'
 }
 
 /** Who is paying: a company (may hold a VAT ID) or a person (a full name, never a VAT ID). */
@@ -68,38 +67,45 @@ export type BillingCycle = z.infer<typeof billingCycle>
 export const vatTreatment = z.enum(['de_standard', 'reverse_charge', 'outside_eu'])
 export type VatTreatment = z.infer<typeof vatTreatment>
 
-/**
- * Why `vatFor` refused a payer: `eu_person` (a person outside Germany, in
- * another EU country), `vat_id_required` (a company in another EU country
- * gave no VAT ID) or `vat_id_invalid` (VIES said the given VAT ID is
- * invalid).
- */
-export const payerRefusalRule = z.enum(['eu_person', 'vat_id_required', 'vat_id_invalid'])
+/** A refusal of a new paid purchase, never a restriction on free Basic. */
+export const payerRefusalRule = z.enum(['company_required', 'vat_id_required', 'vat_id_invalid'])
 export type PayerRefusalRule = z.infer<typeof payerRefusalRule>
 
-/** What `vatFor` decides: allowed with a treatment and rate, or refused with a rule. */
-export type VatDecision = { allowed: true; treatment: VatTreatment; rate_percent: number } | { allowed: false; rule: PayerRefusalRule }
+export const viesPendingReason = z.enum(['vies_unavailable', 'vies_unverified', 'vies_identifier_missing'])
+export type ViesPendingReason = z.infer<typeof viesPendingReason>
+
+/** Internal decision input; the complete direct response stays in protected Finance storage. */
+export type ViesVerdict =
+  | { status: 'valid'; requestIdentifier?: string | null }
+  | { status: 'invalid' | 'unavailable' | 'unverified' }
+
+export const vatDecision = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('eligible'), treatment: vatTreatment, rate_percent: z.number().int().min(0).max(100) }).strict(),
+  z.object({ state: z.literal('pending'), reason: viesPendingReason }).strict(),
+  z.object({ state: z.literal('refused'), rule: payerRefusalRule }).strict(),
+])
+export type VatDecision = z.infer<typeof vatDecision>
 
 /**
- * Who may pay, and the VAT they pay. `vatIdValid`: `null` = no VAT ID
- * given; `true` = VIES valid **or unverified** (VIES unreachable is
- * accepted); `false` = VIES said invalid.
- *
- * Germany is unconditional — company or person, VAT ID optional, 19 %
- * regardless of whether a given ID checks out. A German VAT ID's validity
- * never gates checkout, only the renewal sweep later (dunning);
- * `vatFor` only ever prices the charge in hand.
+ * New paid purchase VAT classification. `vies: null` means no VAT ID;
+ * unverified/unavailable means an ID was supplied but has no definitive evidence.
+ * Only a direct, current-buyer VIES verdict with an identifier permits reverse charge.
+ * Cloud separately validates complete purchase details and the current email policy,
+ * and binds the evidence to the buyer and quote under its charge lock.
  */
-export function vatFor(input: { kind: PayerKind; country: string; vatIdValid: boolean | null }): VatDecision {
-  const { kind, country, vatIdValid } = input
-  if (country === SELLER_COUNTRY) return { allowed: true, treatment: 'de_standard', rate_percent: DE_VAT_RATE_PERCENT }
-  if (isEuCountry(country)) {
-    if (kind === 'person') return { allowed: false, rule: 'eu_person' }
-    if (vatIdValid === true) return { allowed: true, treatment: 'reverse_charge', rate_percent: 0 }
-    if (vatIdValid === false) return { allowed: false, rule: 'vat_id_invalid' }
-    return { allowed: false, rule: 'vat_id_required' }
+export function vatFor(input: { kind: PayerKind; country: string; vies: ViesVerdict | null }): VatDecision {
+  const { kind, country, vies } = input
+  if (kind !== 'company') return { state: 'refused', rule: 'company_required' }
+  if (country === SELLER_COUNTRY) return { state: 'eligible', treatment: 'de_standard', rate_percent: DE_VAT_RATE_PERCENT }
+  if (!isEuCountry(country)) return { state: 'eligible', treatment: 'outside_eu', rate_percent: 0 }
+  if (vies === null) return { state: 'refused', rule: 'vat_id_required' }
+  if (vies.status === 'invalid') return { state: 'refused', rule: 'vat_id_invalid' }
+  if (vies.status === 'valid') {
+    return vies.requestIdentifier?.trim()
+      ? { state: 'eligible', treatment: 'reverse_charge', rate_percent: 0 }
+      : { state: 'pending', reason: 'vies_identifier_missing' }
   }
-  return { allowed: true, treatment: 'outside_eu', rate_percent: 0 }
+  return { state: 'pending', reason: vies.status === 'unavailable' ? 'vies_unavailable' : 'vies_unverified' }
 }
 
 /** VIES's member-state code: `EL` for `GR`, the country otherwise. */
@@ -128,11 +134,12 @@ export function normalizeVatId(country: string, raw: string): string | null {
   return vies + cleaned
 }
 
-function priceKeyFor(cycle: BillingCycle, currency: PlanCurrency): keyof PlanPrices {
-  return `${currency}_${cycle === 'monthly' ? 'month' : 'year'}` as keyof PlanPrices
+function priceKeyFor(cycle: BillingCycle, currency: 'eur'): keyof PlanPrices {
+  if (currency !== 'eur') throw new Error('billing: new prices require EUR; read historical amounts from their recorded snapshots')
+  return `eur_${cycle === 'monthly' ? 'month' : 'year'}`
 }
 
-function planPriceCentsFor(plan: PlanId, cycle: BillingCycle, currency: PlanCurrency): number {
+function planPriceCentsFor(plan: PlanId, cycle: BillingCycle, currency: 'eur'): number {
   const prices = PLANS[plan].prices
   if (prices === null) throw new Error(`billing: ${plan} has no catalogue price — sold by contract, never self-service`)
   return prices[priceKeyFor(cycle, currency)]
@@ -145,7 +152,7 @@ function planPriceCentsFor(plan: PlanId, cycle: BillingCycle, currency: PlanCurr
  * `enterprise`: its price is `null`, sold by contract, and self-service
  * never charges it.
  */
-export function periodNetCents(input: { plan: PlanId; addons: OrgAddons; cycle: BillingCycle; currency: PlanCurrency }): number {
+export function periodNetCents(input: { plan: PlanId; addons: OrgAddons; cycle: BillingCycle; currency: 'eur' }): number {
   const { plan, addons, cycle, currency } = input
   const key = priceKeyFor(cycle, currency)
   let total = planPriceCentsFor(plan, cycle, currency)
@@ -224,12 +231,13 @@ export interface BillingState {
 export function changeNetCents(input: {
   from: BillingState
   to: BillingState
-  currency: PlanCurrency
+  currency: 'eur'
   periodStart: Date
   periodEnd: Date
   now: Date
 }): number {
   const { from, to, currency, periodStart, periodEnd, now } = input
+  priceKeyFor(to.cycle, currency) // Also reject a non-EUR zero-charge change.
   const days = periodDays(periodStart, periodEnd)
   const remaining = remainingDays(now, periodEnd, days)
 
@@ -276,7 +284,7 @@ export interface QuoteLine {
 export interface CheckoutQuote extends ChargeAmounts {
   lines: QuoteLine[]
   rate_percent: number
-  currency: PlanCurrency
+  currency: 'eur'
   cycle: BillingCycle
 }
 
@@ -294,7 +302,7 @@ export function checkoutQuote(input: {
   plan: 'plus' | 'pro'
   addons: OrgAddons
   cycle: BillingCycle
-  currency: PlanCurrency
+  currency: 'eur'
   rate_percent: number
 }): CheckoutQuote {
   const { plan, addons, cycle, currency, rate_percent } = input
@@ -339,13 +347,14 @@ export const BILLING_LOCK_DAY = 14
  * ---------------------------------------------------------------------------
  */
 
-/** A billing address. `country` gates VAT (`vatFor`) and currency (`currencyForCountry`). */
+/** Historical address read and owner edit shape; purchase validation is stricter. */
 export const billingAddress = z.object({
   line1: z.string().trim().min(1).max(200).meta({ description: 'Street and number, or the first address line.' }),
   line2: z.string().trim().max(200).nullable().meta({ description: 'A second address line, or `null` when there is none.' }),
   postal_code: z.string().trim().min(1).max(20).meta({ description: 'Postal or ZIP code.' }),
   city: z.string().trim().min(1).max(100).meta({ description: 'City or town.' }),
-  country: countryCode.meta({ description: "The billing country. Decides VAT (`vatFor`) and currency (`currencyForCountry`)." }),
+  country: countryCode.meta({ description: "The billing country, used for purchase eligibility and VAT." }),
+  state: z.string().trim().min(1).max(100).optional().meta({ description: "State or region. A new US purchase requires a two-letter state code; historical addresses may omit it." }),
 }).strict()
 export type BillingAddress = z.infer<typeof billingAddress>
 
@@ -362,8 +371,9 @@ export const billingDetails = z.discriminatedUnion('kind', [
     kind: z.literal('company').meta({ description: 'Billed as a company.' }),
     company_name: z.string().trim().min(1).max(200).meta({ description: "The company's legal name, printed on the invoice." }),
     vat_id: z.string().trim().max(20).nullable().meta({
-      description: "The company's VAT ID, or `null` for none. Required, and must check out through VIES, for a company outside Germany.",
+      description: "The company's VAT ID, or `null` for none. Required for a new purchase in another EU country; direct VIES must confirm it with an identifier.",
     }),
+    tax_id: z.string().trim().max(100).nullable().optional().meta({ description: "Free-text Tax ID. Required for a new non-EU purchase; historical records may omit it." }),
     address: billingAddress.meta({ description: 'The billing address.' }),
     invoice_email: z.email().meta({ description: 'Where invoices and billing mail are sent.' }),
   }).strict().meta({ description: "A company: name and an optional VAT ID, never 'full name'." }),
@@ -376,34 +386,136 @@ export const billingDetails = z.discriminatedUnion('kind', [
 ])
 export type BillingDetails = z.infer<typeof billingDetails>
 
-/**
- * `POST /api/billing/checkout`'s body: the plan and cycle to buy — Basic is
- * free and never checked out — optional add-ons (Pro only; named on `plus`,
- * or without `planFeature.addons`, is `400 validation_error`), the payer,
- * and the terms and withdrawal confirmations: `accept_terms` is
- * always required; `accept_withdrawal` is required for a person and refused
- * for a company, which has no consumer right of withdrawal to confirm.
- */
+/** New paid write shape. Historical payer reads keep using `billingDetails`. */
+export const purchaseBillingDetails = billingDetails.options[0].superRefine((payer, ctx) => {
+  const country = payer.address.country
+  if (isEuCountry(country) && country !== SELLER_COUNTRY && !payer.vat_id?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['vat_id'], message: 'vat_id_required' })
+  }
+  if (!isEuCountry(country) && !payer.tax_id?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['tax_id'], message: 'tax_id_required' })
+  }
+  if (country === 'US' && !/^[A-Z]{2}$/.test(payer.address.state ?? '')) {
+    ctx.addIssue({ code: 'custom', path: ['address', 'state'], message: 'us_state_required' })
+  }
+}).meta({ description: 'New company purchase. Other EU countries require VAT ID; non-EU requires Tax ID; US requires two-letter state. Cloud additionally checks the versioned public-email policy and current VIES evidence.' })
+export type PurchaseBillingDetails = z.infer<typeof purchaseBillingDetails>
+
+/** Generate before POST, persist across reloads; unique within the authenticated org. */
+export const purchaseOperationKey = z.uuid().meta({ description: 'Client-generated UUID persisted before the start request. Unique per org and reused only for identical input.' })
+export const purchaseOperation = z.enum(['checkout', 'paid_change', 'invoice_payment', 'payment_method_invoice', 'mandate_setup'])
+export type PurchaseOperation = z.infer<typeof purchaseOperation>
+const chargeOperation = purchaseOperation.exclude(['mandate_setup'])
+
+/** Starting a checkout records an intent; only confirming its current quote may create a payment. */
 export const checkoutRequest = z.object({
-  plan: z.enum(['plus', 'pro']).meta({ description: 'The plan to buy.' }),
-  cycle: billingCycle.meta({ description: 'Monthly, or yearly at 15 % off.' }),
-  addons: orgAddons.partial().strict().optional().meta({
-    description: 'Add-on counts to buy alongside the plan. Pro only; named on `plus`, or without the feature, `400 validation_error`.',
-  }),
-  billing: billingDetails.meta({ description: 'Who is paying, and where the invoice goes.' }),
-  accept_terms: z.literal(true).meta({ description: "Confirms Fleetless's terms of service. Always required." }),
-  accept_withdrawal: z.literal(true).optional().meta({
-    description: "Confirms the plan starts at once and the 14-day right of withdrawal ends with it. Required for a person; a company sending it is `400 validation_error` — it has no withdrawal right to confirm.",
-  }),
+  operation_key: purchaseOperationKey,
+  plan: z.enum(['plus', 'pro']).meta({ description: 'The paid plan to buy; Basic requires no checkout.' }),
+  cycle: billingCycle.meta({ description: 'Monthly, or yearly at 15 percent off.' }),
+  addons: orgAddons.partial().strict().optional().meta({ description: 'Add-on units to buy; Pro only. Cloud refuses add-ons on Plus.' }),
+  billing: purchaseBillingDetails.meta({ description: 'The company buying the plan. Country requirements, current VIES and the email policy must pass before charging.' }),
+  accept_terms: z.literal(true).meta({ description: 'Confirms the terms of service for this purchase.' }),
 }).strict()
 export type CheckoutRequest = z.infer<typeof checkoutRequest>
 
-/** `POST /api/billing/checkout`'s answer: where to send the caller's browser. */
-export const checkoutResponse = z.object({
-  checkout_id: z.uuid().meta({ description: 'Identifies this checkout: polled by `GET /api/billing/checkout/:id` and carried on the return URL.' }),
-  checkout_url: z.url().meta({ description: "Mollie's hosted checkout page. The caller's browser is sent here." }),
-})
+const purchaseCents = z.number().int().nonnegative()
+/** Current amount to confirm. Issued USD invoices must be held, never relabelled EUR. */
+export const purchaseQuote = z.object({
+  currency: z.literal('eur').meta({ description: 'Every new quote is in EUR.' }),
+  net_cents: purchaseCents.meta({ description: 'Current charge excluding VAT, in cents.' }),
+  vat_cents: purchaseCents.meta({ description: 'VAT on the current charge, in cents.' }),
+  gross_cents: purchaseCents.meta({ description: 'Total to confirm, including VAT, in cents.' }),
+  rate_percent: z.number().int().min(0).max(100).meta({ description: 'VAT rate in whole percent.' }),
+}).strict()
+export type PurchaseQuote = z.infer<typeof purchaseQuote>
+
+const intentIdentity = {
+  intent_id: z.uuid().meta({ description: 'Opaque persisted purchase intent identity.' }),
+  operation_key: purchaseOperationKey,
+  operation: chargeOperation,
+  invoice_id: z.uuid().optional().meta({ description: 'The due charge or issued invoice, for invoice-paying operations.' }),
+}
+const quoteIdentity = {
+  quote_revision: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of the displayed quote; echo it when confirming.' }),
+  buyer_fingerprint: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of buyer details and email policy; never full VIES evidence.' }),
+}
+export const purchaseHoldReason = z.enum(['legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved'])
+export const purchaseRefusalRule = z.enum(['company_required', 'vat_id_required', 'vat_id_invalid', 'tax_id_required', 'us_state_required', 'public_email_domain', 'invoice_not_open'])
+
+// Cross-field invariants also travel in JSON Schema so non-TypeScript callers
+// cannot treat an invoice payment as an unbound checkout or a held setup as a charge.
+const intentRules = [
+  { if: { properties: { operation: { enum: ['invoice_payment', 'payment_method_invoice'] } }, required: ['operation'] }, then: { required: ['invoice_id'] } },
+  { if: { properties: { operation: { const: 'mandate_setup' } }, required: ['operation'] }, then: { properties: { state: { const: 'held' }, reason: { const: 'mandate_policy_unresolved' } }, required: ['reason'] } },
+  { if: { properties: { reason: { const: 'mandate_policy_unresolved' } }, required: ['reason'] }, then: { properties: { operation: { const: 'mandate_setup' } } } },
+  { if: { properties: { payment: { properties: { kind: { const: 'mandate' } }, required: ['kind'] } }, required: ['payment'] }, then: { properties: { operation: { const: 'paid_change' } } } },
+]
+function validateIntent(intent: { operation: string; invoice_id?: string; state: string; reason?: string; payment?: { kind: string } }, ctx: z.RefinementCtx) {
+  if (['invoice_payment', 'payment_method_invoice'].includes(intent.operation) && !intent.invoice_id) {
+    ctx.addIssue({ code: 'custom', path: ['invoice_id'], message: 'An invoice-paying intent must name the invoice or due charge.' })
+  }
+  if ((intent.operation === 'mandate_setup') !== (intent.reason === 'mandate_policy_unresolved')) {
+    ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Mandate setup remains held until its integration policy is resolved.' })
+  }
+  if (intent.payment?.kind === 'mandate' && intent.operation !== 'paid_change') {
+    ctx.addIssue({ code: 'custom', path: ['payment'], message: 'Owner checkout and invoice payment require a hosted payment.' })
+  }
+}
+
+/** Public owner read. No unpaid state can contain a provider redirect. */
+export const purchaseIntent = z.discriminatedUnion('state', [
+  z.object({ ...intentIdentity, state: z.literal('awaiting_vies'), reason: viesPendingReason, next_attempt_at: z.iso.datetime() }).strict(),
+  z.object({ ...intentIdentity, ...quoteIdentity, state: z.literal('eligible'), quote: purchaseQuote }).strict(),
+  z.object({
+    ...intentIdentity, operation: purchaseOperation, state: z.literal('held'), reason: purchaseHoldReason,
+    original_amount: z.object({ currency: planCurrency, gross_cents: purchaseCents }).strict().optional()
+      .meta({ description: 'Recorded balance of a held invoice; not a new quote or authorization.' }),
+  }).strict(),
+  z.object({ ...intentIdentity, state: z.literal('invalid_vat_id'), field: z.literal('billing.vat_id'), rule: z.literal('vat_id_invalid') }).strict(),
+  z.object({ ...intentIdentity, state: z.literal('refused'), field: z.string().min(1), rule: purchaseRefusalRule }).strict(),
+  z.object({
+    ...intentIdentity, state: z.literal('payment_started'), payment_id: z.uuid(),
+    payment: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('hosted'), checkout_id: z.uuid(), checkout_url: z.url() }).strict(),
+      z.object({ kind: z.literal('mandate') }).strict(),
+    ]),
+  }).strict(),
+]).superRefine(validateIntent).meta({ allOf: intentRules })
+export type PurchaseIntent = z.infer<typeof purchaseIntent>
+
+/** Shared by checkout, invoice payment and method change. Mandate-only setup remains held. */
+export const checkoutResponse = purchaseIntent
 export type CheckoutResponse = z.infer<typeof checkoutResponse>
+
+/** Lookup needs one identity, plus the expected operation; a mismatch discloses nothing. */
+export const purchaseIntentLookupQuery = z.object({
+  operation_key: purchaseOperationKey.optional().meta({ description: 'The client operation key; supply this or intent_id, never both.' }),
+  intent_id: z.uuid().optional().meta({ description: 'The persisted intent ID; supply this or operation_key, never both.' }),
+  operation: purchaseOperation.meta({ description: 'Expected operation; a mismatch returns 404 without disclosure.' }),
+}).strict().refine((q) => (q.operation_key !== undefined) !== (q.intent_id !== undefined), {
+  message: 'Supply exactly one of operation_key or intent_id.',
+}).meta({
+  description: 'Owner lookup by exactly one identity and the expected operation.',
+  oneOf: [
+    { required: ['operation_key'], not: { required: ['intent_id'] } },
+    { required: ['intent_id'], not: { required: ['operation_key'] } },
+  ],
+})
+export type PurchaseIntentLookupQuery = z.infer<typeof purchaseIntentLookupQuery>
+
+export const purchaseIntentConfirmRequest = z.object({
+  operation_key: purchaseOperationKey, operation: chargeOperation, ...quoteIdentity,
+}).strict()
+export type PurchaseIntentConfirmRequest = z.infer<typeof purchaseIntentConfirmRequest>
+
+/** `409 target_state_conflict` details. Stale confirmation returns the new owner-visible intent. */
+export const purchaseConflictDetails = z.discriminatedUnion('rule', [
+  z.object({ field: z.literal('operation_key'), rule: z.literal('operation_key_reused') }).strict(),
+  z.object({ field: z.literal('intent'), rule: z.enum(['stale_quote', 'buyer_changed', 'not_eligible', 'invoice_not_open']), current_intent: purchaseIntent }).strict(),
+])
+export type PurchaseConflictDetails = z.infer<typeof purchaseConflictDetails>
+export const invoicePayRequest = z.object({ operation_key: purchaseOperationKey }).strict()
+export type InvoicePayRequest = z.infer<typeof invoicePayRequest>
 
 /** `GET /api/billing/checkout/:id`'s answer: the return page's poll. */
 export const checkoutStatus = z.object({
@@ -419,7 +531,7 @@ export const checkoutStatus = z.object({
 export type CheckoutStatus = z.infer<typeof checkoutStatus>
 
 /** VIES's answer to a VAT-ID check: `unverified` when VIES could not be reached in time. */
-export const vatIdStatus = z.enum(['valid', 'unverified', 'invalid'])
+export const vatIdStatus = z.enum(['valid', 'unverified', 'invalid', 'unavailable'])
 export type VatIdStatus = z.infer<typeof vatIdStatus>
 
 /** `POST /api/billing/vat-id/check`'s body: the VAT-ID-on-blur check the checkout and `PATCH /api/billing/details` both use. */
@@ -429,12 +541,13 @@ export const vatIdCheckRequest = z.object({
 }).strict()
 export type VatIdCheckRequest = z.infer<typeof vatIdCheckRequest>
 
-/** `POST /api/billing/vat-id/check`'s answer. */
-export const vatIdCheckResponse = z.object({
-  status: vatIdStatus.meta({ description: "VIES's answer." }),
-  vat_id: z.string().meta({ description: 'The normalized VAT ID that was checked.' }),
-  name: z.string().nullable().meta({ description: 'The registered holder, when VIES named one; `null` otherwise.' }),
-})
+/** Public display only: successful full evidence is never returned here. */
+const vatCheckIdentity = { vat_id: z.string(), name: z.string().nullable() }
+export const vatIdCheckResponse = z.discriminatedUnion('state', [
+  z.object({ ...vatCheckIdentity, state: z.literal('eligible'), status: z.literal('valid') }).strict(),
+  z.object({ ...vatCheckIdentity, state: z.literal('refused'), status: z.literal('invalid'), rule: z.literal('vat_id_invalid') }).strict(),
+  z.object({ ...vatCheckIdentity, state: z.literal('pending'), status: z.enum(['valid', 'unverified', 'unavailable']), reason: viesPendingReason }).strict(),
+])
 export type VatIdCheckResponse = z.infer<typeof vatIdCheckResponse>
 
 /**
@@ -447,6 +560,7 @@ export type VatIdCheckResponse = z.infer<typeof vatIdCheckResponse>
  * `.refine()` has no JSON Schema rendering.
  */
 export const billingChangeRequest = z.object({
+  operation_key: purchaseOperationKey,
   plan: z.enum(['plus', 'pro']).optional().meta({ description: 'The target plan. Omitted leaves the plan as it is.' }),
   cycle: billingCycle.optional().meta({ description: 'The target cycle. Omitted leaves the cycle as it is.' }),
   addons: orgAddons.partial().strict().optional().meta({
@@ -461,8 +575,11 @@ export const billingCancelRequest = z.object({
 }).strict()
 export type BillingCancelRequest = z.infer<typeof billingCancelRequest>
 
-/** `PATCH /api/billing/details`'s body: the invoice email and the VAT ID, the two fields an owner edits after checkout. */
+/** Owner corrections; Cloud revalidates the complete merged buyer before any later charge. */
 export const billingDetailsUpdate = z.object({
+  company_name: z.string().trim().min(1).max(200).optional(),
+  address: billingAddress.optional(),
+  tax_id: z.string().trim().max(100).nullable().optional(),
   invoice_email: z.email().optional().meta({ description: 'Replaces the invoice email. Omitted leaves it as it is.' }),
   vat_id: z.string().trim().max(20).nullable().optional().meta({
     description: 'Replaces the VAT ID; `null` clears it. Omitted leaves it as it is. A new ID is re-checked through VIES.',
@@ -479,6 +596,7 @@ export type PaymentMethodKind = z.infer<typeof paymentMethodKind>
 
 /** `POST /api/billing/payment-method`'s body. */
 export const paymentMethodChangeRequest = z.object({
+  operation_key: purchaseOperationKey,
   method: paymentMethodKind.meta({
     description:
       "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with " +
@@ -545,7 +663,7 @@ export const billingAccount = z.object({
   vat: z.object({
     treatment: vatTreatment.meta({ description: 'How the account is taxed.' }),
     rate_percent: z.number().int().meta({ description: 'The VAT rate, in whole percent.' }),
-  }).meta({ description: 'The VAT treatment and rate this account charges at (`vatFor`).' }),
+  }).nullable().meta({ description: 'Recorded VAT treatment; null while the current buyer has no eligible decision. Never infer zero rating from a pending account.' }),
   currency: planCurrency.meta({ description: "The org's billing currency, fixed at the first payment." }),
   cycle: billingCycle.meta({ description: 'The current billing cycle.' }),
   status: billingAccountStatus.meta({ description: "The account's own status." }),
@@ -604,8 +722,20 @@ export const billingView = z.object({
 export type BillingView = z.infer<typeof billingView>
 
 /** `POST /api/billing/change`'s answer: the billing view afterwards, and what was charged right now, if anything. */
-export const billingChangeResponse = z.object({
+const acceptedBillingChange = z.object({
   billing: billingView.meta({ description: 'The billing view after the change.' }),
   charged: billingInvoice.nullable().meta({ description: 'The invoice charged now, or `null` when the change was only scheduled for the period\'s end.' }),
-})
+}).strict()
+export const billingChangeResponse = z.union([
+  acceptedBillingChange,
+  z.object({ intent: purchaseIntent }).strict(),
+  z.object({ ...acceptedBillingChange.shape, intent: purchaseIntent.options[5].superRefine(validateIntent).meta({ allOf: intentRules }) }).strict(),
+])
 export type BillingChangeResponse = z.infer<typeof billingChangeResponse>
+
+/** Confirmation/lookup recovers the same payment, and the resulting view for a paid change. */
+export const purchaseIntentResponse = z.union([
+  purchaseIntent,
+  z.object({ ...acceptedBillingChange.shape, intent: purchaseIntent.options[5].superRefine(validateIntent).meta({ allOf: intentRules }) }).strict(),
+])
+export type PurchaseIntentResponse = z.infer<typeof purchaseIntentResponse>

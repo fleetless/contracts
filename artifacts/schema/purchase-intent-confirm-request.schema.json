@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "operation_key": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+    },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "checkout",
+        "paid_change",
+        "invoice_payment",
+        "payment_method_invoice"
+      ]
+    },
+    "quote_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Opaque revision of the displayed quote; echo it when confirming."
+    },
+    "buyer_fingerprint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+    }
+  },
+  "required": [
+    "operation_key",
+    "operation",
+    "quote_revision",
+    "buyer_fingerprint"
+  ],
+  "additionalProperties": false
+}
