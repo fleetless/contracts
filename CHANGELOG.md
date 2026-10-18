@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [7.0.0] — 2026-10-18
+
 ### Changed
 
 - **Breaking:** new paid purchases require company billing details. Other EU
