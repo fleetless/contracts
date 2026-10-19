@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [7.1.0] — 2026-10-19
+
 ### Added
 
 - `GET /api/billing/documents`, `GET /api/billing/documents/:id` and
