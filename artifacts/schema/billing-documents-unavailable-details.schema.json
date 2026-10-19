@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": [
+        "provider_unavailable",
+        "rate_limited",
+        "list_limit_exceeded",
+        "list_changed",
+        "unsupported_document",
+        "profile_mismatch"
+      ],
+      "description": "Why Cloud refused rather than answering with a partial or unchecked document: `provider_unavailable` (Lexware did not answer or answered with an error), `rate_limited` (Lexware throttled the request; nothing was read), `list_limit_exceeded` (Lexware reports more than 10,000 documents for the org), `list_changed` (the document list changed while it was being paged, so no consistent list exists), `unsupported_document` (the detail or the file only: Lexware answered with an e-invoice profile or a file this cloud cannot present as the document), `profile_mismatch` (the Lexware account this cloud is configured with failed its account check, so every Lexware read stays closed)."
+    }
+  },
+  "required": [
+    "reason"
+  ],
+  "additionalProperties": false
+}

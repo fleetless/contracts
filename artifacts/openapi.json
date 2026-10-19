@@ -10166,6 +10166,155 @@
         "description": "Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org."
       }
     },
+    "/api/billing/documents": {
+      "get": {
+        "operationId": "get_api_billing_documents",
+        "summary": "Lists the org's finalized Lexware billing documents.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-document-list"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `billing_documents_unavailable`, `rate_limited`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Cloud resolves the org's own Lexware contact itself; the contact is never client supplied. The list is complete (every page) or an error — never a truncated page a caller could mistake for the whole thing: more than 10,000 documents answers 503 list_limit_exceeded. A draft, a quotation, an order confirmation, a delivery note or a purchase voucher never appears; a voided document does. `complete: false` with `unsupported_count` set means a document of an unsupported type or status was skipped rather than listed. `available: false` when this cloud has no Lexware configured, its Lexware account failed the account check, or the org has no Lexware contact — then `documents` is always `[]`."
+      }
+    },
+    "/api/billing/documents/{id}": {
+      "get": {
+        "operationId": "get_api_billing_documents_id",
+        "summary": "Reads one billing document, with its e-invoice profile and available files.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The Lexware voucher id from the document list.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/billing-document-detail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `billing_documents_unavailable`, `rate_limited`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`404 not_found` for an id from another organization or a guessed id — indistinguishable from an unknown one. `NONE` is a plain PDF and not an e-invoice; `EN16931` (ZUGFeRD) is a PDF with the e-invoice embedded in it; `XRechnung` is an XML e-invoice with a PDF that is only a preview. `electronic_document_profile` is `null` for a bookkeeping voucher — it has none. A fresh list must still contain the id. `502 billing_documents_unavailable` with reason `unsupported_document` for an e-invoice profile this cloud does not know."
+      }
+    },
+    "/api/billing/documents/{id}/file": {
+      "get": {
+        "operationId": "get_api_billing_documents_id_file",
+        "summary": "Downloads one billing document's file.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The Lexware voucher id from the document list.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "pdf",
+              "description": "The file format to read. `xml` answers `404` unless the document is `XRechnung`.",
+              "type": "string",
+              "enum": [
+                "pdf",
+                "xml"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `billing_documents_unavailable`, `rate_limited`, `not_found`, `validation_error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "`format=xml` answers `application/xml` for an `XRechnung` document only; every other document answers 404 for `format=xml`, because it has no XML to serve — a NONE document is a plain PDF and not an e-invoice, so it never has one either. `Cache-Control: no-store`; the bytes are streamed from Lexware and never persisted on this cloud's own side. 404 for a document of another organization or a guessed id — indistinguishable from an unknown one. A fresh list must still contain the id, and the org's Lexware contact is rechecked at file time, not only when the document was first listed. `502 billing_documents_unavailable` with reason `unsupported_document` when Lexware answers something that is not the document itself."
+      }
+    },
     "/api/billing/invoices/{id}/pay": {
       "post": {
         "operationId": "post_api_billing_invoices_id_pay",
@@ -15036,6 +15185,247 @@
             ]
           }
         },
+        "additionalProperties": false
+      },
+      "billing-document-detail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The Lexware voucher id. Opaque; read the document or its file by this id, never a locally invented one."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invoice",
+              "credit_note",
+              "down_payment_invoice",
+              "bookkeeping_invoice",
+              "bookkeeping_credit_note"
+            ],
+            "description": "The document's kind."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "overdue",
+              "paid",
+              "paidoff",
+              "voided",
+              "transferred",
+              "sepadebit"
+            ],
+            "description": "The document's own status."
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Lexware voucher number, for display only — never a key to read by. `null` for a voucher Lexware has not numbered."
+          },
+          "document_date": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "description": "The date printed on the document."
+          },
+          "currency": {
+            "type": "string",
+            "const": "EUR",
+            "description": "Every Lexware voucher this reads is EUR; nothing here reads a foreign-currency voucher."
+          },
+          "gross_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "The gross amount, in integer cents, signed by `kind` and never by the sign Lexware itself reports: `credit_note` and `bookkeeping_credit_note` are zero or negative, every other kind is zero or positive."
+          },
+          "file": {
+            "type": "string",
+            "enum": [
+              "available",
+              "unavailable"
+            ],
+            "description": "Whether Lexware holds a file for this document at all."
+          },
+          "electronic_document_profile": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NONE",
+                  "EN16931",
+                  "XRechnung"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The e-invoice profile, or `null` for a bookkeeping voucher — it has none."
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "pdf",
+                    "xml"
+                  ]
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "e_invoice",
+                    "preview",
+                    "document"
+                  ]
+                }
+              },
+              "required": [
+                "format",
+                "role"
+              ],
+              "additionalProperties": false
+            },
+            "description": "`NONE`: `[{ format: \"pdf\", role: \"document\" }]`. `EN16931`: `[{ format: \"pdf\", role: \"e_invoice\" }]`. `XRechnung`: `[{ format: \"xml\", role: \"e_invoice\" }, { format: \"pdf\", role: \"preview\" }]`. `null` profile: `[{ format: \"pdf\", role: \"document\" }]` when `file` is `available`, otherwise `[]`."
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "number",
+          "document_date",
+          "currency",
+          "gross_cents",
+          "file",
+          "electronic_document_profile",
+          "formats"
+        ],
+        "additionalProperties": false
+      },
+      "billing-document-list": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "Whether this cloud can list Lexware documents at all for this org — `false` when this cloud has no Lexware configured, its Lexware account failed the account check, or the org has no Lexware contact."
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "`false` when a document of an unsupported type or status was skipped rather than listed, counted in `unsupported_count`."
+          },
+          "unsupported_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "How many documents of an unsupported type or status were skipped; `complete` is `false` whenever this is above zero."
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The Lexware voucher id. Opaque; read the document or its file by this id, never a locally invented one."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "invoice",
+                    "credit_note",
+                    "down_payment_invoice",
+                    "bookkeeping_invoice",
+                    "bookkeeping_credit_note"
+                  ],
+                  "description": "The document's kind."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "overdue",
+                    "paid",
+                    "paidoff",
+                    "voided",
+                    "transferred",
+                    "sepadebit"
+                  ],
+                  "description": "The document's own status."
+                },
+                "number": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The Lexware voucher number, for display only — never a key to read by. `null` for a voucher Lexware has not numbered."
+                },
+                "document_date": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "description": "The date printed on the document."
+                },
+                "currency": {
+                  "type": "string",
+                  "const": "EUR",
+                  "description": "Every Lexware voucher this reads is EUR; nothing here reads a foreign-currency voucher."
+                },
+                "gross_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "The gross amount, in integer cents, signed by `kind` and never by the sign Lexware itself reports: `credit_note` and `bookkeeping_credit_note` are zero or negative, every other kind is zero or positive."
+                },
+                "file": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "unavailable"
+                  ],
+                  "description": "Whether Lexware holds a file for this document at all."
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "number",
+                "document_date",
+                "currency",
+                "gross_cents",
+                "file"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Every supported document this org has, complete or not — never a truncated page."
+          }
+        },
+        "required": [
+          "available",
+          "complete",
+          "unsupported_count",
+          "documents"
+        ],
         "additionalProperties": false
       },
       "billing-view": {

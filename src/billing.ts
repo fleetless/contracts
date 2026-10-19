@@ -721,6 +721,146 @@ export const billingView = z.object({
 })
 export type BillingView = z.infer<typeof billingView>
 
+/*
+ * ---------------------------------------------------------------------------
+ * Billing documents: a read-only view of the Lexware vouchers issued to
+ * the org's company (2026-10-19, fleetless/fleetless#544).
+ *
+ * `GET /api/billing/documents`, `GET /api/billing/documents/:id` and
+ * `GET /api/billing/documents/:id/file` in `src/routes.ts`. Cloud resolves
+ * the org's own Lexware contact itself; the contact is never supplied by the
+ * caller. Only finalized vouchers of the five kinds below ever appear — a
+ * draft, a quotation, an order confirmation, a delivery note or a purchase
+ * voucher never does, and a voided one still does.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * A document's kind, narrowed from Lexware's own `voucherType`: `invoice` ←
+ * `invoice`, `credit_note` ← `creditnote`, `down_payment_invoice` ←
+ * `downpaymentinvoice`, `bookkeeping_invoice` ← `salesinvoice`,
+ * `bookkeeping_credit_note` ← `salescreditnote`.
+ */
+export const billingDocumentKind = z.enum(['invoice', 'credit_note', 'down_payment_invoice', 'bookkeeping_invoice', 'bookkeeping_credit_note'])
+export type BillingDocumentKind = z.infer<typeof billingDocumentKind>
+
+/** A document's own status, read from the Lexware voucher as it stands today. */
+export const billingDocumentStatus = z.enum(['open', 'overdue', 'paid', 'paidoff', 'voided', 'transferred', 'sepadebit'])
+export type BillingDocumentStatus = z.infer<typeof billingDocumentStatus>
+
+/**
+ * The electronic-invoice profile of an `invoice`, `down_payment_invoice` or
+ * `credit_note`: `NONE` is a plain PDF and never an e-invoice; `EN16931`
+ * (ZUGFeRD) is a PDF with an embedded XML, and that PDF is itself the
+ * e-invoice; `XRechnung` is an XML that is the e-invoice, with a PDF that is
+ * only a preview. `null` on a bookkeeping voucher — it has no profile at all.
+ */
+export const billingDocumentProfile = z.enum(['NONE', 'EN16931', 'XRechnung'])
+export type BillingDocumentProfile = z.infer<typeof billingDocumentProfile>
+
+/** A file format a document's bytes may be read in. */
+export const billingDocumentFormat = z.enum(['pdf', 'xml'])
+export type BillingDocumentFormat = z.infer<typeof billingDocumentFormat>
+
+/**
+ * The fields shared by `billingDocument` and `billingDocumentDetail`, kept
+ * unrefined so `billingDocumentDetail` can `.extend()` it without depending
+ * on whether a `.superRefine()` survives an `.extend()` call. The sign rule
+ * below (`refuseWrongGrossSign`) is therefore applied separately to each of
+ * the two exports, sharing the one function rather than the one schema.
+ */
+const billingDocumentBase = z.object({
+  id: z.uuid().meta({ description: 'The Lexware voucher id. Opaque; read the document or its file by this id, never a locally invented one.' }),
+  kind: billingDocumentKind.meta({ description: "The document's kind." }),
+  status: billingDocumentStatus.meta({ description: "The document's own status." }),
+  number: z.string().nullable().meta({ description: "The Lexware voucher number, for display only — never a key to read by. `null` for a voucher Lexware has not numbered." }),
+  document_date: z.iso.datetime({ offset: true }).meta({ description: 'The date printed on the document.' }),
+  currency: z.literal('EUR').meta({ description: 'Every Lexware voucher this reads is EUR; nothing here reads a foreign-currency voucher.' }),
+  gross_cents: z.number().int().meta({
+    description:
+      'The gross amount, in integer cents, signed by `kind` and never by the sign Lexware itself reports: `credit_note` and ' +
+      '`bookkeeping_credit_note` are zero or negative, every other kind is zero or positive.',
+  }),
+  file: z.enum(['available', 'unavailable']).meta({ description: 'Whether Lexware holds a file for this document at all.' }),
+})
+
+/** Refused on a sign that disagrees with `kind`, regardless of what Lexware itself reported. */
+function refuseWrongGrossSign(doc: { kind: BillingDocumentKind; gross_cents: number }, ctx: z.RefinementCtx): void {
+  const isCredit = doc.kind === 'credit_note' || doc.kind === 'bookkeeping_credit_note'
+  if (isCredit && doc.gross_cents > 0) {
+    ctx.addIssue({ code: 'custom', path: ['gross_cents'], message: 'A credit note is zero or negative.' })
+  }
+  if (!isCredit && doc.gross_cents < 0) {
+    ctx.addIssue({ code: 'custom', path: ['gross_cents'], message: 'Only a credit note is negative.' })
+  }
+}
+
+/** One Lexware document, as `GET /api/billing/documents` lists it. */
+export const billingDocument = billingDocumentBase.strict().superRefine(refuseWrongGrossSign)
+export type BillingDocument = z.infer<typeof billingDocument>
+
+/** `GET /api/billing/documents`'s answer. */
+export const billingDocumentList = z.object({
+  available: z.boolean().meta({ description: 'Whether this cloud can list Lexware documents at all for this org — `false` when this cloud has no Lexware configured, its Lexware account failed the account check, or the org has no Lexware contact.' }),
+  complete: z.boolean().meta({ description: '`false` when a document of an unsupported type or status was skipped rather than listed, counted in `unsupported_count`.' }),
+  unsupported_count: z.number().int().nonnegative().meta({ description: 'How many documents of an unsupported type or status were skipped; `complete` is `false` whenever this is above zero.' }),
+  documents: z.array(billingDocument).meta({ description: 'Every supported document this org has, complete or not — never a truncated page.' }),
+}).strict().superRefine((list, ctx) => {
+  if (!list.available && (list.documents.length > 0 || !list.complete || list.unsupported_count > 0)) {
+    ctx.addIssue({ code: 'custom', path: ['available'], message: 'available: false carries no documents, is complete and has no unsupported document.' })
+  }
+})
+export type BillingDocumentList = z.infer<typeof billingDocumentList>
+
+/** Which role a file plays for a document: the e-invoice itself, a preview rendered alongside it, or the plain document. */
+export const billingDocumentFileRole = z.enum(['e_invoice', 'preview', 'document'])
+export type BillingDocumentFileRole = z.infer<typeof billingDocumentFileRole>
+
+const billingDocumentFormatEntry = z.object({ format: billingDocumentFormat, role: billingDocumentFileRole }).strict()
+
+function sameFormats(a: readonly { format: string; role: string }[], b: readonly { format: string; role: string }[]): boolean {
+  return a.length === b.length && a.every((entry, i) => entry.format === b[i]!.format && entry.role === b[i]!.role)
+}
+
+/** Refused on any `formats` that disagrees with `electronic_document_profile` (or, for `null`, with `file`). */
+function refuseWrongFormats(
+  doc: { electronic_document_profile: BillingDocumentProfile | null; file: 'available' | 'unavailable'; formats: { format: string; role: string }[] },
+  ctx: z.RefinementCtx,
+): void {
+  const expected =
+    doc.electronic_document_profile === 'NONE' ? [{ format: 'pdf', role: 'document' }]
+      : doc.electronic_document_profile === 'EN16931' ? [{ format: 'pdf', role: 'e_invoice' }]
+        : doc.electronic_document_profile === 'XRechnung' ? [{ format: 'xml', role: 'e_invoice' }, { format: 'pdf', role: 'preview' }]
+          : doc.file === 'available' ? [{ format: 'pdf', role: 'document' }] : []
+  if (!sameFormats(doc.formats, expected)) {
+    ctx.addIssue({ code: 'custom', path: ['formats'], message: 'formats must match electronic_document_profile (or, for a bookkeeping voucher, file) exactly.' })
+  }
+}
+
+/** `GET /api/billing/documents/:id`'s answer: `billingDocument` plus the e-invoice profile and the files this document offers. */
+export const billingDocumentDetail = billingDocumentBase
+  .extend({
+    electronic_document_profile: billingDocumentProfile.nullable().meta({ description: 'The e-invoice profile, or `null` for a bookkeeping voucher — it has none.' }),
+    formats: z.array(billingDocumentFormatEntry).meta({
+      description:
+        '`NONE`: `[{ format: "pdf", role: "document" }]`. `EN16931`: `[{ format: "pdf", role: "e_invoice" }]`. `XRechnung`: ' +
+        '`[{ format: "xml", role: "e_invoice" }, { format: "pdf", role: "preview" }]`. `null` profile: `[{ format: "pdf", role: "document" }]` ' +
+        'when `file` is `available`, otherwise `[]`.',
+    }),
+  })
+  .strict()
+  .superRefine((doc, ctx) => {
+    refuseWrongGrossSign(doc, ctx)
+    refuseWrongFormats(doc, ctx)
+  })
+export type BillingDocumentDetail = z.infer<typeof billingDocumentDetail>
+
+/** `GET /api/billing/documents/:id/file`'s query: which format to read the file in. */
+export const billingDocumentFileQuery = z.object({
+  format: billingDocumentFormat.default('pdf').meta({ description: 'The file format to read. `xml` answers `404` unless the document is `XRechnung`.' }),
+}).strict()
+export type BillingDocumentFileQuery = z.infer<typeof billingDocumentFileQuery>
+
 /** `POST /api/billing/change`'s answer: the billing view afterwards, and what was charged right now, if anything. */
 const acceptedBillingChange = z.object({
   billing: billingView.meta({ description: 'The billing view after the change.' }),

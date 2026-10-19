@@ -300,6 +300,7 @@ import {
   orgLockedDetails,
   fileTooLargeDetails,
   paymentProviderUnavailableDetails,
+  billingDocumentsUnavailableDetails,
 } from '../src/errors.js'
 import {
   purchaseBillingDetails,
@@ -330,6 +331,10 @@ import {
   paymentMethod,
   billingView,
   billingChangeResponse,
+  billingDocument,
+  billingDocumentList,
+  billingDocumentDetail,
+  billingDocumentFileQuery,
 } from '../src/billing.js'
 
 export const exportedSchemas = {
@@ -638,6 +643,13 @@ export const exportedSchemas = {
   'payment-method': paymentMethod,
   'payment-provider-unavailable-details': paymentProviderUnavailableDetails,
 
+  // --- Lexware billing documents (2026-10-19, fleetless/fleetless#544) -----
+  'billing-document': billingDocument,
+  'billing-document-list': billingDocumentList,
+  'billing-document-detail': billingDocumentDetail,
+  'billing-document-file-query': billingDocumentFileQuery,
+  'billing-documents-unavailable-details': billingDocumentsUnavailableDetails,
+
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
   // **Registration is not a formality here: it is the guard.** A route entry
@@ -941,6 +953,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
 
+  // Lexware billing documents (2026-10-19, fleetless/fleetless#544): the one query string this group has.
+  'billing-document-file-query',
+
   // --- shapes embedded in the above ----------------------------------------
   // A config document travels inside BOTH a draft PUT and the `cloud-config`
   // frame, so it is an accepted document on two surfaces and never a response
@@ -1034,6 +1049,11 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'vat-decision', 'vies-pending-reason',
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
+
+  // --- Lexware billing documents (2026-10-19, fleetless/fleetless#544) -----
+  // Documents the server sends: the list, one document's detail, and the
+  // `details` of a `billing_documents_unavailable` refusal.
+  'billing-document', 'billing-document-list', 'billing-document-detail', 'billing-documents-unavailable-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
