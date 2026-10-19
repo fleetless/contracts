@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [8.0.0] — 2026-10-19
+
 ### Changed
 
 - **Breaking:** `billingView` requires `issuer` (`cloud` or `lexware`) and
