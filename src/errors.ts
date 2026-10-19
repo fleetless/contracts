@@ -189,6 +189,24 @@ export const paymentProviderUnavailableDetails = z.object({
 export type PaymentProviderUnavailableDetails = z.infer<typeof paymentProviderUnavailableDetails>
 
 /**
+ * The `details` of a `billing_documents_unavailable` refusal (2026-10-19,
+ * fleetless/fleetless#544): which of the six reasons Cloud could not
+ * produce a complete, trustworthy answer from Lexware for.
+ */
+export const billingDocumentsUnavailableDetails = z.object({
+  reason: z.enum(['provider_unavailable', 'rate_limited', 'list_limit_exceeded', 'list_changed', 'unsupported_document', 'profile_mismatch']).meta({
+    description:
+      'Why Cloud refused rather than answering with a partial or unchecked document: `provider_unavailable` (Lexware did not answer ' +
+      'or answered with an error), `rate_limited` (Lexware throttled the request; nothing was read), `list_limit_exceeded` (Lexware ' +
+      'reports more than 10,000 documents for the org), `list_changed` (the document list changed while it was being paged, so no ' +
+      'consistent list exists), `unsupported_document` (the detail or the file only: Lexware answered with an e-invoice profile or a ' +
+      'file this cloud cannot present as the document), `profile_mismatch` (the Lexware account this cloud is configured with failed ' +
+      'its account check, so every Lexware read stays closed).',
+  }),
+}).strict()
+export type BillingDocumentsUnavailableDetails = z.infer<typeof billingDocumentsUnavailableDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -1096,5 +1114,23 @@ export const ERROR_CODES = [
    * finished. Retry later; nothing in the request needs to change.
    */
   'history_migrating',
+
+  // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
+  /**
+   * `503` from `GET /api/billing/documents`, `GET /api/billing/documents/:id`
+   * and `GET /api/billing/documents/:id/file`: Cloud could not produce a
+   * complete, checked answer from Lexware, so it answers this instead of a
+   * partial list or an unchecked document. `details` is
+   * `billingDocumentsUnavailableDetails`, naming the reason. Never a partial
+   * list: a page nobody can tell apart from the whole list is worse than no
+   * answer at all. Retrying may work for `provider_unavailable`,
+   * `rate_limited` and `list_changed`.
+   *
+   * `502` instead, with reason `unsupported_document`, from the detail and the
+   * file route when Lexware answers with an e-invoice profile or a file this
+   * cloud cannot present as the document (an unknown profile, an HTML error
+   * page, bytes that are not a PDF or an XML). Nothing is streamed then.
+   */
+  'billing_documents_unavailable',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "default": "pdf",
+      "description": "The file format to read. `xml` answers `404` unless the document is `XRechnung`.",
+      "type": "string",
+      "enum": [
+        "pdf",
+        "xml"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

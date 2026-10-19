@@ -9,6 +9,17 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/billing/documents`, `GET /api/billing/documents/:id` and
+  `GET /api/billing/documents/:id/file`: a read-only view of the org's
+  finalized Lexware billing documents (invoices, credit notes, down-payment
+  invoices and bookkeeping vouchers), with the e-invoice profile (`NONE`,
+  `EN16931`/ZUGFeRD, `XRechnung`) and the files each document offers. The
+  list is complete or an error, never truncated. New error code
+  `billing_documents_unavailable` for a Lexware answer this cloud cannot
+  turn into a complete, trustworthy response.
+
 ## [7.0.0] — 2026-10-18
 
 ### Changed

@@ -10,7 +10,7 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
-  orgPlan,
+  orgPlan, billingView, billingDocumentList, billingDocumentDetail, billingDocumentFileQuery,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -1751,6 +1751,7 @@ describe('the parked-items round', () => {
     expect(ROUTES.filter((r) => r.contentType !== undefined).map(key).sort()).toEqual([
       'GET /api/asset-links/:token',
       'GET /api/audit/export',
+      'GET /api/billing/documents/:id/file',
       'GET /api/billing/invoices/:id/pdf',
       'GET /api/robots/:id/assets/:assetId',
       'GET /api/robots/:id/cameras/:slug/snapshot',
@@ -2043,7 +2044,7 @@ describe('openapi hygiene', () => {
     expect(Object.keys(doc.components.schemas).sort()).toEqual([...refs].sort())
   })
 
-  it('answers bytes with a content entry on the six byte routes', () => {
+  it('answers bytes with a content entry on the seven byte routes', () => {
     const doc = openApiDocument()
     const op = doc.paths['/api/audit/export'].get
     expect(op.responses['200'].content['text/csv'].schema).toEqual({ type: 'string' })
@@ -2056,7 +2057,7 @@ describe('openapi hygiene', () => {
     expect(carriers.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
       ROUTES.filter((r) => r.contentType !== undefined).map(key).sort(),
     )
-    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(6)
+    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(7)
     // Key order is what the documentation site reads: `contentType` sits
     // between `response` and `errors`, not appended past `transport`.
     for (const r of carriers) {
@@ -2159,7 +2160,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it('the billing routes', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const billing = ROUTES.filter((x) => x.section === 'billing')
-    expect(billing).toHaveLength(14)
+    expect(billing).toHaveLength(17)
     expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
     expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
@@ -2198,6 +2199,76 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it("the PUT /api/org/plan/change note sends an upgrade to the billing routes instead", () => {
     const put = ROUTES.find((x) => x.method === 'PUT' && x.path === '/api/org/plan/change')!
     expect(put.notes ?? '').toContain('billing routes')
+  })
+})
+
+describe('Lexware billing documents (2026-10-19, fleetless/fleetless#544)', () => {
+  const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)!
+
+  it('three GET routes, owner-tier developer, rate limited', () => {
+    for (const path of ['/api/billing/documents', '/api/billing/documents/:id', '/api/billing/documents/:id/file']) {
+      const route = r('GET', path)
+      expect(route, path).toMatchObject({ method: 'GET', section: 'billing', audience: 'developer', auth: 'developer', ownerTier: true, rateLimited: true, status: 200, transport: 'http' })
+      expect(route.errors).toEqual(expect.arrayContaining(['unauthorized', 'token_expired', 'token_revoked', 'tier_required', 'billing_documents_unavailable', 'rate_limited']))
+    }
+  })
+
+  it('the list and detail responses are the document schemas', () => {
+    expect(r('GET', '/api/billing/documents').response).toBe(billingDocumentList)
+    expect(r('GET', '/api/billing/documents/:id').response).toBe(billingDocumentDetail)
+    expect(r('GET', '/api/billing/documents/:id').errors).toContain('not_found')
+  })
+
+  it("the id param reads from the document list", () => {
+    for (const path of ['/api/billing/documents/:id', '/api/billing/documents/:id/file']) {
+      expect(r('GET', path).params).toEqual([{ name: 'id', description: expect.stringContaining('document list') }])
+    }
+  })
+
+  it('the file route answers bytes, defaults to pdf, and carries validation_error for its query', () => {
+    const file = r('GET', '/api/billing/documents/:id/file')
+    expect(file).toMatchObject({ contentType: 'application/pdf', response: null })
+    expect(file.query).toBe(billingDocumentFileQuery)
+    expect(file.errors).toEqual(expect.arrayContaining(['not_found', 'validation_error', 'billing_documents_unavailable']))
+  })
+
+  it('the list notes describe completeness, the 10,000-document ceiling and the excluded voucher kinds', () => {
+    const list = r('GET', '/api/billing/documents')
+    expect(list.notes).toContain("Cloud resolves the org's own Lexware contact")
+    expect(list.notes).toContain('never client supplied')
+    expect(list.notes).toContain('never a truncated page')
+    expect(list.notes).toContain('more than 10,000 documents answers 503 list_limit_exceeded')
+    expect(list.notes).toMatch(/draft.*quotation.*order confirmation.*delivery note.*purchase voucher never appears/)
+    expect(list.notes).toMatch(/voided document does/)
+    expect(list.notes).toContain('complete: false')
+    expect(list.notes).toContain('unsupported_count')
+  })
+
+  it('the file notes describe the XML case, no-store, streaming and the two indistinguishable 404s', () => {
+    const file = r('GET', '/api/billing/documents/:id/file')
+    expect(file.notes).toContain('format=xml')
+    expect(file.notes).toContain('application/xml')
+    expect(file.notes).toMatch(/XRechnung.*only/)
+    expect(file.notes).toContain('404')
+    expect(file.notes).toContain('a NONE document is a plain PDF and not an e-invoice')
+    expect(file.notes).toContain('Cache-Control: no-store')
+    expect(file.notes).toContain('never persisted')
+    expect(file.notes).toContain('404 for a document of another organization or a guessed id')
+    expect(file.notes).toContain('502 billing_documents_unavailable')
+    expect(file.notes).toContain('unsupported_document')
+  })
+
+  it('the detail notes explain the three e-invoice profiles', () => {
+    const detail = r('GET', '/api/billing/documents/:id')
+    expect(detail.notes).toContain('NONE')
+    expect(detail.notes).toContain('EN16931')
+    expect(detail.notes).toContain('XRechnung')
+    expect(detail.notes).toContain('electronic_document_profile` is `null` for a bookkeeping voucher')
+  })
+
+  it('leaves GET /api/billing and GET /api/billing/invoices/:id/pdf unchanged', () => {
+    expect(r('GET', '/api/billing').response).toBe(billingView)
+    expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
   })
 })
 

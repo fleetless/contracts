@@ -766,6 +766,8 @@ export {
   fileTooLargeDetails,
   // 2026-10-04 — billing through Mollie (#104).
   paymentProviderUnavailableDetails,
+  // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
+  billingDocumentsUnavailableDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -780,6 +782,7 @@ export type {
   OrgLockedDetails,
   FileTooLargeDetails,
   PaymentProviderUnavailableDetails,
+  BillingDocumentsUnavailableDetails,
 } from './errors.js'
 export {
   oauthErrorCode,
@@ -933,6 +936,16 @@ export {
   billingAccount,
   billingView,
   billingChangeResponse,
+  // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
+  billingDocumentKind,
+  billingDocumentStatus,
+  billingDocumentProfile,
+  billingDocumentFormat,
+  billingDocument,
+  billingDocumentList,
+  billingDocumentFileRole,
+  billingDocumentDetail,
+  billingDocumentFileQuery,
 } from './billing.js'
 export type {
   PayerKind,
@@ -964,6 +977,15 @@ export type {
   BillingAccount,
   BillingView,
   BillingChangeResponse,
+  BillingDocumentKind,
+  BillingDocumentStatus,
+  BillingDocumentProfile,
+  BillingDocumentFormat,
+  BillingDocument,
+  BillingDocumentList,
+  BillingDocumentFileRole,
+  BillingDocumentDetail,
+  BillingDocumentFileQuery,
 } from './billing.js'
 
 export {
