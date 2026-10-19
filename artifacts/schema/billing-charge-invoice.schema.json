@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "not_issued",
+          "description": "Not collected (due, a failed retry, or uncollectible): no invoice exists."
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "pending",
+          "description": "Collected; the Lexware invoice is not yet confirmed."
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "const": "issued",
+          "description": "Lexware has confirmed the invoice."
+        },
+        "document_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The Lexware document's id — read it with `GET /api/billing/documents/:id`."
+        }
+      },
+      "required": [
+        "state",
+        "document_id"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

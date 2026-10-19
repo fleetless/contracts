@@ -10163,7 +10163,7 @@
             }
           }
         },
-        "description": "Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org."
+        "description": "Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org. This reads historical Cloud invoices only: a due charge has no PDF of its own here — its eventual Lexware invoice is a document, read through `GET /api/billing/documents/:id/file`."
       }
     },
     "/api/billing/documents": {
@@ -10332,7 +10332,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The invoice id, from `billingInvoice.id`, of the open invoice to pay — or a due charge's id, from `dunning.invoice_id`.",
+            "description": "The invoice id, from `billingInvoice.id`, of the open invoice to pay — or, before the issuer cutover, a due charge's id, from `dunning.invoice_id`.",
             "schema": {
               "type": "string"
             }
@@ -10360,7 +10360,65 @@
             }
           }
         },
-        "description": "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning.",
+        "description": "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning. After the issuer cutover, :id names a historical open FL-… invoice only; a due charge after the cutover answers 404 not_found here — pay it with POST /api/billing/charges/:id/pay instead.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/invoice-pay-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/charges/{id}/pay": {
+      "post": {
+        "operationId": "post_api_billing_charges_id_pay",
+        "summary": "Records an owner-confirmed payment intent for a due Lexware-issuer charge.",
+        "tags": [
+          "billing"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The due charge id, from `billingCharge.id` in `GET /api/billing`'s `charges`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/checkout-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `validation_error`, `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `not_found`, `target_state_conflict`, `rate_limited`, `billing_unavailable`, `payment_provider_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The required operation_key binds the org, charge and request, exactly like POST /api/billing/invoices/:id/pay; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id is a due charge's own id (billingCharge.id) — never a historical Cloud invoice; an invoice id, an unknown id or one from another org all answer 404 not_found alike. Recheck current buyer eligibility, the charge's own status and the owed amount before every new provider call: a charge already paid, cancelled or uncollectible is invoice_not_open, a typed 409 conflict. Pending/eligible/held has no redirect; after recovery the owner must confirm the current quote. Already-created payments retain their recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13150,7 +13208,7 @@
                                     "type": "string",
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                    "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
+                                    "description": "What dunning is chasing: a historical open `FL-…` invoice, or a due charge. Before the issuer cutover a due charge appears here only while the payer's VAT ID is unsettled; it has no number yet, is not in `invoices`, and `POST /api/billing/invoices/:id/pay` takes either. After the cutover this is always a due charge (in `charges`): pay it with `POST /api/billing/charges/:id/pay`."
                                   },
                                   "gross_cents": {
                                     "type": "integer",
@@ -13353,6 +13411,14 @@
                     },
                     "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
                   },
+                  "issuer": {
+                    "type": "string",
+                    "enum": [
+                      "cloud",
+                      "lexware"
+                    ],
+                    "description": "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it."
+                  },
                   "invoices": {
                     "type": "array",
                     "items": {
@@ -13430,7 +13496,226 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Newest first, at most 24."
+                    "description": "Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24."
+                  },
+                  "charges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "The due charge's id — never a Cloud invoice number. Pay it with `POST /api/billing/charges/:id/pay`."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "first",
+                            "renewal",
+                            "change"
+                          ],
+                          "description": "What caused the charge: the first charge after checkout, a scheduled renewal, or a mid-period plan change."
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "due",
+                            "paid",
+                            "uncollectible",
+                            "cancelled"
+                          ],
+                          "description": "The charge's own status. A charged back or manually refunded charge stays `paid` — refunds and chargebacks are handled in Mollie or Lexware by hand; this status and the invoice it names are unchanged, and the resulting Lexware credit note appears under `GET /api/billing/documents` instead."
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every charge billed through Lexware is EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "The charge, excluding VAT, in integer cents."
+                        },
+                        "vat_rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "The VAT rate applied, in whole percent."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT, in integer cents (`vatCents`)."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Net plus VAT, in integer cents."
+                        },
+                        "period_start": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's start."
+                        },
+                        "period_end": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's end."
+                        },
+                        "due_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "When this charge is due."
+                        },
+                        "paid_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When this charge was paid, or `null` while unpaid."
+                        },
+                        "invoice": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "not_issued",
+                                  "description": "Not collected (due, a failed retry, or uncollectible): no invoice exists."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "pending",
+                                  "description": "Collected; the Lexware invoice is not yet confirmed."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "issued",
+                                  "description": "Lexware has confirmed the invoice."
+                                },
+                                "document_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "The Lexware document's id — read it with `GET /api/billing/documents/:id`."
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "document_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ],
+                          "description": "Whether a Lexware invoice exists for this charge yet, and which document it names once it does."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "status",
+                        "currency",
+                        "net_cents",
+                        "vat_rate_percent",
+                        "vat_cents",
+                        "gross_cents",
+                        "period_start",
+                        "period_end",
+                        "due_at",
+                        "paid_at",
+                        "invoice"
+                      ],
+                      "additionalProperties": false,
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "const": "paid"
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "enum": [
+                                      "pending",
+                                      "issued"
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "enum": [
+                                  "due",
+                                  "uncollectible",
+                                  "cancelled"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "const": "not_issued"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "description": "Newest first, at most 24. Lists only due charges with issuer `lexware` — never a pre-cutover charge, a legacy payment (legacy_issued/legacy_held/legacy_person/legacy_usd) or a late USD collection: none of those carry a Lexware intent, and they stay in `invoices` or nowhere. `[]` while `issuer` is `cloud`."
                   }
                 },
                 "required": [
@@ -13438,7 +13723,9 @@
                   "account",
                   "payment_method",
                   "payment_method_options",
-                  "invoices"
+                  "issuer",
+                  "invoices",
+                  "charges"
                 ],
                 "additionalProperties": false,
                 "description": "The billing view after the change."
@@ -13736,7 +14023,11 @@
                         "enum": [
                           "legacy_usd_invoice",
                           "legacy_payer_unresolved",
-                          "mandate_policy_unresolved"
+                          "mandate_policy_unresolved",
+                          "lexware_contact_pending",
+                          "lexware_contact_changed",
+                          "issuer_cutover_in_progress",
+                          "lexware_issuance_paused"
                         ]
                       },
                       "original_amount": {
@@ -14524,7 +14815,7 @@
                                     "type": "string",
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                    "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
+                                    "description": "What dunning is chasing: a historical open `FL-…` invoice, or a due charge. Before the issuer cutover a due charge appears here only while the payer's VAT ID is unsettled; it has no number yet, is not in `invoices`, and `POST /api/billing/invoices/:id/pay` takes either. After the cutover this is always a due charge (in `charges`): pay it with `POST /api/billing/charges/:id/pay`."
                                   },
                                   "gross_cents": {
                                     "type": "integer",
@@ -14727,6 +15018,14 @@
                     },
                     "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
                   },
+                  "issuer": {
+                    "type": "string",
+                    "enum": [
+                      "cloud",
+                      "lexware"
+                    ],
+                    "description": "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it."
+                  },
                   "invoices": {
                     "type": "array",
                     "items": {
@@ -14804,7 +15103,226 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Newest first, at most 24."
+                    "description": "Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24."
+                  },
+                  "charges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "The due charge's id — never a Cloud invoice number. Pay it with `POST /api/billing/charges/:id/pay`."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "first",
+                            "renewal",
+                            "change"
+                          ],
+                          "description": "What caused the charge: the first charge after checkout, a scheduled renewal, or a mid-period plan change."
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "due",
+                            "paid",
+                            "uncollectible",
+                            "cancelled"
+                          ],
+                          "description": "The charge's own status. A charged back or manually refunded charge stays `paid` — refunds and chargebacks are handled in Mollie or Lexware by hand; this status and the invoice it names are unchanged, and the resulting Lexware credit note appears under `GET /api/billing/documents` instead."
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every charge billed through Lexware is EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "The charge, excluding VAT, in integer cents."
+                        },
+                        "vat_rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "The VAT rate applied, in whole percent."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT, in integer cents (`vatCents`)."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Net plus VAT, in integer cents."
+                        },
+                        "period_start": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's start."
+                        },
+                        "period_end": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's end."
+                        },
+                        "due_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "When this charge is due."
+                        },
+                        "paid_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When this charge was paid, or `null` while unpaid."
+                        },
+                        "invoice": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "not_issued",
+                                  "description": "Not collected (due, a failed retry, or uncollectible): no invoice exists."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "pending",
+                                  "description": "Collected; the Lexware invoice is not yet confirmed."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "issued",
+                                  "description": "Lexware has confirmed the invoice."
+                                },
+                                "document_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "The Lexware document's id — read it with `GET /api/billing/documents/:id`."
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "document_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ],
+                          "description": "Whether a Lexware invoice exists for this charge yet, and which document it names once it does."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "status",
+                        "currency",
+                        "net_cents",
+                        "vat_rate_percent",
+                        "vat_cents",
+                        "gross_cents",
+                        "period_start",
+                        "period_end",
+                        "due_at",
+                        "paid_at",
+                        "invoice"
+                      ],
+                      "additionalProperties": false,
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "const": "paid"
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "enum": [
+                                      "pending",
+                                      "issued"
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "enum": [
+                                  "due",
+                                  "uncollectible",
+                                  "cancelled"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "const": "not_issued"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "description": "Newest first, at most 24. Lists only due charges with issuer `lexware` — never a pre-cutover charge, a legacy payment (legacy_issued/legacy_held/legacy_person/legacy_usd) or a late USD collection: none of those carry a Lexware intent, and they stay in `invoices` or nowhere. `[]` while `issuer` is `cloud`."
                   }
                 },
                 "required": [
@@ -14812,7 +15330,9 @@
                   "account",
                   "payment_method",
                   "payment_method_options",
-                  "invoices"
+                  "issuer",
+                  "invoices",
+                  "charges"
                 ],
                 "additionalProperties": false,
                 "description": "The billing view after the change."
@@ -15872,7 +16392,7 @@
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
+                            "description": "What dunning is chasing: a historical open `FL-…` invoice, or a due charge. Before the issuer cutover a due charge appears here only while the payer's VAT ID is unsettled; it has no number yet, is not in `invoices`, and `POST /api/billing/invoices/:id/pay` takes either. After the cutover this is always a due charge (in `charges`): pay it with `POST /api/billing/charges/:id/pay`."
                           },
                           "gross_cents": {
                             "type": "integer",
@@ -16075,6 +16595,14 @@
             },
             "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
           },
+          "issuer": {
+            "type": "string",
+            "enum": [
+              "cloud",
+              "lexware"
+            ],
+            "description": "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it."
+          },
           "invoices": {
             "type": "array",
             "items": {
@@ -16152,7 +16680,226 @@
               ],
               "additionalProperties": false
             },
-            "description": "Newest first, at most 24."
+            "description": "Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24."
+          },
+          "charges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The due charge's id — never a Cloud invoice number. Pay it with `POST /api/billing/charges/:id/pay`."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "first",
+                    "renewal",
+                    "change"
+                  ],
+                  "description": "What caused the charge: the first charge after checkout, a scheduled renewal, or a mid-period plan change."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "due",
+                    "paid",
+                    "uncollectible",
+                    "cancelled"
+                  ],
+                  "description": "The charge's own status. A charged back or manually refunded charge stays `paid` — refunds and chargebacks are handled in Mollie or Lexware by hand; this status and the invoice it names are unchanged, and the resulting Lexware credit note appears under `GET /api/billing/documents` instead."
+                },
+                "currency": {
+                  "type": "string",
+                  "const": "eur",
+                  "description": "Every charge billed through Lexware is EUR."
+                },
+                "net_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "The charge, excluding VAT, in integer cents."
+                },
+                "vat_rate_percent": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "The VAT rate applied, in whole percent."
+                },
+                "vat_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "VAT, in integer cents (`vatCents`)."
+                },
+                "gross_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Net plus VAT, in integer cents."
+                },
+                "period_start": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "The covered period's start."
+                },
+                "period_end": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "The covered period's end."
+                },
+                "due_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When this charge is due."
+                },
+                "paid_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "When this charge was paid, or `null` while unpaid."
+                },
+                "invoice": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "const": "not_issued",
+                          "description": "Not collected (due, a failed retry, or uncollectible): no invoice exists."
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "const": "pending",
+                          "description": "Collected; the Lexware invoice is not yet confirmed."
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "const": "issued",
+                          "description": "Lexware has confirmed the invoice."
+                        },
+                        "document_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "The Lexware document's id — read it with `GET /api/billing/documents/:id`."
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "document_id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ],
+                  "description": "Whether a Lexware invoice exists for this charge yet, and which document it names once it does."
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "currency",
+                "net_cents",
+                "vat_rate_percent",
+                "vat_cents",
+                "gross_cents",
+                "period_start",
+                "period_end",
+                "due_at",
+                "paid_at",
+                "invoice"
+              ],
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "paid"
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "invoice": {
+                        "properties": {
+                          "state": {
+                            "enum": [
+                              "pending",
+                              "issued"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "due",
+                          "uncollectible",
+                          "cancelled"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "invoice": {
+                        "properties": {
+                          "state": {
+                            "const": "not_issued"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "description": "Newest first, at most 24. Lists only due charges with issuer `lexware` — never a pre-cutover charge, a legacy payment (legacy_issued/legacy_held/legacy_person/legacy_usd) or a late USD collection: none of those carry a Lexware intent, and they stay in `invoices` or nowhere. `[]` while `issuer` is `cloud`."
           }
         },
         "required": [
@@ -16160,7 +16907,9 @@
           "account",
           "payment_method",
           "payment_method_options",
-          "invoices"
+          "issuer",
+          "invoices",
+          "charges"
         ],
         "additionalProperties": false
       },
@@ -16627,7 +17376,11 @@
                 "enum": [
                   "legacy_usd_invoice",
                   "legacy_payer_unresolved",
-                  "mandate_policy_unresolved"
+                  "mandate_policy_unresolved",
+                  "lexware_contact_pending",
+                  "lexware_contact_changed",
+                  "issuer_cutover_in_progress",
+                  "lexware_issuance_paused"
                 ]
               },
               "original_amount": {
@@ -24476,7 +25229,11 @@
                     "enum": [
                       "legacy_usd_invoice",
                       "legacy_payer_unresolved",
-                      "mandate_policy_unresolved"
+                      "mandate_policy_unresolved",
+                      "lexware_contact_pending",
+                      "lexware_contact_changed",
+                      "issuer_cutover_in_progress",
+                      "lexware_issuance_paused"
                     ]
                   },
                   "original_amount": {
@@ -25258,7 +26015,7 @@
                                     "type": "string",
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                    "description": "The open invoice dunning is chasing — or, while the payer's VAT ID is unsettled, the due charge that becomes one: it has no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either."
+                                    "description": "What dunning is chasing: a historical open `FL-…` invoice, or a due charge. Before the issuer cutover a due charge appears here only while the payer's VAT ID is unsettled; it has no number yet, is not in `invoices`, and `POST /api/billing/invoices/:id/pay` takes either. After the cutover this is always a due charge (in `charges`): pay it with `POST /api/billing/charges/:id/pay`."
                                   },
                                   "gross_cents": {
                                     "type": "integer",
@@ -25461,6 +26218,14 @@
                     },
                     "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
                   },
+                  "issuer": {
+                    "type": "string",
+                    "enum": [
+                      "cloud",
+                      "lexware"
+                    ],
+                    "description": "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it."
+                  },
                   "invoices": {
                     "type": "array",
                     "items": {
@@ -25538,7 +26303,226 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Newest first, at most 24."
+                    "description": "Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24."
+                  },
+                  "charges": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "The due charge's id — never a Cloud invoice number. Pay it with `POST /api/billing/charges/:id/pay`."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "first",
+                            "renewal",
+                            "change"
+                          ],
+                          "description": "What caused the charge: the first charge after checkout, a scheduled renewal, or a mid-period plan change."
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "due",
+                            "paid",
+                            "uncollectible",
+                            "cancelled"
+                          ],
+                          "description": "The charge's own status. A charged back or manually refunded charge stays `paid` — refunds and chargebacks are handled in Mollie or Lexware by hand; this status and the invoice it names are unchanged, and the resulting Lexware credit note appears under `GET /api/billing/documents` instead."
+                        },
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every charge billed through Lexware is EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "The charge, excluding VAT, in integer cents."
+                        },
+                        "vat_rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "The VAT rate applied, in whole percent."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT, in integer cents (`vatCents`)."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Net plus VAT, in integer cents."
+                        },
+                        "period_start": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's start."
+                        },
+                        "period_end": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "The covered period's end."
+                        },
+                        "due_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "When this charge is due."
+                        },
+                        "paid_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "When this charge was paid, or `null` while unpaid."
+                        },
+                        "invoice": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "not_issued",
+                                  "description": "Not collected (due, a failed retry, or uncollectible): no invoice exists."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "pending",
+                                  "description": "Collected; the Lexware invoice is not yet confirmed."
+                                }
+                              },
+                              "required": [
+                                "state"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "const": "issued",
+                                  "description": "Lexware has confirmed the invoice."
+                                },
+                                "document_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "The Lexware document's id — read it with `GET /api/billing/documents/:id`."
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "document_id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ],
+                          "description": "Whether a Lexware invoice exists for this charge yet, and which document it names once it does."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "status",
+                        "currency",
+                        "net_cents",
+                        "vat_rate_percent",
+                        "vat_cents",
+                        "gross_cents",
+                        "period_start",
+                        "period_end",
+                        "due_at",
+                        "paid_at",
+                        "invoice"
+                      ],
+                      "additionalProperties": false,
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "const": "paid"
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "enum": [
+                                      "pending",
+                                      "issued"
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "if": {
+                            "properties": {
+                              "status": {
+                                "enum": [
+                                  "due",
+                                  "uncollectible",
+                                  "cancelled"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "status"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "invoice": {
+                                "properties": {
+                                  "state": {
+                                    "const": "not_issued"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "description": "Newest first, at most 24. Lists only due charges with issuer `lexware` — never a pre-cutover charge, a legacy payment (legacy_issued/legacy_held/legacy_person/legacy_usd) or a late USD collection: none of those carry a Lexware intent, and they stay in `invoices` or nowhere. `[]` while `issuer` is `cloud`."
                   }
                 },
                 "required": [
@@ -25546,7 +26530,9 @@
                   "account",
                   "payment_method",
                   "payment_method_options",
-                  "invoices"
+                  "issuer",
+                  "invoices",
+                  "charges"
                 ],
                 "additionalProperties": false,
                 "description": "The billing view after the change."

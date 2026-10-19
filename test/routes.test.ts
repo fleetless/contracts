@@ -10,7 +10,7 @@ import {
   clientMcpInteraction, clientMcpInteractionDecisionResponse, mcpConsentGrant, mcpConsentGrantListResponse,
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
-  orgPlan, billingView, billingDocumentList, billingDocumentDetail, billingDocumentFileQuery,
+  orgPlan, billingView, billingDocumentList, billingDocumentDetail, billingDocumentFileQuery, chargePayRequest,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -2160,7 +2160,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it('the billing routes', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const billing = ROUTES.filter((x) => x.section === 'billing')
-    expect(billing).toHaveLength(17)
+    expect(billing).toHaveLength(18)
     expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
     expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
@@ -2180,7 +2180,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(view.notes).not.toMatch(/every mutating/)
     expect(view.notes).toMatch(/charges or opens a Mollie checkout/)
     const off = ROUTES.filter((x) => x.section === 'billing' && x.errors.includes('billing_unavailable')).map(key).sort()
-    expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/checkout', 'POST /api/billing/intents/:id/confirm', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
+    expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/charges/:id/pay', 'POST /api/billing/checkout', 'POST /api/billing/intents/:id/confirm', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
   })
 
   it('the payment-method notes name Apple Pay\'s rule, and no billing note names SEPA (André, 2026-10-04)', () => {
@@ -2269,6 +2269,29 @@ describe('Lexware billing documents (2026-10-19, fleetless/fleetless#544)', () =
   it('leaves GET /api/billing and GET /api/billing/invoices/:id/pdf unchanged', () => {
     expect(r('GET', '/api/billing').response).toBe(billingView)
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
+  })
+})
+
+describe('the Lexware issuer cutover (2026-10-19, fleetless/fleetless#327)', () => {
+  const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)!
+
+  it('POST /api/billing/charges/:id/pay is owner-tier, rate limited and takes the same body as invoice pay', () => {
+    const pay = r('POST', '/api/billing/charges/:id/pay')
+    expect(pay).toMatchObject({ section: 'billing', audience: 'developer', auth: 'developer', ownerTier: true, rateLimited: true, status: 201, transport: 'http' })
+    expect(pay.request).toBe(chargePayRequest)
+    expect(z.toJSONSchema(pay.request!)).toEqual(z.toJSONSchema(r('POST', '/api/billing/invoices/:id/pay').request!))
+    expect(pay.errors).toEqual(expect.arrayContaining(['not_found', 'validation_error', 'tier_required', 'target_state_conflict', 'rate_limited']))
+  })
+
+  it("the invoices/:id/pay notes say a due charge answers 404 after the cutover", () => {
+    const pay = r('POST', '/api/billing/invoices/:id/pay')
+    expect(pay.notes).toContain('historical open FL-… invoice only')
+    expect(pay.notes).toContain('404 not_found')
+  })
+
+  it('the invoices/:id/pdf notes say historical Cloud invoices only', () => {
+    const pdf = r('GET', '/api/billing/invoices/:id/pdf')
+    expect(pdf.notes).toContain('historical Cloud invoices only')
   })
 })
 

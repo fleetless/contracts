@@ -232,7 +232,7 @@ it('holds original USD balances and does not emit a mandate-only payment', () =>
 })
 
 it('keeps the payment identity in a completed paid-change response', () => {
-  const view = { available: true, account: null, payment_method: null, payment_method_options: [], invoices: [] }
+  const view = { available: true, account: null, payment_method: null, payment_method_options: [], issuer: 'cloud', invoices: [], charges: [] }
   const result = { billing: view, charged: null, intent: { ...startedIntent, operation: 'paid_change', payment: { kind: 'mandate' } } }
   expect(billing.billingChangeResponse.parse(result)).toHaveProperty('intent.payment_id', startedIntent.payment_id)
   expect(billing.purchaseIntentResponse.parse(result)).toEqual(result)

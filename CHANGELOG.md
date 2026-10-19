@@ -9,6 +9,23 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `billingView` requires `issuer` (`cloud` or `lexware`) and
+  `charges`. `charges` lists only due charges with issuer `lexware` —
+  never a pre-cutover charge, a legacy payment or a late USD collection,
+  which have no Lexware intent and stay in `invoices` or nowhere.
+  `invoices` is now documented as the Cloud-issued invoices from before
+  the cutover: read-only, and it never grows after it. New
+  `POST /api/billing/charges/:id/pay` pays one due charge, the same body
+  as `POST /api/billing/invoices/:id/pay`; that route now answers `404
+  not_found` for a due charge's id after the cutover — it reads a
+  historical open `FL-…` invoice only, same as
+  `GET /api/billing/invoices/:id/pdf`. New `purchaseHoldReason` values
+  (`lexware_contact_pending`, `lexware_contact_changed`,
+  `issuer_cutover_in_progress`, `lexware_issuance_paused`) describe the
+  Lexware-side integration holds during and after the cutover.
+
 ## [7.1.0] — 2026-10-19
 
 ### Added

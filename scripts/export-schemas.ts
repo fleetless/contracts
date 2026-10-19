@@ -335,6 +335,9 @@ import {
   billingDocumentList,
   billingDocumentDetail,
   billingDocumentFileQuery,
+  billingIssuer,
+  billingChargeInvoice,
+  billingCharge,
 } from '../src/billing.js'
 
 export const exportedSchemas = {
@@ -649,6 +652,15 @@ export const exportedSchemas = {
   'billing-document-detail': billingDocumentDetail,
   'billing-document-file-query': billingDocumentFileQuery,
   'billing-documents-unavailable-details': billingDocumentsUnavailableDetails,
+
+  // --- The Lexware issuer cutover (2026-10-19, fleetless/fleetless#327) ----
+  // `chargePayRequest` is not registered on its own: it is the identical
+  // `invoicePayRequest` object, already registered above as
+  // `invoice-pay-request` — a second key over the same object would be the
+  // registration error `schemaName` below refuses to build.
+  'billing-issuer': billingIssuer,
+  'billing-charge-invoice': billingChargeInvoice,
+  'billing-charge': billingCharge,
 
   // --- The route manifest's referenced shapes (`src/routes.ts`) ------------
   //
@@ -1054,6 +1066,11 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // Documents the server sends: the list, one document's detail, and the
   // `details` of a `billing_documents_unavailable` refusal.
   'billing-document', 'billing-document-list', 'billing-document-detail', 'billing-documents-unavailable-details',
+
+  // --- The Lexware issuer cutover (2026-10-19, fleetless/fleetless#327) ----
+  // Embedded in `billing-view`, which the server sends; never validated on
+  // arrival.
+  'billing-issuer', 'billing-charge-invoice', 'billing-charge',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

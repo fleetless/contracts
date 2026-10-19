@@ -946,6 +946,11 @@ export {
   billingDocumentFileRole,
   billingDocumentDetail,
   billingDocumentFileQuery,
+  // 2026-10-19 — the Lexware issuer cutover (fleetless/fleetless#327).
+  billingIssuer,
+  billingChargeInvoice,
+  billingCharge,
+  chargePayRequest,
 } from './billing.js'
 export type {
   PayerKind,
@@ -986,6 +991,10 @@ export type {
   BillingDocumentFileRole,
   BillingDocumentDetail,
   BillingDocumentFileQuery,
+  BillingIssuer,
+  BillingChargeInvoice,
+  BillingCharge,
+  ChargePayRequest,
 } from './billing.js'
 
 export {
