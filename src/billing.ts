@@ -439,7 +439,13 @@ const quoteIdentity = {
   quote_revision: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of the displayed quote; echo it when confirming.' }),
   buyer_fingerprint: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of buyer details and email policy; never full VIES evidence.' }),
 }
-export const purchaseHoldReason = z.enum(['legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved'])
+export const purchaseHoldReason = z.enum([
+  'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved',
+  // The Lexware issuer cutover (2026-10-19, fleetless/fleetless#327): holds
+  // during and after the move from Cloud-issued invoices to charges billed
+  // through Lexware.
+  'lexware_contact_pending', 'lexware_contact_changed', 'issuer_cutover_in_progress', 'lexware_issuance_paused',
+])
 export const purchaseRefusalRule = z.enum(['company_required', 'vat_id_required', 'vat_id_invalid', 'tax_id_required', 'us_state_required', 'public_email_domain', 'invoice_not_open'])
 
 // Cross-field invariants also travel in JSON Schema so non-TypeScript callers
@@ -682,8 +688,10 @@ export const billingAccount = z.object({
   dunning: z.object({
     invoice_id: z.uuid().meta({
       description:
-        'The open invoice dunning is chasing — or, while the payer\'s VAT ID is unsettled, the due charge that becomes one: it has ' +
-        'no number yet and is not in `invoices`. `POST /api/billing/invoices/:id/pay` takes either.',
+        'What dunning is chasing: a historical open `FL-…` invoice, or a due charge. Before the issuer cutover a due charge appears ' +
+        'here only while the payer\'s VAT ID is unsettled; it has no number yet, is not in `invoices`, and ' +
+        '`POST /api/billing/invoices/:id/pay` takes either. After the cutover this is always a due charge (in `charges`): pay it with ' +
+        '`POST /api/billing/charges/:id/pay`.',
     }),
     gross_cents: z.number().int().meta({
       description: 'The amount owed, in integer cents — after a partial chargeback only the charged-back part.',
@@ -704,6 +712,88 @@ export const billingAccount = z.object({
 })
 export type BillingAccount = z.infer<typeof billingAccount>
 
+/*
+ * ---------------------------------------------------------------------------
+ * The Lexware issuer cutover: due charges billed and paid individually
+ * through Lexware, taking over from the Cloud-issued invoice for every new
+ * charge (2026-10-19, fleetless/fleetless#327).
+ *
+ * `billingAccount.dunning.invoice_id` and `invoicePayRequest`/
+ * `checkoutResponse` already describe a due charge with no number of its
+ * own; `billingCharge` is the shape of that charge, read in
+ * `billingView.charges`, with its own Lexware invoice link
+ * (`billingChargeInvoice`) and its own pay route
+ * (`POST /api/billing/charges/:id/pay`, `chargePayRequest`).
+ * ---------------------------------------------------------------------------
+ */
+
+/** Which system issues an org's charges: `cloud` before the issuer cutover (invoices only, in `invoices`) or `lexware` after it (due charges, in `charges`). */
+export const billingIssuer = z.enum(['cloud', 'lexware'])
+export type BillingIssuer = z.infer<typeof billingIssuer>
+
+/**
+ * Whether a due charge already has a confirmed Lexware invoice: `not_issued`
+ * while the charge is not collected (`due`, a failed retry, or
+ * `uncollectible` — there is nothing to invoice yet); `pending` once
+ * collected but before Lexware confirms the invoice, in any intent state
+ * short of a linked document; `issued` once Lexware's invoice is linked,
+ * naming the document `GET /api/billing/documents/:id` reads.
+ */
+export const billingChargeInvoice = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('not_issued').meta({ description: 'Not collected (due, a failed retry, or uncollectible): no invoice exists.' }) }).strict(),
+  z.object({ state: z.literal('pending').meta({ description: 'Collected; the Lexware invoice is not yet confirmed.' }) }).strict(),
+  z.object({
+    state: z.literal('issued').meta({ description: 'Lexware has confirmed the invoice.' }),
+    document_id: z.uuid().meta({ description: "The Lexware document's id — read it with `GET /api/billing/documents/:id`." }),
+  }).strict(),
+])
+export type BillingChargeInvoice = z.infer<typeof billingChargeInvoice>
+
+// The same invariant in JSON Schema, so non-TypeScript callers see it too.
+const chargeInvoiceRules = [
+  { if: { properties: { status: { const: 'paid' } }, required: ['status'] }, then: { properties: { invoice: { properties: { state: { enum: ['pending', 'issued'] } } } } } },
+  { if: { properties: { status: { enum: ['due', 'uncollectible', 'cancelled'] } }, required: ['status'] }, then: { properties: { invoice: { properties: { state: { const: 'not_issued' } } } } } },
+]
+
+/** Refused when `status` and `invoice.state` disagree: a paid charge has an invoice (pending or issued); every other status has none yet. */
+function refuseChargeInvoiceMismatch(charge: { status: string; invoice: { state: string } }, ctx: z.RefinementCtx): void {
+  const notIssued = charge.invoice.state === 'not_issued'
+  if ((charge.status === 'paid') === notIssued) {
+    ctx.addIssue({ code: 'custom', path: ['invoice'], message: 'A paid charge has an invoice (pending or issued); every other status has none yet.' })
+  }
+}
+
+/**
+ * One due charge billed through Lexware after the issuer cutover, read in
+ * `billingView.charges`. `id` is the charge's own id — never a Cloud
+ * invoice number — and the one `POST /api/billing/charges/:id/pay` takes.
+ */
+export const billingCharge = z.object({
+  id: z.uuid().meta({ description: "The due charge's id — never a Cloud invoice number. Pay it with `POST /api/billing/charges/:id/pay`." }),
+  kind: z.enum(['first', 'renewal', 'change']).meta({ description: 'What caused the charge: the first charge after checkout, a scheduled renewal, or a mid-period plan change.' }),
+  status: z.enum(['due', 'paid', 'uncollectible', 'cancelled']).meta({
+    description:
+      "The charge's own status. A charged back or manually refunded charge stays `paid` — refunds and chargebacks are handled in " +
+      "Mollie or Lexware by hand; this status and the invoice it names are unchanged, and the resulting Lexware credit note appears " +
+      'under `GET /api/billing/documents` instead.',
+  }),
+  currency: z.literal('eur').meta({ description: 'Every charge billed through Lexware is EUR.' }),
+  net_cents: z.number().int().nonnegative().meta({ description: 'The charge, excluding VAT, in integer cents.' }),
+  vat_rate_percent: z.number().int().min(0).max(100).meta({ description: 'The VAT rate applied, in whole percent.' }),
+  vat_cents: z.number().int().nonnegative().meta({ description: 'VAT, in integer cents (`vatCents`).' }),
+  gross_cents: z.number().int().nonnegative().meta({ description: 'Net plus VAT, in integer cents.' }),
+  period_start: z.iso.datetime().meta({ description: "The covered period's start." }),
+  period_end: z.iso.datetime().meta({ description: "The covered period's end." }),
+  due_at: z.iso.datetime().meta({ description: 'When this charge is due.' }),
+  paid_at: z.iso.datetime().nullable().meta({ description: 'When this charge was paid, or `null` while unpaid.' }),
+  invoice: billingChargeInvoice.meta({ description: 'Whether a Lexware invoice exists for this charge yet, and which document it names once it does.' }),
+}).strict().superRefine(refuseChargeInvoiceMismatch).meta({ allOf: chargeInvoiceRules })
+export type BillingCharge = z.infer<typeof billingCharge>
+
+/** `POST /api/billing/charges/:id/pay`'s body — the same shape as `invoicePayRequest`: a stable `operation_key`. */
+export const chargePayRequest = invoicePayRequest
+export type ChargePayRequest = z.infer<typeof chargePayRequest>
+
 /** `GET /api/billing`'s answer, and what every other billing route hands back after a change. */
 export const billingView = z.object({
   available: z.boolean().meta({ description: 'Whether this cloud takes payments at all — `false` when no Mollie key is configured.' }),
@@ -717,7 +807,14 @@ export const billingView = z.object({
       'What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when ' +
       'it needs an open invoice and none is open; `[]` when the org has no billing account.',
   }),
-  invoices: z.array(billingInvoice).meta({ description: 'Newest first, at most 24.' }),
+  issuer: billingIssuer.meta({ description: "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it." }),
+  invoices: z.array(billingInvoice).meta({ description: 'Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24.' }),
+  charges: z.array(billingCharge).meta({
+    description:
+      'Newest first, at most 24. Lists only due charges with issuer `lexware` — never a pre-cutover charge, a legacy payment ' +
+      '(legacy_issued/legacy_held/legacy_person/legacy_usd) or a late USD collection: none of those carry a Lexware intent, and they ' +
+      'stay in `invoices` or nowhere. `[]` while `issuer` is `cloud`.',
+  }),
 })
 export type BillingView = z.infer<typeof billingView>
 

@@ -155,6 +155,7 @@ import {
   billingDocumentFileQuery,
   billingDocumentList,
   billingView,
+  chargePayRequest,
   checkoutRequest,
   checkoutResponse,
   checkoutStatus,
@@ -3548,7 +3549,9 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
     notes:
       'Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always ' +
-      'answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org.',
+      'answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org. This reads historical Cloud ' +
+      "invoices only: a due charge has no PDF of its own here — its eventual Lexware invoice is a document, read through " +
+      '`GET /api/billing/documents/:id/file`.',
   },
 
   /* --- billing documents (2026-10-19, fleetless/fleetless#544) -------
@@ -3603,11 +3606,29 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'POST', path: '/api/billing/invoices/:id/pay', section: 'billing',
     summary: "Records an owner-confirmed payment intent for an open invoice or due charge.",
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
-    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id`, of the open invoice to pay — or a due charge\'s id, from `dunning.invoice_id`.' }],
+    params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id`, of the open invoice to pay — or, before the issuer cutover, a due charge\'s id, from `dunning.invoice_id`.' }],
     query: null, request: invoicePayRequest, response: checkoutResponse,
     errors: ['validation_error', ...DEVELOPER_GUARD, 'tier_required', 'not_found', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
-    notes: "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning.",
+    notes: "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning. After the issuer cutover, :id names a historical open FL-… invoice only; a due charge after the cutover answers 404 not_found here — pay it with POST /api/billing/charges/:id/pay instead.",
+  },
+  {
+    method: 'POST', path: '/api/billing/charges/:id/pay', section: 'billing',
+    summary: 'Records an owner-confirmed payment intent for a due Lexware-issuer charge.',
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
+    params: [{ name: 'id', description: 'The due charge id, from `billingCharge.id` in `GET /api/billing`\'s `charges`.' }],
+    query: null, request: chargePayRequest, response: checkoutResponse,
+    errors: ['validation_error', ...DEVELOPER_GUARD, 'tier_required', 'not_found', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    transport: 'http',
+    notes:
+      'The required operation_key binds the org, charge and request, exactly like POST /api/billing/invoices/:id/pay; reuse with ' +
+      'changed input is 409 target_state_conflict (purchaseConflictDetails). :id is a due charge\'s own id (billingCharge.id) — never ' +
+      'a historical Cloud invoice; an invoice id, an unknown id or one from another org all answer 404 not_found alike. Recheck ' +
+      "current buyer eligibility, the charge's own status and the owed amount before every new provider call: a charge already paid, " +
+      'cancelled or uncollectible is invoice_not_open, a typed 409 conflict. Pending/eligible/held has no redirect; after recovery ' +
+      'the owner must confirm the current quote. Already-created payments retain their recorded currency/amount and are looked ' +
+      'up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment ' +
+      'identity on retries.',
   },
   {
     method: 'POST', path: '/api/billing/mollie/webhook', section: 'billing',

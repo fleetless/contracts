@@ -4,6 +4,10 @@
   "enum": [
     "legacy_usd_invoice",
     "legacy_payer_unresolved",
-    "mandate_policy_unresolved"
+    "mandate_policy_unresolved",
+    "lexware_contact_pending",
+    "lexware_contact_changed",
+    "issuer_cutover_in_progress",
+    "lexware_issuance_paused"
   ]
 }
