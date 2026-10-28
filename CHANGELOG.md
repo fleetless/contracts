@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [8.1.0] — 2026-10-28
+
 ### Added
 
 - Internal, additive shapes for Block D support sessions: `supportSessionInfo`,
