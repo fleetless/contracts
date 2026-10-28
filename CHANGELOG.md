@@ -9,6 +9,20 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Internal, additive shapes for Block D support sessions: `supportSessionInfo`,
+  `supportTokenRequest`, `supportTokenResponse` and `authMeSupportResponse`
+  (`authMeResponse` extended with an optional `support` block). New
+  `audience: 'internal'` routes `POST /console/support/token` (exchanges an
+  operator's one-time support grant for a console session scoped to one org,
+  server to server only, RFC 6749 §5.2 `oauthError` refusals, sixty minutes,
+  no refresh token) and `POST /api/auth/support/end` (ends the calling
+  support session; any non-support token answers `403 forbidden`). New
+  error codes `support_read_only` and `support_forbidden`. None of this is
+  in the public developer reference: the public route entries and
+  `authMeResponse` itself are unchanged.
+
 ## [8.0.0] — 2026-10-19
 
 ### Changed

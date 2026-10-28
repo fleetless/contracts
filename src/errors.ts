@@ -1132,5 +1132,38 @@ export const ERROR_CODES = [
    * page, bytes that are not a PDF or an XML). Nothing is streamed then.
    */
   'billing_documents_unavailable',
+
+  // 2026-10-28 — support sessions (Block D, internal operator impersonation).
+  /**
+   * `403`: a support session in `read` mode reached a writing route — any
+   * `POST`, `PUT`, `PATCH` or `DELETE` on the developer surface — or sent a
+   * realtime control frame that would write. Reading stays open throughout:
+   * only the write is refused, so a session an operator has not switched to
+   * `edit` can diagnose without being able to change anything.
+   *
+   * Distinct from `forbidden`, which is silent about existence and about a
+   * caller's role: this is about the **session's mode**, not about what the
+   * underlying role would otherwise permit — the same support session would
+   * answer normally to the identical request once switched to `edit`.
+   * Produced by the cloud's support-session policy guard on the developer
+   * HTTP surface and by the realtime socket, for the control frames it
+   * refuses the same way.
+   */
+  'support_read_only',
+  /**
+   * `403`: a route a support session never reaches, in either mode — signing
+   * in again, account recovery, and system operations such as deleting the
+   * org or rotating another developer's credentials. A support session is a
+   * narrow, time-boxed stand-in for diagnosing and fixing one org's
+   * configuration; it is never a path to the account layer underneath it,
+   * `edit` mode included.
+   *
+   * Distinct from `support_read_only`, which is about a session's mode on a
+   * route it could otherwise reach: this is a route no support session
+   * reaches regardless of mode. Produced by the cloud's support-session
+   * policy guard on the developer HTTP surface and by the realtime socket,
+   * for the control frames it refuses the same way.
+   */
+  'support_forbidden',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

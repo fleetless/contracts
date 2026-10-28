@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "grant": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "description": "The one-time grant minted when the support session was started: 32 random bytes, base64url, no padding. Consumed atomically by this exchange — presenting it again answers the same refusal a forged one would."
+    },
+    "code_verifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._~-]{43,128}$",
+      "description": "The PKCE verifier whose `S256` hash was sent as the grant's challenge when the session was started. Between 43 and 128 unreserved characters, RFC 7636 §4.1's charset — the same shape `oauthCodeTokenRequest.code_verifier` checks, compared rather than parsed."
+    }
+  },
+  "required": [
+    "grant",
+    "code_verifier"
+  ],
+  "additionalProperties": false
+}
