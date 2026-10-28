@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The support session this token or response describes. Stable for the life of the session."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "read",
+        "edit"
+      ],
+      "description": "The session's current mode. Every support session starts `read`; an operator-admin switches one session into `edit`, never the other way, and the switch is a one-way door for the life of the session."
+    },
+    "operator_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The name of the operator-admin holding this session, for the console banner the operator-admin sees. Only the operator-admin's own console receives it; the customer's audit names every edit as Fleetless-Support, never this name."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+      "description": "When the session stops being usable regardless of activity, as an ISO 8601 timestamp. A support session has a hard ceiling; nothing extends it past this instant."
+    }
+  },
+  "required": [
+    "session_id",
+    "mode",
+    "operator_name",
+    "expires_at"
+  ],
+  "additionalProperties": false
+}

@@ -515,6 +515,9 @@ export type {
 // 2026-09-30 — the console's feedback modal.
 export { FEEDBACK_KINDS, FEEDBACK_MESSAGE_MAX, feedbackKind, feedbackRequest, feedbackResponse } from './feedback.js'
 export type { FeedbackKind, FeedbackRequest, FeedbackResponse } from './feedback.js'
+// Support sessions: an operator temporarily holding a console session for one org (internal, additive).
+export { supportSessionInfo, supportTokenRequest, supportTokenResponse, authMeSupportResponse } from './support.js'
+export type { SupportSessionInfo, SupportTokenRequest, SupportTokenResponse, AuthMeSupportResponse } from './support.js'
 export {
   appIdentifier,
   app,

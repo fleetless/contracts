@@ -142,6 +142,7 @@ import {
   protectedResourceMetadata,
 } from './oauth.js'
 import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
+import { supportTokenRequest, supportTokenResponse } from './support.js'
 import {
   purchaseIntentLookupQuery,
   purchaseIntentConfirmRequest,
@@ -666,6 +667,19 @@ export const ROUTES: readonly RouteEntry[] = [
       'No Owner tier: this can only ever touch the caller\'s own row, so there is nothing for a tier check to gate. Saving the name already ' +
       'held writes nothing and records no audit event — the org activity stream reaches every developer with the console open, and an event ' +
       'for a no-op would misreport that something changed.',
+  },
+  {
+    method: 'POST', path: '/api/auth/support/end', section: 'developer-auth',
+    summary: 'Ends the calling support session immediately, from the console side.',
+    audience: 'internal', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [], query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'forbidden'], transport: 'http',
+    notes:
+      'Internal: the console calls this so the person a support session is driving can end it themselves — the counterpart to the operator ' +
+      'side\'s `support_session_end` command, each ending the same session through its own path. The bearer must be a support token ' +
+      '(`kind: \'support\'`, `aud: \'console\'`, minted by `POST /console/support/token`); any other token, including an ordinary developer ' +
+      'session, answers `403 forbidden`. The session row behind the token is re-read on every request rather than trusted from its own ' +
+      'claims, so a session already ended elsewhere is reflected here immediately.',
   },
 
   /* ------------------------------------ a developer's own second factors */
@@ -1907,6 +1921,22 @@ export const ROUTES: readonly RouteEntry[] = [
       'and that is the dialect a caller of one expects — so it emits none of the codes in this reference. Proof of possession is checked before ' +
       'the replay check, and the single-use consume is atomic, so exactly one caller ever mints. The Org Admins membership is re-read here: the ' +
       'code was minted earlier, and a user moved out in between must not get a console session.',
+  },
+  {
+    method: 'POST', path: '/console/support/token', section: 'developer-auth',
+    summary: "Exchanges an operator's one-time support grant for a console session scoped to one org.",
+    audience: 'internal', auth: 'none', rateLimited: true, ownerTier: false, status: 200,
+    params: [], query: null, request: supportTokenRequest, response: supportTokenResponse, errors: ['rate_limited'], transport: 'http',
+    notes:
+      'Called by the console\'s own server, never by a browser — server to server only, exactly like `/console/oauth/token` beside it, but ' +
+      'rate-limited where that one is not: the grant this exchanges is short-lived and worth guessing at, which a replay of the code exchange ' +
+      'is not. `rate_limited` is the one code in this reference it can still answer, from the limiter itself, before the route\'s own dialect ' +
+      'applies. Every other refusal uses the same RFC 6749 §5.2 flat `oauthError` shape, so this emits no other code in this reference: ' +
+      '`invalid_grant` for a grant that is unknown, already used or expired, or for a verifier that does not match. Proof of possession is checked before the replay ' +
+      'check, and the single-use consume is atomic, so exactly one caller ever mints from a given grant. The minted access token carries ' +
+      '`kind: \'support\'` and `aud: \'console\'`, lives at most sixty minutes with no extension, and carries **no refresh token**: a support ' +
+      'session that outlives its ceiling is a new grant and a new exchange, not a renewal. The session starts in `read` mode; switching one to ' +
+      '`edit` is the operator side\'s `support_session_edit` command, not anything this route does.',
   },
 
   /* --------------------------------- the Fleetless-hosted app pages */

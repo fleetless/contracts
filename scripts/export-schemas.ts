@@ -245,6 +245,7 @@ import {
   protectedResourceMetadata,
 } from '../src/oauth.js'
 import { oauthAuthorizeQuery } from '../src/oauth.js'
+import { supportSessionInfo, supportTokenRequest, supportTokenResponse } from '../src/support.js'
 import {
   cameraDescriptor,
   cancelRequest,
@@ -700,6 +701,10 @@ export const exportedSchemas = {
   // guard that keeps this from recurring is in `test/routes.test.ts`.
   'oauth-token-request': oauthTokenRequest, // POST /mcp/oauth/token, POST /mcp/:appIdentifier/oauth/token
   'oauth-token-response': oauthTokenResponse, // POST /mcp/oauth/token
+  // Support sessions (internal, Block D): an operator temporarily holding a console session for one org.
+  'support-token-request': supportTokenRequest, // POST /console/support/token
+  'support-token-response': supportTokenResponse, // POST /console/support/token
+  'support-session-info': supportSessionInfo, // embedded in support-token-response and in authMeSupportResponse, which no route names
   'dynamic-client-registration-request': dynamicClientRegistrationRequest, // POST /mcp/oauth/register, POST /mcp/:appIdentifier/oauth/register
   'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
   'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
@@ -942,6 +947,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'create-passkey-request', 'rename-passkey-request', 'totp-confirm-request',
   'update-app-request',
   'oauth-token-request', 'dynamic-client-registration-request',
+  // Support sessions (internal, Block D). The grant exchange the operator's
+  // server sends: a document the console's server validates on arrival.
+  'support-token-request',
   'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
@@ -1019,7 +1027,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'datapoint-alert-row', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
 
   // --- Responses the route manifest names ---------------------------------
-  'oauth-redirect-response', 'oauth-token-response', 'dynamic-client-registration-response',
+  'oauth-redirect-response', 'oauth-token-response', 'support-token-response', 'dynamic-client-registration-response',
   'authorization-server-metadata', 'protected-resource-metadata',
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response', 'assets-clear-response',
@@ -1035,6 +1043,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
   'cancel-rejected-details', 'role-in-use-details', 'invalid-code-details',
+  // Embedded in support-token-response, and in authMeSupportResponse, which
+  // no route names: what the server sends, never a document it validates.
+  'support-session-info',
 
   // --- Responses the route manifest names (2026-09-30) ---------------------
   'feedback-response',
