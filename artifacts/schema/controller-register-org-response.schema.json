@@ -64,7 +64,14 @@
                     },
                     "country": {
                       "type": "string",
-                      "pattern": "^[A-Z]{2}$"
+                      "allOf": [
+                        {
+                          "pattern": "^\\P{Cc}*$"
+                        },
+                        {
+                          "pattern": "^[A-Z]{2}$"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -96,7 +103,14 @@
                       "type": "string",
                       "maxLength": 320,
                       "format": "email",
-                      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      "allOf": [
+                        {
+                          "pattern": "^\\P{Cc}*$"
+                        },
+                        {
+                          "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        }
+                      ]
                     },
                     "role": {
                       "type": "string",
@@ -133,7 +147,14 @@
                       "type": "string",
                       "maxLength": 320,
                       "format": "email",
-                      "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      "allOf": [
+                        {
+                          "pattern": "^\\P{Cc}*$"
+                        },
+                        {
+                          "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        }
+                      ]
                     },
                     "address": {
                       "type": "string",
