@@ -114,4 +114,42 @@ describe('versioned legal document references', () => {
       ]) expect(pattern.test(url), url).toBe(false)
     }
   })
+
+  it('rejects out-of-range ports in runtime and published URL schemas', () => {
+    type UrlArtifact = { pattern?: string; format?: string; anyOf?: UrlArtifact[]; properties?: Record<string, UrlArtifact> }
+    const load = (name: string) => JSON.parse(readFileSync(
+      new URL(`../artifacts/schema/${name}.schema.json`, import.meta.url), 'utf8',
+    )) as { properties: Record<string, UrlArtifact> }
+    const openapi = JSON.parse(readFileSync(
+      new URL('../artifacts/openapi.json', import.meta.url), 'utf8',
+    )) as { components: { schemas: Record<string, { properties: Record<string, UrlArtifact> }> } }
+    const appConfig = load('app-auth-config').properties
+    const appRequest = load('put-app-auth-urls-request').properties
+    const openapiRequest = openapi.components.schemas['put-app-auth-urls-request'].properties
+    const legalReferences = load('legal-text-references').properties
+    const urlSchemas = [
+      load('legal-document-reference').properties.url,
+      legalReferences.terms.properties?.url,
+      legalReferences.dpa.anyOf?.[0]?.properties?.url,
+      ...[appConfig, appRequest, openapiRequest].flatMap((properties) => [
+        properties.operator_info_url.anyOf?.[0],
+        properties.privacy_policy_url.anyOf?.[0],
+      ]),
+    ]
+    for (const url of [
+      'https://app.example.com:65536/legal',
+      'https://app.example.com:99999/legal',
+    ]) {
+      expect(httpsLegalUrl.safeParse(url).success, url).toBe(false)
+      expect(legalDocumentReference.safeParse({ ...terms, url }).success, url).toBe(false)
+    }
+    for (const schema of urlSchemas) {
+      expect(schema?.pattern).toBeTypeOf('string')
+      const pattern = new RegExp(schema!.pattern!)
+      expect(pattern.test('https://app.example.com:65535/legal')).toBe(true)
+      expect(pattern.test('https://app.example.com:65536/legal')).toBe(false)
+      expect(pattern.test('https://app.example.com:99999/legal')).toBe(false)
+      expect(schema?.format).toBe('uri')
+    }
+  })
 })

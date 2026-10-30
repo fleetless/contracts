@@ -2,14 +2,14 @@
 import { z } from 'zod'
 
 /** HTTPS syntax only. The cloud checks resolved addresses, redirects and reachability. */
-export const httpsLegalUrl = z.url().max(2048).regex(/^https:\/\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::[0-9]{1,5})?(?:[/?#]|$)/).refine((value) => {
+export const httpsLegalUrl = z.url().max(2048).regex(/^https:\/\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)/).refine((value) => {
   try {
     const url = new URL(value)
     return url.protocol === 'https:' && !url.username && !url.password
   } catch {
     return false
   }
-}, { message: 'must be an absolute HTTPS URL without credentials' })
+}, { message: 'must be an absolute HTTPS URL without credentials' }).meta({ format: 'uri' })
 
 /** A permanent link to exactly one dated version of a legal document. */
 export const legalDocumentReference = z.object({
