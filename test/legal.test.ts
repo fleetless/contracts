@@ -10,6 +10,7 @@ import {
   DPA_VERSION_URL,
   legalDocumentReference,
   legalTextReferences,
+  httpsLegalUrl,
 } from '../src/index.js'
 import { exportedSchemas, schemaIo } from '../scripts/export-schemas.js'
 
@@ -50,6 +51,22 @@ describe('versioned legal document references', () => {
     expect(parse({ version: terms.version, url: terms.url })).toBe(false)
   })
 
+  it('rejects missing and malformed URL hostnames at runtime', () => {
+    for (const url of [
+      'https://:/',
+      'https://:443/',
+      'https://-bad.example/legal',
+      'https://bad..example/legal',
+      'https://bad-.example/legal',
+      'https://bad_host.example/legal',
+      `https://${'a'.repeat(64)}.example/legal`,
+      `https://${Array(5).fill('a'.repeat(63)).join('.')}/legal`,
+    ]) {
+      expect(httpsLegalUrl.safeParse(url).success, url).toBe(false)
+      expect(legalDocumentReference.safeParse({ ...terms, url }).success, url).toBe(false)
+    }
+  })
+
   it('exports both reusable reference objects as output schemas', () => {
     const schemas = exportedSchemas as Record<string, unknown>
     expect(schemas['legal-document-reference']).toBe(legalDocumentReference)
@@ -58,19 +75,43 @@ describe('versioned legal document references', () => {
     expect(schemaIo('legal-text-references')).toBe('output')
   })
 
-  it('retains HTTPS and no-userinfo syntax in generated JSON Schemas', () => {
+  it('retains HTTPS, no-userinfo and valid hostnames in published schemas', () => {
     const load = (name: string) => JSON.parse(readFileSync(
       new URL(`../artifacts/schema/${name}.schema.json`, import.meta.url), 'utf8',
-    )) as { properties: Record<string, { pattern?: string; anyOf?: Array<{ pattern?: string }> }> }
-    const legalPattern = load('legal-document-reference').properties.url.pattern
-    const appPattern = load('put-app-auth-urls-request').properties.operator_info_url.anyOf?.[0]?.pattern
-    for (const source of [legalPattern, appPattern]) {
+    )) as { properties: Record<string, { pattern?: string; anyOf?: Array<{ pattern?: string }>; properties?: Record<string, { pattern?: string }> }> }
+    const openapi = JSON.parse(readFileSync(
+      new URL('../artifacts/openapi.json', import.meta.url), 'utf8',
+    )) as { components: { schemas: Record<string, { properties: Record<string, { anyOf?: Array<{ pattern?: string }> }> }> } }
+    const appConfig = load('app-auth-config').properties
+    const appRequest = load('put-app-auth-urls-request').properties
+    const openapiRequest = openapi.components.schemas['put-app-auth-urls-request'].properties
+    const patterns = [
+      load('legal-document-reference').properties.url.pattern,
+      load('legal-text-references').properties.terms.properties?.url.pattern,
+      ...[appConfig, appRequest, openapiRequest].flatMap((properties) => [
+        properties.operator_info_url.anyOf?.[0]?.pattern,
+        properties.privacy_policy_url.anyOf?.[0]?.pattern,
+      ]),
+    ]
+    for (const source of patterns) {
       expect(source).toBeTypeOf('string')
       const pattern = new RegExp(source!)
       expect(pattern.test('https://app.example.com/legal')).toBe(true)
+      expect(pattern.test('https://localhost/legal')).toBe(true)
+      expect(pattern.test('https://app.example.com:443/legal')).toBe(true)
       expect(pattern.test('http://app.example.com/legal')).toBe(false)
       expect(pattern.test('HTTPS://app.example.com/legal')).toBe(false)
       expect(pattern.test('https://user:pass@app.example.com/legal')).toBe(false)
+      for (const url of [
+        'https://:/',
+        'https://:443/',
+        'https://-bad.example/legal',
+        'https://bad..example/legal',
+        'https://bad-.example/legal',
+        'https://bad_host.example/legal',
+        `https://${'a'.repeat(64)}.example/legal`,
+        `https://${Array(5).fill('a'.repeat(63)).join('.')}/legal`,
+      ]) expect(pattern.test(url), url).toBe(false)
     }
   })
 })

@@ -2,7 +2,7 @@
 import { z } from 'zod'
 
 /** HTTPS syntax only. The cloud checks resolved addresses, redirects and reachability. */
-export const httpsLegalUrl = z.url().max(2048).regex(/^https:\/\/[^/?#@]+(?:[/?#]|$)/).refine((value) => {
+export const httpsLegalUrl = z.url().max(2048).regex(/^https:\/\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::[0-9]{1,5})?(?:[/?#]|$)/).refine((value) => {
   try {
     const url = new URL(value)
     return url.protocol === 'https:' && !url.username && !url.password
