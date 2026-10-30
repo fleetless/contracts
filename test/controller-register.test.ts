@@ -24,6 +24,7 @@ describe('organization controller register contract', () => {
   it('accepts confirmed details and explicit clearing of optional contacts', () => {
     const request = route('PUT')?.request
     expect(request?.safeParse(valid).success).toBe(true)
+    expect(request?.safeParse({ ...valid, address: { line1: 'Main Street 1', postalCode: '10115', city: 'Berlin', country: 'DE' } }).success).toBe(true)
     expect(request?.safeParse({ ...valid, privacyContact: null, euRepresentative: null }).success).toBe(true)
     expect(request?.safeParse({ ...valid, privacyContact: { ...valid.privacyContact, role: 'appointed_dpo' } }).success).toBe(true)
   })
@@ -34,6 +35,7 @@ describe('organization controller register contract', () => {
       { ...valid, orgId: 'another-org' },
       { ...valid, legalName: '  ' },
       { ...valid, legalName: 'Bad\nName' },
+      { ...valid, legalName: 'Bad\n' },
       { ...valid, address: { ...valid.address, country: 'Germany' } },
       { ...valid, address: { ...valid.address, postalCode: '' } },
       { ...valid, privacyContact: { ...valid.privacyContact, email: 'not-an-email' } },

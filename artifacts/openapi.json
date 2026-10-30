@@ -20949,6 +20949,7 @@
                             "pattern": "^\\P{Cc}*$"
                           },
                           "line2": {
+                            "default": null,
                             "anyOf": [
                               {
                                 "type": "string",
@@ -21132,6 +21133,7 @@
                 "pattern": "^\\P{Cc}*$"
               },
               "line2": {
+                "default": null,
                 "anyOf": [
                   {
                     "type": "string",
@@ -21163,7 +21165,6 @@
             },
             "required": [
               "line1",
-              "line2",
               "postalCode",
               "city",
               "country"
