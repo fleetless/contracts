@@ -91,6 +91,32 @@
       ],
       "description": "The app's own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`."
     },
+    "operator_info_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2048,
+          "format": "uri"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Operator information / legal notice URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
+    },
+    "privacy_policy_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2048,
+          "format": "uri"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Privacy policy URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
+    },
     "sign_in_methods": {
       "type": "object",
       "properties": {
@@ -198,6 +224,8 @@
     "reset_url",
     "mcp_login_url",
     "app_url",
+    "operator_info_url",
+    "privacy_policy_url",
     "sign_in_methods",
     "two_factor",
     "hosted_logo_url",

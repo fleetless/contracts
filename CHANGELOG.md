@@ -9,6 +9,25 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `waitlistRequest` requires `consent_text_version` for the F.1
+  wording shown by the form. `putAppAuthUrlsRequest` requires explicit
+  `operator_info_url` and `privacy_policy_url` keys; `null` clears a link.
+  `appAuthConfig` returns both nullable fields for legacy apps.
+- The four default customer-app mails include the D.2 app-operator footer
+  when both legal links are set. A missing link omits the whole footer for
+  legacy security mail; the cloud owns the temporary reset and sign-in-code
+  exception and gates new access flows.
+
+### Added
+
+- Separate versioned Terms and DPA reference schemas and initial `1.0`
+  identifiers, dated `2026-11-01`, with permanent version URLs. A DPA reference
+  is `null` only in an acceptance context where it does not apply.
+- `WAITLIST_F1_TEXT_VERSION` (`F.1:1.0`) and the `app.operator_info_url` and
+  `app.privacy_policy_url` mail-template variables.
+
 ## [8.2.0] — 2026-10-30
 
 ### Added

@@ -10912,6 +10912,32 @@
             ],
             "description": "The app's own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`."
           },
+          "operator_info_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Operator information / legal notice URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
+          },
+          "privacy_policy_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Privacy policy URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
+          },
           "sign_in_methods": {
             "type": "object",
             "properties": {
@@ -11019,6 +11045,8 @@
           "reset_url",
           "mcp_login_url",
           "app_url",
+          "operator_info_url",
+          "privacy_policy_url",
           "sign_in_methods",
           "two_factor",
           "hosted_logo_url",
@@ -27458,6 +27486,32 @@
               }
             ],
             "description": "The page an MCP authorization redirects to, with `{interaction}` where the interaction id goes. Not a token: the id names a pending request the server already holds, and the app authenticates the user itself before approving it. `null` means the hosted MCP sign-in in `hosted_pages` is used."
+          },
+          "operator_info_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Operator information / legal notice URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
+          },
+          "privacy_policy_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Privacy policy URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows."
           }
         },
         "required": [
@@ -27465,7 +27519,9 @@
           "invite_url",
           "verify_url",
           "reset_url",
-          "mcp_login_url"
+          "mcp_login_url",
+          "operator_info_url",
+          "privacy_policy_url"
         ],
         "additionalProperties": false
       },
@@ -29240,10 +29296,18 @@
             "maxLength": 254,
             "format": "email",
             "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "consent_text_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S",
+            "description": "Version of the F.1 text shown at submission. Cloud rejects unsupported versions and stores the submitted value in a consent record separate from the waiting list."
           }
         },
         "required": [
-          "email"
+          "email",
+          "consent_text_version"
         ]
       },
       "webauthn-options-response": {

@@ -258,6 +258,8 @@ describe('the enums, by arity AND content', () => {
       'expires_in_hours',
       'code',
       'expires_in_minutes',
+      'app.operator_info_url',
+      'app.privacy_policy_url',
     ])
   })
 
@@ -296,6 +298,17 @@ describe('the enums, by arity AND content', () => {
     // Four distinct subjects — arity alone would pass four copies of one
     // line.
     expect(new Set(mailTemplateKind.options.map(kind => DEFAULT_MAIL_TEMPLATES[kind].subject)).size).toBe(4)
+  })
+
+  it('puts the whole D.2 footer behind both app legal links in every default', () => {
+    const footer = '{% if app.operator_info_url and app.privacy_policy_url %}\n\n' +
+      '{{ app.name }} · Operator information: {{ app.operator_info_url }} · Privacy policy: {{ app.privacy_policy_url }}\n' +
+      '{% endif %}'
+    for (const kind of mailTemplateKind.options) {
+      const text = DEFAULT_MAIL_TEMPLATES[kind].text
+      expect(text, kind).toContain(footer)
+      expect(text, kind).not.toContain('Dehne Robotik GmbH')
+    }
   })
 })
 
