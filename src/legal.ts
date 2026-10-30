@@ -3,8 +3,12 @@ import { z } from 'zod'
 
 /** HTTPS syntax only. The cloud checks resolved addresses, redirects and reachability. */
 export const httpsLegalUrl = z.url().max(2048).refine((value) => {
-  const url = new URL(value)
-  return url.protocol === 'https:' && !url.username && !url.password
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password
+  } catch {
+    return false
+  }
 }, { message: 'must be an absolute HTTPS URL without credentials' })
 
 /** A permanent link to exactly one dated version of a legal document. */
