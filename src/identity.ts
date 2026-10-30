@@ -225,6 +225,9 @@ export const twoFactorSetupResponse = z.object({
 })
 export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
 
+/** Version of the approved F.1 text shown by the waiting-list form. */
+export const WAITLIST_F1_TEXT_VERSION = 'F.1:1.0'
+
 /**
  * The landing page's waiting list (public site, 2026-09-04): an address and
  * the F.1 text version shown, posted while sign-up is closed. The route answers
@@ -235,9 +238,6 @@ export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
  * btree index, which raises above roughly 2704 bytes — so an unbounded address
  * turns an unauthenticated public route into a `500`.
  */
-/** Version of the approved F.1 text shown by the waiting-list form. */
-export const WAITLIST_F1_TEXT_VERSION = 'F.1:1.0'
-
 export const waitlistRequest = z.object({
   email: z.email().max(254),
   consent_text_version: z.string().min(1).max(80).regex(/\S/).meta({

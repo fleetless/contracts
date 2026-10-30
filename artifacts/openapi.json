@@ -10917,7 +10917,7 @@
               {
                 "type": "string",
                 "maxLength": 2048,
-                "format": "uri"
+                "pattern": "^https:\\/\\/[^/?#@]+(?:[/?#]|$)"
               },
               {
                 "type": "null"
@@ -10930,7 +10930,7 @@
               {
                 "type": "string",
                 "maxLength": 2048,
-                "format": "uri"
+                "pattern": "^https:\\/\\/[^/?#@]+(?:[/?#]|$)"
               },
               {
                 "type": "null"
@@ -27492,7 +27492,7 @@
               {
                 "type": "string",
                 "maxLength": 2048,
-                "format": "uri"
+                "pattern": "^https:\\/\\/[^/?#@]+(?:[/?#]|$)"
               },
               {
                 "type": "null"
@@ -27505,7 +27505,7 @@
               {
                 "type": "string",
                 "maxLength": 2048,
-                "format": "uri"
+                "pattern": "^https:\\/\\/[^/?#@]+(?:[/?#]|$)"
               },
               {
                 "type": "null"
