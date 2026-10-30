@@ -734,7 +734,15 @@ export const MAIL_TEMPLATE_VARIABLES = [
   'expires_in_hours',
   'code',
   'expires_in_minutes',
+  'app.operator_info_url',
+  'app.privacy_policy_url',
 ] as const
+
+/** Omit the entire D.2 line while a legacy app has either legal link unset. */
+const APP_LEGAL_MAIL_FOOTER = `{% if app.operator_info_url and app.privacy_policy_url %}
+
+{{ app.name }} · Operator information: {{ app.operator_info_url }} · Privacy policy: {{ app.privacy_policy_url }}
+{% endif %}`
 
 /**
  * **The Fleetless default text for the four app mails.**
@@ -798,6 +806,7 @@ Accept the invitation:
 {{ link }}
 
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you were not expecting this invitation, ignore this mail — no account is created until you accept.
+${APP_LEGAL_MAIL_FOOTER}
 `,
     html: null,
   },
@@ -809,6 +818,7 @@ Confirm this address so you can sign in to {{ app.name }}:
 {{ link }}
 
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you did not create this account, ignore this mail — the account stays unconfirmed and cannot be used.
+${APP_LEGAL_MAIL_FOOTER}
 `,
     html: null,
   },
@@ -822,6 +832,7 @@ Choose a new password:
 {{ link }}
 
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If it was not you, ignore this mail — your current password keeps working and nothing changes.
+${APP_LEGAL_MAIL_FOOTER}
 `,
     html: null,
   },
@@ -829,7 +840,9 @@ The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours |
     subject: 'Your {{ app.name }} sign-in code',
     text: `Your sign-in code for {{ app.name }} is {{ code }}.
 
-It works once, for {{ expires_in_minutes }} minutes. If you did not ask for it, ignore this mail.`,
+It works once, for {{ expires_in_minutes }} minutes. If you did not ask for it, ignore this mail.
+
+${APP_LEGAL_MAIL_FOOTER}`,
     html: null,
   },
 }
