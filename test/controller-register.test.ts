@@ -29,6 +29,22 @@ describe('organization controller register contract', () => {
     expect(request?.safeParse({ ...valid, privacyContact: { ...valid.privacyContact, role: 'appointed_dpo' } }).success).toBe(true)
   })
 
+  it('normalizes owner write payload before persistence', () => {
+    const request = route('PUT')?.request
+    expect(request?.parse({
+      ...valid,
+      legalName: '  Dehne Customer GmbH  ',
+      address: { ...valid.address, country: ' DE ' },
+      privacyContact: { ...valid.privacyContact, email: ' privacy@example.com ' },
+      euRepresentative: { name: ' EU Rep ', email: ' rep@example.com ', address: ' Avenue 1 ' },
+      confirmationSource: ' Customer confirmation 2026-10-30 ',
+    })).toEqual({
+      ...valid,
+      address: { ...valid.address, country: 'DE' },
+      euRepresentative: { name: 'EU Rep', email: 'rep@example.com', address: 'Avenue 1' },
+    })
+  })
+
   it('rejects unconfirmed, malformed and cross-organization input', () => {
     const request = route('PUT')?.request
     for (const input of [

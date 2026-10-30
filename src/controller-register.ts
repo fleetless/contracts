@@ -3,14 +3,14 @@ import { z } from 'zod'
 
 /** Customer-confirmed controller details, independent of invoice data. */
 const text = (max: number) => z.string().regex(/^\P{Cc}*$/u).trim().min(1).max(max)
-const email = z.email().max(320)
+const email = z.string().regex(/^\P{Cc}*$/u).trim().email().max(320)
 
 export const controllerRegisterAddress = z.object({
   line1: text(200),
   line2: text(200).nullable().default(null),
   postalCode: text(32),
   city: text(120),
-  country: z.string().regex(/^[A-Z]{2}$/),
+  country: z.string().regex(/^\P{Cc}*$/u).trim().regex(/^[A-Z]{2}$/),
 }).strict()
 
 export const controllerRegisterPrivacyContact = z.object({
