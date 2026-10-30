@@ -438,6 +438,7 @@ export {
   sessionTokens,
   refreshRequest,
   // 2026-09-04 — the public site (closed beta).
+  WAITLIST_F1_TEXT_VERSION,
   waitlistRequest,
   // The two identity spaces.
   USER_DISPLAY_NAME_MAX,

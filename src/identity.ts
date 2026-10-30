@@ -226,8 +226,8 @@ export const twoFactorSetupResponse = z.object({
 export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
 
 /**
- * The landing page's waiting list (public site, 2026-09-04): one address,
- * posted from fleetless.dev while sign-up is closed. The route answers
+ * The landing page's waiting list (public site, 2026-09-04): an address and
+ * the F.1 text version shown, posted while sign-up is closed. The route answers
  * `202` whether or not the address was already listed.
  *
  * The address is bounded at 254 characters, the RFC 5321 forward-path limit.
@@ -235,7 +235,15 @@ export type TwoFactorSetupResponse = z.infer<typeof twoFactorSetupResponse>
  * btree index, which raises above roughly 2704 bytes — so an unbounded address
  * turns an unauthenticated public route into a `500`.
  */
-export const waitlistRequest = z.object({ email: z.email().max(254) })
+/** Version of the approved F.1 text shown by the waiting-list form. */
+export const WAITLIST_F1_TEXT_VERSION = 'F.1:1.0'
+
+export const waitlistRequest = z.object({
+  email: z.email().max(254),
+  consent_text_version: z.string().min(1).max(80).regex(/\S/).meta({
+    description: 'Version of the F.1 text shown at submission. Cloud rejects unsupported versions and stores the submitted value in a consent record separate from the waiting list.',
+  }),
+})
 export type WaitlistRequest = z.infer<typeof waitlistRequest>
 
 /**
