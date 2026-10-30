@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   TERMS_VERSION,
   TERMS_VERSION_DATE,
@@ -44,6 +45,7 @@ describe('versioned legal document references', () => {
     const parse = (value: unknown) => legalDocumentReference.safeParse(value).success
     expect(parse({ ...terms, version: '   ' })).toBe(false)
     expect(parse({ ...terms, url: 'http://fleetless.dev/terms/v1.0/' })).toBe(false)
+    expect(parse({ ...terms, url: 'HTTPS://fleetless.dev/terms/v1.0/' })).toBe(false)
     expect(parse({ ...terms, url: 'https://user:pass@fleetless.dev/terms/v1.0/' })).toBe(false)
     expect(parse({ version: terms.version, url: terms.url })).toBe(false)
   })
@@ -54,5 +56,21 @@ describe('versioned legal document references', () => {
     expect(schemas['legal-text-references']).toBe(legalTextReferences)
     expect(schemaIo('legal-document-reference')).toBe('output')
     expect(schemaIo('legal-text-references')).toBe('output')
+  })
+
+  it('retains HTTPS and no-userinfo syntax in generated JSON Schemas', () => {
+    const load = (name: string) => JSON.parse(readFileSync(
+      new URL(`../artifacts/schema/${name}.schema.json`, import.meta.url), 'utf8',
+    )) as { properties: Record<string, { pattern?: string; anyOf?: Array<{ pattern?: string }> }> }
+    const legalPattern = load('legal-document-reference').properties.url.pattern
+    const appPattern = load('put-app-auth-urls-request').properties.operator_info_url.anyOf?.[0]?.pattern
+    for (const source of [legalPattern, appPattern]) {
+      expect(source).toBeTypeOf('string')
+      const pattern = new RegExp(source!)
+      expect(pattern.test('https://app.example.com/legal')).toBe(true)
+      expect(pattern.test('http://app.example.com/legal')).toBe(false)
+      expect(pattern.test('HTTPS://app.example.com/legal')).toBe(false)
+      expect(pattern.test('https://user:pass@app.example.com/legal')).toBe(false)
+    }
   })
 })
