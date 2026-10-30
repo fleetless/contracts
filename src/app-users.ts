@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { idpIssuer, mailStatus, password } from './identity.js'
+import { httpsLegalUrl } from './legal.js'
 
 /**
  * **App users: the per-app identity space.**
@@ -592,6 +593,9 @@ export type AppHostedPages = z.infer<typeof appHostedPages>
  * Fleetless-hosted page in `hosted_pages`, so nothing is refused for a
  * missing URL — self-registration, mailed invitations, resets and MCP sign-in
  * all work before the app has a page of its own.
+ * The app's operator-information and privacy-policy links are separate:
+ * `null` represents an unset legacy link. The cloud checks reachability and
+ * public addresses and gates new access flows until both are valid.
  */
 export const appAuthConfig = z.object({
   self_registration: z.boolean().meta({
@@ -620,6 +624,12 @@ export const appAuthConfig = z.object({
   }),
   app_url: appHomeUrl.nullable().meta({
     description: 'The app\'s own home page, linked as `Open <app>` when a hosted flow is done. `null` makes the hosted done page say `You can close this tab`.',
+  }),
+  operator_info_url: httpsLegalUrl.nullable().meta({
+    description: 'Operator information / legal notice URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows.',
+  }),
+  privacy_policy_url: httpsLegalUrl.nullable().meta({
+    description: 'Privacy policy URL for this customer app. `null` means unset; cloud checks reachability and public addresses before allowing new app-user access flows.',
   }),
   sign_in_methods: appSignInMethods.meta({
     description: 'Which sign-in methods the app offers: password, emailed code, or both — at least one. Identity providers stay on top of either. The default is password only.',
@@ -668,13 +678,14 @@ export const putAppAuthSignInRequest = appAuthConfig
 export type PutAppAuthSignInRequest = z.infer<typeof putAppAuthSignInRequest>
 
 /**
- * `PUT /api/apps/:id/auth-config/urls` — the app's home page and the four
- * pages Fleetless's mails and the MCP sign-in point at. One slice, because
- * the console's Pages section owns all five; each `null` falls back to the
- * hosted page.
+ * `PUT /api/apps/:id/auth-config/urls` — the app's home page, four flow pages,
+ * and two legal pages. The console's Pages section owns all seven. `null`
+ * falls back to a hosted flow page for the four flow URLs; `null` on a legal
+ * link clears it and the cloud gates the affected new access flows.
  */
 export const putAppAuthUrlsRequest = appAuthConfig
-  .pick({ app_url: true, invite_url: true, verify_url: true, reset_url: true, mcp_login_url: true })
+  .pick({ app_url: true, invite_url: true, verify_url: true, reset_url: true, mcp_login_url: true,
+    operator_info_url: true, privacy_policy_url: true })
   .strict()
 export type PutAppAuthUrlsRequest = z.infer<typeof putAppAuthUrlsRequest>
 

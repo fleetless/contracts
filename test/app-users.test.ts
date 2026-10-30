@@ -507,6 +507,8 @@ describe('appAuthConfig — what the developer may set, and the one field they m
     reset_url: 'https://app.example.com/reset/{token}',
     mcp_login_url: null,
     app_url: null,
+    operator_info_url: 'https://app.example.com/legal',
+    privacy_policy_url: 'https://app.example.com/privacy',
     sign_in_methods: { password: true, email_code: false },
     two_factor: 'off',
     hosted_logo_url: null,
@@ -530,6 +532,16 @@ describe('appAuthConfig — what the developer may set, and the one field they m
       appAuthConfig.safeParse({ ...ROW, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null })
         .success,
     ).toBe(true)
+  })
+
+  it('represents legacy apps with both legal URLs unset', () => {
+    expect(appAuthConfig.safeParse({ ...ROW, operator_info_url: null, privacy_policy_url: null }).success).toBe(true)
+  })
+
+  it('refuses insecure or credential-bearing legal links', () => {
+    for (const url of ['http://app.example.com/legal', '/legal', 'https://user:pass@app.example.com/legal']) {
+      expect(appAuthConfig.safeParse({ ...ROW, operator_info_url: url }).success, url).toBe(false)
+    }
   })
 
   it('refuses a plain-http invite URL through the template rule', () => {
@@ -569,6 +581,7 @@ describe('app auth config slices', () => {
       app_url: 'https://app.example.com',
       invite_url: 'https://app.example.com/invite/{token}', verify_url: null, reset_url: null,
       mcp_login_url: 'https://app.example.com/mcp-login/{interaction}',
+      operator_info_url: 'https://app.example.com/legal', privacy_policy_url: 'https://app.example.com/privacy',
     }).success).toBe(true)
 
     expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: true }).success).toBe(true)
@@ -598,14 +611,26 @@ describe('app auth config slices', () => {
     }).success).toBe(false)
     expect(putAppAuthUrlsRequest.safeParse({
       app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null,
+      operator_info_url: null, privacy_policy_url: null,
       hosted_pages: { invite_url: 'https://evil.example/{token}' },
     }).success).toBe(false)
   })
 
   it('carries the URL placeholder rules into the slice that owns the field', () => {
-    const urls = { app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null }
+    const urls = { app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null,
+      operator_info_url: null, privacy_policy_url: null }
     expect(putAppAuthUrlsRequest.safeParse({ ...urls, invite_url: 'https://app.example.com/invite' }).success).toBe(false)
     expect(putAppAuthUrlsRequest.safeParse({ ...urls, mcp_login_url: 'https://app.example.com/login/{token}' }).success).toBe(false)
+  })
+
+  it('requires both legal-link keys on a full URL replacement and allows explicit clearing', () => {
+    const urls = { app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null,
+      operator_info_url: null, privacy_policy_url: null }
+    expect(putAppAuthUrlsRequest.safeParse(urls).success).toBe(true)
+    expect(putAppAuthUrlsRequest.safeParse({ ...urls, operator_info_url: undefined }).success).toBe(false)
+    expect(putAppAuthUrlsRequest.safeParse({ ...urls, privacy_policy_url: undefined }).success).toBe(false)
+    expect(putAppAuthRegistrationRequest.safeParse({ self_registration: true, allowed_domains: [], allowed_origins: [],
+      operator_info_url: 'https://app.example.com/legal' }).success).toBe(false)
   })
 })
 
@@ -629,7 +654,8 @@ describe('app auth config for #98', () => {
   })
   it('the mcp slice holds the switch only', () => {
     expect(putAppAuthMcpRequest.safeParse({ mcp_enabled: true, mcp_login_url: null }).success).toBe(false)
-    expect(putAppAuthUrlsRequest.safeParse({ app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null }).success).toBe(true)
+    expect(putAppAuthUrlsRequest.safeParse({ app_url: null, invite_url: null, verify_url: null, reset_url: null, mcp_login_url: null,
+      operator_info_url: null, privacy_policy_url: null }).success).toBe(true)
   })
   it('two-factor is off, optional or required', () => {
     expect(appTwoFactorPolicy.options).toEqual(['off', 'optional', 'required'])
