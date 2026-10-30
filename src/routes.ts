@@ -101,6 +101,7 @@ import {
   putAppMailTemplateRequest,
 } from './app-users.js'
 import type { ErrorCode } from './errors.js'
+import { controllerRegisterOrgResponse, controllerRegisterWrite } from './controller-register.js'
 import {
   acceptTeamInviteRequest,
   authMeResponse,
@@ -802,6 +803,24 @@ export const ROUTES: readonly RouteEntry[] = [
   },
 
   /* ---------------------------------------------------------------- org */
+  {
+    method: 'GET', path: '/api/org/controller-register', section: 'org',
+    summary: "Reads the calling owner's customer-confirmed controller register details.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: null, response: controllerRegisterOrgResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required'], transport: 'http',
+    notes: 'The authenticated org is the only source. Members and support sessions receive no register data. ' +
+      'A missing detail record is null. Billing data never populates this response. Access is audited.',
+  },
+  {
+    method: 'PUT', path: '/api/org/controller-register', section: 'org',
+    summary: "Replaces the calling owner's confirmed controller register details.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: controllerRegisterWrite, response: controllerRegisterOrgResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error'], transport: 'http',
+    notes: 'The authenticated org is the only target. Null contacts explicitly clear earlier values. ' +
+      'The write is atomic and audited; billing data is never an implicit source. Support sessions cannot write.',
+  },
   {
     method: 'GET', path: '/api/audit', section: 'org',
     summary: "Reads the org's audit log, newest first, cursor-paged over the durable sequence number.",
