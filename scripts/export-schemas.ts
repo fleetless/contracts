@@ -88,6 +88,7 @@ import {
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
+import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
 import {
   org,
   sessionTokens,
@@ -443,6 +444,8 @@ export const exportedSchemas = {
   'patch-auth-me-request': patchAuthMeRequest,
   'session-tokens': sessionTokens,
   'waitlist-request': waitlistRequest,
+  'legal-document-reference': legalDocumentReference,
+  'legal-text-references': legalTextReferences,
   // 2026-09-05 — the two identity spaces.
   'fleetless-user': fleetlessUser,
   'fleetless-user-list-response': fleetlessUserListResponse,
@@ -1007,6 +1010,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'robot-detail-response', 'config-draft-response', 'publish-config-response',
   'introspection-response', 'datapoint-list-response', 'api-error', 'org',
   'session-tokens', 'app', 'server-key',
+  'legal-document-reference', 'legal-text-references',
   'webauthn-options-response', 'developer-passkey', 'developer-two-factor', 'create-passkey-response',
   'totp-confirm-response', 'recovery-codes-response',
   'fleetless-user', 'fleetless-user-list-response', 'team-invite',

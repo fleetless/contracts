@@ -617,6 +617,18 @@ export type {
 } from './client-auth.js'
 export { clientRobotListItem, clientRobotListResponse } from './client-robots.js'
 export type { ClientRobotListItem, ClientRobotListResponse } from './client-robots.js'
+export {
+  httpsLegalUrl,
+  legalDocumentReference,
+  legalTextReferences,
+  TERMS_VERSION,
+  TERMS_VERSION_DATE,
+  TERMS_VERSION_URL,
+  DPA_VERSION,
+  DPA_VERSION_DATE,
+  DPA_VERSION_URL,
+} from './legal.js'
+export type { LegalDocumentReference, LegalTextReferences } from './legal.js'
 // The per-app identity space.
 export {
   APP_USER_DISPLAY_NAME_MAX,
