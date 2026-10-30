@@ -37,6 +37,7 @@
                       "pattern": "^\\P{Cc}*$"
                     },
                     "line2": {
+                      "default": null,
                       "anyOf": [
                         {
                           "type": "string",
