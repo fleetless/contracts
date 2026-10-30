@@ -87,6 +87,7 @@ import {
   orgEventDropped,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
+import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import {
   org,
   sessionTokens,
@@ -342,6 +343,8 @@ import {
 } from '../src/billing.js'
 
 export const exportedSchemas = {
+  'controller-register-write': controllerRegisterWrite,
+  'controller-register-org-response': controllerRegisterOrgResponse,
   // The MCP server's datasheet. REST-only shapes: the bridge has no
   // MCP surface at all, so these are here for the same reason the other REST
   // responses are — "every wire schema", one map, no second place to look.
@@ -895,6 +898,7 @@ export const exportedConstants = {
  * classification here.
  */
 const SCHEMA_IO_INPUT: readonly string[] = [
+  'controller-register-write',
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
   'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong', 'bridge-link-mode',
@@ -992,6 +996,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'controller-register-org-response',
   'mcp-robot-datasheet', 'mcp-role-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',
   'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',

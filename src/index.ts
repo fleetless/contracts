@@ -1000,6 +1000,10 @@ export type {
   ChargePayRequest,
 } from './billing.js'
 
+export { controllerRegisterAddress, controllerRegisterPrivacyContact, controllerRegisterRepresentative,
+  controllerRegisterWrite, controllerRegisterOrgRecord, controllerRegisterOrgResponse } from './controller-register.js'
+export type { ControllerRegisterWrite, ControllerRegisterOrgResponse } from './controller-register.js'
+
 export {
   purchaseBillingDetails, purchaseOperationKey, purchaseOperation, purchaseQuote,
   purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,

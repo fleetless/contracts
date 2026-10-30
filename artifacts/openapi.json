@@ -647,6 +647,90 @@
         }
       }
     },
+    "/api/org/controller-register": {
+      "get": {
+        "operationId": "get_api_org_controller_register",
+        "summary": "Reads the calling owner's customer-confirmed controller register details.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/controller-register-org-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The authenticated org is the only source. Members and support sessions receive no register data. A missing detail record is null. Billing data never populates this response. Access is audited."
+      },
+      "put": {
+        "operationId": "put_api_org_controller_register",
+        "summary": "Replaces the calling owner's confirmed controller register details.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/controller-register-org-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `validation_error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The authenticated org is the only target. Null contacts explicitly clear earlier values. The write is atomic and audited; billing data is never an implicit source. Support sessions cannot write.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/controller-register-write"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/audit": {
       "get": {
         "operationId": "get_api_audit",
@@ -20824,6 +20908,354 @@
         },
         "required": [
           "versions"
+        ],
+        "additionalProperties": false
+      },
+      "controller-register-org-response": {
+        "type": "object",
+        "properties": {
+          "orgId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "legalName": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200,
+                        "pattern": "^\\P{Cc}*$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "address": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "line1": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "pattern": "^\\P{Cc}*$"
+                          },
+                          "line2": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "pattern": "^\\P{Cc}*$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "postalCode": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "pattern": "^\\P{Cc}*$"
+                          },
+                          "city": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 120,
+                            "pattern": "^\\P{Cc}*$"
+                          },
+                          "country": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{2}$"
+                          }
+                        },
+                        "required": [
+                          "line1",
+                          "line2",
+                          "postalCode",
+                          "city",
+                          "country"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "privacyContact": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "pattern": "^\\P{Cc}*$"
+                          },
+                          "email": {
+                            "type": "string",
+                            "maxLength": 320,
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "general",
+                              "appointed_dpo"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "email",
+                          "role"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "euRepresentative": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "pattern": "^\\P{Cc}*$"
+                          },
+                          "email": {
+                            "type": "string",
+                            "maxLength": 320,
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          },
+                          "address": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^\\P{Cc}*$"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "email",
+                          "address"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "confirmationSource": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^\\P{Cc}*$"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  "updatedByKind": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "operator"
+                    ]
+                  },
+                  "updatedById": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "legalName",
+                  "address",
+                  "privacyContact",
+                  "euRepresentative",
+                  "confirmationSource",
+                  "updatedAt",
+                  "updatedByKind",
+                  "updatedById"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "orgId",
+          "details"
+        ],
+        "additionalProperties": false
+      },
+      "controller-register-write": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^\\P{Cc}*$"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "line1": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "^\\P{Cc}*$"
+              },
+              "line2": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^\\P{Cc}*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "postalCode": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^\\P{Cc}*$"
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120,
+                "pattern": "^\\P{Cc}*$"
+              },
+              "country": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              }
+            },
+            "required": [
+              "line1",
+              "line2",
+              "postalCode",
+              "city",
+              "country"
+            ],
+            "additionalProperties": false
+          },
+          "privacyContact": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^\\P{Cc}*$"
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 320,
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "general",
+                      "appointed_dpo"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "role"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "euRepresentative": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^\\P{Cc}*$"
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 320,
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "address": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "pattern": "^\\P{Cc}*$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "email",
+                  "address"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmationSource": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "pattern": "^\\P{Cc}*$"
+          }
+        },
+        "required": [
+          "legalName",
+          "address",
+          "privacyContact",
+          "euRepresentative",
+          "confirmationSource"
         ],
         "additionalProperties": false
       },

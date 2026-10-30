@@ -9,6 +9,10 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Customer-confirmed controller register schemas and owner-only `GET` and `PUT /api/org/controller-register` routes. Optional privacy contact and EU representative can be explicitly cleared; register data never comes from billing.
+
 ## [8.1.0] — 2026-10-28
 
 ### Added
