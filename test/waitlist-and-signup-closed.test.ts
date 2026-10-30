@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
-import { ERROR_CODES, IN_HANDLER_ROUTES, ROUTES, waitlistRequest } from '../src/index.js'
+import { ERROR_CODES, IN_HANDLER_ROUTES, ROUTES, WAITLIST_F1_TEXT_VERSION, waitlistRequest } from '../src/index.js'
 import { exportedSchemas, schemaIo } from '../scripts/export-schemas.js'
 
 describe('closed beta', () => {
@@ -64,9 +64,19 @@ describe('closed beta', () => {
     expect(notes).toMatch(/(?:ordinary public sign-up remains refused|Ordinary public sign-up still answers `403 signup_closed`)/)
   })
   it('the waiting list takes an e-mail address and requires it', () => {
-    expect(waitlistRequest.safeParse({ email: 'ops@example.com' }).success).toBe(true)
-    expect(waitlistRequest.safeParse({ email: 'not-an-address' }).success).toBe(false)
+    const version = 'F.1:1.0'
+    expect(waitlistRequest.safeParse({ email: 'ops@example.com', consent_text_version: version }).success).toBe(true)
+    expect(waitlistRequest.safeParse({ email: 'not-an-address', consent_text_version: version }).success).toBe(false)
     expect(waitlistRequest.safeParse({}).success).toBe(false)
+  })
+  it('requires a bounded F.1 text version while leaving support policy to cloud', () => {
+    expect(WAITLIST_F1_TEXT_VERSION).toBe('F.1:1.0')
+    const email = 'ops@example.com'
+    expect(waitlistRequest.safeParse({ email }).success).toBe(false)
+    for (const consent_text_version of ['', '   ', 'x'.repeat(81)]) {
+      expect(waitlistRequest.safeParse({ email, consent_text_version }).success).toBe(false)
+    }
+    expect(waitlistRequest.safeParse({ email, consent_text_version: 'F.1:2.0' }).success).toBe(true)
   })
   it('bounds the address at 254 characters, the RFC 5321 path limit', () => {
     // A long local part is the only way to stay valid at these lengths —
@@ -74,8 +84,8 @@ describe('closed beta', () => {
     const address = (total: number) => `${'a'.repeat(total - '@example.com'.length)}@example.com`
     expect(address(254)).toHaveLength(254)
     expect(address(300)).toHaveLength(300)
-    expect(waitlistRequest.safeParse({ email: address(254) }).success).toBe(true)
-    expect(waitlistRequest.safeParse({ email: address(300) }).success).toBe(false)
+    expect(waitlistRequest.safeParse({ email: address(254), consent_text_version: 'F.1:1.0' }).success).toBe(true)
+    expect(waitlistRequest.safeParse({ email: address(300), consent_text_version: 'F.1:1.0' }).success).toBe(false)
   })
   it('is exported as an input schema', () => {
     expect(exportedSchemas['waitlist-request']).toBe(waitlistRequest)
