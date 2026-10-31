@@ -630,6 +630,8 @@ export {
   DPA_VERSION_URL,
 } from './legal.js'
 export type { LegalDocumentReference, LegalTextReferences } from './legal.js'
+export { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from './legal-acceptances.js'
+export type { LegalAcceptanceListQuery, LegalAcceptanceVersionRow, LegalAcceptanceListResponse } from './legal-acceptances.js'
 // The per-app identity space.
 export {
   APP_USER_DISPLAY_NAME_MAX,
