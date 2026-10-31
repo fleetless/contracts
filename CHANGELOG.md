@@ -9,6 +9,14 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Owner-only `GET /api/org/legal/acceptances` and the additive
+  `legalAcceptanceListQuery`, `legalAcceptanceVersionRow`, and
+  `legalAcceptanceListResponse` schemas. Pages expose stored Terms and
+  applicable DPA version references with an opaque cursor; Cloud enforces
+  organization scope, Owner access, and cursor decoding.
+
 ### Changed
 
 - **Breaking:** `waitlistRequest` requires `consent_text_version` for the F.1
