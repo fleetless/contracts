@@ -89,6 +89,7 @@ import {
 import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
+import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
   sessionTokens,
@@ -446,6 +447,9 @@ export const exportedSchemas = {
   'waitlist-request': waitlistRequest,
   'legal-document-reference': legalDocumentReference,
   'legal-text-references': legalTextReferences,
+  'legal-acceptance-list-query': legalAcceptanceListQuery,
+  'legal-acceptance-version-row': legalAcceptanceVersionRow,
+  'legal-acceptance-list-response': legalAcceptanceListResponse,
   // 2026-09-05 — the two identity spaces.
   'fleetless-user': fleetlessUser,
   'fleetless-user-list-response': fleetlessUserListResponse,
@@ -943,7 +947,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'put-app-mail-template-request',
   'mail-template-preview-request',
   'history-query', 'invoke-request', 'publish-request',
-  'role-permissions', 'job-run-query', 'job-run-summary-query',
+  'role-permissions', 'job-run-query', 'job-run-summary-query', 'legal-acceptance-list-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
   'patch-org-request', 'patch-auth-me-request',
   'patch-robot-request', 'rename-slug-request',
@@ -1010,7 +1014,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'robot-detail-response', 'config-draft-response', 'publish-config-response',
   'introspection-response', 'datapoint-list-response', 'api-error', 'org',
   'session-tokens', 'app', 'server-key',
-  'legal-document-reference', 'legal-text-references',
+  'legal-document-reference', 'legal-text-references', 'legal-acceptance-version-row', 'legal-acceptance-list-response',
   'webauthn-options-response', 'developer-passkey', 'developer-two-factor', 'create-passkey-response',
   'totp-confirm-response', 'recovery-codes-response',
   'fleetless-user', 'fleetless-user-list-response', 'team-invite',

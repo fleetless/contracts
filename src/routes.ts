@@ -131,6 +131,7 @@ import {
   webauthnOptionsResponse,
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
+import { legalAcceptanceListQuery, legalAcceptanceListResponse } from './legal-acceptances.js'
 import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
@@ -803,6 +804,18 @@ export const ROUTES: readonly RouteEntry[] = [
   },
 
   /* ---------------------------------------------------------------- org */
+  {
+    method: 'GET', path: '/api/org/legal/acceptances', section: 'org',
+    summary: "Lists the calling organization's accepted legal document versions, newest first.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: legalAcceptanceListQuery, request: null, response: legalAcceptanceListResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error'], transport: 'http',
+    notes: 'A real Owner reads only the authenticated organization; Developer and support sessions cannot read it. ' +
+      'Rows carry stored Terms and applicable DPA references, never the current versions substituted for history. ' +
+      'The default page limit is 50, maximum 100. The opaque cursor is unpadded base64url of UTF-8 JSON ' +
+      '`[accepted_at,id]`, with a six-digit UTC timestamp and lowercase UUID; Cloud rejects noncanonical tokens. ' +
+      'Follow `next_cursor` until null. Equal timestamps sort by id descending; a new acceptance cannot displace older rows.',
+  },
   {
     method: 'GET', path: '/api/org/controller-register', section: 'org',
     summary: "Reads the calling owner's customer-confirmed controller register details.",

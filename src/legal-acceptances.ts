@@ -6,7 +6,7 @@ import { legalDocumentReference } from './legal.js'
 const legalAcceptanceCursor = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/)
 
 export const legalAcceptanceListQuery = z.object({
-  limit: z.union([z.string().regex(/^[0-9]{1,3}$/), z.number().int()])
+  limit: z.union([z.string().regex(/^(?:0{0,2}[1-9]|0?[1-9][0-9]|100)$/), z.number().int().min(1).max(100)])
     .transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   cursor: legalAcceptanceCursor.optional(),
 }).strict()
@@ -16,7 +16,7 @@ export const legalAcceptanceVersionRow = z.object({
   id: z.uuid(),
   context: z.enum(['registration', 'invitation', 'order', 'existing_org']),
   accepted_at: z.iso.datetime({ precision: 6 }),
-  text_id: z.string().min(1).max(80).refine(value => value.trim().length > 0),
+  text_id: z.string().min(1).max(80).regex(/\S/),
   terms: legalDocumentReference,
   dpa: legalDocumentReference.nullable(),
 }).strict()
