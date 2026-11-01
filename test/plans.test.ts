@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import { ADDONS, PLANS, PLAN_ORDER, nextPlanRaising, pricesFromEurMonth, requiredPlanFor, usdCentsFromEurCents, yearlyEurCents } from '../src/plans.js'
-import { adminPlanChangeRequest, planChangeRequest } from '../src/plans.js'
+import { adminPlanChangeRequest, planChangeRequest, planChangePrepareRequest, planChangeDecisionLookupQuery, planChangeDecisionStatusResponse } from '../src/plans.js'
 import { ERROR_CODES, planLimitDetails, assetPlanLimitDetails } from '../src/errors.js'
 import { liveSessionEndReason } from '../src/realtime.js'
 import { auditActor } from '../src/audit.js'
@@ -61,10 +61,34 @@ describe('helpers', () => {
 })
 
 describe("the organization's plan: changes, the admin request and plan errors (2026-10-02, fleetless/fleetless#103)", () => {
-  it('a choice never names an owner field and is strict', () => {
-    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: { robots: [], apps: [], app_users: [], developers: [] } }).success).toBe(true)
-    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: null }).success).toBe(true)
-    expect(planChangeRequest.safeParse({ target_plan: 'basic', keep: { robots: [], apps: [], app_users: [], developers: [], owners: [] } }).success).toBe(false)
+  const key = '0c15bc92-c26c-4a56-aac8-0046ff758391'
+  const id = '039172ce-712c-4ec8-897c-15492a7eeb76'
+  const proof = 'x'.repeat(43)
+  const final = { change_id: id, operation_key: key, target_plan: 'basic', keep: null, confirmation_proof: proof }
+
+  it('prepares without a reason or mutation, then requires proof on the final choice', () => {
+    expect(planChangePrepareRequest.safeParse({ operation_key: key, target_plan: 'basic', keep: null }).success).toBe(true)
+    expect(planChangePrepareRequest.safeParse({ operation_key: key, target_plan: 'basic', keep: null, cancellation_reason: 'x' }).success).toBe(false)
+    expect(planChangeRequest.safeParse(final).success).toBe(true)
+    expect(planChangeRequest.safeParse({ ...final, confirmation_proof: undefined }).success).toBe(false)
+    expect(planChangeRequest.safeParse({ ...final, change_id: undefined }).success).toBe(false)
+    expect(planChangeRequest.safeParse({ ...final, operation_key: undefined }).success).toBe(false)
+  })
+
+  it('accepts a Basic reason up to 500 input characters and rejects it for other plans', () => {
+    expect(planChangeRequest.parse({ ...final, cancellation_reason: '  reason  ' })).toMatchObject({ cancellation_reason: 'reason' })
+    expect(planChangeRequest.safeParse({ ...final, cancellation_reason: 'x'.repeat(500) }).success).toBe(true)
+    expect(planChangeRequest.safeParse({ ...final, cancellation_reason: 'x'.repeat(501) }).success).toBe(false)
+    expect(planChangeRequest.safeParse({ ...final, target_plan: 'plus', cancellation_reason: 'x' }).success).toBe(false)
+    expect(planChangeRequest.safeParse({ ...final, target_plan: 'plus' }).success).toBe(true)
+    expect(planChangeRequest.safeParse({ ...final, keep: { robots: [], apps: [], app_users: [], developers: [], owners: [] } }).success).toBe(false)
+  })
+
+  it('looks up only the real owner decision and distinguishes prepared from accepted', () => {
+    expect(planChangeDecisionLookupQuery.parse({ operation_key: key })).toEqual({ operation_key: key })
+    expect(planChangeDecisionLookupQuery.safeParse({ operation_key: key, owner_id: id }).success).toBe(false)
+    expect(planChangeDecisionStatusResponse.parse({ state: 'prepared', change_id: id })).toEqual({ state: 'prepared', change_id: id })
+    expect(planChangeDecisionStatusResponse.safeParse({ state: 'accepted', change_id: id }).success).toBe(false)
   })
 
   it('the admin request takes overrides that clear with null', () => {

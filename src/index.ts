@@ -892,6 +892,9 @@ export {
   orgLock,
   orgPlan,
   planChangeRequest,
+  planChangePrepareRequest,
+  planChangeDecisionLookupQuery,
+  planChangeDecisionStatusResponse,
   planOverrides,
   adminPlanChangeRequest,
 } from './plans.js'
@@ -905,6 +908,9 @@ export type {
   OrgLock,
   OrgPlan,
   PlanChangeRequest,
+  PlanChangePrepareRequest,
+  PlanChangeDecisionLookupQuery,
+  PlanChangeDecisionStatusResponse,
   PlanOverrides,
   AdminPlanChangeRequest,
 } from './plans.js'
@@ -1023,6 +1029,7 @@ export {
   purchaseBillingDetails, purchaseOperationKey, purchaseOperation, purchaseQuote,
   billingDecisionDisplayRequest, confirmationProof, billingDecisionAmounts,
   billingDecisionPeriod, billingDecisionSnapshot, billingDecisionDisplayResponse,
+  planChangePrepareResponse,
   purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,
   purchaseIntentDraft, purchaseIntentPaymentStarted, purchaseIntentAcceptedWithoutPayment,
   purchaseIntentConfirmRequest, purchaseConflictDetails, invoicePayRequest,
@@ -1033,6 +1040,7 @@ export type {
   PurchaseIntentDraft, PurchaseIntentPaymentStarted, PurchaseIntentAcceptedWithoutPayment,
   BillingDecisionDisplayRequest, ConfirmationProof, BillingDecisionAmounts,
   BillingDecisionPeriod, BillingDecisionSnapshot, BillingDecisionDisplayResponse,
+  PlanChangePrepareResponse,
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
   InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
 } from './billing.js'

@@ -25455,80 +25455,192 @@
         "additionalProperties": false
       },
       "plan-change-request": {
-        "type": "object",
-        "properties": {
-          "target_plan": {
-            "type": "string",
-            "enum": [
-              "basic",
-              "plus",
-              "pro",
-              "enterprise"
-            ],
-            "description": "The lower plan to move to; `basic` cancels."
-          },
-          "keep": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "robots": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
-                  },
-                  "apps": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
-                  },
-                  "app_users": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
-                  },
-                  "developers": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                    },
-                    "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
-                  }
-                },
-                "required": [
-                  "robots",
-                  "apps",
-                  "app_users",
-                  "developers"
-                ],
-                "additionalProperties": false
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "change_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
               },
-              {
-                "type": "null"
+              "operation_key": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+              },
+              "keep": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "robots": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
+                      },
+                      "apps": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
+                      },
+                      "app_users": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
+                      },
+                      "developers": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
+                      }
+                    },
+                    "required": [
+                      "robots",
+                      "apps",
+                      "app_users",
+                      "developers"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "confirmation_proof": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$",
+                "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+              },
+              "target_plan": {
+                "type": "string",
+                "const": "basic"
+              },
+              "cancellation_reason": {
+                "type": "string",
+                "maxLength": 500
               }
+            },
+            "required": [
+              "change_id",
+              "operation_key",
+              "keep",
+              "confirmation_proof",
+              "target_plan"
             ],
-            "description": "What stays. `null` when the org already fits the target plan, so nothing is deleted."
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "change_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "operation_key": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+              },
+              "keep": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "robots": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
+                      },
+                      "apps": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
+                      },
+                      "app_users": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
+                      },
+                      "developers": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
+                      }
+                    },
+                    "required": [
+                      "robots",
+                      "apps",
+                      "app_users",
+                      "developers"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "confirmation_proof": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$",
+                "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+              },
+              "target_plan": {
+                "type": "string",
+                "enum": [
+                  "plus",
+                  "pro",
+                  "enterprise"
+                ]
+              }
+            },
+            "required": [
+              "change_id",
+              "operation_key",
+              "keep",
+              "confirmation_proof",
+              "target_plan"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "target_plan",
-          "keep"
-        ],
-        "additionalProperties": false
+        ]
       },
       "protected-resource-metadata": {
         "type": "object",
