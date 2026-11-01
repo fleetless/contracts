@@ -1980,7 +1980,10 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: supportRenewFailRequest, response: null,
     errors: ['validation_error', 'unauthorized', 'not_found', 'target_state_conflict'], transport: 'http',
     notes:
-      'Internal Console-to-Cloud POST only, no CORS. Authorization: Bearer <original fl_support>; a valid old bearer must reach the ' +
+      'Internal Console-to-Cloud POST only, no CORS. Console must first verify and consume signed Operator failure evidence ' +
+      'bound to its original browser flow, or let Cloud timeout/sweep close an uncompleted flow; browser flow_id or error alone ' +
+      'must never trigger this call. The evidence stays at Console: this strict Cloud request has no Operator or browser field. ' +
+      'Authorization: Bearer <original fl_support>; a valid old bearer must reach the ' +
       'transaction even after another flow wins its generation, so a current-generation pre-handler must not intercept it. Cloud checks ' +
       'signature, audience, original expiry, exact stored bearer hash, S256 verifier, and bound session, org, mode and immutable creator ' +
       'subject. Lock session and flow in redemption order. After proof and before mutation, compare the saved credential generation: ' +

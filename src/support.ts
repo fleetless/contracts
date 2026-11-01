@@ -101,7 +101,7 @@ export const supportTokenResponse = z
   .strict()
 export type SupportTokenResponse = z.infer<typeof supportTokenResponse>
 
-/** Console's server proves a failed renewal with the original support bearer and its server-held PKCE verifier. */
+/** Cloud verifies Console's original bearer and server-held PKCE proof; Console first verifies signed Operator failure evidence. */
 export const supportRenewFailRequest = z.object({
   flow_id: z.uuid().meta({ description: 'The pending Cloud renewal flow created with the original support bearer.' }),
   code_verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/).meta({
