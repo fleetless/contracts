@@ -9,6 +9,11 @@ version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected billing error and route notes for interrupted Mollie charges,
+  `charge_in_progress`, and first-checkout reuse or `checkout_open` refusal.
+
 ## [10.1.0] — 2026-11-01
 
 ### Added

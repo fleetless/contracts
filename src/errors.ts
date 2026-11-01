@@ -178,9 +178,11 @@ export type FileTooLargeDetails = z.infer<typeof fileTooLargeDetails>
 /**
  * The `details` of a `502 payment_provider_unavailable` refusal (2026-10-04,
  * fleetless/fleetless#104): Mollie did not answer, or answered with an
- * error, so nothing was charged and nothing changed. `status` is Mollie's
- * own HTTP status, `null` for a timeout — the two ways "did not answer"
- * happens, told apart for whoever reads a support ticket.
+ * error. A plan change or add-on purchase is not applied, but an interrupted
+ * Mollie request may still be charged and later refunded in full; a `502`
+ * does not prove that no charge occurred (fleetless/fleetless#187, #216).
+ * `status` is Mollie's own HTTP status, `null` for a timeout — the two ways
+ * "did not answer" happens, told apart for whoever reads a support ticket.
  */
 export const paymentProviderUnavailableDetails = z.object({
   provider: z.literal('mollie').meta({ description: 'The payment provider. Always `mollie` today.' }),
