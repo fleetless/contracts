@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [9.1.0] — 2026-11-01
+
 ### Changed
 
 - Defined `job_lost` on a final `lost` job for a terminal goal whose result
