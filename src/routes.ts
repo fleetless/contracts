@@ -144,7 +144,7 @@ import {
   protectedResourceMetadata,
 } from './oauth.js'
 import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
-import { supportTokenRequest, supportTokenResponse } from './support.js'
+import { supportRenewFailRequest, supportTokenRequest, supportTokenResponse } from './support.js'
 import {
   purchaseIntentLookupQuery,
   purchaseIntentConfirmRequest,
@@ -325,6 +325,9 @@ const APP_IDENTIFIER: RouteParam = {
 
 /** The routes that verify a credential inside the handler; `auth: 'in_handler'` is refused elsewhere. */
 export const IN_HANDLER_ROUTES: readonly string[] = [
+  // The old support bearer must reach the flow transaction after a newer
+  // generation wins; a generic current-generation guard would hide that race.
+  'POST /console/support/renew/fail',
   'POST /mcp',
   // The per-app endpoint, all three verbs: the bearer decides which app user
   // is calling, and the path names none of that. Built from `MCP_APP` so the
@@ -1969,6 +1972,26 @@ export const ROUTES: readonly RouteEntry[] = [
       '`kind: \'support\'` and `aud: \'console\'`, lives at most sixty minutes with no extension, and carries **no refresh token**: a support ' +
       'session that outlives its ceiling is a new grant and a new exchange, not a renewal. The session starts in `read` mode; switching one to ' +
       '`edit` is the operator side\'s `support_session_edit` command, not anything this route does.',
+  },
+  {
+    method: 'POST', path: '/console/support/renew/fail', section: 'developer-auth',
+    summary: 'Ends a current-generation support session after Console proves renewal authority failed.',
+    audience: 'internal', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 204,
+    params: [], query: null, request: supportRenewFailRequest, response: null,
+    errors: ['validation_error', 'unauthorized', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      'Internal Console-to-Cloud POST only, no CORS. Authorization: Bearer <original fl_support>; a valid old bearer must reach the ' +
+      'transaction even after another flow wins its generation, so a current-generation pre-handler must not intercept it. Cloud checks ' +
+      'signature, audience, original expiry, exact stored bearer hash, S256 verifier, and bound session, org, mode and immutable creator ' +
+      'subject. Lock session and flow in redemption order. After proof and before mutation, compare the saved credential generation: ' +
+      'stale_generation takes precedence and cannot touch the winner. Only a live, pending, unauthorised current-generation flow before ' +
+      'min(flow_created_at + 120 seconds, old credential expiry) atomically records failedAt, endedAt and audit/event. Success is 204 ' +
+      'with no body. Missing callback closes an unauthorised expired flow at the next session check or sweep under the same generation fence. ' +
+      'No failure extends a lease or compensates a committed redemption. Every refusal is Cache-Control: no-store with ' +
+      'supportRenewFailRefusal body: 400 validation_error/invalid_flow for malformed JSON; 401 unauthorized/invalid_authority for missing ' +
+      'or invalid bearer or proof; 404 not_found/invalid_flow for unknown or foreign flow, or /identity_mismatch for bound identity mismatch; ' +
+      '409 target_state_conflict/expired, /replayed, /session_inactive or /stale_generation. No failure response sets or clears fl_support. ' +
+      'Network ambiguity is never a 204 and does not trigger an unconditional support_session.end.',
   },
 
   /* --------------------------------- the Fleetless-hosted app pages */

@@ -5,15 +5,19 @@ import {
   authMeSupportResponse,
   ERROR_CODES,
   ROUTES,
+  supportRenewFailRequest,
+  supportRenewFailRefusal,
   supportSessionInfo,
   supportTokenRequest,
   supportTokenResponse,
 } from '../src/index.js'
+import { IN_HANDLER_SECURITY, exportedSchemas, routesArtifact, schemaIo } from '../scripts/export-schemas.js'
 
 const SESSION_ID = '6f1c1f0e-4b4a-4a8e-9b1a-1f0e4b4a4a8e'
 const ORG_ID = '7f1c1f0e-4b4a-4a8e-9b1a-1f0e4b4a4a8e'
 const GRANT = 'a'.repeat(43)
 const VERIFIER = 'b'.repeat(43)
+const FLOW_ID = '8f1c1f0e-4b4a-4a8e-9b1a-1f0e4b4a4a8e'
 
 const session = { session_id: SESSION_ID, mode: 'read' as const, operator_name: 'Fleetless-Support', expires_at: '2026-10-28T12:00:00.000Z' }
 
@@ -90,6 +94,51 @@ describe('supportTokenResponse', () => {
   })
 })
 
+describe('supportRenewFailRequest', () => {
+  const valid = { flow_id: FLOW_ID, code_verifier: VERIFIER, reason: 'authority_failed' }
+
+  it('accepts only the bound flow, RFC 7636 verifier and fixed reason', () => {
+    expect(supportRenewFailRequest.safeParse(valid).success).toBe(true)
+    expect(supportRenewFailRequest.safeParse({ ...valid, code_verifier: 'c'.repeat(128) }).success).toBe(true)
+    for (const value of [
+      { ...valid, flow_id: 'not-a-uuid' },
+      { ...valid, code_verifier: 'b'.repeat(42) },
+      { ...valid, code_verifier: 'b'.repeat(129) },
+      { ...valid, code_verifier: '+'.repeat(43) },
+      { ...valid, reason: 'login_required' },
+      { ...valid, error: 'failed' },
+      { flow_id: FLOW_ID, reason: 'authority_failed' },
+    ]) expect(supportRenewFailRequest.safeParse(value).success).toBe(false)
+  })
+})
+
+describe('supportRenewFailRefusal', () => {
+  const pairs = [
+    ['validation_error', 'invalid_flow'],
+    ['unauthorized', 'invalid_authority'],
+    ['not_found', 'invalid_flow'],
+    ['not_found', 'identity_mismatch'],
+    ['target_state_conflict', 'expired'],
+    ['target_state_conflict', 'replayed'],
+    ['target_state_conflict', 'session_inactive'],
+    ['target_state_conflict', 'stale_generation'],
+  ] as const
+
+  it('accepts exactly the failure route code/rule pairs', () => {
+    for (const [code, rule] of pairs) {
+      expect(supportRenewFailRefusal.safeParse({ code, message: 'Refused', details: { rule } }).success).toBe(true)
+    }
+    for (const value of [
+      { code: 'unauthorized', message: 'Refused', details: { rule: 'expired' } },
+      { code: 'not_found', message: 'Refused', details: { rule: 'stale_generation' } },
+      { code: 'target_state_conflict', message: 'Refused', details: { rule: 'invalid_authority' } },
+      { code: 'forbidden', message: 'Refused', details: { rule: 'invalid_authority' } },
+      { code: 'unauthorized', message: 'Refused' },
+      { code: 'unauthorized', message: 'Refused', details: { rule: 'invalid_authority', secret: 'x' } },
+    ]) expect(supportRenewFailRefusal.safeParse(value).success).toBe(false)
+  })
+})
+
 describe('authMeSupportResponse', () => {
   const org = { id: ORG_ID, name: 'Acme', require_two_factor: false, created_at: '2026-01-01T00:00:00.000Z' }
   const user = {
@@ -148,8 +197,28 @@ describe('the support-session routes', () => {
     expect(r?.errors).toEqual(expect.arrayContaining(['unauthorized', 'token_expired', 'token_revoked', 'forbidden']))
   })
 
-  it('both support-session routes are internal: neither reaches the public developer reference', () => {
-    for (const key of ['POST /console/support/token', 'POST /api/auth/support/end']) {
+  it('POST /console/support/renew/fail uses an original support bearer, with a bodyless 204', () => {
+    const r = route('POST', '/console/support/renew/fail')
+    expect(r).toMatchObject({
+      section: 'developer-auth', audience: 'internal', auth: 'in_handler', ownerTier: false,
+      rateLimited: false, status: 204, params: [], query: null,
+      request: supportRenewFailRequest, response: null,
+      errors: ['validation_error', 'unauthorized', 'not_found', 'target_state_conflict'],
+    })
+    expect(r?.notes).toContain('Cache-Control: no-store')
+    expect(r?.notes).toContain('stale_generation')
+    expect(IN_HANDLER_SECURITY['POST /console/support/renew/fail']).toEqual([{ supportSession: [] }])
+    expect(routesArtifact().routes.find((entry) => entry.path === '/console/support/renew/fail')).toMatchObject({
+      request: 'support-renew-fail-request', response: null,
+    })
+    expect(exportedSchemas).toHaveProperty('support-renew-fail-request')
+    expect(exportedSchemas).toHaveProperty('support-renew-fail-refusal')
+    expect(schemaIo('support-renew-fail-request')).toBe('input')
+    expect(schemaIo('support-renew-fail-refusal')).toBe('output')
+  })
+
+  it('all support-session routes are internal: none reaches the public developer reference', () => {
+    for (const key of ['POST /console/support/token', 'POST /console/support/renew/fail', 'POST /api/auth/support/end']) {
       const [m, p] = key.split(' ')
       expect(route(m!, p!)?.audience, key).toBe('internal')
     }

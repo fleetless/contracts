@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "validation_error"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "const": "invalid_flow"
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "unauthorized"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "const": "invalid_authority"
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "not_found"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "enum": [
+                "invalid_flow",
+                "identity_mismatch"
+              ]
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "const": "target_state_conflict"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "rule": {
+              "type": "string",
+              "enum": [
+                "expired",
+                "replayed",
+                "session_inactive",
+                "stale_generation"
+              ]
+            }
+          },
+          "required": [
+            "rule"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}
