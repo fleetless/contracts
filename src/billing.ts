@@ -8,11 +8,15 @@ import {
   orgAddons,
   planCurrency,
   planId,
+  planChangeKeep,
   type AddonKey,
   type OrgAddons,
   type PlanId,
   type PlanPrices,
 } from './plans.js'
+import { legalDocumentReference } from './legal.js'
+import { purchaseOperationKey } from './purchase-operation-key.js'
+export { purchaseOperationKey } from './purchase-operation-key.js'
 
 /**
  * Countries, VAT and the money math for billing through Mollie
@@ -402,7 +406,6 @@ export const purchaseBillingDetails = billingDetails.options[0].superRefine((pay
 export type PurchaseBillingDetails = z.infer<typeof purchaseBillingDetails>
 
 /** Generate before POST, persist across reloads; unique within the authenticated org. */
-export const purchaseOperationKey = z.uuid().meta({ description: 'Client-generated UUID persisted before the start request. Unique per org and reused only for identical input.' })
 export const purchaseOperation = z.enum(['checkout', 'paid_change', 'invoice_payment', 'payment_method_invoice', 'mandate_setup'])
 export type PurchaseOperation = z.infer<typeof purchaseOperation>
 const chargeOperation = purchaseOperation.exclude(['mandate_setup'])
@@ -429,15 +432,142 @@ export const purchaseQuote = z.object({
 }).strict()
 export type PurchaseQuote = z.infer<typeof purchaseQuote>
 
+const quoteIdentity = {
+  quote_revision: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of the displayed quote; echo it when confirming.' }),
+  buyer_fingerprint: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of buyer details and email policy; never full VIES evidence.' }),
+}
+
+/** Cloud issues a display only for an eligible, current customer decision. */
+export const billingDecisionDisplayRequest = z.object({
+  operation_key: purchaseOperationKey,
+  operation: z.enum(['checkout', 'paid_change']),
+}).strict()
+export type BillingDecisionDisplayRequest = z.infer<typeof billingDecisionDisplayRequest>
+
+export const confirmationProof = z.string().regex(/^[A-Za-z0-9_-]{43}$/).meta({
+  description: 'Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence.',
+})
+export type ConfirmationProof = z.infer<typeof confirmationProof>
+
+const selectionBase = {
+  plan: z.enum(['basic', 'plus', 'pro']),
+  cycle: billingCycle,
+  addons: orgAddons,
+}
+const purchaseSelection = z.object(selectionBase).strict()
+const planChangeSelection = z.object({ ...selectionBase, keep: planChangeKeep.nullable() }).strict()
+const addonLine = z.object({ addon: addonKey, quantity: z.number().int().positive(), net_cents: purchaseCents }).strict()
+
+const treatmentRules = [
+  { if: { properties: { vat_treatment: { const: 'de_standard' } }, required: ['vat_treatment'] }, then: { properties: { quote: { properties: { rate_percent: { const: 19 } } } } } },
+  { if: { properties: { vat_treatment: { const: 'reverse_charge' } }, required: ['vat_treatment'] }, then: { properties: { quote: { properties: { rate_percent: { const: 0 }, vat_cents: { const: 0 } } }, period_vat_cents: { const: 0 }, vat_treatment_line: { const: 'Reverse charge — VAT payable by the recipient' } } } },
+  { if: { properties: { vat_treatment: { const: 'outside_eu' } }, required: ['vat_treatment'] }, then: { properties: { quote: { properties: { rate_percent: { const: 0 }, vat_cents: { const: 0 } } }, period_vat_cents: { const: 0 }, vat_treatment_line: { const: 'Not taxable in Germany' } } } },
+]
+
+export const billingDecisionAmounts = z.object({
+  currency: z.literal('eur'),
+  quote: purchaseQuote,
+  plan_net_cents: purchaseCents,
+  addon_lines: z.array(addonLine),
+  period_net_cents: purchaseCents,
+  period_vat_cents: purchaseCents,
+  period_gross_cents: purchaseCents,
+  vat_treatment: vatTreatment,
+  vat_treatment_line: z.string().min(1),
+  due_today_gross_cents: purchaseCents,
+  prorated_net_cents: purchaseCents.nullable(),
+  renewal_net_cents: purchaseCents,
+}).strict().superRefine((value, ctx) => {
+  const invalid = (field: string, message: string) => ctx.addIssue({ code: 'custom', path: [field], message })
+  if (value.quote.gross_cents !== value.quote.net_cents + value.quote.vat_cents) invalid('quote', 'Quote gross must equal net plus VAT.')
+  if (value.period_gross_cents !== value.period_net_cents + value.period_vat_cents) invalid('period_gross_cents', 'Period gross must equal net plus VAT.')
+  if (value.period_net_cents !== value.plan_net_cents + value.addon_lines.reduce((sum, line) => sum + line.net_cents, 0)) invalid('period_net_cents', 'Plan and add-on lines must reconcile.')
+  if (value.due_today_gross_cents !== value.quote.gross_cents) invalid('due_today_gross_cents', 'Due today must equal the quote gross.')
+  if (value.vat_treatment === 'de_standard') {
+    if (value.quote.rate_percent !== 19 || !value.vat_treatment_line.startsWith('19% German VAT: ')) invalid('vat_treatment', 'German VAT requires 19 percent and its display line.')
+  } else if (value.quote.rate_percent !== 0 || value.quote.vat_cents !== 0 || value.period_vat_cents !== 0 || value.vat_treatment_line !== (value.vat_treatment === 'reverse_charge' ? 'Reverse charge — VAT payable by the recipient' : 'Not taxable in Germany')) {
+    invalid('vat_treatment', 'Zero-rated treatment, rate, VAT and line must agree.')
+  }
+}).meta({ allOf: treatmentRules })
+export type BillingDecisionAmounts = z.infer<typeof billingDecisionAmounts>
+
+const utcInstant = z.iso.datetime().regex(/Z$/)
+const ianaTimeZone = z.string().min(1).refine((value) => {
+  try { new Intl.DateTimeFormat('en', { timeZone: value }); return true } catch { return false }
+}, { message: 'Use an IANA time zone.' })
+function localDate(instant: string, timeZone: string): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(instant))
+    const get = (type: string) => parts.find((part) => part.type === type)?.value ?? ''
+    return `${get('year')}-${get('month')}-${get('day')}`
+  } catch { return null }
+}
+export const billingDecisionPeriod = z.object({
+  display_time_zone: ianaTimeZone,
+  starts_on: z.iso.date(),
+  starts_at: utcInstant.nullable(),
+  current_period_ends_at: utcInstant,
+  renews_at: utcInstant,
+  effective: z.discriminatedUnion('mode', [
+    z.object({ mode: z.literal('on_confirmation'), quoted_as_of_at: utcInstant, local_date: z.iso.date() }).strict(),
+    z.object({ mode: z.literal('scheduled'), at: utcInstant, at_period_end: z.boolean() }).strict(),
+  ]),
+}).strict().superRefine((period, ctx) => {
+  if (period.starts_at && localDate(period.starts_at, period.display_time_zone) !== period.starts_on) ctx.addIssue({ code: 'custom', path: ['starts_on'], message: 'Start date must match the instant in the display zone.' })
+  if (period.effective.mode === 'scheduled' && period.effective.at_period_end && period.effective.at !== period.current_period_ends_at) ctx.addIssue({ code: 'custom', path: ['effective', 'at'], message: 'Period-end effect must equal the current period boundary.' })
+  if (period.effective.mode === 'on_confirmation' && localDate(period.effective.quoted_as_of_at, period.display_time_zone) !== period.effective.local_date) ctx.addIssue({ code: 'custom', path: ['effective', 'local_date'], message: 'Quoted local date must match the display zone.' })
+})
+export type BillingDecisionPeriod = z.infer<typeof billingDecisionPeriod>
+
+const declaration = z.object({
+  text_id: z.literal('DR-1374-draft-3-C.4'),
+  text: z.string().min(1),
+  terms: legalDocumentReference,
+  dpa: legalDocumentReference,
+}).strict().superRefine((value, ctx) => {
+  if (value.terms.url === value.dpa.url) ctx.addIssue({ code: 'custom', path: ['dpa'], message: 'Terms and DPA require separate version URLs.' })
+})
+
+const snapshotBase = z.object({
+  snapshot_id: z.uuid(),
+  decision_id: z.uuid(),
+  operation_key: purchaseOperationKey,
+  owner_id: z.uuid(),
+  organization_id: z.uuid(),
+  organization_name: z.string().min(1),
+  ...quoteIdentity,
+  amounts: billingDecisionAmounts,
+  period: billingDecisionPeriod,
+  declaration,
+  expires_at: utcInstant,
+}).strict()
+export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
+  snapshotBase.extend({ decision_kind: z.literal('checkout'), selection: purchaseSelection }).strict(),
+  snapshotBase.extend({ decision_kind: z.literal('paid_change'), selection: purchaseSelection }).strict(),
+  snapshotBase.extend({ decision_kind: z.literal('plan_change'), selection: planChangeSelection }).strict(),
+]).superRefine((value, ctx) => {
+  const expected = `By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for ${value.organization_name}.`
+  if (value.declaration.text !== expected) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved C.4 sentence and organization.' })
+  const lines = value.amounts.addon_lines
+  const expectedAddons = addonKey.options.filter((key) => value.selection.addons[key] > 0)
+  if (lines.length !== expectedAddons.length || lines.some((line, i) => line.addon !== expectedAddons[i] || line.quantity !== value.selection.addons[line.addon])) ctx.addIssue({ code: 'custom', path: ['amounts', 'addon_lines'], message: 'Add-on lines must match absolute selection in catalogue order.' })
+})
+export type BillingDecisionSnapshot = z.infer<typeof billingDecisionSnapshot>
+
+export const billingDecisionDisplayResponse = z.object({
+  confirmation_proof: confirmationProof,
+  expires_at: utcInstant,
+  snapshot: billingDecisionSnapshot,
+}).strict().superRefine((value, ctx) => {
+  if (value.expires_at !== value.snapshot.expires_at) ctx.addIssue({ code: 'custom', path: ['expires_at'], message: 'Display and snapshot expiry must match.' })
+})
+export type BillingDecisionDisplayResponse = z.infer<typeof billingDecisionDisplayResponse>
+
 const intentIdentity = {
   intent_id: z.uuid().meta({ description: 'Opaque persisted purchase intent identity.' }),
   operation_key: purchaseOperationKey,
   operation: chargeOperation,
   invoice_id: z.uuid().optional().meta({ description: 'The due charge or issued invoice, for invoice-paying operations.' }),
-}
-const quoteIdentity = {
-  quote_revision: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of the displayed quote; echo it when confirming.' }),
-  buyer_fingerprint: z.string().trim().min(1).max(200).meta({ description: 'Opaque revision of buyer details and email policy; never full VIES evidence.' }),
 }
 export const purchaseHoldReason = z.enum([
   'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved',

@@ -1021,12 +1021,16 @@ export type { ControllerRegisterWrite, ControllerRegisterOrgResponse } from './c
 
 export {
   purchaseBillingDetails, purchaseOperationKey, purchaseOperation, purchaseQuote,
+  billingDecisionDisplayRequest, confirmationProof, billingDecisionAmounts,
+  billingDecisionPeriod, billingDecisionSnapshot, billingDecisionDisplayResponse,
   purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,
   purchaseIntentConfirmRequest, purchaseConflictDetails, invoicePayRequest,
   purchaseIntentResponse, vatDecision, viesPendingReason,
 } from './billing.js'
 export type {
   PurchaseBillingDetails, PurchaseOperation, PurchaseQuote, PurchaseIntent,
+  BillingDecisionDisplayRequest, ConfirmationProof, BillingDecisionAmounts,
+  BillingDecisionPeriod, BillingDecisionSnapshot, BillingDecisionDisplayResponse,
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
   InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
 } from './billing.js'
