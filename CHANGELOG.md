@@ -9,6 +9,12 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- `cancelled` invoice status, required nullable `cancellation_document_url` for
+  historical Cloud invoices, and optional `kind=invoice|cancellation` on the
+  owner-only invoice PDF route. Omitting `kind` still returns the original PDF.
+
 ### Fixed
 
 - Corrected billing error and route notes for interrupted Mollie charges,
