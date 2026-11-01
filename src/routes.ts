@@ -2828,7 +2828,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: clientRobotListResponse,
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
-      '**The REST twin of the MCP tool `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name ' +
+      '**The REST twin of the MCP action `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name ' +
       'at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees ' +
       'every robot its app attaches; a developer bearer sees the organisation\'s robots. Name order, id as the tiebreak. A robot on which the ' +
       'role grants nothing is absent rather than listed empty — the same answer `robots.list` gives, for the same reason: reach is a grant, ' +
@@ -2842,7 +2842,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: mcpRobotDatasheet,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      '**The REST twin of the MCP tool `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
+      '**The REST twin of the MCP action `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
       'role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, ' +
       '`action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller ' +
       'does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that ' +

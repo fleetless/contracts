@@ -7,7 +7,7 @@ import { robot } from './rest.js'
 
 /**
  * One robot as `GET /api/client/robots` lists it — the REST twin of the MCP
- * tool `robots.list`, and the one robot question no robot-scoped route can
+ * action `robots.list`, and the one robot question no robot-scoped route can
  * answer: which robots may I name at all.
  *
  * Deliberately not `robotListItem`: that one carries `exposes`, the per-kind
