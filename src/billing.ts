@@ -546,6 +546,12 @@ export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
 ]).superRefine((value, ctx) => {
   const expected = `By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for ${value.organization_name}.`
   if (value.declaration.text !== expected) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved C.4 sentence and organization.' })
+  if (value.amounts.vat_treatment === 'de_standard') {
+    const euro = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(cents / 100)
+    const period = value.selection.cycle === 'monthly' ? 'month' : 'year'
+    const line = `19% German VAT: ${euro(value.amounts.period_vat_cents)}; total ${euro(value.amounts.period_gross_cents)} per ${period}`
+    if (value.amounts.vat_treatment_line !== line) ctx.addIssue({ code: 'custom', path: ['amounts', 'vat_treatment_line'], message: 'German VAT line must match the displayed period amounts and cycle.' })
+  }
   const lines = value.amounts.addon_lines
   const expectedAddons = addonKey.options.filter((key) => value.selection.addons[key] > 0)
   if (lines.length !== expectedAddons.length || lines.some((line, i) => line.addon !== expectedAddons[i] || line.quantity !== value.selection.addons[line.addon])) ctx.addIssue({ code: 'custom', path: ['amounts', 'addon_lines'], message: 'Add-on lines must match absolute selection in catalogue order.' })
@@ -565,7 +571,10 @@ export type BillingDecisionDisplayResponse = z.infer<typeof billingDecisionDispl
 export const planChangePrepareResponse = z.object({
   change_id: z.uuid(),
   display: billingDecisionDisplayResponse,
-}).strict()
+}).strict().superRefine((value, ctx) => {
+  if (value.display.snapshot.decision_kind !== 'plan_change') ctx.addIssue({ code: 'custom', path: ['display', 'snapshot', 'decision_kind'], message: 'Prepared plan changes require a plan-change display.' })
+  if (value.display.snapshot.decision_id !== value.change_id) ctx.addIssue({ code: 'custom', path: ['display', 'snapshot', 'decision_id'], message: 'Display must refer to the prepared change.' })
+}).meta({ allOf: [{ properties: { display: { properties: { snapshot: { properties: { decision_kind: { const: 'plan_change' } } } } } } }] })
 export type PlanChangePrepareResponse = z.infer<typeof planChangePrepareResponse>
 
 const intentIdentity = {

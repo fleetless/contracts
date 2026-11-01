@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "string",
+  "pattern": "^[A-Za-z0-9_-]{43}$",
+  "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+}

@@ -143,11 +143,14 @@ import {
   oauthTokenResponse,
   protectedResourceMetadata,
 } from './oauth.js'
-import { adminPlanChangeRequest, orgPlan, planChangeRequest } from './plans.js'
+import { adminPlanChangeRequest, orgPlan, planChangeRequest, planChangePrepareRequest, planChangeDecisionLookupQuery, planChangeDecisionStatusResponse } from './plans.js'
 import { supportRenewFailRequest, supportTokenRequest, supportTokenResponse } from './support.js'
 import {
   purchaseIntentLookupQuery,
   purchaseIntentConfirmRequest,
+  billingDecisionDisplayRequest,
+  billingDecisionDisplayResponse,
+  planChangePrepareResponse,
   purchaseIntentResponse,
   invoicePayRequest,
   billingCancelRequest,
@@ -3460,13 +3463,21 @@ export const ROUTES: readonly RouteEntry[] = [
       'every call, never cached. `switch` is present only for an organization still on the beta that has not yet landed on a priced plan.',
   },
   {
+    method: 'POST', path: '/api/org/plan/change/prepare', section: 'org',
+    summary: 'Prepares a nonbinding downward-plan decision and its C.4 display.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: null, request: planChangePrepareRequest, response: planChangePrepareResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
+    notes: 'Owner only. Persists a prepared change reference and a short-lived display, without mutating the plan, pending_change, or legal acceptance. A same-key, same-input retry while undecided returns the same change_id with a fresh display. A Basic cancellation reason belongs only in the final PUT.',
+  },
+  {
     method: 'PUT', path: '/api/org/plan/change', section: 'org',
-    summary: "Moves the org's plan down — a lower plan or a cancellation to Basic — queuing the change rather than applying it at once.",
+    summary: "Confirms a prepared downward-plan decision with its C.4 proof.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: planChangeRequest, response: orgPlan,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
     notes:
-      'Owner tier, and **downward only**: this route moves the org to a lower plan or cancels it outright to Basic. It never moves the org ' +
+      'Owner tier, and **downward only**: a prior prepare returns change_id and a displayed snapshot; this final PUT requires its confirmation_proof and the same operation_key, target_plan and keep. Only Basic permits cancellation_reason (at most 500 input characters). The reason is final idempotency metadata, not price or legal evidence. An exact replay returns the original result; a changed reason with the same key conflicts before effect. The decision and legal acceptance commit together. This route moves the org to a lower plan or cancels it outright to Basic. It never moves the org ' +
       'up — an upgrade or an add-on goes through the billing routes instead (`POST /api/billing/checkout`, `POST /api/billing/change`). ' +
       '`409 target_state_conflict` names `target_plan` with rule `not_lower` when the ' +
       'chosen plan is not below the org\'s current one; with rule `locked_basic_only` when the org is locked (`orgLock`) and the chosen ' +
@@ -3479,7 +3490,15 @@ export const ROUTES: readonly RouteEntry[] = [
       'kind not named in `keep` is deleted at that instant, never before** — except a choice made while the org is locked, which takes ' +
       'effect at once, and a beta org\'s choice, which takes effect at the switch date instead. Anything created while the choice is ' +
       'pending is checked against the target plan too and, when it passes, is folded into `keep`, so exactly what the confirmation counted ' +
-      'is what is actually deleted. A later `PUT` replaces a still-pending choice outright.',
+      'is what is actually deleted. Replacing a still-pending choice requires a new prepare and proof-bound final PUT.',
+  },
+  {
+    method: 'GET', path: '/api/org/plan/change/decisions', section: 'org',
+    summary: 'Looks up the prepared or accepted owner plan decision by operation key.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [], query: planChangeDecisionLookupQuery, request: null, response: planChangeDecisionStatusResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found'], transport: 'http',
+    notes: 'Scope the operation key to the authenticated real Owner and organization. An unknown or foreign key returns 404 without disclosure. Prepared returns only change_id; accepted returns the stored original orgPlan result. No proof is returned. Console checks this before asking for a fresh display after a lost final response.',
   },
   {
     method: 'DELETE', path: '/api/org/plan/change', section: 'org',
@@ -3489,8 +3508,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
     notes:
       'Owner tier. `404 not_found` when the org has no `pending_change` to withdraw. The org stays on its current plan, unchanged, as if ' +
-      'the choice had never been made; a developer who wants a different one sends a new `PUT`, which would have replaced this one outright ' +
-      'anyway.',
+      'the choice had never been made; an Owner who wants a different one prepares a new display and confirms it with a final PUT.',
   },
   {
     method: 'PATCH', path: '/api/admin/orgs/:id/plan', section: 'org',
@@ -3531,7 +3549,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required'], transport: 'http',
     notes:
       '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that ' +
-      'charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; cancel, resume, the details and the ' +
+      'charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; plan-change prepare, resume, the details and the ' +
       'VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan ' +
       'and its limits still come from `GET /api/org/plan` (fleetless/fleetless issue 103) and are not repeated here.',
   },
@@ -3542,7 +3560,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: checkoutRequest, response: checkoutResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
-    notes: "Basic stays free for every payer. New paid checkout requires a company, terms, current buyer eligibility and an EUR quote. Other EU countries require direct VIES valid with an identifier; unavailable/unverified or missing identifier returns awaiting_vies without payment or redirect. Cloud checks the non-EU Tax ID and versioned public-email policy, and US state. Persist operation_key before POST; the same org/key/input returns the same intent, different input is 409 target_state_conflict with purchaseConflictDetails rule operation_key_reused. Owner lookup recovers a lost response. Only explicit confirmation of the current quote may create a payment; a worker cannot start it. payment_started.payment.checkout_url exists only for a hosted payment, where the buyer chooses card, PayPal or Apple Pay. Its return is <console>/settings/billing?checkout=<checkout_id>; GET /api/billing/checkout/:id reconciles the recorded payment. An active/past_due account uses billing/change; already_billed and plan_limit retain their existing meanings.",
+    notes: "Basic stays free for every payer. This start creates only a nonbinding draft; accept_terms is deprecated and cannot confirm an order. Current company, buyer, VIES and EUR quote checks still apply. Persist operation_key before POST; same key/input recovers the intent, changed input conflicts. An eligible Owner obtains a no-store C.4 display, then explicitly confirms with its proof. No payment or acceptance occurs at start. Hosted payment later offers card, PayPal or Apple Pay; its return is <console>/settings/billing?checkout=<checkout_id>. An active/past_due account uses billing/change.",
   },
   {
     method: 'GET', path: '/api/billing/intents', section: 'billing',
@@ -3550,7 +3568,16 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: purchaseIntentLookupQuery, request: null, response: purchaseIntentResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found'], transport: 'http',
-    notes: 'Supply exactly one of operation_key or intent_id and the expected operation. Scope lookup to the authenticated owner and org; unknown, foreign-org or mismatched-operation intents return 404 without disclosure. Repeating a lookup after restart or lost response returns the same intent/payment identity and, for a paid change, its billing result. Awaiting VIES and eligible states never start payment; Console polls at a bounded interval and asks for fresh confirmation of the displayed quote.',
+    notes: 'Supply exactly one of operation_key or intent_id and the expected operation. Scope lookup to the authenticated owner and org; unknown, foreign-org or mismatched-operation intents return 404 without disclosure. Repeating a lookup after restart or lost response returns the same intent/payment identity and, for a paid change, its billing result. A proof is never returned here; a still-eligible decision needs a fresh C.4 display and explicit Owner click.',
+  },
+  {
+    method: 'POST', path: '/api/billing/intents/:id/display', section: 'billing',
+    summary: 'Issues a short-lived C.4 decision display and opaque confirmation proof.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The eligible intent ID returned by checkout or billing change.' }],
+    query: null, request: billingDecisionDisplayRequest, response: billingDecisionDisplayResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes: 'Owner only, Cache-Control: no-store. Cloud persists the snapshot and proof hash for an eligible current checkout or paid-change intent of this Owner and org. Pending, held, refused or accepted intents cannot mint a new proof. The proof never appears in lookup, billing views or logs.',
   },
   {
     method: 'POST', path: '/api/billing/intents/:id/confirm', section: 'billing',
@@ -3559,7 +3586,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The intent ID returned by the start or lookup response.' }],
     query: null, request: purchaseIntentConfirmRequest, response: purchaseIntentResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict', 'plan_limit', 'rate_limited', ...BILLING_OFF, ...MOLLIE], transport: 'http',
-    notes: 'Require the same operation_key and operation plus the displayed quote_revision and buyer_fingerprint. Under the org lock compare current buyer, country, VAT ID, Tax ID, invoice email/policy version, US state, EUR quote, invoice status/amount/currency and integration holds. A stale revision is 409 target_state_conflict with purchaseConflictDetails/current_intent; the owner must confirm again. Foreign or mismatched operation is 404 without disclosure. Pending or held cannot charge. Persist one payment row before the provider call and use its ID as the provider idempotency key. Repeated confirmations and lost responses recover that payment/result; never create another. Look up/adopt a possibly-created payment before resending after a timeout; ambiguity is not permission to charge again.',
+    notes: 'Checkout and paid-change decisions require confirmation_proof along with the operation key, quote revision and buyer fingerprint shown in the persisted C.4 display. Cloud rechecks buyer, quote, selection, legal references, period and current state under the org lock; stale or spent proof conflicts without effect. One decision and one legal acceptance commit together. An exact same-key replay returns the original result without another payment or acceptance. Foreign ownership answers 404 without disclosure; pending or held cannot charge.',
   },
   {
     method: 'GET', path: '/api/billing/checkout/:id', section: 'billing',
@@ -3592,12 +3619,12 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/api/billing/change', section: 'billing',
-    summary: "Records a paid-change intent or schedules a decrease.",
+    summary: "Records a nonbinding paid-change intent for a plan, cycle or add-on target.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: billingChangeRequest, response: billingChangeResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
-    notes: "The request names an absolute plan/cycle/add-on target and a stable operation_key. Increases need a current company/EUR decision and explicit owner confirmation even after a worker resolves VIES. billingChangeResponse carries intent while awaiting_vies, eligible, refused or held; the old plan stays in effect. Confirm under the org lock, comparing buyer/policy fingerprint and quote revision; use one persisted payment row for provider idempotency. A started paid change returns billing, charged and intent with payment_started. An immediate accepted decrease retains the billing/charged branch (charged null); decreases are scheduled for period end. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain. Do not advance periods, cancel existing choices or begin dunning merely because an intent is pending.",
+    notes: "The request names an absolute plan/cycle/add-on target and a stable operation_key. Start is nonbinding for every change, including zero-charge, scheduled and formerly immediate decreases: it neither changes the plan nor writes legal acceptance. An eligible Owner obtains a C.4 display and explicitly confirms with its proof. Confirmation may return accepted_no_payment with charged: null and no provider payment or redirect, or payment_started for a charged change. Exact-key lookup recovers the accepted result. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain.",
   },
   {
     method: 'POST', path: '/api/billing/payment-method', section: 'billing',
@@ -3610,15 +3637,11 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/api/billing/cancel', section: 'billing',
-    summary: "Schedules the org's plan to cancel to Basic at the period's end.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
-    params: [], query: null, request: billingCancelRequest, requestOptional: true, response: billingView,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'plan_limit'], transport: 'http',
-    notes:
-      'A body is optional — `reason` alone, and nobody but Fleetless reads it. `404 not_found` when the org has no billing account to ' +
-      'cancel. Takes effect at the period\'s end, nothing credited or refunded; over Basic\'s limits this is refused `409 ' +
-      'plan_limit` and the console sends the owner to its choose-what-stays page instead, the same as a plan downgrade. "Cancel at ' +
-      'period end" is not a flag here — it reads as `pending_change.target_plan === \'basic\'` on `GET /api/org/plan`.',
+    summary: 'Rejects legacy direct cancellation after the C.4 gate is active.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 409,
+    params: [], query: null, request: billingCancelRequest, requestOptional: true, response: null,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'target_state_conflict'], transport: 'http',
+    notes: 'The C.4 gate rejects this legacy POST with 409 target_state_conflict before mutation, audit or mail. Console uses POST /api/org/plan/change/prepare and the proof-bound final PUT for Basic, including an optional reason there. This route cannot confirm a customer decision.',
   },
   {
     method: 'POST', path: '/api/billing/resume', section: 'billing',

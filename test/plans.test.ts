@@ -89,6 +89,14 @@ describe("the organization's plan: changes, the admin request and plan errors (2
     expect(planChangeDecisionLookupQuery.safeParse({ operation_key: key, owner_id: id }).success).toBe(false)
     expect(planChangeDecisionStatusResponse.parse({ state: 'prepared', change_id: id })).toEqual({ state: 'prepared', change_id: id })
     expect(planChangeDecisionStatusResponse.safeParse({ state: 'accepted', change_id: id }).success).toBe(false)
+    const result = {
+      plan: 'basic', currency: 'eur', period_ends_at: '2026-11-30T00:00:00Z',
+      addons: { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 },
+      limits: PLANS.basic.limits, features: PLANS.basic.features,
+      usage: { seats: 1, robots: 0, apps: 0, app_users: 0, live_video_ms_this_month: 0, asset_bytes: 0 },
+      pending_change: null, lock: null, switch: null,
+    }
+    expect(planChangeDecisionStatusResponse.safeParse({ state: 'accepted', change_id: id, result }).success).toBe(true)
   })
 
   it('the admin request takes overrides that clear with null', () => {

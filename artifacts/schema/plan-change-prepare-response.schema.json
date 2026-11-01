@@ -1,0 +1,1896 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "change_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "display": {
+      "type": "object",
+      "properties": {
+        "confirmation_proof": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+        },
+        "expires_at": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            {
+              "pattern": "Z$"
+            }
+          ]
+        },
+        "snapshot": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "snapshot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "decision_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "operation_key": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+                },
+                "owner_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quote_revision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of the displayed quote; echo it when confirming."
+                },
+                "buyer_fingerprint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+                },
+                "amounts": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "const": "eur"
+                    },
+                    "quote": {
+                      "type": "object",
+                      "properties": {
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every new quote is in EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Current charge excluding VAT, in cents."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT on the current charge, in cents."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Total to confirm, including VAT, in cents."
+                        },
+                        "rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "VAT rate in whole percent."
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "net_cents",
+                        "vat_cents",
+                        "gross_cents",
+                        "rate_percent"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "plan_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "addon_lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addon": {
+                            "type": "string",
+                            "enum": [
+                              "seats",
+                              "robots",
+                              "apps",
+                              "app_user_packs",
+                              "live_video_packs"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "net_cents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addon",
+                          "quantity",
+                          "net_cents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "period_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_vat_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "vat_treatment": {
+                      "type": "string",
+                      "enum": [
+                        "de_standard",
+                        "reverse_charge",
+                        "outside_eu"
+                      ]
+                    },
+                    "vat_treatment_line": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "due_today_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "prorated_net_cents": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "renewal_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "quote",
+                    "plan_net_cents",
+                    "addon_lines",
+                    "period_net_cents",
+                    "period_vat_cents",
+                    "period_gross_cents",
+                    "vat_treatment",
+                    "vat_treatment_line",
+                    "due_today_gross_cents",
+                    "prorated_net_cents",
+                    "renewal_net_cents"
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "de_standard"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 19
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "reverse_charge"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Reverse charge — VAT payable by the recipient"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "outside_eu"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Not taxable in Germany"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "period": {
+                  "type": "object",
+                  "properties": {
+                    "display_time_zone": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "starts_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "starts_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "allOf": [
+                            {
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "pattern": "Z$"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "current_period_ends_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "renews_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "effective": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "on_confirmation"
+                            },
+                            "quoted_as_of_at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "local_date": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "quoted_as_of_at",
+                            "local_date"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "scheduled"
+                            },
+                            "at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "at_period_end": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "at",
+                            "at_period_end"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "display_time_zone",
+                    "starts_on",
+                    "starts_at",
+                    "current_period_ends_at",
+                    "renews_at",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                },
+                "declaration": {
+                  "type": "object",
+                  "properties": {
+                    "text_id": {
+                      "type": "string",
+                      "const": "DR-1374-draft-3-C.4"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "terms": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "dpa": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "text_id",
+                    "text",
+                    "terms",
+                    "dpa"
+                  ],
+                  "additionalProperties": false
+                },
+                "expires_at": {
+                  "type": "string",
+                  "allOf": [
+                    {
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "pattern": "Z$"
+                    }
+                  ]
+                },
+                "decision_kind": {
+                  "type": "string",
+                  "const": "checkout"
+                },
+                "selection": {
+                  "type": "object",
+                  "properties": {
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "plus",
+                        "pro"
+                      ]
+                    },
+                    "cycle": {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "yearly"
+                      ]
+                    },
+                    "addons": {
+                      "type": "object",
+                      "properties": {
+                        "seats": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra developer seats, one each."
+                        },
+                        "robots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra robots, one each."
+                        },
+                        "apps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra apps, one each."
+                        },
+                        "app_user_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of five extra app users."
+                        },
+                        "live_video_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of 250 extra hours of app-user live video per month."
+                        }
+                      },
+                      "required": [
+                        "seats",
+                        "robots",
+                        "apps",
+                        "app_user_packs",
+                        "live_video_packs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "plan",
+                    "cycle",
+                    "addons"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "snapshot_id",
+                "decision_id",
+                "operation_key",
+                "owner_id",
+                "organization_id",
+                "organization_name",
+                "quote_revision",
+                "buyer_fingerprint",
+                "amounts",
+                "period",
+                "declaration",
+                "expires_at",
+                "decision_kind",
+                "selection"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "snapshot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "decision_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "operation_key": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+                },
+                "owner_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quote_revision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of the displayed quote; echo it when confirming."
+                },
+                "buyer_fingerprint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+                },
+                "amounts": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "const": "eur"
+                    },
+                    "quote": {
+                      "type": "object",
+                      "properties": {
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every new quote is in EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Current charge excluding VAT, in cents."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT on the current charge, in cents."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Total to confirm, including VAT, in cents."
+                        },
+                        "rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "VAT rate in whole percent."
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "net_cents",
+                        "vat_cents",
+                        "gross_cents",
+                        "rate_percent"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "plan_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "addon_lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addon": {
+                            "type": "string",
+                            "enum": [
+                              "seats",
+                              "robots",
+                              "apps",
+                              "app_user_packs",
+                              "live_video_packs"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "net_cents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addon",
+                          "quantity",
+                          "net_cents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "period_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_vat_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "vat_treatment": {
+                      "type": "string",
+                      "enum": [
+                        "de_standard",
+                        "reverse_charge",
+                        "outside_eu"
+                      ]
+                    },
+                    "vat_treatment_line": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "due_today_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "prorated_net_cents": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "renewal_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "quote",
+                    "plan_net_cents",
+                    "addon_lines",
+                    "period_net_cents",
+                    "period_vat_cents",
+                    "period_gross_cents",
+                    "vat_treatment",
+                    "vat_treatment_line",
+                    "due_today_gross_cents",
+                    "prorated_net_cents",
+                    "renewal_net_cents"
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "de_standard"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 19
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "reverse_charge"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Reverse charge — VAT payable by the recipient"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "outside_eu"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Not taxable in Germany"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "period": {
+                  "type": "object",
+                  "properties": {
+                    "display_time_zone": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "starts_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "starts_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "allOf": [
+                            {
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "pattern": "Z$"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "current_period_ends_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "renews_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "effective": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "on_confirmation"
+                            },
+                            "quoted_as_of_at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "local_date": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "quoted_as_of_at",
+                            "local_date"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "scheduled"
+                            },
+                            "at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "at_period_end": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "at",
+                            "at_period_end"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "display_time_zone",
+                    "starts_on",
+                    "starts_at",
+                    "current_period_ends_at",
+                    "renews_at",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                },
+                "declaration": {
+                  "type": "object",
+                  "properties": {
+                    "text_id": {
+                      "type": "string",
+                      "const": "DR-1374-draft-3-C.4"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "terms": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "dpa": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "text_id",
+                    "text",
+                    "terms",
+                    "dpa"
+                  ],
+                  "additionalProperties": false
+                },
+                "expires_at": {
+                  "type": "string",
+                  "allOf": [
+                    {
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "pattern": "Z$"
+                    }
+                  ]
+                },
+                "decision_kind": {
+                  "type": "string",
+                  "const": "paid_change"
+                },
+                "selection": {
+                  "type": "object",
+                  "properties": {
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "plus",
+                        "pro"
+                      ]
+                    },
+                    "cycle": {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "yearly"
+                      ]
+                    },
+                    "addons": {
+                      "type": "object",
+                      "properties": {
+                        "seats": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra developer seats, one each."
+                        },
+                        "robots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra robots, one each."
+                        },
+                        "apps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra apps, one each."
+                        },
+                        "app_user_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of five extra app users."
+                        },
+                        "live_video_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of 250 extra hours of app-user live video per month."
+                        }
+                      },
+                      "required": [
+                        "seats",
+                        "robots",
+                        "apps",
+                        "app_user_packs",
+                        "live_video_packs"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "plan",
+                    "cycle",
+                    "addons"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "snapshot_id",
+                "decision_id",
+                "operation_key",
+                "owner_id",
+                "organization_id",
+                "organization_name",
+                "quote_revision",
+                "buyer_fingerprint",
+                "amounts",
+                "period",
+                "declaration",
+                "expires_at",
+                "decision_kind",
+                "selection"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "snapshot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "decision_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "operation_key": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+                },
+                "owner_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organization_name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "quote_revision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of the displayed quote; echo it when confirming."
+                },
+                "buyer_fingerprint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+                },
+                "amounts": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "const": "eur"
+                    },
+                    "quote": {
+                      "type": "object",
+                      "properties": {
+                        "currency": {
+                          "type": "string",
+                          "const": "eur",
+                          "description": "Every new quote is in EUR."
+                        },
+                        "net_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Current charge excluding VAT, in cents."
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "VAT on the current charge, in cents."
+                        },
+                        "gross_cents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Total to confirm, including VAT, in cents."
+                        },
+                        "rate_percent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "VAT rate in whole percent."
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "net_cents",
+                        "vat_cents",
+                        "gross_cents",
+                        "rate_percent"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "plan_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "addon_lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addon": {
+                            "type": "string",
+                            "enum": [
+                              "seats",
+                              "robots",
+                              "apps",
+                              "app_user_packs",
+                              "live_video_packs"
+                            ]
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "net_cents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addon",
+                          "quantity",
+                          "net_cents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "period_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_vat_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "period_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "vat_treatment": {
+                      "type": "string",
+                      "enum": [
+                        "de_standard",
+                        "reverse_charge",
+                        "outside_eu"
+                      ]
+                    },
+                    "vat_treatment_line": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "due_today_gross_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "prorated_net_cents": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "renewal_net_cents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "quote",
+                    "plan_net_cents",
+                    "addon_lines",
+                    "period_net_cents",
+                    "period_vat_cents",
+                    "period_gross_cents",
+                    "vat_treatment",
+                    "vat_treatment_line",
+                    "due_today_gross_cents",
+                    "prorated_net_cents",
+                    "renewal_net_cents"
+                  ],
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "de_standard"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 19
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "reverse_charge"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Reverse charge — VAT payable by the recipient"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "vat_treatment": {
+                            "const": "outside_eu"
+                          }
+                        },
+                        "required": [
+                          "vat_treatment"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "quote": {
+                            "properties": {
+                              "rate_percent": {
+                                "const": 0
+                              },
+                              "vat_cents": {
+                                "const": 0
+                              }
+                            }
+                          },
+                          "period_vat_cents": {
+                            "const": 0
+                          },
+                          "vat_treatment_line": {
+                            "const": "Not taxable in Germany"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "period": {
+                  "type": "object",
+                  "properties": {
+                    "display_time_zone": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "starts_on": {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "starts_at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "allOf": [
+                            {
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "pattern": "Z$"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "current_period_ends_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "renews_at": {
+                      "type": "string",
+                      "allOf": [
+                        {
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "pattern": "Z$"
+                        }
+                      ]
+                    },
+                    "effective": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "on_confirmation"
+                            },
+                            "quoted_as_of_at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "local_date": {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "quoted_as_of_at",
+                            "local_date"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "const": "scheduled"
+                            },
+                            "at": {
+                              "type": "string",
+                              "allOf": [
+                                {
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                {
+                                  "pattern": "Z$"
+                                }
+                              ]
+                            },
+                            "at_period_end": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "at",
+                            "at_period_end"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "display_time_zone",
+                    "starts_on",
+                    "starts_at",
+                    "current_period_ends_at",
+                    "renews_at",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                },
+                "declaration": {
+                  "type": "object",
+                  "properties": {
+                    "text_id": {
+                      "type": "string",
+                      "const": "DR-1374-draft-3-C.4"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "terms": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "dpa": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "version_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "url": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^https:\\/\\/(?=[A-Za-z0-9.-]{1,253}(?::[0-9]{1,5})?(?:[/?#]|$))[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*(?::(?:[0-5]?[0-9]{1,4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#]|$)",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "version_date",
+                        "url"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "text_id",
+                    "text",
+                    "terms",
+                    "dpa"
+                  ],
+                  "additionalProperties": false
+                },
+                "expires_at": {
+                  "type": "string",
+                  "allOf": [
+                    {
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                    },
+                    {
+                      "pattern": "Z$"
+                    }
+                  ]
+                },
+                "decision_kind": {
+                  "type": "string",
+                  "const": "plan_change"
+                },
+                "selection": {
+                  "type": "object",
+                  "properties": {
+                    "plan": {
+                      "type": "string",
+                      "enum": [
+                        "basic",
+                        "plus",
+                        "pro"
+                      ]
+                    },
+                    "cycle": {
+                      "type": "string",
+                      "enum": [
+                        "monthly",
+                        "yearly"
+                      ]
+                    },
+                    "addons": {
+                      "type": "object",
+                      "properties": {
+                        "seats": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra developer seats, one each."
+                        },
+                        "robots": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra robots, one each."
+                        },
+                        "apps": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Extra apps, one each."
+                        },
+                        "app_user_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of five extra app users."
+                        },
+                        "live_video_packs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Packs of 250 extra hours of app-user live video per month."
+                        }
+                      },
+                      "required": [
+                        "seats",
+                        "robots",
+                        "apps",
+                        "app_user_packs",
+                        "live_video_packs"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "keep": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "robots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "description": "The robots that stay, by id. Every other robot is deleted when the change takes effect."
+                            },
+                            "apps": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "description": "The apps that stay, by id. Every other app is deleted when the change takes effect."
+                            },
+                            "app_users": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "description": "The app users that stay, by id, across every app. Every other app user is deleted when the change takes effect."
+                            },
+                            "developers": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "description": "The developers that stay, by user id, owners never among them: every owner stays. Every other developer is removed from the org when the change takes effect."
+                            }
+                          },
+                          "required": [
+                            "robots",
+                            "apps",
+                            "app_users",
+                            "developers"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "plan",
+                    "cycle",
+                    "addons",
+                    "keep"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "snapshot_id",
+                "decision_id",
+                "operation_key",
+                "owner_id",
+                "organization_id",
+                "organization_name",
+                "quote_revision",
+                "buyer_fingerprint",
+                "amounts",
+                "period",
+                "declaration",
+                "expires_at",
+                "decision_kind",
+                "selection"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "confirmation_proof",
+        "expires_at",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "change_id",
+    "display"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "properties": {
+        "display": {
+          "properties": {
+            "snapshot": {
+              "properties": {
+                "decision_kind": {
+                  "const": "plan_change"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
