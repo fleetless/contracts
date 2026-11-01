@@ -1,40 +1,153 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "properties": {
-    "operation_key": {
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-      "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "operation_key": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+        },
+        "quote_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of the displayed quote; echo it when confirming."
+        },
+        "buyer_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+        },
+        "confirmation_proof": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+        },
+        "operation": {
+          "type": "string",
+          "const": "checkout"
+        }
+      },
+      "required": [
+        "operation_key",
+        "quote_revision",
+        "buyer_fingerprint",
+        "confirmation_proof",
+        "operation"
+      ],
+      "additionalProperties": false
     },
-    "operation": {
-      "type": "string",
-      "enum": [
-        "checkout",
-        "paid_change",
-        "invoice_payment",
-        "payment_method_invoice"
-      ]
+    {
+      "type": "object",
+      "properties": {
+        "operation_key": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+        },
+        "quote_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of the displayed quote; echo it when confirming."
+        },
+        "buyer_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+        },
+        "confirmation_proof": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$",
+          "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+        },
+        "operation": {
+          "type": "string",
+          "const": "paid_change"
+        }
+      },
+      "required": [
+        "operation_key",
+        "quote_revision",
+        "buyer_fingerprint",
+        "confirmation_proof",
+        "operation"
+      ],
+      "additionalProperties": false
     },
-    "quote_revision": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "Opaque revision of the displayed quote; echo it when confirming."
+    {
+      "type": "object",
+      "properties": {
+        "operation_key": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+        },
+        "quote_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of the displayed quote; echo it when confirming."
+        },
+        "buyer_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+        },
+        "operation": {
+          "type": "string",
+          "const": "invoice_payment"
+        }
+      },
+      "required": [
+        "operation_key",
+        "quote_revision",
+        "buyer_fingerprint",
+        "operation"
+      ],
+      "additionalProperties": false
     },
-    "buyer_fingerprint": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 200,
-      "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+    {
+      "type": "object",
+      "properties": {
+        "operation_key": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+        },
+        "quote_revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of the displayed quote; echo it when confirming."
+        },
+        "buyer_fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Opaque revision of buyer details and email policy; never full VIES evidence."
+        },
+        "operation": {
+          "type": "string",
+          "const": "payment_method_invoice"
+        }
+      },
+      "required": [
+        "operation_key",
+        "quote_revision",
+        "buyer_fingerprint",
+        "operation"
+      ],
+      "additionalProperties": false
     }
-  },
-  "required": [
-    "operation_key",
-    "operation",
-    "quote_revision",
-    "buyer_fingerprint"
-  ],
-  "additionalProperties": false
+  ]
 }

@@ -1024,11 +1024,13 @@ export {
   billingDecisionDisplayRequest, confirmationProof, billingDecisionAmounts,
   billingDecisionPeriod, billingDecisionSnapshot, billingDecisionDisplayResponse,
   purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,
+  purchaseIntentDraft, purchaseIntentPaymentStarted, purchaseIntentAcceptedWithoutPayment,
   purchaseIntentConfirmRequest, purchaseConflictDetails, invoicePayRequest,
   purchaseIntentResponse, vatDecision, viesPendingReason,
 } from './billing.js'
 export type {
   PurchaseBillingDetails, PurchaseOperation, PurchaseQuote, PurchaseIntent,
+  PurchaseIntentDraft, PurchaseIntentPaymentStarted, PurchaseIntentAcceptedWithoutPayment,
   BillingDecisionDisplayRequest, ConfirmationProof, BillingDecisionAmounts,
   BillingDecisionPeriod, BillingDecisionSnapshot, BillingDecisionDisplayResponse,
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,

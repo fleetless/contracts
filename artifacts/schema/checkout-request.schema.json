@@ -172,17 +172,16 @@
       "description": "The company buying the plan. Country requirements, current VIES and the email policy must pass before charging."
     },
     "accept_terms": {
+      "description": "Deprecated draft input. It is not evidence of a displayed C.4 declaration and never confirms an order.",
       "type": "boolean",
-      "const": true,
-      "description": "Confirms the terms of service for this purchase."
+      "const": true
     }
   },
   "required": [
     "operation_key",
     "plan",
     "cycle",
-    "billing",
-    "accept_terms"
+    "billing"
   ],
   "additionalProperties": false
 }

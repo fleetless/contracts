@@ -2338,11 +2338,12 @@ describe('owner purchase intents', () => {
     expect(route?.query?.safeParse({}).success).toBe(false)
     expect(route?.errors).toEqual(expect.arrayContaining(['tier_required', 'not_found']))
   })
-  it('requires the displayed revision and fingerprint for confirmation', () => {
+  it('requires the displayed revision, fingerprint and proof for customer confirmation', () => {
     const route = ROUTES.find((r) => r.method === 'POST' && r.path === '/api/billing/intents/:id/confirm')
     expect(route).toMatchObject({ ownerTier: true, auth: 'developer' })
-    const body = { operation_key: operationKey, operation: 'checkout', quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2' }
+    const body = { operation_key: operationKey, operation: 'checkout', quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2', confirmation_proof: 'x'.repeat(43) }
     expect(route?.request?.safeParse(body).success).toBe(true)
+    expect(route?.request?.safeParse({ ...body, confirmation_proof: undefined }).success).toBe(false)
     expect(route?.request?.safeParse({ ...body, quote_revision: undefined }).success).toBe(false)
     expect(route?.request?.safeParse({ ...body, buyer_fingerprint: '' }).success).toBe(false)
     expect(route?.errors).toContain('target_state_conflict')
