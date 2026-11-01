@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [10.1.0] — 2026-11-01
+
 ### Added
 
 - Owner-only held-job recovery request and response for an audited physical-stop
