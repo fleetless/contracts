@@ -791,6 +791,7 @@ export const bridgeState = z.object({
   online: z.boolean(),
   latency_ms: z.number().nonnegative().nullable(),
   low_bandwidth: z.boolean().meta({ description: 'Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported.' }),
+  health_reason: z.enum(['job_query_unanswered']).nullable().optional().meta({ description: 'Cloud-observed connection health: `job_query_unanswered` after a bridge ignores held-job queries; `null` on an ordinary connect or disconnect. Optional for older observations.' }),
 })
 export type BridgeState = z.infer<typeof bridgeState>
 

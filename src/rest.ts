@@ -399,6 +399,7 @@ export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
  * | `POST /api/robots/:id/jobs/:slug`        | `invokeRequest` | `invokeResponse` (action) or `serviceCallResponse` (service) |
  * | `GET /api/robots/:id/jobs/:slug`         | —               | `jobResponse` (the current job, or null) |
  * | `POST /api/robots/:id/jobs/:slug/cancel` | `cancelRequest` | `jobResponse` |
+ * | `POST /api/robots/:id/jobs/:slug/recover` | `recoverHeldJobRequest` | `recoverHeldJobResponse` |
  * | `POST /api/robots/:id/publishers/:slug`  | `publishRequest`| 204 |
  * | `GET /api/robots/:id/exposures`          | —               | `exposureListResponse` |
  *
@@ -488,6 +489,24 @@ export const cancelRequest = z.object({
   }),
 }).strict()
 export type CancelRequest = z.infer<typeof cancelRequest>
+
+/**
+ * Release one held job only after a human has physically stopped or isolated
+ * the robot and checked that it cannot move. This is an Owner operation, not
+ * an app command: a normal cancel asks the bridge to stop and cannot stand in
+ * for this assertion when the bridge is silent. The cloud cannot sense the
+ * physical stop from this field; it records the Owner's statement and reason.
+ */
+export const recoverHeldJobRequest = z.object({
+  job_id: z.uuid().meta({ description: 'The exact held job id read from the robot job state; another job must never be released by a stale request.' }),
+  verified_stopped: z.literal(true).meta({ description: 'The Owner confirms a physical stop and safety check; this is not a cloud sensor reading.' }),
+  reason: z.string().trim().min(10).max(500).meta({ description: 'The Owner\'s reason and safety-check record, 10–500 characters after trimming; retained in the audit trail.' }),
+}).strict()
+export type RecoverHeldJobRequest = z.infer<typeof recoverHeldJobRequest>
+
+/** The exact job settled to `lost` by the audited recovery. */
+export const recoverHeldJobResponse = z.object({ job })
+export type RecoverHeldJobResponse = z.infer<typeof recoverHeldJobResponse>
 
 /**
  * The query of a live release: `DELETE .../live?session_id=<uuid>`.

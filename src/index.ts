@@ -261,6 +261,8 @@ export {
   invokeResponse,
   // Addressing.
   cancelRequest,
+  recoverHeldJobRequest,
+  recoverHeldJobResponse,
   releaseLiveQuery,
   serviceCallResponse,
   invokeOrServiceResponse,
@@ -362,6 +364,8 @@ export type {
   InvokeRequest,
   InvokeResponse,
   CancelRequest,
+  RecoverHeldJobRequest,
+  RecoverHeldJobResponse,
   ReleaseLiveQuery,
   ServiceCallResponse,
   InvokeOrServiceResponse,

@@ -9,6 +9,13 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Owner-only held-job recovery request and response for an audited physical-stop
+  assertion (`operator_verified_stopped`), and optional cloud-observed
+  `bridge_state.health_reason` for unanswered job queries. No bridge frame
+  changes.
+
 ## [10.0.0] — 2026-11-01
 
 ### Added

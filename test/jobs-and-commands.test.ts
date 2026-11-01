@@ -32,6 +32,9 @@ import {
   cancelRejectedDetails,
   publisherBusyDetails,
   ERROR_CODES,
+  ROUTES,
+  recoverHeldJobRequest,
+  recoverHeldJobResponse,
 } from '../src/index.js'
 
 const UUID = '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f'
@@ -138,6 +141,38 @@ describe('jobs', () => {
     const parsed = busyDetails.parse({ running: { ...J, state: 'unknown', origin: 'external' } })
     expect(parsed.running.state).toBe('unknown')
     expect(parsed.running.origin).toBe('external')
+  })
+
+  it('requires an exact job, a physical-stop assertion and a substantive reason for Owner recovery', () => {
+    const request = { job_id: UUID, verified_stopped: true, reason: 'Robot power isolated and motion checked' }
+    expect(recoverHeldJobRequest.parse(request)).toEqual(request)
+    for (const invalid of [
+      { ...request, verified_stopped: false },
+      { ...request, reason: '    ' },
+      { ...request, reason: 'too short' },
+      { ...request, reason: 'x'.repeat(501) },
+      { ...request, job_id: 'not-a-uuid' },
+      { ...request, jobId: UUID },
+    ]) expect(recoverHeldJobRequest.safeParse(invalid).success).toBe(false)
+    expect(recoverHeldJobRequest.parse({ ...request, reason: '  Robot power isolated and motion checked  ' }).reason)
+      .toBe(request.reason)
+    expect(recoverHeldJobResponse.parse({ job: J })).toEqual({ job: J })
+    const recovered = { ...J, state: 'lost', error: { code: 'operator_verified_stopped', message: 'The Owner verified the robot was stopped.' } }
+    expect(recoverHeldJobResponse.parse({ job: recovered }).job.error).toEqual(recovered.error)
+    expect(ERROR_CODES).toContain('operator_verified_stopped')
+  })
+
+  it('documents recovery as a direct Owner operation outside app command capabilities', () => {
+    const route = ROUTES.find((entry) => entry.method === 'POST' && entry.path === '/api/robots/:id/jobs/:slug/recover')
+    expect(route).toMatchObject({
+      audience: 'developer', auth: 'developer', ownerTier: true,
+      request: recoverHeldJobRequest, response: recoverHeldJobResponse,
+    })
+    expect(route?.notes).toContain('physically')
+    expect(route?.notes).toContain('not a sensor reading')
+    expect(route?.notes).toContain('cancel')
+    expect(route?.errors).toContain('job_state_conflict')
+    expect(ERROR_CODES).toContain('job_state_conflict')
   })
 })
 
