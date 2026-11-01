@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
-import { billingDecisionDisplayRequest, billingDecisionDisplayResponse } from '../src/billing.js'
+import { billingDecisionDisplayRequest, billingDecisionDisplayResponse, planChangePrepareResponse } from '../src/billing.js'
 
 const key = '0c15bc92-c26c-4a56-aac8-0046ff758391'
 const id = '039172ce-712c-4ec8-897c-15492a7eeb76'
@@ -47,6 +47,7 @@ const display = { confirmation_proof: proof, expires_at: snapshot.expires_at, sn
 describe('C.4 billing decision display', () => {
   it('accepts a Basic-route plan change and both purchase-intent kinds', () => {
     expect(billingDecisionDisplayResponse.safeParse(display).success).toBe(true)
+    expect(planChangePrepareResponse.safeParse({ change_id: snapshot.decision_id, display }).success).toBe(true)
     for (const decision_kind of ['checkout', 'paid_change']) {
       const { keep: _keep, ...selection } = snapshot.selection
       expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, decision_kind, selection } }).success).toBe(true)

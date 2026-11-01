@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
+import { purchaseOperationKey } from './purchase-operation-key.js'
+import { confirmationProof } from './confirmation-proof.js'
 
 /**
  * The plan catalogue.
@@ -501,13 +503,35 @@ export type OrgPlan = z.infer<typeof orgPlan>
  * name, `keep` included, and an owner cannot be smuggled into it through a
  * typo that `.strict()` would otherwise swallow in silence.
  */
-export const planChangeRequest = z.object({
+export const planChangePrepareRequest = z.object({
+  operation_key: purchaseOperationKey,
   target_plan: planId.meta({ description: 'The lower plan to move to; `basic` cancels.' }),
   keep: planChangeKeep.nullable().meta({
     description: 'What stays. `null` when the org already fits the target plan, so nothing is deleted.',
   }),
 }).strict()
+export type PlanChangePrepareRequest = z.infer<typeof planChangePrepareRequest>
+
+const finalPlanChangeFields = {
+  change_id: z.uuid(),
+  operation_key: purchaseOperationKey,
+  keep: planChangeKeep.nullable(),
+  confirmation_proof: confirmationProof,
+}
+export const planChangeRequest = z.discriminatedUnion('target_plan', [
+  z.object({ ...finalPlanChangeFields, target_plan: z.literal('basic'), cancellation_reason: z.string().max(500).trim().optional() }).strict(),
+  z.object({ ...finalPlanChangeFields, target_plan: planId.exclude(['basic']) }).strict(),
+])
 export type PlanChangeRequest = z.infer<typeof planChangeRequest>
+
+export const planChangeDecisionLookupQuery = z.object({ operation_key: purchaseOperationKey }).strict()
+export type PlanChangeDecisionLookupQuery = z.infer<typeof planChangeDecisionLookupQuery>
+
+export const planChangeDecisionStatusResponse = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('prepared'), change_id: z.uuid() }).strict(),
+  z.object({ state: z.literal('accepted'), change_id: z.uuid(), result: orgPlan }).strict(),
+])
+export type PlanChangeDecisionStatusResponse = z.infer<typeof planChangeDecisionStatusResponse>
 
 /**
  * An operator's per-org replacement for one or more catalogue limits —

@@ -16,7 +16,10 @@ import {
 } from './plans.js'
 import { legalDocumentReference } from './legal.js'
 import { purchaseOperationKey } from './purchase-operation-key.js'
+import { confirmationProof } from './confirmation-proof.js'
 export { purchaseOperationKey } from './purchase-operation-key.js'
+export { confirmationProof } from './confirmation-proof.js'
+export type { ConfirmationProof } from './confirmation-proof.js'
 
 /**
  * Countries, VAT and the money math for billing through Mollie
@@ -444,11 +447,6 @@ export const billingDecisionDisplayRequest = z.object({
 }).strict()
 export type BillingDecisionDisplayRequest = z.infer<typeof billingDecisionDisplayRequest>
 
-export const confirmationProof = z.string().regex(/^[A-Za-z0-9_-]{43}$/).meta({
-  description: 'Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence.',
-})
-export type ConfirmationProof = z.infer<typeof confirmationProof>
-
 const selectionBase = {
   plan: z.enum(['basic', 'plus', 'pro']),
   cycle: billingCycle,
@@ -562,6 +560,13 @@ export const billingDecisionDisplayResponse = z.object({
   if (value.expires_at !== value.snapshot.expires_at) ctx.addIssue({ code: 'custom', path: ['expires_at'], message: 'Display and snapshot expiry must match.' })
 })
 export type BillingDecisionDisplayResponse = z.infer<typeof billingDecisionDisplayResponse>
+
+/** A prepared downward plan change carries the same Cloud-issued display. */
+export const planChangePrepareResponse = z.object({
+  change_id: z.uuid(),
+  display: billingDecisionDisplayResponse,
+}).strict()
+export type PlanChangePrepareResponse = z.infer<typeof planChangePrepareResponse>
 
 const intentIdentity = {
   intent_id: z.uuid().meta({ description: 'Opaque persisted purchase intent identity.' }),
