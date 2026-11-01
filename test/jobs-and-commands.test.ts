@@ -101,6 +101,16 @@ describe('jobs', () => {
     expect(job.safeParse({ ...J, state: 'stale' }).success).toBe(false)
   })
 
+  it('carries terminal-result loss as job_lost without changing the public job', () => {
+    const error = { code: 'job_lost', message: 'A terminal status was observed but the result was unavailable.' }
+    const parsed = job.parse({ ...J, state: 'lost', error })
+    expect(parsed.error).toEqual(error)
+    expect(Object.keys(parsed).sort()).toEqual(Object.keys(J).sort())
+    for (const code of ['job_lost', 'action_server_lost', 'job_unknown_to_bridge']) {
+      expect(ERROR_CODES).toContain(code)
+    }
+  })
+
   it('names who started a job, and requires it', () => {
     expect(job.safeParse({ ...J, origin: 'external' }).success).toBe(true)
     expect(job.safeParse({ ...J, origin: 'someone' }).success).toBe(false)
@@ -210,6 +220,17 @@ describe('bridge protocol', () => {
         feedback: null, progress: 1, result: { ok: true }, error: null, timestamp_ms: 1786400000000,
       }).success,
     ).toBe(true)
+  })
+
+  it('carries job_lost from a terminal-result loss through a job update', () => {
+    const error = { code: 'job_lost', message: 'A terminal status was observed but the result was unavailable.' }
+    const parsed = bridgeJobUpdate.parse({
+      type: 'job_update', job_id: UUID, slug: 'drive_to', state: 'lost', origin: 'fleetless',
+      goal_id: 'b9e0a3c4-5f1d-4e2a-9c7b-1a2b3c4d5e6f',
+      feedback: null, progress: null, result: null, error, timestamp_ms: 1786400000000,
+    })
+    expect(parsed.error).toEqual(error)
+    expect(parsed.state).toBe('lost')
   })
 
   it('reports every goal on an action, own or external, with its goal id', () => {

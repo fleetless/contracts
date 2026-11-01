@@ -9,6 +9,15 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- Defined `job_lost` on a final `lost` job for a terminal goal whose result
+  remains unavailable after the bounded wait, or for a loss with no more
+  specific cause; `error.message` distinguishes them. Pre-terminal action
+  server disappearance remains `action_server_lost`, and a confirmed job
+  unknown to the bridge remains `job_unknown_to_bridge`. The existing codes,
+  public Job shape and wire schemas are unchanged.
+
 ## [9.0.0] — 2026-11-01
 
 ### Added
