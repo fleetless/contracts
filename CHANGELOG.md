@@ -16,7 +16,10 @@ version.
 - Internal `POST /console/support/renew/fail` contract with a strict
   original-bearer/PKCE request and typed no-store refusal pairs. Cloud ends
   only a pending, current-generation flow within its 120-second proof window;
-  a stale tab cannot end the winning support session.
+  a stale tab cannot end the winning support session. Console must first
+  verify one-use signed Operator failure evidence bound to its browser flow;
+  browser callback parameters alone cannot trigger the Cloud call. This
+  prerequisite adds no field to the strict Cloud request.
 - Owner-only `GET /api/org/legal/acceptances` and the additive
   `legalAcceptanceListQuery`, `legalAcceptanceVersionRow`, and
   `legalAcceptanceListResponse` schemas. Pages expose stored Terms and

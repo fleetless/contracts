@@ -107,6 +107,8 @@ describe('supportRenewFailRequest', () => {
       { ...valid, code_verifier: '+'.repeat(43) },
       { ...valid, reason: 'login_required' },
       { ...valid, error: 'failed' },
+      { ...valid, attempt_id: 'browser-supplied' },
+      { ...valid, operator_failure_evidence: 'browser-supplied' },
       { flow_id: FLOW_ID, reason: 'authority_failed' },
     ]) expect(supportRenewFailRequest.safeParse(value).success).toBe(false)
   })
@@ -207,6 +209,7 @@ describe('the support-session routes', () => {
     })
     expect(r?.notes).toContain('Cache-Control: no-store')
     expect(r?.notes).toContain('stale_generation')
+    expect(r?.notes).toContain('signed Operator failure evidence')
     expect(IN_HANDLER_SECURITY['POST /console/support/renew/fail']).toEqual([{ supportSession: [] }])
     expect(routesArtifact().routes.find((entry) => entry.path === '/console/support/renew/fail')).toMatchObject({
       request: 'support-renew-fail-request', response: null,
