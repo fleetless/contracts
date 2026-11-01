@@ -417,7 +417,7 @@ export const checkoutRequest = z.object({
   cycle: billingCycle.meta({ description: 'Monthly, or yearly at 15 percent off.' }),
   addons: orgAddons.partial().strict().optional().meta({ description: 'Add-on units to buy; Pro only. Cloud refuses add-ons on Plus.' }),
   billing: purchaseBillingDetails.meta({ description: 'The company buying the plan. Country requirements, current VIES and the email policy must pass before charging.' }),
-  accept_terms: z.literal(true).meta({ description: 'Confirms the terms of service for this purchase.' }),
+  accept_terms: z.literal(true).optional().meta({ description: 'Deprecated draft input. It is not evidence of a displayed C.4 declaration and never confirms an order.' }),
 }).strict()
 export type CheckoutRequest = z.infer<typeof checkoutRequest>
 
@@ -598,8 +598,8 @@ function validateIntent(intent: { operation: string; invoice_id?: string; state:
   }
 }
 
-/** Public owner read. No unpaid state can contain a provider redirect. */
-export const purchaseIntent = z.discriminatedUnion('state', [
+/** Unaccepted intents. No draft contains a provider redirect or billing decision. */
+const draftVariants = [
   z.object({ ...intentIdentity, state: z.literal('awaiting_vies'), reason: viesPendingReason, next_attempt_at: z.iso.datetime() }).strict(),
   z.object({ ...intentIdentity, ...quoteIdentity, state: z.literal('eligible'), quote: purchaseQuote }).strict(),
   z.object({
@@ -609,13 +609,34 @@ export const purchaseIntent = z.discriminatedUnion('state', [
   }).strict(),
   z.object({ ...intentIdentity, state: z.literal('invalid_vat_id'), field: z.literal('billing.vat_id'), rule: z.literal('vat_id_invalid') }).strict(),
   z.object({ ...intentIdentity, state: z.literal('refused'), field: z.string().min(1), rule: purchaseRefusalRule }).strict(),
-  z.object({
+] as const
+export const purchaseIntentDraft = z.discriminatedUnion('state', draftVariants).superRefine(validateIntent).meta({ allOf: intentRules })
+export type PurchaseIntentDraft = z.infer<typeof purchaseIntentDraft>
+
+const paymentStartedVariant = z.object({
     ...intentIdentity, state: z.literal('payment_started'), payment_id: z.uuid(),
     payment: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('hosted'), checkout_id: z.uuid(), checkout_url: z.url() }).strict(),
       z.object({ kind: z.literal('mandate') }).strict(),
     ]),
-  }).strict(),
+}).strict()
+export const purchaseIntentPaymentStarted = paymentStartedVariant.superRefine(validateIntent).meta({ allOf: intentRules })
+export type PurchaseIntentPaymentStarted = z.infer<typeof purchaseIntentPaymentStarted>
+
+export const purchaseIntentAcceptedWithoutPayment = z.object({
+  intent_id: z.uuid(),
+  operation_key: purchaseOperationKey,
+  operation: z.literal('paid_change'),
+  state: z.literal('accepted_no_payment'),
+  ...quoteIdentity,
+  quote: purchaseQuote.extend({ net_cents: z.literal(0), vat_cents: z.literal(0), gross_cents: z.literal(0) }).strict(),
+  accepted_at: utcInstant,
+}).strict()
+export type PurchaseIntentAcceptedWithoutPayment = z.infer<typeof purchaseIntentAcceptedWithoutPayment>
+
+/** Public owner read. Accepted zero-charge changes have no provider payment. */
+export const purchaseIntent = z.discriminatedUnion('state', [
+  ...draftVariants, paymentStartedVariant, purchaseIntentAcceptedWithoutPayment,
 ]).superRefine(validateIntent).meta({ allOf: intentRules })
 export type PurchaseIntent = z.infer<typeof purchaseIntent>
 
@@ -639,9 +660,14 @@ export const purchaseIntentLookupQuery = z.object({
 })
 export type PurchaseIntentLookupQuery = z.infer<typeof purchaseIntentLookupQuery>
 
-export const purchaseIntentConfirmRequest = z.object({
-  operation_key: purchaseOperationKey, operation: chargeOperation, ...quoteIdentity,
-}).strict()
+const provedConfirmation = { operation_key: purchaseOperationKey, ...quoteIdentity, confirmation_proof: confirmationProof }
+const invoiceConfirmation = { operation_key: purchaseOperationKey, ...quoteIdentity }
+export const purchaseIntentConfirmRequest = z.discriminatedUnion('operation', [
+  z.object({ ...provedConfirmation, operation: z.literal('checkout') }).strict(),
+  z.object({ ...provedConfirmation, operation: z.literal('paid_change') }).strict(),
+  z.object({ ...invoiceConfirmation, operation: z.literal('invoice_payment') }).strict(),
+  z.object({ ...invoiceConfirmation, operation: z.literal('payment_method_invoice') }).strict(),
+])
 export type PurchaseIntentConfirmRequest = z.infer<typeof purchaseIntentConfirmRequest>
 
 /** `409 target_state_conflict` details. Stale confirmation returns the new owner-visible intent. */
@@ -1088,21 +1114,32 @@ export const billingDocumentFileQuery = z.object({
 }).strict()
 export type BillingDocumentFileQuery = z.infer<typeof billingDocumentFileQuery>
 
-/** `POST /api/billing/change`'s answer: the billing view afterwards, and what was charged right now, if anything. */
-const acceptedBillingChange = z.object({
+/** Accepted paid changes retain their provider identity; accepted no-payment changes have none. */
+const acceptedBillingFields = {
   billing: billingView.meta({ description: 'The billing view after the change.' }),
   charged: billingInvoice.nullable().meta({ description: 'The invoice charged now, or `null` when the change was only scheduled for the period\'s end.' }),
+}
+const acceptedPaidChange = z.object({
+  ...acceptedBillingFields,
+  intent: paymentStartedVariant.safeExtend({ operation: z.literal('paid_change') }),
+}).strict()
+const acceptedNoPaymentChange = z.object({
+  billing: billingView,
+  charged: z.null(),
+  intent: purchaseIntentAcceptedWithoutPayment,
 }).strict()
 export const billingChangeResponse = z.union([
-  acceptedBillingChange,
-  z.object({ intent: purchaseIntent }).strict(),
-  z.object({ ...acceptedBillingChange.shape, intent: purchaseIntent.options[5].superRefine(validateIntent).meta({ allOf: intentRules }) }).strict(),
+  z.object({ intent: purchaseIntentDraft }).strict(),
+  acceptedPaidChange,
+  acceptedNoPaymentChange,
 ])
 export type BillingChangeResponse = z.infer<typeof billingChangeResponse>
 
-/** Confirmation/lookup recovers the same payment, and the resulting view for a paid change. */
+/** Confirmation/lookup recover the original decision, never a bare accepted change. */
 export const purchaseIntentResponse = z.union([
-  purchaseIntent,
-  z.object({ ...acceptedBillingChange.shape, intent: purchaseIntent.options[5].superRefine(validateIntent).meta({ allOf: intentRules }) }).strict(),
+  purchaseIntentDraft,
+  purchaseIntentPaymentStarted,
+  acceptedPaidChange,
+  acceptedNoPaymentChange,
 ])
 export type PurchaseIntentResponse = z.infer<typeof purchaseIntentResponse>

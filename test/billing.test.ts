@@ -122,8 +122,9 @@ describe('billing shapes (I-2)', () => {
     address: { line1: 'Ring 1', line2: null, postal_code: '1010', city: 'Wien', country: 'AT' },
     invoice_email: 'billing@acme.example',
   }
-  it('a company checkout requires the terms', () => {
+  it('a company checkout draft accepts legacy terms but does not require them', () => {
     expect(checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(true)
+    expect(checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company }).success).toBe(true)
     expect(checkoutRequest.safeParse({ operation_key: operationKey, plan: 'pro', cycle: 'monthly', billing: company, accept_terms: false }).success).toBe(false)
     expect(checkoutRequest.safeParse({ plan: 'basic', cycle: 'monthly', billing: company, accept_terms: true }).success).toBe(false)
     expect(
@@ -236,7 +237,36 @@ it('keeps the payment identity in a completed paid-change response', () => {
   const result = { billing: view, charged: null, intent: { ...startedIntent, operation: 'paid_change', payment: { kind: 'mandate' } } }
   expect(billing.billingChangeResponse.parse(result)).toHaveProperty('intent.payment_id', startedIntent.payment_id)
   expect(billing.purchaseIntentResponse.parse(result)).toEqual(result)
-  expect(billing.billingChangeResponse.safeParse({ billing: view, charged: null }).success).toBe(true)
+  expect(billing.billingChangeResponse.safeParse({ billing: view, charged: null }).success).toBe(false)
+})
+
+it('requires a display proof for checkout and paid-change confirmation only', () => {
+  const base = { operation_key: operationKey, quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2' }
+  const proof = 'x'.repeat(43)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'checkout' }).success).toBe(false)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'paid_change' }).success).toBe(false)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'checkout', confirmation_proof: proof }).success).toBe(true)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'paid_change', confirmation_proof: proof }).success).toBe(true)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'invoice_payment' }).success).toBe(true)
+  expect(billing.purchaseIntentConfirmRequest.safeParse({ ...base, operation: 'invoice_payment', confirmation_proof: proof }).success).toBe(false)
+})
+
+it('recovers an accepted zero-charge change in the same wrapper on start, confirm and lookup', () => {
+  const view = { available: true, account: null, payment_method: null, payment_method_options: [], issuer: 'cloud', invoices: [], charges: [] }
+  const intent = {
+    intent_id: intentBase.intent_id, operation_key: operationKey, operation: 'paid_change',
+    state: 'accepted_no_payment', quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2',
+    quote: { currency: 'eur', net_cents: 0, vat_cents: 0, gross_cents: 0, rate_percent: 0 },
+    accepted_at: '2026-11-01T11:00:00Z',
+  }
+  const accepted = { intent, billing: view, charged: null }
+  expect(billing.purchaseIntentAcceptedWithoutPayment.safeParse(intent).success).toBe(true)
+  expect(billing.purchaseIntentAcceptedWithoutPayment.safeParse({ ...intent, payment_id: intentBase.intent_id }).success).toBe(false)
+  expect(billing.purchaseIntentAcceptedWithoutPayment.safeParse({ ...intent, quote: { ...intent.quote, gross_cents: 1 } }).success).toBe(false)
+  expect(billing.billingChangeResponse.parse(accepted)).toEqual(accepted)
+  expect(billing.purchaseIntentResponse.parse(accepted)).toEqual(accepted)
+  expect(billing.purchaseIntentResponse.safeParse(intent).success).toBe(false)
+  expect(billing.billingChangeResponse.safeParse({ intent }).success).toBe(false)
 })
 
 it('rejects historical currency when calculating a new charge, even a zero-charge change', () => {
