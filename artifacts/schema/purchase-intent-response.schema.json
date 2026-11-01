@@ -468,7 +468,6 @@
           "type": "string",
           "enum": [
             "checkout",
-            "paid_change",
             "invoice_payment",
             "payment_method_invoice"
           ]

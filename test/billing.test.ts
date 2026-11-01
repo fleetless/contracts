@@ -198,7 +198,6 @@ describe('purchase contracts and historical reads', () => {
   it.each([pendingIntent, eligibleIntent, heldIntent])('has no redirect before payment: $state', (intent) => {
     expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)
     expect(billing.checkoutResponse.safeParse({ ...intent, checkout_url: startedIntent.payment.checkout_url }).success).toBe(false)
-    expect(billing.billingChangeResponse.safeParse({ intent }).success).toBe(true)
   })
   it('rejects USD eligible quotes and mandate setup pretending to be eligible', () => {
     expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, quote: { ...eligibleIntent.quote, currency: 'usd' } }).success).toBe(false)

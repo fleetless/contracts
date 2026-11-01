@@ -914,6 +914,7 @@ export type {
   PlanOverrides,
   AdminPlanChangeRequest,
 } from './plans.js'
+export { ianaTimeZones } from './iana-time-zones.js'
 // 2026-10-04 — billing through Mollie (#104).
 export {
   countryCode,

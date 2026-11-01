@@ -23,12 +23,7 @@
                 },
                 "operation": {
                   "type": "string",
-                  "enum": [
-                    "checkout",
-                    "paid_change",
-                    "invoice_payment",
-                    "payment_method_invoice"
-                  ]
+                  "const": "paid_change"
                 },
                 "invoice_id": {
                   "description": "The due charge or issued invoice, for invoice-paying operations.",
@@ -81,12 +76,7 @@
                 },
                 "operation": {
                   "type": "string",
-                  "enum": [
-                    "checkout",
-                    "paid_change",
-                    "invoice_payment",
-                    "payment_method_invoice"
-                  ]
+                  "const": "paid_change"
                 },
                 "invoice_id": {
                   "description": "The due charge or issued invoice, for invoice-paying operations.",
@@ -181,13 +171,7 @@
                 },
                 "operation": {
                   "type": "string",
-                  "enum": [
-                    "checkout",
-                    "paid_change",
-                    "invoice_payment",
-                    "payment_method_invoice",
-                    "mandate_setup"
-                  ]
+                  "const": "paid_change"
                 },
                 "invoice_id": {
                   "description": "The due charge or issued invoice, for invoice-paying operations.",
@@ -261,12 +245,7 @@
                 },
                 "operation": {
                   "type": "string",
-                  "enum": [
-                    "checkout",
-                    "paid_change",
-                    "invoice_payment",
-                    "payment_method_invoice"
-                  ]
+                  "const": "paid_change"
                 },
                 "invoice_id": {
                   "description": "The due charge or issued invoice, for invoice-paying operations.",
@@ -314,12 +293,7 @@
                 },
                 "operation": {
                   "type": "string",
-                  "enum": [
-                    "checkout",
-                    "paid_change",
-                    "invoice_payment",
-                    "payment_method_invoice"
-                  ]
+                  "const": "paid_change"
                 },
                 "invoice_id": {
                   "description": "The due charge or issued invoice, for invoice-paying operations.",
