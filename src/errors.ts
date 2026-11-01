@@ -333,28 +333,32 @@ export const ERROR_CODES = [
    */
   'cancel_rejected',
   /**
-   * The bridge's own statement, while connected, that it lost track of a job
-   * it still names — the vocabulary behind its `job_lost` frame. Distinct
-   * from `job_unknown_to_bridge`, the cloud's conclusion about a job the
-   * bridge does not name at all.
+   * `Job.error.code` on `lost` when a terminal goal status was observed but
+   * its result could not be recovered within the bounded wait, or when the
+   * bridge or cloud establishes loss without a more specific cause. The
+   * message says which path occurred. Distinct from `action_server_lost`
+   * (server disappearance before terminal status) and
+   * `job_unknown_to_bridge` (confirmed not-known job).
    */
   'job_lost',
   /**
-   * The bridge does not know this job — its `hello.active_jobs` or a
-   * `job_status` answer leaves it out — and, for an action, no goal the
-   * bridge cannot attribute is active on the job's action any more, so none
-   * of them can be it. A `job.error.code` on `lost`, final: how an `unknown`
-   * job the bridge has no word about ends. A service job, which has no goals to look
-   * at, gets it as soon as the bridge does not know it; so does a job whose
+   * The bridge confirms it does not know this job after reconciliation,
+   * rather than merely omitting it from `hello.active_jobs`. For an action,
+   * no goal the bridge cannot attribute is active on the job's action any
+   * more, so none of them can be it. A `job.error.code` on `lost`, final:
+   * how an `unknown` job the bridge has no word about ends. A service job,
+   * which has no goals to look at, gets it as soon as the bridge does not
+   * know it; so does a job whose
    * persisted goal the action server no longer knows (its result expired).
-   * Distinct from `job_lost`, the bridge's own statement about a job it
-   * still names, and from `bridge_disconnected`/`bridge_timeout`, the
-   * cloud's guesses that make a job `unknown` in the first place.
+   * Distinct from `job_lost`, which needs no more specific cause, and from
+   * `bridge_disconnected`/`bridge_timeout`, the cloud's guesses that make
+   * a job `unknown` in the first place.
    */
   'job_unknown_to_bridge',
   /**
-   * The robot's action server vanished mid-goal — the bridge's own liveness
-   * check found `server_is_ready()` false for three seconds straight and
+   * The robot's action server vanished before reporting terminal status —
+   * the bridge's own liveness check found `server_is_ready()` false for
+   * three seconds straight and
    * gave up waiting for it to come back. A `job.error.code` on `lost`: the
    * outcome the goal actually reached is unknown, so `lost` — not `failed` —
    * is the honest state, and this code says why.
