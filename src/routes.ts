@@ -986,7 +986,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: mcpRolePreviewResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Built by the same builder the MCP server\'s own `robot_describe` uses, so the two cannot drift. It answers what the role *would* be ' +
+      'Built by the same builder the MCP server\'s own `robots.describe` uses, so the two cannot drift. It answers what the role *would* be ' +
       'offered and consults nothing about any user\'s actual MCP entitlement. A robot the role grants nothing on still appears, with an empty ' +
       '`exposures` — dropping it would read as "not attached", which is a different fact.',
   },
@@ -2026,7 +2026,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked ' +
       'against the cloud\'s own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted ' +
       'here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console ' +
-      'tool that is still narrower than the catalog refuses for itself (`console_robot_delete` answers `tier_required` to a non-Owner). ' +
+      'tool that is still narrower than the catalog refuses for itself (`console_robots_write.delete` answers `tier_required` to a non-Owner). ' +
       '`403 forbidden` is also what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only, and such ' +
       'a token belongs to its own app\'s endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the ' +
       'caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. ' +
@@ -2828,10 +2828,10 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [], query: null, request: null, response: clientRobotListResponse,
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
-      '**The REST twin of the MCP tool `robots_list`**, and the one robot question no robot-scoped route can answer: which robots may I name ' +
+      '**The REST twin of the MCP tool `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name ' +
       'at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees ' +
       'every robot its app attaches; a developer bearer sees the organisation\'s robots. Name order, id as the tiebreak. A robot on which the ' +
-      'role grants nothing is absent rather than listed empty — the same answer `robots_list` gives, for the same reason: reach is a grant, ' +
+      'role grants nothing is absent rather than listed empty — the same answer `robots.list` gives, for the same reason: reach is a grant, ' +
       'not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`.',
   },
   {
@@ -2842,7 +2842,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: mcpRobotDatasheet,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      '**The REST twin of the MCP tool `robot_describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
+      '**The REST twin of the MCP tool `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
       'role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, ' +
       '`action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller ' +
       'does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that ' +

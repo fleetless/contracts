@@ -50,7 +50,7 @@
       "const": "keep"
     },
     "description": {
-      "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
+      "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robots.describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
       "examples": [
         "What this value is, for whoever meets it in the console."
       ],
@@ -78,7 +78,7 @@
         "unit": {
           "type": "string",
           "maxLength": 32,
-          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robot_describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
+          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robots.describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
           "examples": [
             "%"
           ]
@@ -87,7 +87,7 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 6,
-          "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robot_describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
+          "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robots.describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
           "examples": [
             1
           ]

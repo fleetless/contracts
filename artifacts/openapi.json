@@ -1667,7 +1667,7 @@
             }
           }
         },
-        "description": "Built by the same builder the MCP server's own `robot_describe` uses, so the two cannot drift. It answers what the role *would* be offered and consults nothing about any user's actual MCP entitlement. A robot the role grants nothing on still appears, with an empty `exposures` — dropping it would read as \"not attached\", which is a different fact."
+        "description": "Built by the same builder the MCP server's own `robots.describe` uses, so the two cannot drift. It answers what the role *would* be offered and consults nothing about any user's actual MCP entitlement. A robot the role grants nothing on still appears, with an empty `exposures` — dropping it would read as \"not attached\", which is a different fact."
       }
     },
     "/api/apps/{id}/roles/{roleId}": {
@@ -4580,7 +4580,7 @@
             }
           }
         },
-        "description": "JSON-RPC over MCP's Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and results are the schemas in each tool definition. **Fleetless users only** — an app's users reach their own app endpoint instead. **The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked against the cloud's own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console tool that is still narrower than the catalog refuses for itself (`console_robot_delete` answers `tier_required` to a non-Owner). `403 forbidden` is also what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only, and such a token belongs to its own app's endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. `mcp_access_denied` is gone with the per-user override and the group flag it read: every Fleetless user has MCP access here. Stateless: a fresh transport per request, no session id, nothing survives the call."
+        "description": "JSON-RPC over MCP's Streamable HTTP, so neither the request nor the response is a shape contracts describes; the tool arguments and results are the schemas in each tool definition. **Fleetless users only** — an app's users reach their own app endpoint instead. **The bearer is verified inside the handler**, not by a route guard: the identity comes from the token and the path names none, and the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked against the cloud's own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console tool that is still narrower than the catalog refuses for itself (`console_robots_write.delete` answers `tier_required` to a non-Owner). `403 forbidden` is also what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only, and such a token belongs to its own app's endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. `mcp_access_denied` is gone with the per-user override and the group flag it read: every Fleetless user has MCP access here. Stateless: a fresh transport per request, no session id, nothing survives the call."
       }
     },
     "/mcp/{appIdentifier}": {
@@ -6880,7 +6880,7 @@
             }
           }
         },
-        "description": "**The REST twin of the MCP tool `robots_list`**, and the one robot question no robot-scoped route can answer: which robots may I name at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees every robot its app attaches; a developer bearer sees the organisation's robots. Name order, id as the tiebreak. A robot on which the role grants nothing is absent rather than listed empty — the same answer `robots_list` gives, for the same reason: reach is a grant, not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`."
+        "description": "**The REST twin of the MCP tool `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees every robot its app attaches; a developer bearer sees the organisation's robots. Name order, id as the tiebreak. A robot on which the role grants nothing is absent rather than listed empty — the same answer `robots.list` gives, for the same reason: reach is a grant, not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`."
       }
     },
     "/api/robots/{id}/datasheet": {
@@ -6934,7 +6934,7 @@
             }
           }
         },
-        "description": "**The REST twin of the MCP tool `robot_describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
+        "description": "**The REST twin of the MCP tool `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
       }
     },
     "/api/robots/{id}/config/draft": {
@@ -18805,7 +18805,7 @@
                           "const": "keep"
                         },
                         "description": {
-                          "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
+                          "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robots.describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
                           "examples": [
                             "What this value is, for whoever meets it in the console."
                           ],
@@ -18833,7 +18833,7 @@
                             "unit": {
                               "type": "string",
                               "maxLength": 32,
-                              "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robot_describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
+                              "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robots.describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
                               "examples": [
                                 "%"
                               ]
@@ -18842,7 +18842,7 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 6,
-                              "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robot_describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
+                              "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robots.describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
                               "examples": [
                                 1
                               ]
@@ -19119,7 +19119,7 @@
                                 ]
                               },
                               "description": {
-                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                                 "examples": [
                                   "What a caller is choosing when they set this."
                                 ],
@@ -19136,7 +19136,7 @@
                           "description": "The holes in this entry's `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error."
                         },
                         "description": {
-                          "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robot_describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.",
+                          "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robots.describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.",
                           "examples": [
                             "Drives to a target pose on the map."
                           ],
@@ -19269,7 +19269,7 @@
                                 ]
                               },
                               "description": {
-                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                                 "examples": [
                                   "What a caller is choosing when they set this."
                                 ],
@@ -19419,7 +19419,7 @@
                                 ]
                               },
                               "description": {
-                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                                "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                                 "examples": [
                                   "What a caller is choosing when they set this."
                                 ],
@@ -19716,7 +19716,7 @@
                           ]
                         },
                         "description": {
-                          "description": "What this camera shows, in the developer's own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera_snapshot` serves is the latest snapshot with its age; a live session is never a tool.",
+                          "description": "What this camera shows, in the developer's own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera.snapshot` serves is the latest snapshot with its age; a live session is never a tool.",
                           "examples": [
                             "Forward-facing camera on the mast."
                           ],
@@ -19967,7 +19967,7 @@
                       "const": "keep"
                     },
                     "description": {
-                      "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robot_describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
+                      "description": "Prose about what this value is, for whoever meets it in the console. It changes nothing the robot does, so a publish that touches only it pushes no configuration at all — but it is carried verbatim into `robots.describe`, where a model that has never seen this robot reads it. The datapoint is offered whenever the role grants it; without one it is offered with `description: null` and the model has less to go on, as for actions, services, publishers and cameras. Omission is the only way to say nothing; an empty string is refused, here and on all five.",
                       "examples": [
                         "What this value is, for whoever meets it in the console."
                       ],
@@ -19995,7 +19995,7 @@
                         "unit": {
                           "type": "string",
                           "maxLength": 32,
-                          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robot_describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
+                          "description": "The unit of the value **after** `scale` and `offset`, not the robot's own. It is shown beside the value and carried by `robots.describe` as its own field, so a model does not have to guess whether 15 means percent, volts or minutes.",
                           "examples": [
                             "%"
                           ]
@@ -20004,7 +20004,7 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 6,
-                          "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robot_describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
+                          "description": "How many fraction digits the console shows the value with — value tile, chart axis and tooltip, and the datapoint detail page — and the number `robots.describe` reports as its own field, so a model formats the value the way the console does. Presentation only: the stored value keeps the precision it arrived with, and absent means the console's own default rather than zero.",
                           "examples": [
                             1
                           ]
@@ -20281,7 +20281,7 @@
                             ]
                           },
                           "description": {
-                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                             "examples": [
                               "What a caller is choosing when they set this."
                             ],
@@ -20298,7 +20298,7 @@
                       "description": "The holes in this entry's `message` that a caller fills, keyed by **parameter name** rather than by field path — so the name survives the field moving inside the message, and a caller sends something that means what it says. Every declared parameter must appear somewhere in the message and every `${name}` in the message must be declared; either half alone is an error."
                     },
                     "description": {
-                      "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robot_describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.",
+                      "description": "What this action does, in the developer's own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robots.describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.",
                       "examples": [
                         "Drives to a target pose on the map."
                       ],
@@ -20431,7 +20431,7 @@
                             ]
                           },
                           "description": {
-                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                             "examples": [
                               "What a caller is choosing when they set this."
                             ],
@@ -20581,7 +20581,7 @@
                             ]
                           },
                           "description": {
-                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robot_describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
+                            "description": "What this parameter means, in the developer's own words, and documentation only — the robot does nothing with it. It travels into the input schema `robots.describe` publishes for this call, beside the bounds, so `type` and the range say what the value *is* and this is the only place that says what it *does*.",
                             "examples": [
                               "What a caller is choosing when they set this."
                             ],
@@ -20878,7 +20878,7 @@
                       ]
                     },
                     "description": {
-                      "description": "What this camera shows, in the developer's own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera_snapshot` serves is the latest snapshot with its age; a live session is never a tool.",
+                      "description": "What this camera shows, in the developer's own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera.snapshot` serves is the latest snapshot with its age; a live session is never a tool.",
                       "examples": [
                         "Forward-facing camera on the mast."
                       ],

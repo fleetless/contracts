@@ -28,6 +28,9 @@ version.
 
 ### Changed
 
+- MCP and REST reference descriptions name the bundled tool actions
+  (`robots.list`, `robots.describe`, `camera.snapshot`, and others). Exported
+  wire shapes and endpoint paths are unchanged.
 - **Breaking:** `waitlistRequest` requires `consent_text_version` for the F.1
   wording shown by the form. `putAppAuthUrlsRequest` requires explicit
   `operator_info_url` and `privacy_policy_url` keys; `null` clears a link.
