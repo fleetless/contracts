@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [9.0.0] — 2026-11-01
+
 ### Added
 
 - Owner-only `GET /api/org/legal/acceptances` and the additive
