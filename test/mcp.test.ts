@@ -11,11 +11,14 @@ import {
   ERROR_CODES,
   MCP_PROTOCOL_VERSION,
   MCP_ENDPOINT_PATH,
+  MCP_TOOL_NAME_MAX,
+  mcpToolNamePattern,
   mcpAppEndpointPath,
   parameterSpec,
   publisherConfig,
   serviceDescription,
   robotConfigDoc,
+  ROUTES,
   serviceConfig,
   updateAppRequest,
 } from '../src/index.js'
@@ -222,6 +225,40 @@ describe('the central endpoint', () => {
   it('returns a path rather than an absolute URL', () => {
     expect(mcpAppEndpointPath('ops').startsWith('/')).toBe(true)
     expect(mcpAppEndpointPath('ops')).not.toContain('://')
+  })
+})
+
+describe('bundled MCP tool names', () => {
+  it('accepts the exact app and developer catalogs as tool names', () => {
+    const app = ['robots', 'datapoints', 'jobs', 'assets', 'camera', 'commands', 'docs']
+    const console = [
+      'console_robots_read', 'console_robots_write', 'console_config_read', 'console_config_write',
+      'console_introspection_read', 'console_introspection_write', 'console_fleet',
+      'console_apps_read', 'console_apps_write', 'console_server_keys_read', 'console_server_keys_write',
+      'console_roles_read', 'console_roles_write', 'console_app_users_read', 'console_app_users_write',
+      'console_team_read', 'console_team_write', 'console_org_read', 'console_org_write', 'console_audit',
+    ]
+    expect(app).toHaveLength(7)
+    expect([...app, ...console]).toHaveLength(27)
+    for (const name of [...app, ...console]) {
+      expect(name.length, name).toBeLessThanOrEqual(MCP_TOOL_NAME_MAX)
+      expect(mcpToolNamePattern.test(name), name).toBe(true)
+    }
+  })
+
+  it('describes the datasheet as the response of robots.describe in published schemas', () => {
+    const datasheetRoute = ROUTES.find((route) => route.method === 'GET' && route.path === '/api/robots/:id/datasheet')
+    expect(datasheetRoute?.notes).toContain('robots.describe')
+    expect(datasheetRoute?.notes).not.toContain('robot_describe')
+    const configSchema = JSON.stringify(z.toJSONSchema(robotConfigDoc))
+    expect(configSchema).toContain('robots.describe')
+    expect(configSchema).not.toContain('robot_describe')
+    const cameraSchema = JSON.stringify(z.toJSONSchema(cameraConfig))
+    expect(cameraSchema).toContain('camera.snapshot')
+    expect(cameraSchema).not.toContain('camera_snapshot')
+    const routeNotes = ROUTES.map((route) => route.notes).join(' ')
+    expect(routeNotes).toContain('console_robots_write.delete')
+    expect(routeNotes).not.toContain('console_robot_delete')
   })
 })
 

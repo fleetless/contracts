@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { slug } from './common.js'
 
 /**
- * The MCP server: **one** remote MCP endpoint for the whole platform, whose
- * tools are the exposed services and datapoints the signed-in user's roles
- * permit. There is no per-app endpoint.
+ * The central MCP server: **one** remote endpoint for Fleetless users. Its
+ * tools use a fixed catalog; access to a robot's exposed services and
+ * datapoints is checked for each call. App users have an app-specific endpoint.
  *
  * **This file describes the seam, not the protocol.** The MCP messages
  * themselves (`initialize`, `tools/list`, `tools/call`) are defined by the
@@ -143,19 +143,22 @@ export function MCP_APP_PATHS(appIdentifier: string): McpAppPaths {
 }
 
 /**
- * Which exposed kind a tool came from. Not the MCP protocol's vocabulary —
- * ours, so the console can group a preview the way the services editor is
- * grouped.
+ * Which exposed kind a datasheet entry came from. Not the MCP protocol's
+ * vocabulary — ours, so the console can group a preview as the services
+ * editor does.
  */
 export const mcpToolKind = z.enum(['datapoint', 'service', 'action', 'publisher', 'camera'])
 export type McpToolKind = z.infer<typeof mcpToolKind>
 
-/** MCP's own bound on a tool name, and the charset that is safe across clients. */
+/**
+ * MCP's bound on a tool name, and the charset safe across clients.
+ * `robots.describe` names a tool and action; only `robots` is a tool name.
+ */
 export const MCP_TOOL_NAME_MAX = 128
 export const mcpToolNamePattern = /^[a-z0-9][a-z0-9_-]*$/
 
 /**
- * One exposure of a robot, as `robot_describe` and the console's per-role
+ * One exposure of a robot, as `robots.describe` and the console's per-role
  * preview list it. Every exposure the role grants is listed —
  * a missing `description` is shown as `null`, never used to hide the entry.
  *
@@ -190,7 +193,7 @@ export const mcpCapabilities = z.object({
 export type McpCapabilities = z.infer<typeof mcpCapabilities>
 
 /**
- * What one caller may do on one robot — the answer to `robot_describe`, and
+ * What one caller may do on one robot — the answer to `robots.describe`, and
  * since 1.1.0 to `GET /api/robots/:id/datasheet` as well. One schema for both
  * surfaces on purpose: an app and an AI tool read the same description of the
  * same grant. The `mcp` prefix is history, not scope.
@@ -217,7 +220,7 @@ export type McpRolePreviewResponse = z.infer<typeof mcpRolePreviewResponse>
 
 /**
  * Where a signed asset link is served. An MCP session token is refused on
- * REST by design, so `asset_get`/`urdf_get` mint a bearer-free link the agent
+ * REST by design, so `assets.get`/`assets.urdf` mint a bearer-free link the agent
  * behind the client can fetch. Lifetime is fixed; the token binds robot, asset
  * and expiry under `JWT_SECRET`.
  */

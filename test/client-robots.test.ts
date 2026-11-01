@@ -49,7 +49,7 @@ describe('the discovery routes', () => {
     expect(r!.errors).toEqual(['unauthorized', 'token_expired', 'token_revoked', 'forbidden'])
   })
 
-  it('lists GET /api/robots/:id/datasheet answering the very schema robot_describe answers', () => {
+  it('lists GET /api/robots/:id/datasheet answering the very schema robots.describe answers', () => {
     const r = byKey.get('GET /api/robots/:id/datasheet')
     expect(r).toBeDefined()
     expect(r!.auth).toBe('developer_or_client')
