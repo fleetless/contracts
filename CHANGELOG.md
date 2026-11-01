@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [10.0.0] — 2026-11-01
+
 ### Added
 
 - Owner-only C.4 display for eligible checkout and paid-change intents, and
