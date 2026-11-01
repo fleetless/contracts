@@ -2320,6 +2320,17 @@ describe('the Lexware issuer cutover (2026-10-19, fleetless/fleetless#327)', () 
     const pdf = r('GET', '/api/billing/invoices/:id/pdf')
     expect(pdf.notes).toContain('historical Cloud invoices only')
   })
+
+  it('the historical invoice PDF route accepts only invoice or cancellation kind', () => {
+    const pdf = r('GET', '/api/billing/invoices/:id/pdf')
+    expect(pdf.query?.safeParse({}).success).toBe(true)
+    expect(pdf.query?.safeParse({ kind: 'invoice' }).success).toBe(true)
+    expect(pdf.query?.safeParse({ kind: 'cancellation' }).success).toBe(true)
+    expect(pdf.query?.safeParse({ kind: 'other' }).success).toBe(false)
+    expect(pdf.ownerTier).toBe(true)
+    expect(pdf.notes).toContain('404 not_found')
+    expect(pdf.notes).toContain('stored cancellation PDF')
+  })
 })
 
 describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)', () => {

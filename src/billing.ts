@@ -825,8 +825,8 @@ export const paymentMethod = z.discriminatedUnion('kind', [
 ])
 export type PaymentMethod = z.infer<typeof paymentMethod>
 
-/** An invoice's status: `open` until paid, or `uncollectible` after a fallback to Basic with an unpaid balance. */
-export const invoiceStatus = z.enum(['open', 'paid', 'uncollectible'])
+/** An invoice's status: `open` until paid, `cancelled` after a cancellation, or `uncollectible` after an unpaid fallback. */
+export const invoiceStatus = z.enum(['open', 'paid', 'uncollectible', 'cancelled'])
 export type InvoiceStatus = z.infer<typeof invoiceStatus>
 
 /** One invoice, rendered by the cloud: the number is gapless, `FL-<year>-<seq>`. */
@@ -837,6 +837,9 @@ export const billingInvoice = z.object({
   }),
   issued_at: z.iso.datetime().meta({ description: 'When the invoice was issued.' }),
   status: invoiceStatus.meta({ description: 'This invoice\'s own status.' }),
+  cancellation_document_url: z.string().nullable().meta({
+    description: 'Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice\'s id, not the cancellation number.',
+  }),
   currency: planCurrency.meta({ description: "The org's billing currency." }),
   net_cents: z.number().int().nonnegative().meta({ description: 'The charge, excluding VAT, in integer cents.' }),
   vat_rate_percent: z.number().int().min(0).max(100).meta({ description: 'The VAT rate applied, in whole percent.' }),
@@ -844,6 +847,12 @@ export const billingInvoice = z.object({
   gross_cents: z.number().int().nonnegative().meta({ description: 'Net plus VAT, in integer cents.' }),
 })
 export type BillingInvoice = z.infer<typeof billingInvoice>
+
+/** Optional document kind for `GET /api/billing/invoices/:id/pdf`; omitted means the original invoice. */
+export const billingInvoicePdfQuery = z.object({
+  kind: z.enum(['invoice', 'cancellation']).optional().meta({ description: 'The original invoice or its stored cancellation PDF; omitted means `invoice`.' }),
+}).strict()
+export type BillingInvoicePdfQuery = z.infer<typeof billingInvoicePdfQuery>
 
 /**
  * The org's billing account: the payer, the VAT treatment, the cycle and

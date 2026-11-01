@@ -347,6 +347,7 @@ import {
   billingDetailsUpdate,
   paymentMethodChangeRequest,
   billingInvoice,
+  billingInvoicePdfQuery,
   paymentMethod,
   billingView,
   billingChangeResponse,
@@ -682,6 +683,7 @@ export const exportedSchemas = {
   'billing-view': billingView,
   'billing-change-response': billingChangeResponse,
   'billing-invoice': billingInvoice,
+  'billing-invoice-pdf-query': billingInvoicePdfQuery,
   'payment-method': paymentMethod,
   'payment-provider-unavailable-details': paymentProviderUnavailableDetails,
 
@@ -1015,6 +1017,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'purchase-billing-details', 'purchase-operation-key', 'purchase-intent-lookup-query', 'purchase-intent-confirm-request', 'billing-decision-display-request', 'confirmation-proof', 'invoice-pay-request',
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
+  'billing-invoice-pdf-query',
 
   // Lexware billing documents (2026-10-19, fleetless/fleetless#544): the one query string this group has.
   'billing-document-file-query',
