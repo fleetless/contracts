@@ -248,7 +248,7 @@ import {
   protectedResourceMetadata,
 } from '../src/oauth.js'
 import { oauthAuthorizeQuery } from '../src/oauth.js'
-import { supportSessionInfo, supportTokenRequest, supportTokenResponse } from '../src/support.js'
+import { supportSessionInfo, supportTokenRequest, supportTokenResponse, supportRenewFailRequest, supportRenewFailRefusal } from '../src/support.js'
 import {
   cameraDescriptor,
   cancelRequest,
@@ -714,6 +714,8 @@ export const exportedSchemas = {
   // Support sessions (internal, Block D): an operator temporarily holding a console session for one org.
   'support-token-request': supportTokenRequest, // POST /console/support/token
   'support-token-response': supportTokenResponse, // POST /console/support/token
+  'support-renew-fail-request': supportRenewFailRequest, // POST /console/support/renew/fail
+  'support-renew-fail-refusal': supportRenewFailRefusal, // non-204 response from POST /console/support/renew/fail
   'support-session-info': supportSessionInfo, // embedded in support-token-response and in authMeSupportResponse, which no route names
   'dynamic-client-registration-request': dynamicClientRegistrationRequest, // POST /mcp/oauth/register, POST /mcp/:appIdentifier/oauth/register
   'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
@@ -960,7 +962,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'oauth-token-request', 'dynamic-client-registration-request',
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
-  'support-token-request',
+  'support-token-request', 'support-renew-fail-request',
   'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
@@ -1040,7 +1042,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'datapoint-alert-row', 'alert-list-response', 'org-firing-alerts-response', 'datapoint-display',
 
   // --- Responses the route manifest names ---------------------------------
-  'oauth-redirect-response', 'oauth-token-response', 'support-token-response', 'dynamic-client-registration-response',
+  'oauth-redirect-response', 'oauth-token-response', 'support-token-response', 'support-renew-fail-refusal', 'dynamic-client-registration-response',
   'authorization-server-metadata', 'protected-resource-metadata',
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response', 'assets-clear-response',
@@ -1293,13 +1295,14 @@ const SECURITY: Record<Exclude<RouteEntry['auth'], 'in_handler'>, object[]> = {
  */
 const ALL_SECURITY_SCHEMES: Record<string, object> = {
   developerSession: { type: 'http', scheme: 'bearer', description: 'A developer session token from the console login.' },
+  supportSession: { type: 'http', scheme: 'bearer', description: 'The original Console support-session bearer, bound to the pending renewal flow.' },
   clientToken: { type: 'http', scheme: 'bearer', description: 'An end-user token from the client login or the hosted login.' },
   serverKey: { type: 'http', scheme: 'bearer', description: 'An app server key (`flk_…`).' },
   opsToken: { type: 'http', scheme: 'bearer', description: 'An operator bearer token (`OPS_API_TOKEN`); never reachable through a public host.' },
 }
 
 /**
- * **`auth: 'in_handler'` is three different credentials, not one**, so a single
+ * **`auth: 'in_handler'` covers distinct credentials, not one**, so a single
  * blanket entry in `SECURITY` was wrong: it said `security: []` — *this route
  * needs no authentication* — about `POST /mcp`, which needs an OAuth access
  * token and answers `401` with a `WWW-Authenticate` challenge without one.
@@ -1312,6 +1315,10 @@ const ALL_SECURITY_SCHEMES: Record<string, object> = {
  * the one case where an empty list is a statement rather than an oversight,
  * which is why it is written here beside the other two rather than inherited.
  *
+ * Console's support-renewal failure route needs the original support bearer
+ * even after another flow has won its generation. Its handler validates that
+ * bearer and the PKCE proof before the generation-fenced transaction.
+ *
  * Keyed by `METHOD /path`, and a test holds its keys to `IN_HANDLER_ROUTES`:
  * a further in-handler route added without a decision here would otherwise
  * inherit the same silent `[]` this comment exists to have removed.
@@ -1319,6 +1326,7 @@ const ALL_SECURITY_SCHEMES: Record<string, object> = {
 const MCP_APP = MCP_APP_PATHS(':appIdentifier')
 
 export const IN_HANDLER_SECURITY: Record<string, object[]> = {
+  'POST /console/support/renew/fail': [{ supportSession: [] }],
   'POST /mcp': [{ clientToken: [] }],
   // The per-app endpoint's three verbs carry the same OAuth access token, and
   // the two that answer `405` carry it too: the app, its switch and the bearer

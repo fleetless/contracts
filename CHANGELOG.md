@@ -13,6 +13,10 @@ version.
 
 ### Added
 
+- Internal `POST /console/support/renew/fail` contract with a strict
+  original-bearer/PKCE request and typed no-store refusal pairs. Cloud ends
+  only a pending, current-generation flow within its 120-second proof window;
+  a stale tab cannot end the winning support session.
 - Owner-only `GET /api/org/legal/acceptances` and the additive
   `legalAcceptanceListQuery`, `legalAcceptanceVersionRow`, and
   `legalAcceptanceListResponse` schemas. Pages expose stored Terms and

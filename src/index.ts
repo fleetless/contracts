@@ -517,8 +517,8 @@ export type {
 export { FEEDBACK_KINDS, FEEDBACK_MESSAGE_MAX, feedbackKind, feedbackRequest, feedbackResponse } from './feedback.js'
 export type { FeedbackKind, FeedbackRequest, FeedbackResponse } from './feedback.js'
 // Support sessions: an operator temporarily holding a console session for one org (internal, additive).
-export { supportSessionInfo, supportTokenRequest, supportTokenResponse, authMeSupportResponse } from './support.js'
-export type { SupportSessionInfo, SupportTokenRequest, SupportTokenResponse, AuthMeSupportResponse } from './support.js'
+export { supportSessionInfo, supportTokenRequest, supportTokenResponse, supportRenewFailRequest, supportRenewFailRefusal, authMeSupportResponse } from './support.js'
+export type { SupportSessionInfo, SupportTokenRequest, SupportTokenResponse, SupportRenewFailRequest, SupportRenewFailRefusal, AuthMeSupportResponse } from './support.js'
 export {
   appIdentifier,
   app,

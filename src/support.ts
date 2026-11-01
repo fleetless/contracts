@@ -101,6 +101,25 @@ export const supportTokenResponse = z
   .strict()
 export type SupportTokenResponse = z.infer<typeof supportTokenResponse>
 
+/** Console's server proves a failed renewal with the original support bearer and its server-held PKCE verifier. */
+export const supportRenewFailRequest = z.object({
+  flow_id: z.uuid().meta({ description: 'The pending Cloud renewal flow created with the original support bearer.' }),
+  code_verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/).meta({
+    description: 'The server-held RFC 7636 verifier matching the flow\'s S256 challenge; never sent to the browser.',
+  }),
+  reason: z.literal('authority_failed').meta({ description: 'A fixed category; browser and IdP error text is not forwarded.' }),
+}).strict()
+export type SupportRenewFailRequest = z.infer<typeof supportRenewFailRequest>
+
+/** Body of every non-204 renewal-failure response. HTTP status follows `code`; all refusals are no-store. */
+export const supportRenewFailRefusal = z.union([
+  z.object({ code: z.literal('validation_error'), message: z.string().min(1), details: z.object({ rule: z.literal('invalid_flow') }).strict() }).strict(),
+  z.object({ code: z.literal('unauthorized'), message: z.string().min(1), details: z.object({ rule: z.literal('invalid_authority') }).strict() }).strict(),
+  z.object({ code: z.literal('not_found'), message: z.string().min(1), details: z.object({ rule: z.enum(['invalid_flow', 'identity_mismatch']) }).strict() }).strict(),
+  z.object({ code: z.literal('target_state_conflict'), message: z.string().min(1), details: z.object({ rule: z.enum(['expired', 'replayed', 'session_inactive', 'stale_generation']) }).strict() }).strict(),
+])
+export type SupportRenewFailRefusal = z.infer<typeof supportRenewFailRefusal>
+
 /**
  * What `GET /api/auth/me` answers **to a support token** — `authMeResponse`
  * with one more, optional field. The public route entry keeps `authMeResponse`
