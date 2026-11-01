@@ -17,6 +17,7 @@ import {
 import { legalDocumentReference } from './legal.js'
 import { purchaseOperationKey } from './purchase-operation-key.js'
 import { confirmationProof } from './confirmation-proof.js'
+import { ianaTimeZones } from './iana-time-zones.js'
 export { purchaseOperationKey } from './purchase-operation-key.js'
 export { confirmationProof } from './confirmation-proof.js'
 export type { ConfirmationProof } from './confirmation-proof.js'
@@ -490,9 +491,7 @@ export const billingDecisionAmounts = z.object({
 export type BillingDecisionAmounts = z.infer<typeof billingDecisionAmounts>
 
 const utcInstant = z.iso.datetime().regex(/Z$/)
-const ianaTimeZone = z.string().min(1).refine((value) => {
-  try { new Intl.DateTimeFormat('en', { timeZone: value }); return true } catch { return false }
-}, { message: 'Use an IANA time zone.' })
+const ianaTimeZone = z.enum(ianaTimeZones)
 function localDate(instant: string, timeZone: string): string | null {
   try {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(instant))
@@ -654,8 +653,28 @@ export const purchaseIntent = z.discriminatedUnion('state', [
 ]).superRefine(validateIntent).meta({ allOf: intentRules })
 export type PurchaseIntent = z.infer<typeof purchaseIntent>
 
-/** Shared by checkout, invoice payment and method change. Mandate-only setup remains held. */
-export const checkoutResponse = purchaseIntent
+/** Shared by checkout, invoice payment and method change. Paid changes use their own response. */
+const nonChangeOperation = purchaseOperation.exclude(['paid_change'])
+const nonChangeChargeOperation = chargeOperation.exclude(['paid_change'])
+const nonChangeDraft = z.discriminatedUnion('state', [
+  draftVariants[0].safeExtend({ operation: nonChangeChargeOperation }),
+  draftVariants[1].safeExtend({ operation: nonChangeChargeOperation }),
+  draftVariants[2].safeExtend({ operation: nonChangeOperation }),
+  draftVariants[3].safeExtend({ operation: nonChangeChargeOperation }),
+  draftVariants[4].safeExtend({ operation: nonChangeChargeOperation }),
+]).superRefine(validateIntent).meta({ allOf: intentRules })
+const nonChangePaymentStarted = paymentStartedVariant
+  .safeExtend({ operation: nonChangeChargeOperation })
+  .superRefine(validateIntent).meta({ allOf: intentRules })
+const paidChangeOperation = z.literal('paid_change')
+const paidChangeDraft = z.discriminatedUnion('state', [
+  draftVariants[0].safeExtend({ operation: paidChangeOperation }),
+  draftVariants[1].safeExtend({ operation: paidChangeOperation }),
+  draftVariants[2].safeExtend({ operation: paidChangeOperation }),
+  draftVariants[3].safeExtend({ operation: paidChangeOperation }),
+  draftVariants[4].safeExtend({ operation: paidChangeOperation }),
+]).superRefine(validateIntent).meta({ allOf: intentRules })
+export const checkoutResponse = z.union([nonChangeDraft, nonChangePaymentStarted])
 export type CheckoutResponse = z.infer<typeof checkoutResponse>
 
 /** Lookup needs one identity, plus the expected operation; a mismatch discloses nothing. */
@@ -1143,7 +1162,7 @@ const acceptedNoPaymentChange = z.object({
   intent: purchaseIntentAcceptedWithoutPayment,
 }).strict()
 export const billingChangeResponse = z.union([
-  z.object({ intent: purchaseIntentDraft }).strict(),
+  z.object({ intent: paidChangeDraft }).strict(),
   acceptedPaidChange,
   acceptedNoPaymentChange,
 ])
@@ -1152,7 +1171,7 @@ export type BillingChangeResponse = z.infer<typeof billingChangeResponse>
 /** Confirmation/lookup recover the original decision, never a bare accepted change. */
 export const purchaseIntentResponse = z.union([
   purchaseIntentDraft,
-  purchaseIntentPaymentStarted,
+  nonChangePaymentStarted,
   acceptedPaidChange,
   acceptedNoPaymentChange,
 ])
