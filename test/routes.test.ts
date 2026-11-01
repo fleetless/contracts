@@ -11,6 +11,8 @@ import {
   robotTokenRotateResponse, jointStatePutRequest, jointStatePutResponse, appAuthConfig,
   appDeletionSummary, developerSignInRoutes, acceptTeamInviteRequest, patchOrgRequest,
   orgPlan, billingView, billingDocumentList, billingDocumentDetail, billingDocumentFileQuery, chargePayRequest,
+  billingDecisionDisplayRequest, billingDecisionDisplayResponse, planChangePrepareRequest,
+  planChangePrepareResponse, planChangeDecisionLookupQuery, planChangeDecisionStatusResponse,
 } from '../src/index.js'
 import {
   BRIDGE_SENT_SCHEMAS,
@@ -1727,8 +1729,9 @@ describe('the parked-items round', () => {
     // an identifier in the path, `GET` and `DELETE` included: their `405` body
     // is the transport's own JSON-RPC error object, not an `apiError`.
     //
-    // Named as two paths rather than loosened into a status or a section
-    // exemption, so a future silent route anywhere else still fails here.
+    // A documented refusal status has no success schema by design; its error
+    // body follows the shared apiError contract. The MCP paths have their own
+    // JSON-RPC transport. Any other silent success still fails this check.
     const MCP_ENDPOINTS = [MCP_ENDPOINT_PATH, MCP_APP_PATHS(':appIdentifier').endpoint]
     const silent = ROUTES.filter(
       (r) =>
@@ -1736,7 +1739,7 @@ describe('the parked-items round', () => {
         r.transport === 'http' &&
         r.response === null &&
         r.contentType === undefined &&
-        ![204, 302, 202, 404].includes(r.status) &&
+        ![204, 302, 202].includes(r.status) && r.status < 400 &&
         !MCP_ENDPOINTS.includes(r.path),
     )
     expect(silent.map(key)).toEqual([])
@@ -2154,13 +2157,25 @@ describe("the organization's plan routes (2026-10-02, fleetless/fleetless#103)",
     expect(admin).toMatchObject({ audience: 'internal', auth: 'ops', rateLimited: true })
     expect(ROUTES.filter((x) => x.path.startsWith('/api/admin/')).every((x) => x.auth === 'ops')).toBe(true)
   })
+
+  it('prepares a nonbinding owner decision and looks up its accepted result', () => {
+    const prepare = ROUTES.find((x) => key(x) === 'POST /api/org/plan/change/prepare')
+    const lookup = ROUTES.find((x) => key(x) === 'GET /api/org/plan/change/decisions')
+    const final = ROUTES.find((x) => key(x) === 'PUT /api/org/plan/change')
+    expect(prepare).toMatchObject({ auth: 'developer', ownerTier: true, request: planChangePrepareRequest, response: planChangePrepareResponse })
+    expect(lookup).toMatchObject({ auth: 'developer', ownerTier: true, query: planChangeDecisionLookupQuery, response: planChangeDecisionStatusResponse })
+    expect(final?.request?.safeParse({ target_plan: 'basic', keep: null }).success).toBe(false)
+    expect(final?.notes).toMatch(/confirmation_proof/)
+    expect(prepare?.errors).toContain('target_state_conflict')
+    expect(lookup?.errors).toContain('not_found')
+  })
 })
 
 describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it('the billing routes', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const billing = ROUTES.filter((x) => x.section === 'billing')
-    expect(billing).toHaveLength(18)
+    expect(billing).toHaveLength(19)
     expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
     expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })
@@ -2168,6 +2183,18 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(r('PATCH', '/api/admin/orgs/:id/plan')?.errors).toContain('target_state_conflict')
     expect(r('PUT', '/api/org/plan/change')?.notes).not.toMatch(/until payment exists/)
     expect(ROUTE_SECTIONS.map((s) => s.id)).toContain('billing')
+  })
+
+  it('mints an owner-only display and rejects the legacy direct cancel path', () => {
+    const display = ROUTES.find((x) => key(x) === 'POST /api/billing/intents/:id/display')
+    const cancel = ROUTES.find((x) => key(x) === 'POST /api/billing/cancel')
+    expect(display).toMatchObject({ auth: 'developer', ownerTier: true, request: billingDecisionDisplayRequest, response: billingDecisionDisplayResponse })
+    expect(display?.params.map((p) => p.name)).toEqual(['id'])
+    expect(display?.notes).toMatch(/no-store/)
+    expect(display?.errors).toContain('target_state_conflict')
+    expect(cancel).toMatchObject({ status: 409, response: null })
+    expect(cancel?.errors).toContain('target_state_conflict')
+    expect(ROUTES.find((x) => key(x) === 'POST /api/billing/change')?.notes).toMatch(/nonbinding/)
   })
 
   it('the webhook lists the 429 it can answer, like every rate-limited route', () => {

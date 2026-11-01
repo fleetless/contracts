@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "currency": {
+      "type": "string",
+      "const": "eur"
+    },
+    "quote": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "type": "string",
+          "const": "eur",
+          "description": "Every new quote is in EUR."
+        },
+        "net_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Current charge excluding VAT, in cents."
+        },
+        "vat_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "VAT on the current charge, in cents."
+        },
+        "gross_cents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Total to confirm, including VAT, in cents."
+        },
+        "rate_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "VAT rate in whole percent."
+        }
+      },
+      "required": [
+        "currency",
+        "net_cents",
+        "vat_cents",
+        "gross_cents",
+        "rate_percent"
+      ],
+      "additionalProperties": false
+    },
+    "plan_net_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "addon_lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "addon": {
+            "type": "string",
+            "enum": [
+              "seats",
+              "robots",
+              "apps",
+              "app_user_packs",
+              "live_video_packs"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "net_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "addon",
+          "quantity",
+          "net_cents"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "period_net_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "period_vat_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "period_gross_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "vat_treatment": {
+      "type": "string",
+      "enum": [
+        "de_standard",
+        "reverse_charge",
+        "outside_eu"
+      ]
+    },
+    "vat_treatment_line": {
+      "type": "string",
+      "minLength": 1
+    },
+    "due_today_gross_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "prorated_net_cents": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "renewal_net_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "currency",
+    "quote",
+    "plan_net_cents",
+    "addon_lines",
+    "period_net_cents",
+    "period_vat_cents",
+    "period_gross_cents",
+    "vat_treatment",
+    "vat_treatment_line",
+    "due_today_gross_cents",
+    "prorated_net_cents",
+    "renewal_net_cents"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "vat_treatment": {
+            "const": "de_standard"
+          }
+        },
+        "required": [
+          "vat_treatment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quote": {
+            "properties": {
+              "rate_percent": {
+                "const": 19
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "vat_treatment": {
+            "const": "reverse_charge"
+          }
+        },
+        "required": [
+          "vat_treatment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quote": {
+            "properties": {
+              "rate_percent": {
+                "const": 0
+              },
+              "vat_cents": {
+                "const": 0
+              }
+            }
+          },
+          "period_vat_cents": {
+            "const": 0
+          },
+          "vat_treatment_line": {
+            "const": "Reverse charge — VAT payable by the recipient"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "vat_treatment": {
+            "const": "outside_eu"
+          }
+        },
+        "required": [
+          "vat_treatment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "quote": {
+            "properties": {
+              "rate_percent": {
+                "const": 0
+              },
+              "vat_cents": {
+                "const": 0
+              }
+            }
+          },
+          "period_vat_cents": {
+            "const": 0
+          },
+          "vat_treatment_line": {
+            "const": "Not taxable in Germany"
+          }
+        }
+      }
+    }
+  ]
+}

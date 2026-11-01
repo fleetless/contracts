@@ -48,6 +48,9 @@ describe('C.4 billing decision display', () => {
   it('accepts a Basic-route plan change and both purchase-intent kinds', () => {
     expect(billingDecisionDisplayResponse.safeParse(display).success).toBe(true)
     expect(planChangePrepareResponse.safeParse({ change_id: snapshot.decision_id, display }).success).toBe(true)
+    const { keep: _planKeep, ...purchaseOnlySelection } = snapshot.selection
+    expect(planChangePrepareResponse.safeParse({ change_id: snapshot.decision_id, display: { ...display, snapshot: { ...snapshot, decision_kind: 'checkout', selection: purchaseOnlySelection } } }).success).toBe(false)
+    expect(planChangePrepareResponse.safeParse({ change_id: id, display }).success).toBe(false)
     for (const decision_kind of ['checkout', 'paid_change']) {
       const { keep: _keep, ...selection } = snapshot.selection
       expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, decision_kind, selection } }).success).toBe(true)
@@ -80,6 +83,7 @@ describe('C.4 billing decision display', () => {
     const zero = { ...amounts, quote: { ...amounts.quote, rate_percent: 0 }, period_vat_cents: 0, period_gross_cents: 2900, vat_treatment: 'reverse_charge', vat_treatment_line: 'Reverse charge — VAT payable by the recipient' }
     expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: zero } }).success).toBe(true)
     expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...zero, vat_treatment: 'outside_eu' } } }).success).toBe(false)
+    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...amounts, vat_treatment_line: '19% German VAT: €0.00; total €34.51 per month' } } }).success).toBe(false)
   })
 
   it('checks exact period boundaries and local start date through the DST transition', () => {

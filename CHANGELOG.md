@@ -9,6 +9,26 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Owner-only C.4 display for eligible checkout and paid-change intents, and
+  nonbinding `POST /api/org/plan/change/prepare` plus Owner decision lookup.
+  The display carries a Cloud-issued, short-lived proof, immutable legal
+  references, verified buyer/VAT details, and exact price and period values.
+- `accepted_no_payment` intent variant for confirmed zero-charge changes.
+
+### Changed
+
+- **Breaking:** Checkout and billing-change starts are nonbinding drafts;
+  `accept_terms` is deprecated and cannot confirm an order. Checkout and
+  paid-change confirmation, and final `PUT /api/org/plan/change`, require
+  `confirmation_proof`. The final Basic PUT alone accepts an optional
+  cancellation reason of up to 500 input characters. The former direct
+  `POST /api/billing/cancel` is rejected after the C.4 gate is active.
+- **Breaking:** Billing-change and intent responses distinguish draft,
+  payment-started, and accepted-without-payment results; an immediate
+  accepted change is no longer returned by the start route.
+
 ## [9.1.0] — 2026-11-01
 
 ### Changed

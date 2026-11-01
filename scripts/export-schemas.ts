@@ -294,6 +294,9 @@ import {
   orgLock,
   orgPlan,
   planChangeRequest,
+  planChangePrepareRequest,
+  planChangeDecisionLookupQuery,
+  planChangeDecisionStatusResponse,
   planOverrides,
   adminPlanChangeRequest,
 } from '../src/plans.js'
@@ -315,6 +318,16 @@ import {
   purchaseRefusalRule,
   purchaseIntentLookupQuery,
   purchaseIntentConfirmRequest,
+  billingDecisionDisplayRequest,
+  confirmationProof,
+  billingDecisionAmounts,
+  billingDecisionPeriod,
+  billingDecisionSnapshot,
+  billingDecisionDisplayResponse,
+  planChangePrepareResponse,
+  purchaseIntentDraft,
+  purchaseIntentPaymentStarted,
+  purchaseIntentAcceptedWithoutPayment,
   purchaseConflictDetails,
   invoicePayRequest,
   purchaseIntentResponse,
@@ -618,6 +631,9 @@ export const exportedSchemas = {
   'org-lock': orgLock,
   'org-plan': orgPlan,
   'plan-change-request': planChangeRequest,
+  'plan-change-prepare-request': planChangePrepareRequest,
+  'plan-change-decision-lookup-query': planChangeDecisionLookupQuery,
+  'plan-change-decision-status-response': planChangeDecisionStatusResponse,
   'plan-overrides': planOverrides,
   'admin-plan-change-request': adminPlanChangeRequest,
   'plan-limit-details': planLimitDetails,
@@ -635,6 +651,16 @@ export const exportedSchemas = {
   'purchase-refusal-rule': purchaseRefusalRule,
   'purchase-intent-lookup-query': purchaseIntentLookupQuery,
   'purchase-intent-confirm-request': purchaseIntentConfirmRequest,
+  'billing-decision-display-request': billingDecisionDisplayRequest,
+  'confirmation-proof': confirmationProof,
+  'billing-decision-amounts': billingDecisionAmounts,
+  'billing-decision-period': billingDecisionPeriod,
+  'billing-decision-snapshot': billingDecisionSnapshot,
+  'billing-decision-display-response': billingDecisionDisplayResponse,
+  'plan-change-prepare-response': planChangePrepareResponse,
+  'purchase-intent-draft': purchaseIntentDraft,
+  'purchase-intent-payment-started': purchaseIntentPaymentStarted,
+  'purchase-intent-accepted-without-payment': purchaseIntentAcceptedWithoutPayment,
   'purchase-conflict-details': purchaseConflictDetails,
   'invoice-pay-request': invoicePayRequest,
   'purchase-intent-response': purchaseIntentResponse,
@@ -977,12 +1003,12 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // below is `input`: it is validated as an incoming document on the `PUT`,
   // and on the read it is only ever a readback of what was already accepted
   // there — never a response shape of its own.
-  'plan-change-request', 'admin-plan-change-request', 'plan-overrides', 'plan-change-keep',
+  'plan-change-request', 'plan-change-prepare-request', 'plan-change-decision-lookup-query', 'admin-plan-change-request', 'plan-overrides', 'plan-change-keep',
 
   // Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2). The
   // New company purchase writes are stricter than the historical billing-details
   // reads. Address/detail edits are revalidated as a complete buyer before charging.
-  'purchase-billing-details', 'purchase-operation-key', 'purchase-intent-lookup-query', 'purchase-intent-confirm-request', 'invoice-pay-request',
+  'purchase-billing-details', 'purchase-operation-key', 'purchase-intent-lookup-query', 'purchase-intent-confirm-request', 'billing-decision-display-request', 'confirmation-proof', 'invoice-pay-request',
   'billing-address', 'billing-details', 'checkout-request', 'vat-id-check-request', 'billing-change-request',
   'billing-cancel-request', 'billing-details-update', 'payment-method-change-request',
 
@@ -1074,7 +1100,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // the server sends — a document somebody receives, never one the server
   // validates on arrival.
   'plan-currency', 'org-addons', 'org-plan-usage', 'plan-change-reason', 'pending-plan-change',
-  'org-lock', 'org-plan', 'plan-limit-details', 'asset-plan-limit-details', 'plan-required-details',
+  'org-lock', 'org-plan', 'plan-change-decision-status-response', 'plan-limit-details', 'asset-plan-limit-details', 'plan-required-details',
   'org-locked-details',
 
   // --- The per-file asset limit (2026-10-03, fleetless/fleetless#136) ------
@@ -1084,7 +1110,8 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104) ---------
   // The billing routes' answers, and the `details` of a `502
   // payment_provider_unavailable` — documents the server sends.
-  'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'vat-decision', 'vies-pending-reason',
+  'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'purchase-intent-draft', 'purchase-intent-payment-started', 'purchase-intent-accepted-without-payment', 'vat-decision', 'vies-pending-reason',
+  'billing-decision-amounts', 'billing-decision-period', 'billing-decision-snapshot', 'billing-decision-display-response', 'plan-change-prepare-response',
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 
