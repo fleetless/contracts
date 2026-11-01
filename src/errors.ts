@@ -342,6 +342,12 @@ export const ERROR_CODES = [
    */
   'job_lost',
   /**
+   * `Job.error.code` on `lost` after an org Owner explicitly verifies the
+   * robot is physically stopped and releases one held job. This records a
+   * human safety assertion, not a bridge statement or a timer decision.
+   */
+  'operator_verified_stopped',
+  /**
    * The bridge confirms it does not know this job after reconciliation,
    * rather than merely omitting it from `hello.active_jobs`. For an action,
    * no goal the bridge cannot attribute is active on the job's action any
@@ -784,6 +790,12 @@ export const ERROR_CODES = [
    *
    */
   'target_state_conflict',
+  /**
+   * A held-job recovery cannot release the named job: its state changed, the
+   * bridge reconnected, or the id no longer matches. The Owner must read the
+   * current job and connection state before deciding whether to try again.
+   */
+  'job_state_conflict',
   // 2026-09-04 — the public site (closed beta).
   /**
    * `403` from the portal's sign-up pages while `SIGNUP_MODE=closed`. Not

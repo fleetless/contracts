@@ -5850,6 +5850,44 @@
     },
     {
       "method": "POST",
+      "path": "/api/robots/:id/jobs/:slug/recover",
+      "section": "commands",
+      "summary": "Releases one held job after an Owner verifies the robot is stopped.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": true,
+      "status": 200,
+      "params": [
+        {
+          "name": "id",
+          "description": "The robot uuid in the authenticated Owner's organization."
+        },
+        {
+          "name": "slug",
+          "description": "The action slug holding the exact job named in the body."
+        }
+      ],
+      "query": null,
+      "request": "recover-held-job-request",
+      "response": "recover-held-job-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required",
+        "support_forbidden",
+        "invalid_uuid",
+        "not_found",
+        "validation_error",
+        "job_state_conflict",
+        "internal_error"
+      ],
+      "transport": "http",
+      "notes": "Use only after physically stopping or isolating the robot and checking that it cannot move. Read the held job id, then submit that exact id with a reason and `verified_stopped: true`. The assertion is a human safety check, not a sensor reading. The cloud records the Owner and reason in the audit trail and returns the job settled to `lost`. App users, server keys, other developers and support sessions cannot use this route. A connected bridge or a changed job returns `409 job_state_conflict`; a normal cancel is not recovery and never releases an uncertain job."
+    },
+    {
+      "method": "POST",
       "path": "/api/robots/:id/publishers/:slug",
       "section": "commands",
       "summary": "Publishes one message onto a configured publisher.",

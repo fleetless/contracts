@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The exact held job id read from the robot job state; another job must never be released by a stale request."
+    },
+    "verified_stopped": {
+      "type": "boolean",
+      "const": true,
+      "description": "The Owner confirms a physical stop and safety check; this is not a cloud sensor reading."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "The Owner's reason and safety-check record, 10–500 characters after trimming; retained in the audit trail."
+    }
+  },
+  "required": [
+    "job_id",
+    "verified_stopped",
+    "reason"
+  ],
+  "additionalProperties": false
+}

@@ -8108,6 +8108,73 @@
         }
       }
     },
+    "/api/robots/{id}/jobs/{slug}/recover": {
+      "post": {
+        "operationId": "post_api_robots_id_jobs_slug_recover",
+        "summary": "Releases one held job after an Owner verifies the robot is stopped.",
+        "tags": [
+          "commands"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The robot uuid in the authenticated Owner's organization.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "The action slug holding the exact job named in the body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/recover-held-job-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `support_forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `job_state_conflict`, `internal_error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Use only after physically stopping or isolating the robot and checking that it cannot move. Read the held job id, then submit that exact id with a reason and `verified_stopped: true`. The assertion is a human safety check, not a sensor reading. The cloud records the Owner and reason in the audit trail and returns the job settled to `lost`. App users, server keys, other developers and support sessions cannot use this route. A connected bridge or a changed job returns `409 job_state_conflict`; a normal cancel is not recovery and never releases an uncertain job.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/recover-held-job-request"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/robots/{id}/publishers/{slug}": {
       "post": {
         "operationId": "post_api_robots_id_publishers_slug",
@@ -21688,6 +21755,20 @@
                     "low_bandwidth": {
                       "type": "boolean",
                       "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
+                    },
+                    "health_reason": {
+                      "description": "Cloud-observed connection health: `job_query_unanswered` after a bridge ignores held-job queries; `null` on an ordinary connect or disconnect. Optional for older observations.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "job_query_unanswered"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -36119,6 +36200,158 @@
         ],
         "additionalProperties": false
       },
+      "recover-held-job-request": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The exact held job id read from the robot job state; another job must never be released by a stale request."
+          },
+          "verified_stopped": {
+            "type": "boolean",
+            "const": true,
+            "description": "The Owner confirms a physical stop and safety check; this is not a cloud sensor reading."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500,
+            "description": "The Owner's reason and safety-check record, 10–500 characters after trimming; retained in the audit trail."
+          }
+        },
+        "required": [
+          "job_id",
+          "verified_stopped",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "recover-held-job-response": {
+        "type": "object",
+        "properties": {
+          "job": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "The job's id, minted by the cloud when the invocation is accepted. Informative — state is observed by slug; a cancel names this id to stop one specific job rather than whatever is running."
+              },
+              "robot_id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "The robot this job is running on."
+              },
+              "slug": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                "description": "The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one."
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "running",
+                  "unknown",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "lost"
+                ],
+                "description": "Where the job stands: `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`. `unknown` is not an outcome — the robot went offline or silent and the cloud does not know yet; the slug stays occupied and the bridge's next statement resolves it, `error` naming why the cloud lost sight of it. `lost` is final: the bridge stated it does not know the job and nothing else runs on its action, or the action server vanished mid-goal."
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "fleetless",
+                  "external"
+                ],
+                "description": "Who started this job. `fleetless` for everything minted by the cloud; `external` for a goal the bridge found active on a published action without having sent it — no parameters, no starter, never written to `job_runs`."
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                "description": "When the cloud minted this job, as an ISO 8601 timestamp. For a job adopted from a reconnecting bridge, this is **adoption time**, not the real start — the cloud never minted it."
+              },
+              "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                "description": "When this job last changed, as an ISO 8601 timestamp."
+              },
+              "seq": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "description": "A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders."
+              },
+              "result": {
+                "anyOf": [
+                  {},
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "A machine-readable code for the failure, such as `job_queue_full`, where one exists for it."
+                      },
+                      "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "A human-readable sentence saying what went wrong."
+                      },
+                      "details": {
+                        "description": "The structured payload belonging to `code`, for the codes that document one — `job_queue_full` carries its `limit` and its `queued` count here. Absent for a failure with nothing structured to add, which is most of them."
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Why the job failed, or why the cloud does not know how it stands: a human `message`, a `code` where one exists, and `details` for the codes that carry a documented payload. Set on `failed` and `lost`, and on `unknown` — where `code` is `bridge_disconnected` or `bridge_timeout`, the cloud's own reason for not knowing, cleared when the bridge reports the job running again."
+              }
+            },
+            "required": [
+              "id",
+              "robot_id",
+              "slug",
+              "state",
+              "origin",
+              "started_at",
+              "updated_at",
+              "seq",
+              "result",
+              "error"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "additionalProperties": false
+      },
       "recovery-codes-response": {
         "type": "object",
         "properties": {
@@ -36393,6 +36626,20 @@
               "low_bandwidth": {
                 "type": "boolean",
                 "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
+              },
+              "health_reason": {
+                "description": "Cloud-observed connection health: `job_query_unanswered` after a bridge ignores held-job queries; `null` on an ordinary connect or disconnect. Optional for older observations.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "job_query_unanswered"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -36848,6 +37095,20 @@
                     "low_bandwidth": {
                       "type": "boolean",
                       "description": "Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported."
+                    },
+                    "health_reason": {
+                      "description": "Cloud-observed connection health: `job_query_unanswered` after a bridge ignores held-job queries; `null` on an ordinary connect or disconnect. Optional for older observations.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "job_query_unanswered"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [

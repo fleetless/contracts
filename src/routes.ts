@@ -172,6 +172,8 @@ import {
 import {
   cameraListResponse,
   cancelRequest,
+  recoverHeldJobRequest,
+  recoverHeldJobResponse,
   configDraftResponse,
   configVersionResponse,
   configVersionsResponse,
@@ -3120,6 +3122,19 @@ export const ROUTES: readonly RouteEntry[] = [
       'answered `ERROR_REJECTED` makes it `409 cancel_rejected`, with every goal and its `return_code` in `details.goals`; no answer within ' +
       '`JOB_HEARTBEAT_TIMEOUT_MS` is `504 bridge_timeout`; a cancel the bridge could not send at all is `502` carrying the bridge\'s own ' +
       'code (`unknown_slug`, `action_server_lost`, `internal_error`).',
+  },
+  {
+    method: 'POST', path: '/api/robots/:id/jobs/:slug/recover', section: 'commands',
+    summary: 'Releases one held job after an Owner verifies the robot is stopped.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [
+      { name: 'id', description: 'The robot uuid in the authenticated Owner\'s organization.' },
+      { name: 'slug', description: 'The action slug holding the exact job named in the body.' },
+    ],
+    query: null, request: recoverHeldJobRequest, response: recoverHeldJobResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'invalid_uuid', 'not_found', 'validation_error', 'job_state_conflict', 'internal_error'],
+    transport: 'http',
+    notes: 'Use only after physically stopping or isolating the robot and checking that it cannot move. Read the held job id, then submit that exact id with a reason and `verified_stopped: true`. The assertion is a human safety check, not a sensor reading. The cloud records the Owner and reason in the audit trail and returns the job settled to `lost`. App users, server keys, other developers and support sessions cannot use this route. A connected bridge or a changed job returns `409 job_state_conflict`; a normal cancel is not recovery and never releases an uncertain job.',
   },
   {
     method: 'POST', path: '/api/robots/:id/publishers/:slug', section: 'commands',

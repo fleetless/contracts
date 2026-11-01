@@ -252,6 +252,8 @@ import { supportSessionInfo, supportTokenRequest, supportTokenResponse, supportR
 import {
   cameraDescriptor,
   cancelRequest,
+  recoverHeldJobRequest,
+  recoverHeldJobResponse,
   configVersionResponse,
   configVersionsResponse,
   fetchTypesRequest,
@@ -757,6 +759,8 @@ export const exportedSchemas = {
   'fetch-types-response': fetchTypesResponse, // POST /api/robots/:id/types/fetch
   'robot-jobs-response': robotJobsResponse, // GET /api/robots/:id/jobs
   'cancel-request': cancelRequest, // POST /api/robots/:id/jobs/:slug/cancel
+  'recover-held-job-request': recoverHeldJobRequest, // POST /api/robots/:id/jobs/:slug/recover
+  'recover-held-job-response': recoverHeldJobResponse, // POST /api/robots/:id/jobs/:slug/recover
   'release-live-query': releaseLiveQuery, // DELETE /api/robots/:id/cameras/:slug/live
   // **Two routes answer one of two shapes, so each names a union.** Both
   // carried `response: null` while their handler demonstrably answers
@@ -990,7 +994,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // server sends: a document the console's server validates on arrival.
   'support-token-request', 'support-renew-fail-request',
   'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
-  'fetch-types-request', 'cancel-request', 'release-live-query', 'asset-sync-request',
+  'fetch-types-request', 'cancel-request', 'recover-held-job-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
   // other `*-query` above is.
@@ -1060,7 +1064,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'two-factor-challenge', 'client-sign-in-result', 'two-factor-setup-response',
   'client-two-factor-setup-confirm-response',
   'client-robot-list-item', 'client-robot-list-response',
-  'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response',
+  'audit-event', 'audit-list-response', 'job', 'invoke-response', 'job-response', 'recover-held-job-response',
   'exposure-list-response', 'job-actor', 'job-run', 'job-run-list-response',
   'job-run-summary', 'latency-bucket', 'robot-latency-series', 'org-latency-response',
   'org-event', 'org-event-replay', 'org-event-dropped', 'org-usage-response',

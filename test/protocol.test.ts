@@ -101,6 +101,12 @@ describe('contracts v1', () => {
     expect(bridgeState.safeParse({ online: true, latency_ms: 42, low_bandwidth: false }).success).toBe(true)
     expect(bridgeState.safeParse({ online: false, latency_ms: null, low_bandwidth: false }).success).toBe(true)
     expect(bridgeState.safeParse({ online: true, latency_ms: 42 }).success).toBe(false)
+    expect(bridgeState.parse({ online: false, latency_ms: null, low_bandwidth: false, health_reason: 'job_query_unanswered' }))
+      .toHaveProperty('health_reason', 'job_query_unanswered')
+    expect(bridgeState.parse({ online: true, latency_ms: 42, low_bandwidth: false, health_reason: null }))
+      .toHaveProperty('health_reason', null)
+    expect(bridgeState.safeParse({ online: false, latency_ms: null, low_bandwidth: false, health_reason: 'robot_offline' }).success)
+      .toBe(false)
   })
 
   it('api errors carry stable code + message', () => {
