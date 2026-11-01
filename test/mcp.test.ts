@@ -248,7 +248,7 @@ describe('bundled MCP tool names', () => {
 
   it('describes the datasheet as the response of robots.describe in published schemas', () => {
     const datasheetRoute = ROUTES.find((route) => route.method === 'GET' && route.path === '/api/robots/:id/datasheet')
-    expect(datasheetRoute?.notes).toContain('robots.describe')
+    expect(datasheetRoute?.notes).toContain('MCP action `robots.describe`')
     expect(datasheetRoute?.notes).not.toContain('robot_describe')
     const configSchema = JSON.stringify(z.toJSONSchema(robotConfigDoc))
     expect(configSchema).toContain('robots.describe')
@@ -257,6 +257,7 @@ describe('bundled MCP tool names', () => {
     expect(cameraSchema).toContain('camera.snapshot')
     expect(cameraSchema).not.toContain('camera_snapshot')
     const routeNotes = ROUTES.map((route) => route.notes).join(' ')
+    expect(routeNotes).toContain('MCP action `robots.list`')
     expect(routeNotes).toContain('console_robots_write.delete')
     expect(routeNotes).not.toContain('console_robot_delete')
   })

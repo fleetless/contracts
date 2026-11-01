@@ -5208,7 +5208,7 @@
         "forbidden"
       ],
       "transport": "http",
-      "notes": "**The REST twin of the MCP tool `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees every robot its app attaches; a developer bearer sees the organisation's robots. Name order, id as the tiebreak. A robot on which the role grants nothing is absent rather than listed empty — the same answer `robots.list` gives, for the same reason: reach is a grant, not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`."
+      "notes": "**The REST twin of the MCP action `robots.list`**, and the one robot question no robot-scoped route can answer: which robots may I name at all. An app user sees the robots their app attaches on which their role grants at least one slug or capability; a server key sees every robot its app attaches; a developer bearer sees the organisation's robots. Name order, id as the tiebreak. A robot on which the role grants nothing is absent rather than listed empty — the same answer `robots.list` gives, for the same reason: reach is a grant, not an attachment. Under `/api/client/` because it names no robot; every robot-scoped read stays under `/api/robots/:id/…`."
     },
     {
       "method": "GET",
@@ -5238,7 +5238,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "**The REST twin of the MCP tool `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
+      "notes": "**The REST twin of the MCP action `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
     },
     {
       "method": "GET",
