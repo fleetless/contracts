@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import {
-  BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingAccount, billingInvoice, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
+  BILLING_RETRY_DAYS, BILLING_LOCK_DAY, EU_COUNTRIES, billingAccount, billingInvoice, invoiceStatus, changeNetCents, chargeAmounts, checkoutQuote, checkoutRequest,
   billingChangeRequest, currencyForCountry, normalizeVatId, paymentMethod, paymentMethodChangeRequest, paymentMethodKind, billingView, periodDays, periodNetCents, prorateCents, remainingDays, vatFor,
   viesCountry,
 } from '../src/billing.js'
@@ -141,6 +141,21 @@ describe('billing shapes (I-2)', () => {
     expect(billingInvoice.shape.number.safeParse('FL-2026-142').success).toBe(false)
     expect(paymentMethod.safeParse({ kind: 'card', brand: 'Visa', last4: '4242', expires: '08/28' }).success).toBe(true)
   })
+  it('requires a nullable cancellation document URL for every invoice status', () => {
+    const base = {
+      id: '11111111-1111-4111-8111-111111111111', number: 'FL-2026-0001',
+      issued_at: '2026-10-01T00:00:00Z', currency: 'eur',
+      net_cents: 100, vat_rate_percent: 0, vat_cents: 0, gross_cents: 100,
+    }
+    const cancellationUrl = '/api/billing/invoices/11111111-1111-4111-8111-111111111111/pdf?kind=cancellation'
+    expect(invoiceStatus.options).toEqual(['open', 'paid', 'uncollectible', 'cancelled'])
+    for (const status of ['open', 'paid', 'uncollectible']) {
+      expect(billingInvoice.parse({ ...base, status, cancellation_document_url: null })).toMatchObject({ status, cancellation_document_url: null })
+    }
+    expect(billingInvoice.parse({ ...base, status: 'cancelled', cancellation_document_url: cancellationUrl }))
+      .toMatchObject({ status: 'cancelled', cancellation_document_url: cancellationUrl })
+    expect(billingInvoice.safeParse({ ...base, status: 'cancelled' }).success).toBe(false)
+  })
   it('card, PayPal and Apple Pay; no SEPA (André, 2026-10-04)', () => {
     expect(paymentMethodKind.options).toEqual(['card', 'paypal', 'applepay'])
     expect(paymentMethodChangeRequest.safeParse({ operation_key: operationKey, method: 'applepay' }).success).toBe(true)
@@ -193,7 +208,7 @@ describe('purchase contracts and historical reads', () => {
   it('retains a person/USD account and invoice without changing the currency', () => {
     const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, scheduled: { cycle: null, addons: null }, dunning: null }
     expect(billingAccount.parse(account).currency).toBe('usd')
-    expect(billingInvoice.parse({ id: intentBase.intent_id, number: 'FL-2026-0001', issued_at: '2026-10-01T00:00:00Z', status: 'open', currency: 'usd', net_cents: 17200, vat_rate_percent: 0, vat_cents: 0, gross_cents: 17200 }).currency).toBe('usd')
+    expect(billingInvoice.parse({ id: intentBase.intent_id, number: 'FL-2026-0001', issued_at: '2026-10-01T00:00:00Z', status: 'open', cancellation_document_url: null, currency: 'usd', net_cents: 17200, vat_rate_percent: 0, vat_cents: 0, gross_cents: 17200 }).currency).toBe('usd')
   })
   it.each([pendingIntent, eligibleIntent, heldIntent])('has no redirect before payment: $state', (intent) => {
     expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)

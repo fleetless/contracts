@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "description": "The original invoice or its stored cancellation PDF; omitted means `invoice`.",
+      "type": "string",
+      "enum": [
+        "invoice",
+        "cancellation"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

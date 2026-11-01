@@ -38,6 +38,31 @@ const finalBasic = {
 }
 
 describe('published C.4 JSON Schemas match route-bound Zod responses', () => {
+  it('publishes the cancelled invoice and optional document kind in generated artifacts', () => {
+    const invoice = {
+      id: '11111111-1111-4111-8111-111111111111', number: 'FL-2026-0001',
+      issued_at: '2026-10-01T00:00:00Z', status: 'cancelled',
+      cancellation_document_url: '/api/billing/invoices/11111111-1111-4111-8111-111111111111/pdf?kind=cancellation',
+      currency: 'eur', net_cents: 100, vat_rate_percent: 0, vat_cents: 0, gross_cents: 100,
+    }
+    expect(validArtifact('billing-invoice', invoice)).toBe(true)
+    expect(validArtifact('billing-invoice', { ...invoice, cancellation_document_url: undefined })).toBe(false)
+    for (const status of ['open', 'paid', 'uncollectible']) {
+      expect(validArtifact('billing-invoice', { ...invoice, status, cancellation_document_url: null })).toBe(true)
+    }
+    const routes = JSON.parse(readFileSync(new URL('../artifacts/routes.json', import.meta.url), 'utf8'))
+    const pdf = routes.routes.find((route: { path: string }) => route.path === '/api/billing/invoices/:id/pdf')
+    expect(pdf.query).toBe('billing-invoice-pdf-query')
+    for (const kind of [undefined, 'invoice', 'cancellation']) {
+      expect(validArtifact(pdf.query, kind === undefined ? {} : { kind })).toBe(true)
+    }
+    expect(validArtifact(pdf.query, { kind: 'other' })).toBe(false)
+    const openapi = JSON.parse(readFileSync(new URL('../artifacts/openapi.json', import.meta.url), 'utf8'))
+    expect(openapi.paths['/api/billing/invoices/{id}/pdf'].get.parameters).toContainEqual(
+      expect.objectContaining({ name: 'kind', in: 'query', required: false, schema: expect.objectContaining({ enum: ['invoice', 'cancellation'] }) }),
+    )
+  })
+
   it('rejects a bare paid-change payment from intent recovery', () => {
     const wrong = { ...startedIntent, operation: 'paid_change', payment: { kind: 'mandate' } }
     const draft = { ...eligibleIntent, operation: 'paid_change' }

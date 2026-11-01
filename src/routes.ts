@@ -157,6 +157,7 @@ import {
   billingChangeRequest,
   billingChangeResponse,
   billingDetailsUpdate,
+  billingInvoicePdfQuery,
   billingDocumentDetail,
   billingDocumentFileQuery,
   billingDocumentList,
@@ -3668,14 +3669,15 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'GET', path: '/api/billing/invoices/:id/pdf', section: 'billing',
-    summary: "Downloads one invoice's rendered PDF.",
+    summary: "Downloads an invoice's original or cancellation PDF.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id` in `GET /api/billing`\'s `invoices`.' }],
-    query: null, request: null, response: null, contentType: 'application/pdf',
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'not_found'], transport: 'http',
+    query: billingInvoicePdfQuery, request: null, response: null, contentType: 'application/pdf',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      'Rendered once, with `pdfkit`, when the invoice is issued, and stored as bytes — an issued invoice never changes, so this always ' +
-      'answers the same PDF for the same id. `404 not_found` for an unknown id or one from another org. This reads historical Cloud ' +
+      'Owner-only. Omitted `kind` or `kind=invoice` returns the original PDF, rendered once with `pdfkit` when issued and stored as bytes. ' +
+      '`kind=cancellation` returns the stored cancellation PDF for this same invoice id; no read renders a new PDF. ' +
+      '`404 not_found` for an unknown id, one from another org, or a missing cancellation number or PDF. This reads historical Cloud ' +
       "invoices only: a due charge has no PDF of its own here — its eventual Lexware invoice is a document, read through " +
       '`GET /api/billing/documents/:id/file`.',
   },

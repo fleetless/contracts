@@ -24,9 +24,21 @@
       "enum": [
         "open",
         "paid",
-        "uncollectible"
+        "uncollectible",
+        "cancelled"
       ],
       "description": "This invoice's own status."
+    },
+    "cancellation_document_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice's id, not the cancellation number."
     },
     "currency": {
       "type": "string",
@@ -66,6 +78,7 @@
     "number",
     "issued_at",
     "status",
+    "cancellation_document_url",
     "currency",
     "net_cents",
     "vat_rate_percent",
