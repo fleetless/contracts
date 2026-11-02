@@ -22,12 +22,13 @@ the semantic version of the completed package.
 | Activation, `fleetless.registry-activation-receipt.v1` | `journalRegistryActivationReceiptBody`, `journalRegistryActivationReceipt` and inferred types | Implemented; C0 sentinel fields are distinct from later receipts |
 | v2 intent bodies/envelopes and exact `ids` | `journalIntentV2Body`, `journalIntentV2` and inferred types | Implemented from Cloud `013afb2`, with the existing four-value template enum; producer activation and v1 export remain unimplemented |
 | Protected manifests, including scoped rows, asset/export versions and frozen batches | Shared concrete shape from Philipp and Bernd | Not implemented; raw protected identifiers must never enter ordinary intents/receipts |
-| v2/generation activation checkpoint, final seal and mixed export bundle | Shared concrete shape from Philipp and Bernd | Not implemented; no invented legacy v1 signing rules |
+| v2/generation activation checkpoints and final seal | `journalV2ActivationCheckpointBody`, `journalV2ActivationCheckpoint`, `journalGenerationCheckpointBody`, `journalGenerationCheckpoint`, `journalFinalSealBody`, `journalFinalSeal` and inferred types | Implemented from Ops `e465abb4`; original control bodies remain unchanged |
+| Mixed export bundle | Shared concrete shape from Philipp and Bernd | Pending a closed failed-mirror representation; no invented legacy v1 signing rules |
 | Replay operation outcomes, final operation-bound access proofs and gate receipt | Shared concrete shape from Philipp and Bernd | Not implemented; interim replay is not traffic permission |
 
 ## Consumer validation boundary
 
-The eight exports validate decoded object shape, not the signed wire bytes or
+The fourteen exports validate decoded object shape, not the signed wire bytes or
 activation. They reject extra/missing fields, nulls, noncanonical UUID/hash/time/
 LSN syntax, unsafe integers and invalid Ed25519 signature encodings. They do not
 normalize or strip signed fields. JSON Schema preserves the same structural
@@ -41,7 +42,7 @@ The schema alone cannot distinguish JSON `1` from JSON `1.0` after decoding.
 
 For each implemented signable body use `UTF8(body.schema) || 0x00 || RFC8785_UTF8(body)`.
 SHA-256 hashes and Ed25519 signatures cover those same domain-separated bytes.
-The envelope adds `checkpoint_hash`, `record_hash` or `receipt_hash` respectively,
+The envelope adds `checkpoint_hash`, `record_hash`, `receipt_hash` or `seal_hash` respectively,
 and `signature`; those envelope fields are not signed as part of the body.
 Signature syntax is exactly 64 bytes encoded as unpadded canonical base64url.
 
@@ -54,8 +55,20 @@ No customer route, storage resource, key, retention extension or traffic-opening
 operation is introduced by these definitions.
 
 Legacy v1 bytes must instead be preserved and verified by their original rules.
-The fixtures in `test/journal-controls.test.ts` and `test/journal-intents.test.ts` are synthetic shared wire examples,
+The fixtures in `test/journal-controls.test.ts`, `test/journal-intents.test.ts` and `test/journal-seals.test.ts` are synthetic shared wire examples,
 not valid cryptographic signatures or evidence of runtime coverage.
+
+The sequenced v2 checkpoint requires `first_v2_sequence = sequence + 1` within
+safe integer range. A generation checkpoint requires a different generation
+and does not reset the sequence. The final seal uses the actual selected
+timestamp/LSN recovery point; an LSN requires its independently evidenced UTC
+mapping. The oldest selectable mapping-bearing point is a separate export
+coverage bound, not an alternative value for the seal's selected point.
+Zod also enforces the exact cutoff formula with overflow-safe integer addition:
+`C = max(ceil_to_second(T + E_max + W_max), previous C + 1 second)`.
+Standard JSON Schema cannot express these cross-field arithmetic/inequality
+checks; its consumers must perform them separately. Neither Zod nor JSON Schema
+proves the declared historical bounds, original bytes or commit/readback evidence.
 
 ## Remaining concrete inputs for the bundle
 
@@ -94,10 +107,31 @@ Unknown kinds remain rejected; an omitted registry row cannot be treated as a
 safe exclusion. No public erasure route is invented from #903, which assigns its
 exact route/copy separately.
 
+Ops `e465abb4ee69b35aa6604aa6a0cf6a950e6fc290` now supplies explicit checkpoint,
+seal, export, evidence and receipt field tables and synthetic vectors. The two
+checkpoints and seal are integrated in this branch. Two contradictions still
+prevent a strict shared export/final-receipt freeze:
+
+- The AccessProof table requires `unaffected_state_ref_id` for every scoped arm,
+  but `valid_failed_report` omits it. The failed proof branch needs an explicit
+  agreed field rule; a missing preservation readback cannot be fabricated.
+- `MirrorAttempt.delete_marker` is literal `false` and `object_lock_mode` literal
+  `COMPLIANCE`, while the text requires inventories containing unexpected markers
+  or conflicting attempts to remain exportable with a failed validation result.
+  There is no closed failed-attempt/result arm. Do not discard failed attempts
+  or weaken the passing arm to resolve this contradiction.
+
+The proposed probe reference also needs a precise operation-specific versus
+global discriminator/field rule: source-isolation is global, access probes are
+operation-bound. Complete signed-receipt fixtures should exercise the exact
+operation/kind set, counts, typed references and failed branch, rather than only
+the current partial operation/proof examples. These are technical wire questions,
+not a request for another general spec approval.
+
 Concrete freeze gaps remain: the manifest's closed table enum and per-table
 generation rule, exact approved-predicate digest field, central/authority scopes,
-lossless sample timestamp precision, and canonical identity ordering; exact
-checkpoint/export/seal and mirror-attempt fields; complete typed evidence and
+lossless sample identity/backfill, and canonical identity ordering; the closed
+export failure representation and mirror-attempt fields; complete typed evidence and
 closure-descriptor fields and the final gate envelope. A narrative list of the
 evidence is not a strict shared format. Whole/scope access and replay scenarios
 are consumer acceptance requirements; this draft does not claim to execute them.
