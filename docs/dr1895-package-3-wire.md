@@ -23,12 +23,12 @@ the semantic version of the completed package.
 | v2 intent bodies/envelopes and exact `ids` | `journalIntentV2Body`, `journalIntentV2` and inferred types | Implemented from Cloud `013afb2`, with the existing four-value template enum; producer activation and v1 export remain unimplemented |
 | Protected manifests, including scoped rows, asset/export versions and frozen batches | Shared concrete shape from Philipp and Bernd | Not implemented; raw protected identifiers must never enter ordinary intents/receipts |
 | v2/generation activation checkpoints and final seal | `journalV2ActivationCheckpointBody`, `journalV2ActivationCheckpoint`, `journalGenerationCheckpointBody`, `journalGenerationCheckpoint`, `journalFinalSealBody`, `journalFinalSeal` and inferred types | Implemented from Ops `e465abb4`; original control bodies remain unchanged |
-| Mixed export bundle | Shared concrete shape from Philipp and Bernd | Pending a closed failed-mirror representation; no invented legacy v1 signing rules |
-| Replay operation outcomes, final operation-bound access proofs and gate receipt | Shared concrete shape from Philipp and Bernd | Not implemented; interim replay is not traffic permission |
+| Mixed export bundle and closed mirror inventory | `journalMirrorAttempt`, `journalExportItem`, `journalMixedExport` and inferred types | Implemented from Ops `9e5fcbc3`; failed marker/inventory arms remain visible and cannot claim complete mirror coverage |
+| Replay operation outcomes, typed evidence, access proofs and gate receipt | `journalEvidenceRef`, `journalAccessProof`, `journalReplayReceiptBody`, `journalReplayReceipt` and inferred types | Implemented from Ops `9e5fcbc3`; a serializable failed scope cannot pass |
 
 ## Consumer validation boundary
 
-The fourteen exports validate decoded object shape, not the signed wire bytes or
+The twenty-one exports validate decoded object shape, not the signed wire bytes or
 activation. They reject extra/missing fields, nulls, noncanonical UUID/hash/time/
 LSN syntax, unsafe integers and invalid Ed25519 signature encodings. They do not
 normalize or strip signed fields. JSON Schema preserves the same structural
@@ -55,7 +55,7 @@ No customer route, storage resource, key, retention extension or traffic-opening
 operation is introduced by these definitions.
 
 Legacy v1 bytes must instead be preserved and verified by their original rules.
-The fixtures in `test/journal-controls.test.ts`, `test/journal-intents.test.ts` and `test/journal-seals.test.ts` are synthetic shared wire examples,
+The fixtures in `test/journal-controls.test.ts`, `test/journal-intents.test.ts`, `test/journal-seals.test.ts` and `test/journal-restore-wire.test.ts` are synthetic shared wire examples,
 not valid cryptographic signatures or evidence of runtime coverage.
 
 The sequenced v2 checkpoint requires `first_v2_sequence = sequence + 1` within
@@ -97,9 +97,8 @@ batch without an invented organization ID; `ops_event.retention` still requires
 its organization. This delta is implemented, and the corrected Cloud template
 enum now agrees with Contracts. Registry source paths stay outside intent IDs.
 
-Frieda, Philipp and Bernd must still agree the exact member names/types for
-typed restricted probe/policy/preservation references, protected manifest entries,
-mixed export, seal and final receipt. Examples must cover whole/scoped erasure,
+Frieda, Philipp and Bernd must still agree the protected manifest entries,
+including central/global scopes and closed batch kinds. Examples must cover whole/scoped erasure,
 unaffected access allowed versus policy-denied, later backdated/replacement rows,
 shared objects and old binding revocations. Arne integrates them here with strict
 kind-specific schemas, negative tests and artifacts before the one review/release.
@@ -107,33 +106,26 @@ Unknown kinds remain rejected; an omitted registry row cannot be treated as a
 safe exclusion. No public erasure route is invented from #903, which assigns its
 exact route/copy separately.
 
-Ops `e465abb4ee69b35aa6604aa6a0cf6a950e6fc290` now supplies explicit checkpoint,
-seal, export, evidence and receipt field tables and synthetic vectors. The two
-checkpoints and seal are integrated in this branch. Two contradictions still
-prevent a strict shared export/final-receipt freeze:
+Ops `9e5fcbc3d231b3d96be9fb9cf1bd2789542daa24` closes the earlier
+failed-scope, mirror and evidence-binding questions. The test fixture is copied
+from its four complete unsigned receipt bodies and three mirror examples. A
+successful scoped proof requires `unaffected_state_ref_id`; a failed scoped
+proof may omit it, but a present reference must bind the same operation.
+`MirrorAttempt` has object-version, unexpected-delete-marker and inventory-error
+arms. `mirror_verdict:complete` rejects a marker in both Zod and JSON Schema;
+failed inventory remains serializable. Global source-isolation/copy/closure refs
+forbid `operation_id`; access/policy/preservation refs require it. Receipt Zod
+validation checks replay counts, exact erase-operation/proof membership and
+reference binding, and forbids a failed operation, access proof or access probe
+with `pass`. Passing access proofs require a nonempty probe list; policy negative
+export probes must resolve to denied probes for the same operation.
+JSON Schema consumers must perform the cross-record checks themselves. These
+fixtures have placeholder hashes and version IDs: shape validation is not
+signature, protected readback, deployed source coverage or permission to replay.
 
-- The AccessProof table requires `unaffected_state_ref_id` for every scoped arm,
-  but `valid_failed_report` omits it. The failed proof branch needs an explicit
-  agreed field rule; a missing preservation readback cannot be fabricated.
-- `MirrorAttempt.delete_marker` is literal `false` and `object_lock_mode` literal
-  `COMPLIANCE`, while the text requires inventories containing unexpected markers
-  or conflicting attempts to remain exportable with a failed validation result.
-  There is no closed failed-attempt/result arm. Do not discard failed attempts
-  or weaken the passing arm to resolve this contradiction.
-
-The proposed probe reference also needs a precise operation-specific versus
-global discriminator/field rule: source-isolation is global, access probes are
-operation-bound. Complete signed-receipt fixtures should exercise the exact
-operation/kind set, counts, typed references and failed branch, rather than only
-the current partial operation/proof examples. These are technical wire questions,
-not a request for another general spec approval.
-
-Concrete freeze gaps remain: the manifest's closed table enum and per-table
-generation rule, exact approved-predicate digest field, central/authority scopes,
-lossless sample identity/backfill, and canonical identity ordering; the closed
-export failure representation and mirror-attempt fields; complete typed evidence and
-closure-descriptor fields and the final gate envelope. A narrative list of the
-evidence is not a strict shared format. Whole/scope access and replay scenarios
+Concrete freeze gaps remain: the manifest's central/global scope arms, closed
+batch kinds, complete manifest examples and shared reference binding, plus the
+deployed and historical source/identity/backup coverage. Whole/scope access and replay scenarios
 are consumer acceptance requirements; this draft does not claim to execute them.
 The current kind union is not proof of complete source coverage. Unregistered
 producers, unproved source identities, historical backfill gaps and unfinished

@@ -5,6 +5,7 @@ import {
   journalFinalSealBody, journalFinalSeal,
 } from '../src/journal-seals.js'
 import { journalIntentV2Body, journalIntentV2 } from '../src/journal-intents.js'
+import { journalMirrorAttempt, journalExportItem, journalMixedExport, journalEvidenceRef, journalAccessProof, journalReplayReceiptBody, journalReplayReceipt } from '../src/journal-restore.js'
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
  *
@@ -372,6 +373,13 @@ import {
 } from '../src/billing.js'
 
 export const exportedSchemas = {
+  'journal-mirror-attempt': journalMirrorAttempt,
+  'journal-export-item': journalExportItem,
+  'journal-mixed-export': journalMixedExport,
+  'journal-evidence-ref': journalEvidenceRef,
+  'journal-access-proof': journalAccessProof,
+  'journal-replay-receipt-body': journalReplayReceiptBody,
+  'journal-replay-receipt': journalReplayReceipt,
   'journal-intent-v2-body': journalIntentV2Body,
   'journal-v2-activation-checkpoint-body': journalV2ActivationCheckpointBody,
   'journal-v2-activation-checkpoint': journalV2ActivationCheckpoint,
@@ -1063,6 +1071,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'journal-mirror-attempt',
+  'journal-export-item', 'journal-mixed-export',
+  'journal-evidence-ref', 'journal-access-proof', 'journal-replay-receipt-body', 'journal-replay-receipt',
   'journal-v2-activation-checkpoint-body', 'journal-v2-activation-checkpoint',
   'journal-generation-checkpoint-body', 'journal-generation-checkpoint',
   'journal-final-seal-body', 'journal-final-seal',
