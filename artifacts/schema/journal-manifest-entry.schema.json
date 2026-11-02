@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "asset_blob"
+        },
+        "mapping_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_bucket": {
+          "type": "string",
+          "minLength": 1
+        },
+        "old_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version_ids": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "membership_kind": {
+          "type": "string",
+          "enum": [
+            "affected",
+            "unaffected"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "mapping_id",
+        "source_project_id",
+        "source_bucket",
+        "old_key",
+        "version_ids",
+        "membership_kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "export_archive"
+        },
+        "mapping_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_bucket": {
+          "type": "string",
+          "minLength": 1
+        },
+        "old_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version_ids": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "membership_kind": {
+          "type": "string",
+          "enum": [
+            "affected",
+            "unaffected"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "mapping_id",
+        "source_project_id",
+        "source_bucket",
+        "old_key",
+        "version_ids",
+        "membership_kind"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "Restricted object keys remain only in the protected manifest; JSON Schema consumers also check unique versions."
+}

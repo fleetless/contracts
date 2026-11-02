@@ -6,6 +6,7 @@ import {
 } from '../src/journal-seals.js'
 import { journalIntentV2Body, journalIntentV2 } from '../src/journal-intents.js'
 import { journalMirrorAttempt, journalExportItem, journalMixedExport, journalEvidenceRef, journalAccessProof, journalReplayReceiptBody, journalReplayReceipt } from '../src/journal-restore.js'
+import { journalManifestScope, journalManifestRow, journalManifestEntry, journalManifestBatch, journalDeletionManifest, journalManifestIntentProjection, journalManifestBinding } from '../src/journal-manifests.js'
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
  *
@@ -373,6 +374,13 @@ import {
 } from '../src/billing.js'
 
 export const exportedSchemas = {
+  'journal-manifest-scope': journalManifestScope,
+  'journal-manifest-row': journalManifestRow,
+  'journal-manifest-entry': journalManifestEntry,
+  'journal-manifest-batch': journalManifestBatch,
+  'journal-deletion-manifest': journalDeletionManifest,
+  'journal-manifest-intent-projection': journalManifestIntentProjection,
+  'journal-manifest-binding': journalManifestBinding,
   'journal-mirror-attempt': journalMirrorAttempt,
   'journal-export-item': journalExportItem,
   'journal-mixed-export': journalMixedExport,
@@ -1071,6 +1079,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'journal-manifest-scope', 'journal-manifest-row', 'journal-manifest-entry', 'journal-manifest-batch',
+  'journal-deletion-manifest', 'journal-manifest-intent-projection', 'journal-manifest-binding',
   'journal-mirror-attempt',
   'journal-export-item', 'journal-mixed-export',
   'journal-evidence-ref', 'journal-access-proof', 'journal-replay-receipt-body', 'journal-replay-receipt',

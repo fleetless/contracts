@@ -1,0 +1,967 @@
+{
+  "schema": "fleetless.cloud-manifest-fixtures.v1",
+  "positive": [
+    {
+      "name": "whole organization with a shared object version and distinct mapping ownership",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "organization.erase",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [
+          {
+            "kind": "asset_blob",
+            "mapping_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "source_project_id": "source-project",
+            "source_bucket": "asset-bucket",
+            "old_key": "sha256/shared",
+            "version_ids": [
+              "version-1"
+            ],
+            "membership_kind": "affected"
+          },
+          {
+            "kind": "asset_blob",
+            "mapping_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "source_project_id": "source-project",
+            "source_bucket": "asset-bucket",
+            "old_key": "sha256/shared",
+            "version_ids": [
+              "version-1"
+            ],
+            "membership_kind": "unaffected"
+          }
+        ],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "assets",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": []
+      }
+    },
+    {
+      "name": "approved organization scope with affected and unaffected row membership",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "organization.scope_erase",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 2
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization_scope",
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 2,
+          "approved_predicate_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "unaffected"
+          }
+        ],
+        "batches": []
+      }
+    },
+    {
+      "name": "central MCP expiry without invented app or organization identity",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "mcp_central_interaction.expire",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "central_mcp"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "central_mcp_interaction",
+            "interaction_id": "central-interaction-1",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "mcp_central_interaction.expire",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "central_mcp_interaction",
+                "interaction_id": "central-interaction-1",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "global Ops event with frozen dependent notification job",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "ops_global_event.retention",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "global_ops_event"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "global_ops_event",
+            "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "ops_notification_jobs",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "ops_global_event.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "global_ops_event",
+                "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected"
+              },
+              {
+                "type": "uuid_row",
+                "table": "ops_notification_jobs",
+                "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "history retention freezes the exact microsecond and sample UUID pair",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "history.retention",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "history_sample",
+            "robot_id": "77777777-7777-4777-8777-777777777777",
+            "series_id": 12,
+            "series_generation": "99999999-9999-4999-8999-999999999999",
+            "captured_at_epoch_us": 1793613600000000,
+            "sample_id": "88888888-8888-4888-8888-888888888888",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "history.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793613600000000,
+                "sample_id": "88888888-8888-4888-8888-888888888888",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "operator audit sweep freezes global and org-bound rows separately",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "operator_audit.retention",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "operator_audit"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "global_operator_audit",
+            "audit_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "org_operator_audit",
+            "org_id": "11111111-1111-4111-8111-111111111111",
+            "audit_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "operator_audit.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "global_operator_audit",
+                "audit_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected"
+              },
+              {
+                "type": "org_operator_audit",
+                "org_id": "11111111-1111-4111-8111-111111111111",
+                "audit_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "console OAuth code expiry uses the closed console scope",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "console_code.expire",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "console_oauth"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "console_oauth_codes",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "console_code.expire",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "uuid_row",
+                "table": "console_oauth_codes",
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "slug deletion uses an explicit frozen set without a fabricated cutoff or policy revision",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "history.slug_delete",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "robot_id": "77777777-7777-4777-8777-777777777777",
+          "series_id": 12,
+          "slug_generation": "99999999-9999-4999-8999-999999999999",
+          "batch_id": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "history_sample",
+            "robot_id": "77777777-7777-4777-8777-777777777777",
+            "series_id": 12,
+            "series_generation": "99999999-9999-4999-8999-999999999999",
+            "captured_at_epoch_us": 1793613600000000,
+            "sample_id": "88888888-8888-4888-8888-888888888888",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "history.slug_delete",
+            "rows": [
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793613600000000,
+                "sample_id": "88888888-8888-4888-8888-888888888888",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "negative": [
+    {
+      "name": "central scope fabricates an organization",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "mcp_central_interaction.expire",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "central_mcp",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "central_mcp_interaction",
+            "interaction_id": "central-interaction-1",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "mcp_central_interaction.expire",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "central_mcp_interaction",
+                "interaction_id": "central-interaction-1",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "global Ops row fabricates an organization",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "ops_global_event.retention",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "global_ops_event"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "global_ops_event",
+            "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected",
+            "org_id": "11111111-1111-4111-8111-111111111111"
+          },
+          {
+            "type": "uuid_row",
+            "table": "ops_notification_jobs",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "ops_global_event.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "global_ops_event",
+                "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected",
+                "org_id": "11111111-1111-4111-8111-111111111111"
+              },
+              {
+                "type": "uuid_row",
+                "table": "ops_notification_jobs",
+                "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "batch kind differs from intent kind",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "history.retention",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "history_sample",
+            "robot_id": "77777777-7777-4777-8777-777777777777",
+            "series_id": 12,
+            "series_generation": "99999999-9999-4999-8999-999999999999",
+            "captured_at_epoch_us": 1793613600000000,
+            "sample_id": "88888888-8888-4888-8888-888888888888",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "audit.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793613600000000,
+                "sample_id": "88888888-8888-4888-8888-888888888888",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "later backdated sample is rediscovered into the frozen batch",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "history.retention",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "history_sample",
+            "robot_id": "77777777-7777-4777-8777-777777777777",
+            "series_id": 12,
+            "series_generation": "99999999-9999-4999-8999-999999999999",
+            "captured_at_epoch_us": 1793613600000000,
+            "sample_id": "88888888-8888-4888-8888-888888888888",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "history.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793500000000000,
+                "sample_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                "membership_kind": "affected"
+              },
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793613600000000,
+                "sample_id": "88888888-8888-4888-8888-888888888888",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "same physical row is affected and unaffected",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "organization.scope_erase",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 2
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization_scope",
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 2,
+          "approved_predicate_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "unaffected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "unaffected"
+          }
+        ],
+        "batches": []
+      }
+    },
+    {
+      "name": "scope generation differs from intent",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "organization.scope_erase",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 2
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization_scope",
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "scope_id": "33333333-3333-4333-8333-333333333333",
+          "scope_generation": 3,
+          "approved_predicate_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "audit_events",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "unaffected"
+          }
+        ],
+        "batches": []
+      }
+    },
+    {
+      "name": "shared object mapping is duplicated across membership classes",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "organization.erase",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [
+          {
+            "kind": "asset_blob",
+            "mapping_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "source_project_id": "source-project",
+            "source_bucket": "asset-bucket",
+            "old_key": "sha256/shared",
+            "version_ids": [
+              "version-1"
+            ],
+            "membership_kind": "affected"
+          },
+          {
+            "kind": "asset_blob",
+            "mapping_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "source_project_id": "source-project",
+            "source_bucket": "asset-bucket",
+            "old_key": "sha256/shared",
+            "version_ids": [
+              "version-1"
+            ],
+            "membership_kind": "unaffected"
+          }
+        ],
+        "rows": [
+          {
+            "type": "uuid_row",
+            "table": "assets",
+            "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "row_generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": []
+      }
+    },
+    {
+      "name": "batch policy revision differs from intent",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "ops_global_event.retention",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "global_ops_event"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "global_ops_event",
+            "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "ops_notification_jobs",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "ops_global_event.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 2,
+            "rows": [
+              {
+                "type": "global_ops_event",
+                "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected"
+              },
+              {
+                "type": "uuid_row",
+                "table": "ops_notification_jobs",
+                "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "batch omits an affected dependent row",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "ops_global_event.retention",
+        "ids": {
+          "batch_id": "66666666-6666-4666-8666-666666666666",
+          "cutoff_at": "2026-11-01T00:00:00.000Z",
+          "policy_revision": 1
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "global_ops_event"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "global_ops_event",
+            "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "membership_kind": "affected"
+          },
+          {
+            "type": "uuid_row",
+            "table": "ops_notification_jobs",
+            "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "row_generation": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "ops_global_event.retention",
+            "cutoff_at": "2026-11-01T00:00:00.000Z",
+            "policy_revision": 1,
+            "rows": [
+              {
+                "type": "global_ops_event",
+                "event_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "membership_kind": "affected"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "explicit set invents a sweep cutoff",
+      "intent": {
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "kind": "history.slug_delete",
+        "ids": {
+          "org_id": "11111111-1111-4111-8111-111111111111",
+          "robot_id": "77777777-7777-4777-8777-777777777777",
+          "series_id": 12,
+          "slug_generation": "99999999-9999-4999-8999-999999999999",
+          "batch_id": "66666666-6666-4666-8666-666666666666"
+        }
+      },
+      "manifest": {
+        "schema": "fleetless.deletion-manifest.v1",
+        "environment": "staging",
+        "generation": 1,
+        "operation_id": "44444444-4444-4444-8444-444444444444",
+        "manifest_id": "55555555-5555-4555-8555-555555555555",
+        "scope": {
+          "kind": "organization",
+          "org_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "entries": [],
+        "rows": [
+          {
+            "type": "history_sample",
+            "robot_id": "77777777-7777-4777-8777-777777777777",
+            "series_id": 12,
+            "series_generation": "99999999-9999-4999-8999-999999999999",
+            "captured_at_epoch_us": 1793613600000000,
+            "sample_id": "88888888-8888-4888-8888-888888888888",
+            "membership_kind": "affected"
+          }
+        ],
+        "batches": [
+          {
+            "batch_id": "66666666-6666-4666-8666-666666666666",
+            "kind": "history.slug_delete",
+            "rows": [
+              {
+                "type": "history_sample",
+                "robot_id": "77777777-7777-4777-8777-777777777777",
+                "series_id": 12,
+                "series_generation": "99999999-9999-4999-8999-999999999999",
+                "captured_at_epoch_us": 1793613600000000,
+                "sample_id": "88888888-8888-4888-8888-888888888888",
+                "membership_kind": "affected"
+              }
+            ],
+            "cutoff_at": "2026-11-01T00:00:00.000Z"
+          }
+        ]
+      }
+    }
+  ]
+}
