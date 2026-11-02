@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [12.0.0] — 2026-11-02
+
 ### Changed
 
 - **Breaking (major):** The public `GET /api/client/providers` response now
