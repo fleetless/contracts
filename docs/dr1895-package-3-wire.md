@@ -107,6 +107,8 @@ and every affected row in the one matching batch. Eight complete positive and
 ten negative Cloud vectors exercise whole/scoped, central/global, shared object,
 microsecond sample and dependent-row cases. The projection is not the signed
 intent, and placeholder hashes/version IDs are not protected readback evidence.
+The local vector copies omit only the Cloud document-level schema labels; their
+manifest, intent, and membership payloads match that source commit.
 JSON Schema consumers must enforce cross-record equality, physical ordering,
 version uniqueness and protected bytes separately. Unknown kinds remain
 rejected; an omitted registry row cannot be treated as a safe exclusion. No

@@ -1,5 +1,4 @@
 {
-  "schema": "fleetless.cloud-deletion-membership-matrix.v1",
   "basis": {
     "cloud_kind_matrix": "fb438e6",
     "ops_fields": "e465abb4",
