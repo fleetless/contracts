@@ -20,10 +20,10 @@ the semantic version of the completed package.
 | C0, `fleetless.journal-first-checkpoint.v1` | `journalFirstCheckpointBody`, `journalFirstCheckpoint` and inferred types | Implemented, JSON schemas and negative fixtures |
 | Registry control, `fleetless.registry-transition.v1` | `journalRegistryTransitionBody`, `journalRegistryTransition` and inferred types | Implemented, JSON schemas and negative fixtures |
 | Activation, `fleetless.registry-activation-receipt.v1` | `journalRegistryActivationReceiptBody`, `journalRegistryActivationReceipt` and inferred types | Implemented; C0 sentinel fields are distinct from later receipts |
-| v1/v2 obligation kind registry and exact `ids` | Pending Doris' current-base source-to-obligation inventory | Not implemented; no permissive catch-all kind |
-| Protected manifests, including scoped rows, asset/export versions and frozen batches | Shared concrete shape from Doris and Bernd | Not implemented; raw protected identifiers must never enter ordinary intents/receipts |
-| v2/generation activation checkpoint, final seal and mixed export bundle | Shared concrete shape from Doris and Bernd | Not implemented; no invented legacy v1 signing rules |
-| Replay operation outcomes, final operation-bound access proofs and gate receipt | Shared concrete shape from Doris and Bernd | Not implemented; interim replay is not traffic permission |
+| v1/v2 obligation kind registry and exact `ids` | Pending Philipp's complete source-to-obligation ledger | Not implemented; no permissive catch-all kind |
+| Protected manifests, including scoped rows, asset/export versions and frozen batches | Shared concrete shape from Philipp and Bernd | Not implemented; raw protected identifiers must never enter ordinary intents/receipts |
+| v2/generation activation checkpoint, final seal and mixed export bundle | Shared concrete shape from Philipp and Bernd | Not implemented; no invented legacy v1 signing rules |
+| Replay operation outcomes, final operation-bound access proofs and gate receipt | Shared concrete shape from Philipp and Bernd | Not implemented; interim replay is not traffic permission |
 
 ## Consumer validation boundary
 
@@ -58,14 +58,20 @@ not valid cryptographic signatures or evidence of runtime coverage.
 
 ## Remaining concrete inputs for the bundle
 
-Doris owns the current-base Cloud ledger and its schema/backfill design. Its
-candidate registry still describes several alternatives rather than exact wire
+Philipp owns the current-base Cloud ledger and its schema/backfill design after
+the package owner reassignment. Doris supplied an initial source/writer/wire
+inventory against Cloud `399d4e8a`. It identifies `basic_activity_history`,
+`basic_activity_observations` and `synthetic_org_fixtures` beyond the older
+95-table inventory, the asset delete/error and late export-upload races, and the
+required restore-closure migration. It explicitly does not claim a complete
+schema/build registry or runtime coverage. Its candidate registry still describes
+several alternatives rather than exact wire
 fields: retention rows versus protected batch membership, stable slug identities,
 logo/template generations, auth-factor subject/factor identifiers, and MCP grant
 versus client identifiers. The existing approval explicitly makes this inventory
 implementation work; it does not require another general spec approval.
 
-Doris and Bernd must agree the exact member names/types for those shapes and for
+Philipp and Bernd must agree the exact member names/types for those shapes and for
 typed restricted probe/policy/preservation references, protected manifest entries,
 mixed export, seal and final receipt. Examples must cover whole/scoped erasure,
 unaffected access allowed versus policy-denied, later backdated/replacement rows,
