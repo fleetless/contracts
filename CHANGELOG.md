@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [13.0.0] — 2026-11-02
+
 ### Changed
 
 - **Breaking (major):** C.4 billing decision snapshots require a `period.anchor`
