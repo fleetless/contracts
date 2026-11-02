@@ -100,6 +100,6 @@ export type LegalOfferDecisionResult = z.infer<typeof legalOfferDecisionResult>
 
 export const legalOfferConflictDetails = z.strictObject({
   field: z.enum(['offer', 'confirmation_proof', 'operation_key', 'period', 'term']),
-  rule: z.enum(['withdrawn', 'stale', 'expired', 'reused', 'boundary_changed', 'term_unavailable']),
+  rule: z.enum(['withdrawn', 'stale', 'expired', 'reused', 'boundary_changed', 'deadline_unavailable']),
 })
 export type LegalOfferConflictDetails = z.infer<typeof legalOfferConflictDetails>
