@@ -20,7 +20,7 @@
         "expired",
         "reused",
         "boundary_changed",
-        "term_unavailable"
+        "deadline_unavailable"
       ]
     }
   },

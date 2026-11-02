@@ -1,8 +1,10 @@
 # Package 1 wire integration
 
 Single package bundle for DR-3011, based on Contracts `76d65d1` and the
-updated full [#1008](https://github.com/fleetless/fleetless/issues/1008) spec at
-`21bd3dff5291fd7655adb8a5d1031334eae4a005`. The shared plan is DR-3008.
+technically approved [#1008](https://github.com/fleetless/fleetless/issues/1008) spec at
+`21bd3dff5291fd7655adb8a5d1031334eae4a005`, with the confirmed-copy
+delta at `286684f1e69a96191018d1c18b93e59dc5da7184` pending the package
+review. The shared plan is DR-3008.
 The C.4 consumer alignment is [#965](https://github.com/fleetless/fleetless/issues/965).
 The H.1/H.3/banner wording was approved by André in DR-3032 at 16:08 UTC;
 customer notice and legal publication still follow package 1. This branch
@@ -54,6 +56,8 @@ current term end and the Basic deadline as seven full days after publication,
 lock expiry and acceptance together, and clear only the Terms restriction on
 acceptance. The wire rejects a termination field. No Terms decision starts
 contract-end, retrieval or erasure work; no independent restriction is lifted.
+An unprovable paid-term deadline uses `target_state_conflict` rule
+`deadline_unavailable`; that rule is not a Basic prohibition.
 Schema success proves none of those operations. The tests exercise the approved
 H.3 wording with synthetic URLs, dates and identities; they are not customer
 offer records.

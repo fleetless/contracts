@@ -70,10 +70,22 @@ const cases = [
   ['legalOfferDecisionSnapshot', 'legal-offer-decision-snapshot', snapshots, 'output'],
   ['legalOfferDisplayResponse', 'legal-offer-display-response', snapshots.map(snapshot => ({ confirmation_proof: proof, expires_at: snapshot.expires_at, snapshot })), 'output'],
   ['legalOfferDecisionResult', 'legal-offer-decision-result', results, 'output'],
-  ['legalOfferConflictDetails', 'legal-offer-conflict-details', [{ field: 'term', rule: 'term_unavailable' }], 'output'],
+  ['legalOfferConflictDetails', 'legal-offer-conflict-details', [{ field: 'term', rule: 'deadline_unavailable' }], 'output'],
 ] as const
 
 describe('H.3 legal offers', () => {
+  it('uses the approved deadline-unavailable conflict rule only', () => {
+    const schema = (contracts as any).legalOfferConflictDetails
+    const ajv = new (Ajv2020 as any)({ strict: false }); (addFormats as any)(ajv)
+    const validate = ajv.compile(JSON.parse(readFileSync(new URL('../artifacts/schema/legal-offer-conflict-details.schema.json', import.meta.url), 'utf8')))
+    const approved = { field: 'term', rule: 'deadline_unavailable' }
+    const obsolete = { field: 'term', rule: 'term_unavailable' }
+    expect(schema.safeParse(approved).success).toBe(true)
+    expect(validate(approved)).toBe(true)
+    expect(schema.safeParse(obsolete).success).toBe(false)
+    expect(validate(obsolete)).toBe(false)
+  })
+
   it('exports every agreed strict wire shape', () => {
     for (const [name] of cases) expect(contracts).toHaveProperty(name)
   })
