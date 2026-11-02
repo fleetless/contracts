@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [11.0.0] — 2026-11-02
+
 ### Added
 
 - `cancelled` invoice status, required nullable `cancellation_document_url` for
