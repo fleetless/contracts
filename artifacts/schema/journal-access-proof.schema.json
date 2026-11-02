@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "denied"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "const": "not-applicable"
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "failed"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "enum": [
+                "not-applicable",
+                "failed"
+              ]
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "denied"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "const": "failed"
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "probe_ref_ids": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "kind": {
+          "type": "string",
+          "const": "organization.scope_erase"
+        },
+        "affected_verdict": {
+          "type": "string",
+          "const": "denied"
+        },
+        "unaffected_verdict": {
+          "type": "string",
+          "const": "allowed"
+        },
+        "unaffected_state_ref_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "operation_id",
+        "probe_ref_ids",
+        "kind",
+        "affected_verdict",
+        "unaffected_verdict",
+        "unaffected_state_ref_id"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "probe_ref_ids": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "kind": {
+          "type": "string",
+          "const": "organization.scope_erase"
+        },
+        "affected_verdict": {
+          "type": "string",
+          "const": "denied"
+        },
+        "unaffected_verdict": {
+          "type": "string",
+          "const": "policy-denied"
+        },
+        "unaffected_state_ref_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policy_ref_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "operation_id",
+        "probe_ref_ids",
+        "kind",
+        "affected_verdict",
+        "unaffected_verdict",
+        "unaffected_state_ref_id",
+        "policy_ref_id"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.scope_erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "failed"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "enum": [
+                "allowed",
+                "failed"
+              ]
+            },
+            "unaffected_state_ref_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.scope_erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "failed"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "const": "policy-denied"
+            },
+            "unaffected_state_ref_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "policy_ref_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict",
+            "policy_ref_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "probe_ref_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "type": "string",
+              "const": "organization.scope_erase"
+            },
+            "affected_verdict": {
+              "type": "string",
+              "const": "denied"
+            },
+            "unaffected_verdict": {
+              "type": "string",
+              "const": "failed"
+            },
+            "unaffected_state_ref_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "operation_id",
+            "probe_ref_ids",
+            "kind",
+            "affected_verdict",
+            "unaffected_verdict"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  ]
+}

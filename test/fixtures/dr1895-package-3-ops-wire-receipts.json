@@ -1,0 +1,787 @@
+{
+  "schema": "fleetless.ops-wire-receipt-fixtures.v1",
+  "synthetic": true,
+  "note": "Unsigned field-complete bodies only. Placeholder hashes and version IDs do not prove protected readback, signatures, historical coverage or traffic permission.",
+  "receipts": [
+    {
+      "name": "whole_pass",
+      "expected_structural_verdict": "pass",
+      "body": {
+        "schema": "fleetless.journal-replay-receipt.v2",
+        "environment": "synthetic-c0-environment",
+        "signing_key_id": "synthetic-key-1",
+        "run_id": "run-whole_pass",
+        "restore_attempt_id": "restore-attempt-1",
+        "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "seal_version_id": "seal-version-1",
+        "registry_chain_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "copy_coverage_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "lower_sequence": 2,
+        "lower_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "upper_sequence": 2,
+        "upper_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "operation_count": 1,
+        "applied_count": 1,
+        "already_effective_count": 0,
+        "failed_count": 0,
+        "last_applied_sequence": 2,
+        "operations": [
+          {
+            "sequence": 2,
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "kind": "organization.erase",
+            "apply_result": "applied",
+            "database": "absent",
+            "customer_target_object": "absent",
+            "authority": "not-applicable",
+            "evidence_ref_ids": [
+              "probe-whole-signin",
+              "probe-whole-export"
+            ]
+          }
+        ],
+        "evidence_refs": [
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-whole-signin",
+            "version_id": "version-probe-whole-signin",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "surface_id": "owner.sign_in",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-whole-export",
+            "version_id": "version-probe-whole-export",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "surface_id": "organization.export_download",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "copy_ref",
+            "evidence_id": "copy-whole",
+            "version_id": "version-copy-whole",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_isolation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_restorable_deadline": "2026-12-07T00:00:00.000Z",
+            "binding_scope": "global"
+          },
+          {
+            "type": "closure_ref",
+            "evidence_id": "closure-whole",
+            "version_id": "version-closure-whole",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "restore_attempt_id": "restore-attempt-1",
+            "attempt_descriptor_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+            "attempt_descriptor_version_id": "descriptor-version-1",
+            "original_restore_at": "2026-11-02T11:00:00.000Z",
+            "original_affected_count": 3,
+            "closure_row_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "closure_commit_marker": "commit-1",
+            "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "zero_open_sessions_count": 0,
+            "zero_open_sessions_at": "2026-11-02T11:30:00.000Z",
+            "binding_scope": "global"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "source-isolation-whole_pass",
+            "version_id": "version-source-isolation-whole_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:01:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "surface_id": "source.version_read",
+            "outcome": "denied",
+            "credential_class": "deployed-source"
+          },
+          {
+            "type": "copy_ref",
+            "evidence_id": "copy-whole_pass",
+            "version_id": "version-copy-whole_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_isolation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_restorable_deadline": "2026-12-07T00:00:00.000Z"
+          },
+          {
+            "type": "closure_ref",
+            "evidence_id": "closure-whole_pass",
+            "version_id": "version-closure-whole_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "restore_attempt_id": "restore-attempt-1",
+            "attempt_descriptor_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+            "attempt_descriptor_version_id": "descriptor-version-1",
+            "original_restore_at": "2026-11-02T11:00:00.000Z",
+            "original_affected_count": 3,
+            "closure_row_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "closure_commit_marker": "commit-1",
+            "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "zero_open_sessions_count": 0,
+            "zero_open_sessions_at": "2026-11-02T11:30:00.000Z"
+          }
+        ],
+        "source_isolation_ref_id": "source-isolation-whole_pass",
+        "copy_ref_id": "copy-whole_pass",
+        "closure_ref_id": "closure-whole_pass",
+        "access_proofs": [
+          {
+            "operation_id": "00000000-0000-4000-8000-000000000001",
+            "kind": "organization.erase",
+            "affected_verdict": "denied",
+            "unaffected_verdict": "not-applicable",
+            "probe_ref_ids": [
+              "probe-whole-signin",
+              "probe-whole-export"
+            ]
+          }
+        ],
+        "original_restore_at": "2026-11-02T11:00:00.000Z",
+        "original_closure_affected_count": 3,
+        "zero_open_sessions_count": 0,
+        "final_probe_at": "2026-11-02T12:01:00.000Z",
+        "completed_at": "2026-11-02T12:02:00.000Z",
+        "verdict": "pass"
+      }
+    },
+    {
+      "name": "scope_allowed_pass",
+      "expected_structural_verdict": "pass",
+      "body": {
+        "schema": "fleetless.journal-replay-receipt.v2",
+        "environment": "synthetic-c0-environment",
+        "signing_key_id": "synthetic-key-1",
+        "run_id": "run-scope_allowed_pass",
+        "restore_attempt_id": "restore-attempt-1",
+        "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "seal_version_id": "seal-version-1",
+        "registry_chain_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "copy_coverage_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "lower_sequence": 3,
+        "lower_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "upper_sequence": 3,
+        "upper_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "operation_count": 1,
+        "applied_count": 1,
+        "already_effective_count": 0,
+        "failed_count": 0,
+        "last_applied_sequence": 3,
+        "operations": [
+          {
+            "sequence": 3,
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "kind": "organization.scope_erase",
+            "apply_result": "applied",
+            "database": "absent",
+            "customer_target_object": "absent",
+            "authority": "not-applicable",
+            "evidence_ref_ids": [
+              "probe-scope-affected",
+              "probe-scope-unaffected",
+              "probe-scope-fresh-export",
+              "preserve-scope-allowed"
+            ]
+          }
+        ],
+        "evidence_refs": [
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-scope-affected",
+            "version_id": "version-probe-scope-affected",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "surface_id": "organization.affected_archive_download",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-scope-unaffected",
+            "version_id": "version-probe-scope-unaffected",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "surface_id": "organization.unaffected_route",
+            "outcome": "allowed",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-scope-fresh-export",
+            "version_id": "version-probe-scope-fresh-export",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "surface_id": "organization.fresh_unaffected_export",
+            "outcome": "allowed",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "preservation_ref",
+            "evidence_id": "preserve-scope-allowed",
+            "version_id": "version-preserve-scope-allowed",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "manifest_id": "00000000-0000-4000-8000-000000000063",
+            "manifest_version_id": "manifest-version-1",
+            "manifest_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "frozen_unaffected_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "target_unaffected_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "source-isolation-scope_allowed_pass",
+            "version_id": "version-source-isolation-scope_allowed_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:01:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "surface_id": "source.version_read",
+            "outcome": "denied",
+            "credential_class": "deployed-source"
+          },
+          {
+            "type": "copy_ref",
+            "evidence_id": "copy-scope_allowed_pass",
+            "version_id": "version-copy-scope_allowed_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_isolation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_restorable_deadline": "2026-12-07T00:00:00.000Z"
+          },
+          {
+            "type": "closure_ref",
+            "evidence_id": "closure-scope_allowed_pass",
+            "version_id": "version-closure-scope_allowed_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "restore_attempt_id": "restore-attempt-1",
+            "attempt_descriptor_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+            "attempt_descriptor_version_id": "descriptor-version-1",
+            "original_restore_at": "2026-11-02T11:00:00.000Z",
+            "original_affected_count": 3,
+            "closure_row_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "closure_commit_marker": "commit-1",
+            "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "zero_open_sessions_count": 0,
+            "zero_open_sessions_at": "2026-11-02T11:30:00.000Z"
+          }
+        ],
+        "source_isolation_ref_id": "source-isolation-scope_allowed_pass",
+        "copy_ref_id": "copy-scope_allowed_pass",
+        "closure_ref_id": "closure-scope_allowed_pass",
+        "access_proofs": [
+          {
+            "operation_id": "00000000-0000-4000-8000-000000000002",
+            "kind": "organization.scope_erase",
+            "affected_verdict": "denied",
+            "unaffected_verdict": "allowed",
+            "probe_ref_ids": [
+              "probe-scope-affected",
+              "probe-scope-unaffected",
+              "probe-scope-fresh-export"
+            ],
+            "unaffected_state_ref_id": "preserve-scope-allowed"
+          }
+        ],
+        "original_restore_at": "2026-11-02T11:00:00.000Z",
+        "original_closure_affected_count": 3,
+        "zero_open_sessions_count": 0,
+        "final_probe_at": "2026-11-02T12:01:00.000Z",
+        "completed_at": "2026-11-02T12:02:00.000Z",
+        "verdict": "pass"
+      }
+    },
+    {
+      "name": "scope_policy_denied_pass",
+      "expected_structural_verdict": "pass",
+      "body": {
+        "schema": "fleetless.journal-replay-receipt.v2",
+        "environment": "synthetic-c0-environment",
+        "signing_key_id": "synthetic-key-1",
+        "run_id": "run-scope_policy_denied_pass",
+        "restore_attempt_id": "restore-attempt-1",
+        "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "seal_version_id": "seal-version-1",
+        "registry_chain_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "copy_coverage_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "lower_sequence": 4,
+        "lower_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "upper_sequence": 4,
+        "upper_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "operation_count": 1,
+        "applied_count": 0,
+        "already_effective_count": 1,
+        "failed_count": 0,
+        "last_applied_sequence": 4,
+        "operations": [
+          {
+            "sequence": 4,
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "kind": "organization.scope_erase",
+            "apply_result": "already-effective",
+            "database": "absent",
+            "customer_target_object": "absent",
+            "authority": "not-applicable",
+            "evidence_ref_ids": [
+              "probe-policy-affected",
+              "probe-policy-old-export",
+              "probe-policy-fresh-export",
+              "probe-policy-other-route",
+              "preserve-scope-policy",
+              "policy-scope"
+            ]
+          }
+        ],
+        "evidence_refs": [
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-policy-affected",
+            "version_id": "version-probe-policy-affected",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "surface_id": "organization.affected_archive_download",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-policy-old-export",
+            "version_id": "version-probe-policy-old-export",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "surface_id": "organization.export_download",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-policy-fresh-export",
+            "version_id": "version-probe-policy-fresh-export",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "surface_id": "organization.fresh_unaffected_export",
+            "outcome": "denied",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "probe-policy-other-route",
+            "version_id": "version-probe-policy-other-route",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "surface_id": "organization.unaffected_route",
+            "outcome": "allowed",
+            "credential_class": "deployed-owner",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "preservation_ref",
+            "evidence_id": "preserve-scope-policy",
+            "version_id": "version-preserve-scope-policy",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "manifest_id": "00000000-0000-4000-8000-000000000063",
+            "manifest_version_id": "manifest-version-1",
+            "manifest_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "frozen_unaffected_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "target_unaffected_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "binding_scope": "operation"
+          },
+          {
+            "type": "policy_ref",
+            "evidence_id": "policy-scope",
+            "version_id": "version-policy-scope",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "policy_class": "retrieval_deadline",
+            "evaluated_at": "2026-11-02T11:55:00.000Z",
+            "effective_deadline": "2026-11-02T11:00:00.000Z",
+            "negative_export_probe_ids": [
+              "probe-policy-old-export",
+              "probe-policy-fresh-export"
+            ],
+            "binding_scope": "operation"
+          },
+          {
+            "type": "probe_ref",
+            "evidence_id": "source-isolation-scope_policy_denied_pass",
+            "version_id": "version-source-isolation-scope_policy_denied_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:01:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "surface_id": "source.version_read",
+            "outcome": "denied",
+            "credential_class": "deployed-source"
+          },
+          {
+            "type": "copy_ref",
+            "evidence_id": "copy-scope_policy_denied_pass",
+            "version_id": "version-copy-scope_policy_denied_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_isolation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_restorable_deadline": "2026-12-07T00:00:00.000Z"
+          },
+          {
+            "type": "closure_ref",
+            "evidence_id": "closure-scope_policy_denied_pass",
+            "version_id": "version-closure-scope_policy_denied_pass",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "restore_attempt_id": "restore-attempt-1",
+            "attempt_descriptor_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+            "attempt_descriptor_version_id": "descriptor-version-1",
+            "original_restore_at": "2026-11-02T11:00:00.000Z",
+            "original_affected_count": 3,
+            "closure_row_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "closure_commit_marker": "commit-1",
+            "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "zero_open_sessions_count": 0,
+            "zero_open_sessions_at": "2026-11-02T11:30:00.000Z"
+          }
+        ],
+        "source_isolation_ref_id": "source-isolation-scope_policy_denied_pass",
+        "copy_ref_id": "copy-scope_policy_denied_pass",
+        "closure_ref_id": "closure-scope_policy_denied_pass",
+        "access_proofs": [
+          {
+            "operation_id": "00000000-0000-4000-8000-000000000003",
+            "kind": "organization.scope_erase",
+            "affected_verdict": "denied",
+            "unaffected_verdict": "policy-denied",
+            "probe_ref_ids": [
+              "probe-policy-affected",
+              "probe-policy-old-export",
+              "probe-policy-fresh-export",
+              "probe-policy-other-route"
+            ],
+            "unaffected_state_ref_id": "preserve-scope-policy",
+            "policy_ref_id": "policy-scope"
+          }
+        ],
+        "original_restore_at": "2026-11-02T11:00:00.000Z",
+        "original_closure_affected_count": 3,
+        "zero_open_sessions_count": 0,
+        "final_probe_at": "2026-11-02T12:01:00.000Z",
+        "completed_at": "2026-11-02T12:02:00.000Z",
+        "verdict": "pass"
+      }
+    },
+    {
+      "name": "scope_failed_report",
+      "expected_structural_verdict": "fail",
+      "body": {
+        "schema": "fleetless.journal-replay-receipt.v2",
+        "environment": "synthetic-c0-environment",
+        "signing_key_id": "synthetic-key-1",
+        "run_id": "run-scope_failed_report",
+        "restore_attempt_id": "restore-attempt-1",
+        "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "seal_version_id": "seal-version-1",
+        "registry_chain_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source_fingerprint": "7777777777777777777777777777777777777777777777777777777777777777",
+        "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+        "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "copy_coverage_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "lower_sequence": 5,
+        "lower_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "upper_sequence": 5,
+        "upper_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+        "operation_count": 1,
+        "applied_count": 0,
+        "already_effective_count": 0,
+        "failed_count": 1,
+        "last_applied_sequence": 0,
+        "operations": [
+          {
+            "sequence": 5,
+            "operation_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "organization.scope_erase",
+            "apply_result": "failed",
+            "database": "failed",
+            "customer_target_object": "failed",
+            "authority": "not-applicable",
+            "evidence_ref_ids": []
+          }
+        ],
+        "evidence_refs": [
+          {
+            "type": "probe_ref",
+            "evidence_id": "source-isolation-scope_failed_report",
+            "version_id": "version-source-isolation-scope_failed_report",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:01:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "surface_id": "source.version_read",
+            "outcome": "denied",
+            "credential_class": "deployed-source"
+          },
+          {
+            "type": "copy_ref",
+            "evidence_id": "copy-scope_failed_report",
+            "version_id": "version-copy-scope_failed_report",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "copy_inventory_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+            "source_isolation_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+            "target_inventory_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_restorable_deadline": "2026-12-07T00:00:00.000Z"
+          },
+          {
+            "type": "closure_ref",
+            "evidence_id": "closure-scope_failed_report",
+            "version_id": "version-closure-scope_failed_report",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "observed_at": "2026-11-02T12:00:00.000Z",
+            "bundle_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "seal_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "target_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "binding_scope": "global",
+            "restore_attempt_id": "restore-attempt-1",
+            "attempt_descriptor_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+            "attempt_descriptor_version_id": "descriptor-version-1",
+            "original_restore_at": "2026-11-02T11:00:00.000Z",
+            "original_affected_count": 3,
+            "closure_row_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+            "closure_commit_marker": "commit-1",
+            "schema_preflight_digest": "6666666666666666666666666666666666666666666666666666666666666666",
+            "zero_open_sessions_count": 0,
+            "zero_open_sessions_at": "2026-11-02T11:30:00.000Z"
+          }
+        ],
+        "source_isolation_ref_id": "source-isolation-scope_failed_report",
+        "copy_ref_id": "copy-scope_failed_report",
+        "closure_ref_id": "closure-scope_failed_report",
+        "access_proofs": [
+          {
+            "operation_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "organization.scope_erase",
+            "affected_verdict": "failed",
+            "unaffected_verdict": "failed",
+            "probe_ref_ids": []
+          }
+        ],
+        "original_restore_at": "2026-11-02T11:00:00.000Z",
+        "original_closure_affected_count": 3,
+        "zero_open_sessions_count": 0,
+        "final_probe_at": "2026-11-02T12:01:00.000Z",
+        "completed_at": "2026-11-02T12:02:00.000Z",
+        "verdict": "fail"
+      }
+    }
+  ],
+  "mirror_attempts": [
+    {
+      "name": "covered_object_version",
+      "mirror_verdict": "complete",
+      "attempts": [
+        {
+          "type": "object_version",
+          "attempt_id": "attempt-1",
+          "observed_at": "2026-11-02T12:00:00.000Z",
+          "version_id": "version-1",
+          "delete_marker": false,
+          "stored_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "readback_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "readback_at": "2026-11-02T12:01:00.000Z",
+          "effective_retain_until": "2026-12-07T00:00:00.000Z",
+          "object_lock_mode": "COMPLIANCE"
+        }
+      ]
+    },
+    {
+      "name": "unexpected_delete_marker",
+      "mirror_verdict": "failed",
+      "attempts": [
+        {
+          "type": "delete_marker",
+          "attempt_id": "attempt-2",
+          "observed_at": "2026-11-02T12:00:00.000Z",
+          "version_id": "marker-version-2",
+          "delete_marker": true,
+          "failure_code": "UNEXPECTED_DELETE_MARKER"
+        }
+      ]
+    },
+    {
+      "name": "incomplete_listing",
+      "mirror_verdict": "failed",
+      "attempts": [
+        {
+          "type": "inventory_error",
+          "attempt_id": "attempt-3",
+          "observed_at": "2026-11-02T12:00:00.000Z",
+          "failure_code": "INCOMPLETE_LISTING"
+        }
+      ]
+    }
+  ],
+  "negative_mutations": [
+    {
+      "base_case": "scope_failed_report",
+      "mutation": "set body.verdict to pass",
+      "expected_verdict": "fail",
+      "reason": "failed operation and missing scope preservation cannot pass"
+    },
+    {
+      "base_case": "scope_allowed_pass",
+      "mutation": "set source-isolation probe binding_scope to operation",
+      "expected_verdict": "fail",
+      "reason": "source isolation must be global"
+    },
+    {
+      "base_case": "scope_policy_denied_pass",
+      "mutation": "remove operation_id from a policy negative-export probe",
+      "expected_verdict": "fail",
+      "reason": "policy probes bind to the same erase operation"
+    },
+    {
+      "base_case": "unexpected_delete_marker",
+      "mutation": "set mirror_verdict to complete",
+      "expected_verdict": "fail",
+      "reason": "delete marker is a closed failure arm"
+    },
+    {
+      "base_case": "unexpected_delete_marker",
+      "mutation": "add readback_sha256 to marker",
+      "expected_verdict": "fail",
+      "reason": "marker cannot claim object-version readback"
+    }
+  ]
+}

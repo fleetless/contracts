@@ -1,0 +1,3115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "fleetless.journal-mixed-export.v1"
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "restore_attempt_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_db_timeline": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "source_db_lsn": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+    },
+    "selected_recovery_point": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "timestamp"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "lsn"
+            },
+            "timeline": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "lsn": {
+              "type": "string",
+              "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            }
+          },
+          "required": [
+            "kind",
+            "timeline",
+            "lsn",
+            "at"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "oldest_mapping_bearing_point": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "timestamp"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            }
+          },
+          "required": [
+            "kind",
+            "at"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "lsn"
+            },
+            "timeline": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "lsn": {
+              "type": "string",
+              "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+            }
+          },
+          "required": [
+            "kind",
+            "timeline",
+            "lsn",
+            "at"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "copy_inventory_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "copy_coverage_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "lower_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "lower_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "upper_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "upper_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "registry_chain_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "pinned_standby_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pinned_standby_head_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "seal_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "seal_version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "items": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "c0"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-first-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "number",
+                "const": 0
+              },
+              "checkpoint_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "checkpoint_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "c0"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-first-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "number",
+                "const": 0
+              },
+              "checkpoint_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "checkpoint_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "intent_v1"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.deletion-intent.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "operation_id",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "intent_v1"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.deletion-intent.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "operation_id",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "intent_v2"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.deletion-intent.v2"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "operation_id",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "intent_v2"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.deletion-intent.v2"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "operation_id",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "registry_transition"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.registry-transition.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "registry_transition"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.registry-transition.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "v2_activation_checkpoint"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-v2-activation-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "v2_activation_checkpoint"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-v2-activation-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "generation_checkpoint"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-generation-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "generation_checkpoint"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-generation-checkpoint.v1"
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "previous_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "sequence",
+              "previous_hash",
+              "record_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "registry_activation_receipt"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.registry-activation-receipt.v1"
+              },
+              "control_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "control_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "receipt_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "control_sequence",
+              "control_hash",
+              "receipt_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "registry_activation_receipt"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.registry-activation-receipt.v1"
+              },
+              "control_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "control_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "receipt_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "control_sequence",
+              "control_hash",
+              "receipt_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "seal"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-final-seal.v1"
+              },
+              "final_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "final_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "seal_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "complete"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "attempt_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "observed_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "type": {
+                      "type": "string",
+                      "const": "object_version"
+                    },
+                    "version_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "delete_marker": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "stored_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "readback_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "effective_retain_until": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                    },
+                    "object_lock_mode": {
+                      "type": "string",
+                      "const": "COMPLIANCE"
+                    }
+                  },
+                  "required": [
+                    "attempt_id",
+                    "observed_at",
+                    "type",
+                    "version_id",
+                    "delete_marker",
+                    "stored_sha256",
+                    "readback_sha256",
+                    "readback_at",
+                    "effective_retain_until",
+                    "object_lock_mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "final_sequence",
+              "final_hash",
+              "seal_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "generation": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+              },
+              "stored_bytes_b64url": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$"
+              },
+              "mirror_inventory_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "type": {
+                "type": "string",
+                "const": "seal"
+              },
+              "schema": {
+                "type": "string",
+                "const": "fleetless.journal-final-seal.v1"
+              },
+              "final_sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "final_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "seal_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mirror_verdict": {
+                "type": "string",
+                "const": "failed"
+              },
+              "mirror_attempts": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "object_version"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "stored_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "readback_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "effective_retain_until": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "object_lock_mode": {
+                          "type": "string",
+                          "const": "COMPLIANCE"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "stored_sha256",
+                        "readback_sha256",
+                        "readback_at",
+                        "effective_retain_until",
+                        "object_lock_mode"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "attempt_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "observed_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "delete_marker"
+                        },
+                        "version_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delete_marker": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "failure_code": {
+                          "type": "string",
+                          "const": "UNEXPECTED_DELETE_MARKER"
+                        }
+                      },
+                      "required": [
+                        "attempt_id",
+                        "observed_at",
+                        "type",
+                        "version_id",
+                        "delete_marker",
+                        "failure_code"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "MISSING_VERSION",
+                                "INCOMPLETE_LISTING"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "attempt_id": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "observed_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                            },
+                            "type": {
+                              "type": "string",
+                              "const": "inventory_error"
+                            },
+                            "failure_code": {
+                              "type": "string",
+                              "enum": [
+                                "CONFLICTING_BYTES",
+                                "UNKNOWN_RETENTION"
+                              ]
+                            },
+                            "version_id": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "attempt_id",
+                            "observed_at",
+                            "type",
+                            "failure_code",
+                            "version_id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "generation",
+              "stored_bytes_b64url",
+              "mirror_inventory_digest",
+              "type",
+              "schema",
+              "final_sequence",
+              "final_hash",
+              "seal_hash",
+              "mirror_verdict",
+              "mirror_attempts"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "description": "JSON Schema consumers must also reject complete coverage with marker/error arms or unequal readbacks, and verify exact stored bytes and all versions."
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "environment",
+    "restore_attempt_id",
+    "source_db_timeline",
+    "source_db_lsn",
+    "selected_recovery_point",
+    "oldest_mapping_bearing_point",
+    "copy_inventory_digest",
+    "copy_coverage_digest",
+    "lower_sequence",
+    "lower_hash",
+    "upper_sequence",
+    "upper_hash",
+    "registry_chain_digest",
+    "pinned_standby_id",
+    "pinned_standby_head_hash",
+    "seal_hash",
+    "seal_version_id",
+    "items"
+  ],
+  "additionalProperties": false,
+  "description": "JSON Schema consumers must also verify ordered C0/transition receipts, seal anchors, original v1 bytes, mirror coverage, standby and #844 copy inventory."
+}
