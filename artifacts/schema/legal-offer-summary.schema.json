@@ -104,7 +104,7 @@
           ],
           "additionalProperties": false
         },
-        "proposed_effective_at": {
+        "published_at": {
           "type": "string",
           "allOf": [
             {
@@ -115,45 +115,29 @@
             }
           ]
         },
+        "acceptance_deadline_at": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            {
+              "pattern": "Z$"
+            }
+          ]
+        },
+        "terms_access": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "suspended",
+            "unrestricted"
+          ]
+        },
         "summary": {
           "type": "string",
           "minLength": 1,
           "pattern": "\\S"
-        },
-        "termination": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "state": {
-                  "type": "string",
-                  "enum": [
-                    "scheduled",
-                    "withdrawn"
-                  ]
-                },
-                "ends_at": {
-                  "type": "string",
-                  "allOf": [
-                    {
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                    },
-                    {
-                      "pattern": "Z$"
-                    }
-                  ]
-                }
-              },
-              "required": [
-                "state",
-                "ends_at"
-              ],
-              "additionalProperties": false
-            },
-            {
-              "type": "null"
-            }
-          ]
         }
       },
       "required": [
@@ -165,9 +149,10 @@
         "kind",
         "current_terms",
         "proposed_terms",
-        "proposed_effective_at",
-        "summary",
-        "termination"
+        "published_at",
+        "acceptance_deadline_at",
+        "terms_access",
+        "summary"
       ],
       "additionalProperties": false
     },

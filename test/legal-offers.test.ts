@@ -9,6 +9,8 @@ import { exportedSchemas, schemaIo, routesArtifact, openApiDocument } from '../s
 const id = '01234567-89ab-4cde-8fab-0123456789ab'
 const at = '2026-11-02T12:00:00.000Z'
 const later = '2026-12-02T12:00:00.000Z'
+const basicDeadline = '2026-11-09T12:00:00.000Z'
+const afterBasicDeadline = '2026-11-10T12:00:00.000Z'
 const terms = { version: '1.0', version_date: '2026-11-01', url: 'https://fleetless.dev/terms/v1.0/' }
 const proposed = { ...terms, version: '2.0', url: 'https://fleetless.dev/terms/v2.0/' }
 const proof = 'A'.repeat(43)
@@ -18,7 +20,12 @@ const price = {
 }
 const commonSummary = { id, revision: id, decision_state: 'open', organization_name: 'Example', announced_at: at }
 const summaries = [
-  { ...commonSummary, kind: 'terms', current_terms: terms, proposed_terms: proposed, proposed_effective_at: later, summary: 'Changes', termination: null },
+  { ...commonSummary, kind: 'terms', current_terms: terms, proposed_terms: proposed, published_at: at,
+    acceptance_deadline_at: later, terms_access: 'pending', summary: 'Changes' },
+  { ...commonSummary, kind: 'terms', current_terms: terms, proposed_terms: proposed, published_at: at,
+    acceptance_deadline_at: basicDeadline, terms_access: 'suspended', summary: 'Changes' },
+  { ...commonSummary, kind: 'terms', decision_state: 'accepted', current_terms: terms, proposed_terms: proposed,
+    published_at: at, acceptance_deadline_at: basicDeadline, terms_access: 'unrestricted', summary: 'Changes' },
   { ...commonSummary, kind: 'price', ...price },
 ]
 const commonSnapshot = {
@@ -28,18 +35,25 @@ const commonSnapshot = {
   issued_at: at, expires_at: '2026-11-02T12:10:00.000Z',
 }
 const snapshots = [
-  { ...commonSnapshot, kind: 'terms', text_id: 'DR-1374-draft-3-H.3-terms', proposed_terms: proposed,
-    proposed_effective_at: later, summary: 'Changes', read_changes_label: 'Read the changes', term_end_at: later },
+  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-unapproved-H.3-terms', proposed_terms: proposed,
+    published_at: at, acceptance_deadline_at: later, terms_access: 'pending', summary: 'Changes', read_changes_label: 'Read the changes' },
+  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-unapproved-H.3-terms', proposed_terms: proposed,
+    issued_at: afterBasicDeadline, expires_at: '2026-11-10T12:10:00.000Z', published_at: at,
+    acceptance_deadline_at: basicDeadline, terms_access: 'suspended', decline_label: null,
+    summary: 'Changes', read_changes_label: 'Read the changes' },
   { ...commonSnapshot, kind: 'price', text_id: 'DR-1374-draft-3-H.3-price', proposed_terms: null,
     ...price, current_agreed_price_id: id, offered_price_proposal_id: id },
 ]
 const decision = { offer_id: id, decision_id: id, decided_at: at, terms, dpa: null }
 const results = [
-  { ...decision, kind: 'terms', decision: 'accept', effective_at: later, price_start_at: null, termination: null },
-  { ...decision, kind: 'terms', decision: 'accept', effective_at: later, price_start_at: null, termination: { state: 'withdrawn', termination_id: id, ends_at: later } },
-  { ...decision, kind: 'terms', decision: 'decline', effective_at: null, price_start_at: null, termination: { state: 'scheduled', termination_id: id, ends_at: later } },
-  { ...decision, kind: 'price', decision: 'accept', effective_at: null, price_start_at: later, termination: null },
-  { ...decision, kind: 'price', decision: 'decline', effective_at: null, price_start_at: null, termination: null },
+  { ...decision, kind: 'terms', decision: 'accept', effective_at: at, price_start_at: null,
+    terms_access: { state: 'unrestricted', acceptance_deadline_at: basicDeadline } },
+  { ...decision, kind: 'terms', decision: 'accept', decided_at: afterBasicDeadline, effective_at: afterBasicDeadline,
+    price_start_at: null, terms_access: { state: 'unrestricted', acceptance_deadline_at: basicDeadline } },
+  { ...decision, kind: 'terms', decision: 'decline', effective_at: null, price_start_at: null,
+    terms_access: { state: 'pending', acceptance_deadline_at: basicDeadline } },
+  { ...decision, kind: 'price', decision: 'accept', effective_at: null, price_start_at: later, terms_access: null },
+  { ...decision, kind: 'price', decision: 'decline', effective_at: null, price_start_at: null, terms_access: null },
 ]
 const encode = (value: string) => Buffer.from(value).toString('base64url')
 const cursor = encode(JSON.stringify({ v: 1, created_at: at, id }))
@@ -83,23 +97,31 @@ describe('H.3 legal offers', () => {
     })
   }
 
-  it('rejects cross-arm prices, Terms, DPA, termination and forged action inputs', () => {
+  it('rejects termination, cross-arm prices, Terms, DPA and forged action inputs', () => {
     const result = (contracts as any).legalOfferDecisionResult
     for (const invalid of [
-      { ...results[0], price_start_at: later }, { ...results[2], termination: null },
-      { ...results[2], termination: { state: 'withdrawn', termination_id: id, ends_at: later } },
-      { ...results[3], effective_at: later }, { ...results[4], termination: results[2].termination },
+      { ...results[0], price_start_at: later }, { ...results[0], termination: null },
+      { ...results[2], termination: { state: 'scheduled', termination_id: id, ends_at: later } },
+      { ...results[3], effective_at: later }, { ...results[4], terms_access: results[0].terms_access },
+      { ...results[0], terms_access: { state: 'pending', acceptance_deadline_at: later } },
+      { ...results[2], terms_access: { state: 'suspended', acceptance_deadline_at: later } },
       { ...results[0], dpa: terms }, { ...results[4], decision: 'silent' },
     ]) expect(result.safeParse(invalid).success).toBe(false)
     const snapshot = (contracts as any).legalOfferDecisionSnapshot
     for (const invalid of [
-      { ...snapshots[0], ...price }, { ...snapshots[1], term_end_at: later },
-      { ...snapshots[1], proposed_terms: proposed }, { ...snapshots[0], term_end_at: null },
+      { ...snapshots[0], ...price }, { ...snapshots[2], term_end_at: later },
+      { ...snapshots[2], proposed_terms: proposed }, { ...snapshots[0], term_end_at: later },
+      { ...snapshots[0], decline_label: null }, { ...snapshots[1], decline_label: 'Decline' },
       { ...snapshots[0], text_id: 'DR-1374-draft-3-H.3-price' },
-      { ...snapshots[1], current_net_cents: -1 }, { ...snapshots[1], offered_net_cents: 0.1 },
-      { ...snapshots[1], addons: { ...price.addons, unknown: 1 } },
+      { ...snapshots[2], current_net_cents: -1 }, { ...snapshots[2], offered_net_cents: 0.1 },
+      { ...snapshots[2], addons: { ...price.addons, unknown: 1 } },
       { ...snapshots[0], dpa: terms },
     ]) expect(snapshot.safeParse(invalid).success).toBe(false)
+    const summary = (contracts as any).legalOfferSummary
+    for (const invalid of [
+      { ...summaries[0], termination: null }, { ...summaries[0], proposed_effective_at: later },
+      { ...summaries[0], terms_access: 'terminated' }, { ...summaries[3], terms_access: 'pending' },
+    ]) expect(summary.safeParse(invalid).success).toBe(false)
     for (const key of ['price', 'terms', 'owner_id', 'organization_id', 'effective_at', 'text']) {
       expect((contracts as any).legalOfferDecisionRequest.safeParse({ operation_key: id, decision: 'accept', confirmation_proof: proof, [key]: id }).success).toBe(false)
     }
@@ -140,6 +162,10 @@ describe('H.3 legal offers', () => {
       expect(op.responses['200'].content['application/json'].schema.$ref).toBe('#/components/schemas/' + response)
     }
     expect(contracts.ERROR_CODES).toContain('legal_offer_unavailable')
+    const display = routesArtifact().routes.find(r => r.method === 'POST' && r.path === prefix + '/:id/display')
+    expect(display?.notes).toContain('Terms-suspended')
+    const decisionRoute = routesArtifact().routes.find(r => r.method === 'POST' && r.path === prefix + '/:id/decisions')
+    expect(decisionRoute?.notes).toContain('no contract termination')
   })
 
   it('keeps offer acceptance history DPA-free in the generated schema too', () => {

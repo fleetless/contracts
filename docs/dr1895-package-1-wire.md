@@ -1,11 +1,11 @@
 # Package 1 wire integration
 
-Single package bundle for DR-3011, based on Contracts `76d65d1` and the technical
-approval of [#1008](https://github.com/fleetless/fleetless/issues/1008) at
-`032f215e96cd0757faeae290e26728922f428ed2`. The shared plan is DR-3008.
+Single package bundle for DR-3011, based on Contracts `76d65d1` and the
+updated full [#1008](https://github.com/fleetless/fleetless/issues/1008) spec at
+`21bd3dff5291fd7655adb8a5d1031334eae4a005`. The shared plan is DR-3008.
 The C.4 consumer alignment is [#965](https://github.com/fleetless/fleetless/issues/965).
-This branch does not approve customer wording, activate Basic Terms decisions,
-send notices, merge, publish a release or establish a consumer pin. Finn reviews
+This branch does not approve customer wording, send notices, merge, publish a
+release or establish a consumer pin. Finn reviews
 the complete bundle after Cloud and Console agree the exact head.
 
 ## New H.3 surface
@@ -18,8 +18,13 @@ adds GET list, POST display, POST decisions and GET decision recovery under
 Owner and refuse support/synthetic decisions. Every response is no-store.
 
 Terms and price snapshots have separate strict fields and text IDs. Four result
-arms distinguish accepted/declined Terms/prices. Only Terms can carry a causal
-scheduled termination or its reversal; prices cannot. All H.3 DPA fields are
+arms distinguish accepted/declined Terms/prices. Terms summary and display
+expose the actual publication instant, per-organization acceptance deadline and
+developer access state. A pending display has a decline label; a suspended
+display has none and still permits acceptance. The provisional Terms text ID
+`DR-3032-unapproved-H.3-terms` marks synthetic, non-publishable wording until
+André confirms the customer text. Both Basic and paid Terms offers use the same
+wire. All H.3 DPA fields are
 explicitly null. A decline belongs only in decision history; accepted amendments
 and prices also appear in the existing Owner acceptance history via the new
 `amendment` and `price_offer` contexts. Cloud must select those rows correctly;
@@ -37,8 +42,13 @@ JSON Schema and remain mandatory in consumers using the artifacts.
 Cloud remains responsible for authenticating the real actor, scoping lookup,
 checking the stored proof and offer revision, validating exact rendered text,
 serializing decisions, keeping accepted commitments, and recovering the original
-response for an exact retry. Schema success proves none of those operations.
-Synthetic fixture wording is not approved customer text.
+response for an exact retry. It must compute the paid deadline from the proved
+current term end and the Basic deadline as seven full days after publication,
+lock expiry and acceptance together, and clear only the Terms restriction on
+acceptance. The wire rejects a termination field. No Terms decision starts
+contract-end, retrieval or erasure work; no independent restriction is lifted.
+Schema success proves none of those operations. Synthetic fixture wording is
+not approved customer text.
 
 ## Breaking C.4 migration
 
@@ -68,12 +78,15 @@ The new record shape does not mutate old evidence or authorize backfills.
 
 - Frieda confirms the exact package head against the updated #965/Console flow
   and its tests; the prior unconditional date requirement must not survive.
-- Basic Terms display and both decisions stay unavailable while `term_end_at`
-  cannot be truthfully supplied; read-only notices remain available. The Basic
-  policy and exact Terms-decline/replacement wording remain with their owners.
+- The Terms publication and deadline source, restriction reason, Console
+  acceptance route under suspension and Cloud/Console field names must be
+  reconciled against the complete package heads. Customer wording remains a
+  separate publication gate under DR-3032.
 - Finn reviews the complete head, then handles merge/release and the exact common
   Cloud/Console pin. There is no per-slice review or intermediate release.
-- Cloud/Console acceptance tests still prove the nonretroactive Terms effect,
-  same-decline reversal before term end, price-boundary equality, delayed payment,
-  failed replacement preserving the future agreement, and role/replay failures.
+- Cloud/Console acceptance tests still prove paid/Basic deadline boundaries,
+  decline and silence parity, acceptance before and after suspension, unrelated
+  restrictions surviving acceptance, absence of contract termination and deletion,
+  price-boundary equality, delayed payment, failed replacement preserving the
+  future agreement, and role/replay failures.
   Contracts tests validate wire shapes, not those live transactions.
