@@ -473,7 +473,7 @@
         "legal_offer_unavailable"
       ],
       "transport": "http",
-      "notes": "Cache-Control: no-store. Any authenticated org member may read notices; support is read-only. No proof or decision rights are returned. Newest first; default limit 50, maximum 100, canonical decimal strings only. Cursor is canonical unpadded base64url of UTF-8 JSON {v:1,created_at:UTC,id:UUID} in that key order, scoped by Cloud to the active org. Basic Terms notices remain readable while their decision display is unavailable."
+      "notes": "Cache-Control: no-store. Any authenticated org member may read notices; support is read-only. No proof or decision rights are returned. Newest first; default limit 50, maximum 100, canonical decimal strings only. Cursor is canonical unpadded base64url of UTF-8 JSON {v:1,created_at:UTC,id:UUID} in that key order, scoped by Cloud to the active org. Terms notices expose the published deadline and developer access state for Basic and paid orgs."
     },
     {
       "method": "POST",
@@ -506,7 +506,7 @@
         "legal_offer_unavailable"
       ],
       "transport": "http",
-      "notes": "Cache-Control: no-store. Real Owner only; support and synthetic identities cannot receive a proof. Display alone makes no decision. Cloud stores the complete snapshot and a hash of the 32-byte proof for at most ten minutes, bound to Owner, org, offer revision and operation key. Terms require a proved term_end_at: the entire Basic Terms display is unavailable until its truthful outcome wire and wording are approved. Expired, withdrawn or changed offers require a fresh display; unknown/foreign offers return 404. target_state_conflict uses legalOfferConflictDetails."
+      "notes": "Cache-Control: no-store. Real Owner only; support and synthetic identities cannot receive a proof. Display alone makes no decision. Cloud stores the complete snapshot and a hash of the 32-byte proof for at most ten minutes, bound to Owner, org, offer revision and operation key. Terms-suspended Owners can still read the offer and create an accept-only proof. Pending displays permit decline before the deadline; at or after the deadline decline_label is null and the changed consequence requires a fresh proof. Both Basic and paid Terms offers use their published deadline. An expired proof, withdrawn or changed offer requires a fresh display; the deadline alone never expires Terms acceptance. Unknown/foreign offers return 404. target_state_conflict uses legalOfferConflictDetails."
     },
     {
       "method": "POST",
@@ -539,7 +539,7 @@
         "legal_offer_unavailable"
       ],
       "transport": "http",
-      "notes": "Cache-Control: no-store. Real Owner only; support and synthetic identities cannot decide. Cloud atomically checks the actor/org/offer/revision, wording, legal references, selection, prices, boundaries and expiry before consuming the proof and recording the decision. Changed-body/key replays and stale proofs conflict without mutation. An exact same-key retry recovers the original response even after expiry. Declines stay out of the acceptance list. Terms decline schedules termination at the proved term end; same-offer acceptance strictly before that end reverses only its causal cancellation and never backdates effect. Price decline causes no termination; price acceptance at or after the offered boundary starts at the next full boundary. Basic Terms decisions remain unavailable. target_state_conflict uses legalOfferConflictDetails; unavailable/not_found/tier_required/support_forbidden omit details."
+      "notes": "Cache-Control: no-store. Real Owner only; support and synthetic identities cannot decide. Cloud atomically checks the actor/org/offer/revision, wording, legal references, selection, prices, boundaries and expiry before consuming the proof and recording the decision. Changed-body/key replays and stale proofs conflict without mutation. An exact same-key retry recovers the original response even after proof expiry. Declines stay out of the acceptance list. Terms decline and silence share the same published deadline; neither causes contract termination. Acceptance remains available after decline or Terms suspension, takes effect at decision time, clears only the Terms restriction and causes no contract termination or deletion. At or after the deadline decline is unavailable, including with an old pending proof. Price decline causes no suspension; price acceptance at or after the offered boundary starts at the next full boundary. target_state_conflict uses legalOfferConflictDetails; unavailable/not_found/tier_required/support_forbidden omit details."
     },
     {
       "method": "GET",

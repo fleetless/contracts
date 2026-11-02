@@ -38,8 +38,8 @@ const summary = {
 }
 export const legalOfferSummary = z.discriminatedUnion('kind', [
   z.strictObject({ ...summary, kind: z.literal('terms'), current_terms: legalDocumentReference,
-    proposed_terms: legalDocumentReference, proposed_effective_at: utc, summary: text,
-    termination: z.strictObject({ state: z.enum(['scheduled', 'withdrawn']), ends_at: utc }).nullable() }),
+    proposed_terms: legalDocumentReference, published_at: utc, acceptance_deadline_at: utc,
+    terms_access: z.enum(['pending', 'suspended', 'unrestricted']), summary: text }),
   z.strictObject({ ...summary, kind: z.literal('price'), ...price }),
 ])
 export type LegalOfferSummary = z.infer<typeof legalOfferSummary>
@@ -59,15 +59,20 @@ export type LegalOfferDecisionLookupQuery = z.infer<typeof legalOfferDecisionLoo
 const snapshot = {
   snapshot_id: z.uuid(), offer_id: z.uuid(), revision: z.uuid(), operation_key: purchaseOperationKey,
   owner_id: z.uuid(), organization_id: z.uuid(), organization_name: text,
-  title: text, text, accept_label: text, decline_label: text,
+  title: text, text, accept_label: text,
   current_terms: legalDocumentReference, dpa: z.null(), issued_at: utc, expires_at: utc,
 }
+const termsSnapshot = {
+  ...snapshot, kind: z.literal('terms'), text_id: z.literal('DR-3032-unapproved-H.3-terms'),
+  proposed_terms: legalDocumentReference, published_at: utc, acceptance_deadline_at: utc,
+  summary: text, read_changes_label: text,
+}
 /** Shape validation cannot prove the served wording, Owner, offer or state binding. */
-export const legalOfferDecisionSnapshot = z.discriminatedUnion('kind', [
-  z.strictObject({ ...snapshot, kind: z.literal('terms'), text_id: z.literal('DR-1374-draft-3-H.3-terms'),
-    proposed_terms: legalDocumentReference, proposed_effective_at: utc, summary: text, read_changes_label: text, term_end_at: utc }),
+export const legalOfferDecisionSnapshot = z.union([
+  z.strictObject({ ...termsSnapshot, terms_access: z.literal('pending'), decline_label: text }),
+  z.strictObject({ ...termsSnapshot, terms_access: z.literal('suspended'), decline_label: z.null() }),
   z.strictObject({ ...snapshot, kind: z.literal('price'), text_id: z.literal('DR-1374-draft-3-H.3-price'),
-    proposed_terms: z.null(), ...price, current_agreed_price_id: z.uuid(), offered_price_proposal_id: z.uuid() }),
+    decline_label: text, proposed_terms: z.null(), ...price, current_agreed_price_id: z.uuid(), offered_price_proposal_id: z.uuid() }),
 ]).superRefine((value, ctx) => {
   const lifetime = Date.parse(value.expires_at) - Date.parse(value.issued_at)
   if (lifetime <= 0 || lifetime > 600_000) ctx.addIssue({ code: 'custom', path: ['expires_at'], message: 'Display lifetime must be positive and at most ten minutes.' })
@@ -84,11 +89,11 @@ export type LegalOfferDisplayResponse = z.infer<typeof legalOfferDisplayResponse
 const result = { offer_id: z.uuid(), decision_id: z.uuid(), decided_at: utc, terms: legalDocumentReference, dpa: z.null() }
 export const legalOfferDecisionResult = z.union([
   z.strictObject({ ...result, kind: z.literal('terms'), decision: z.literal('accept'), effective_at: utc, price_start_at: z.null(),
-    termination: z.strictObject({ state: z.literal('withdrawn'), termination_id: z.uuid(), ends_at: utc }).nullable() }),
+    terms_access: z.strictObject({ state: z.literal('unrestricted'), acceptance_deadline_at: utc }) }),
   z.strictObject({ ...result, kind: z.literal('terms'), decision: z.literal('decline'), effective_at: z.null(), price_start_at: z.null(),
-    termination: z.strictObject({ state: z.literal('scheduled'), termination_id: z.uuid(), ends_at: utc }) }),
-  z.strictObject({ ...result, kind: z.literal('price'), decision: z.literal('accept'), effective_at: z.null(), price_start_at: utc, termination: z.null() }),
-  z.strictObject({ ...result, kind: z.literal('price'), decision: z.literal('decline'), effective_at: z.null(), price_start_at: z.null(), termination: z.null() }),
+    terms_access: z.strictObject({ state: z.literal('pending'), acceptance_deadline_at: utc }) }),
+  z.strictObject({ ...result, kind: z.literal('price'), decision: z.literal('accept'), effective_at: z.null(), price_start_at: utc, terms_access: z.null() }),
+  z.strictObject({ ...result, kind: z.literal('price'), decision: z.literal('decline'), effective_at: z.null(), price_start_at: z.null(), terms_access: z.null() }),
 ])
 export type LegalOfferDecisionResult = z.infer<typeof legalOfferDecisionResult>
 

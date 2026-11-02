@@ -77,43 +77,30 @@
         "price_start_at": {
           "type": "null"
         },
-        "termination": {
-          "anyOf": [
-            {
-              "type": "object",
-              "properties": {
-                "state": {
-                  "type": "string",
-                  "const": "withdrawn"
-                },
-                "termination_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                },
-                "ends_at": {
-                  "type": "string",
-                  "allOf": [
-                    {
-                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                    },
-                    {
-                      "pattern": "Z$"
-                    }
-                  ]
-                }
-              },
-              "required": [
-                "state",
-                "termination_id",
-                "ends_at"
-              ],
-              "additionalProperties": false
+        "terms_access": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "unrestricted"
             },
-            {
-              "type": "null"
+            "acceptance_deadline_at": {
+              "type": "string",
+              "allOf": [
+                {
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                {
+                  "pattern": "Z$"
+                }
+              ]
             }
-          ]
+          },
+          "required": [
+            "state",
+            "acceptance_deadline_at"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -126,7 +113,7 @@
         "decision",
         "effective_at",
         "price_start_at",
-        "termination"
+        "terms_access"
       ],
       "additionalProperties": false
     },
@@ -198,19 +185,14 @@
         "price_start_at": {
           "type": "null"
         },
-        "termination": {
+        "terms_access": {
           "type": "object",
           "properties": {
             "state": {
               "type": "string",
-              "const": "scheduled"
+              "const": "pending"
             },
-            "termination_id": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            },
-            "ends_at": {
+            "acceptance_deadline_at": {
               "type": "string",
               "allOf": [
                 {
@@ -224,8 +206,7 @@
           },
           "required": [
             "state",
-            "termination_id",
-            "ends_at"
+            "acceptance_deadline_at"
           ],
           "additionalProperties": false
         }
@@ -240,7 +221,7 @@
         "decision",
         "effective_at",
         "price_start_at",
-        "termination"
+        "terms_access"
       ],
       "additionalProperties": false
     },
@@ -320,7 +301,7 @@
             }
           ]
         },
-        "termination": {
+        "terms_access": {
           "type": "null"
         }
       },
@@ -334,7 +315,7 @@
         "decision",
         "effective_at",
         "price_start_at",
-        "termination"
+        "terms_access"
       ],
       "additionalProperties": false
     },
@@ -406,7 +387,7 @@
         "price_start_at": {
           "type": "null"
         },
-        "termination": {
+        "terms_access": {
           "type": "null"
         }
       },
@@ -420,7 +401,7 @@
         "decision",
         "effective_at",
         "price_start_at",
-        "termination"
+        "terms_access"
       ],
       "additionalProperties": false
     }
