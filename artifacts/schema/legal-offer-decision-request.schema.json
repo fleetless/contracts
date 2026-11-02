@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "operation_key": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "accept",
+        "decline"
+      ]
+    },
+    "confirmation_proof": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        {
+          "pattern": "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$"
+        }
+      ],
+      "description": "Opaque 32-byte Cloud proof, unpadded base64url. Syntax alone is not evidence."
+    }
+  },
+  "required": [
+    "operation_key",
+    "decision",
+    "confirmation_proof"
+  ],
+  "additionalProperties": false
+}

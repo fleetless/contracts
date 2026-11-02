@@ -32,6 +32,16 @@ export type {
   JournalRegistryActivationReceiptBody, JournalRegistryActivationReceipt,
 } from './journal-controls.js'
 export {
+  legalOfferListQuery, legalOfferSummary, legalOfferListResponse, legalOfferDisplayRequest,
+  legalOfferDecisionRequest, legalOfferDecisionLookupQuery, legalOfferDecisionSnapshot,
+  legalOfferDisplayResponse, legalOfferDecisionResult, legalOfferConflictDetails,
+} from './legal-offers.js'
+export type {
+  LegalOfferListQuery, LegalOfferSummary, LegalOfferListResponse, LegalOfferDisplayRequest,
+  LegalOfferDecisionRequest, LegalOfferDecisionLookupQuery, LegalOfferDecisionSnapshot,
+  LegalOfferDisplayResponse, LegalOfferDecisionResult, LegalOfferConflictDetails,
+} from './legal-offers.js'
+export {
   SLUG_RULE,
   ROS_NAME_RULE,
   ROS_TYPE_NAME_RULE,

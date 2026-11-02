@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  legalOfferListQuery, legalOfferSummary, legalOfferListResponse, legalOfferDisplayRequest,
+  legalOfferDecisionRequest, legalOfferDecisionLookupQuery, legalOfferDecisionSnapshot,
+  legalOfferDisplayResponse, legalOfferDecisionResult, legalOfferConflictDetails,
+} from '../src/legal-offers.js'
+import {
   journalV2ActivationCheckpointBody, journalV2ActivationCheckpoint,
   journalGenerationCheckpointBody, journalGenerationCheckpoint,
   journalFinalSealBody, journalFinalSeal,
@@ -505,6 +510,16 @@ export const exportedSchemas = {
   'legal-document-reference': legalDocumentReference,
   'legal-text-references': legalTextReferences,
   'legal-acceptance-list-query': legalAcceptanceListQuery,
+  'legal-offer-list-query': legalOfferListQuery,
+  'legal-offer-summary': legalOfferSummary,
+  'legal-offer-list-response': legalOfferListResponse,
+  'legal-offer-display-request': legalOfferDisplayRequest,
+  'legal-offer-decision-request': legalOfferDecisionRequest,
+  'legal-offer-decision-lookup-query': legalOfferDecisionLookupQuery,
+  'legal-offer-decision-snapshot': legalOfferDecisionSnapshot,
+  'legal-offer-display-response': legalOfferDisplayResponse,
+  'legal-offer-decision-result': legalOfferDecisionResult,
+  'legal-offer-conflict-details': legalOfferConflictDetails,
   'legal-acceptance-version-row': legalAcceptanceVersionRow,
   'legal-acceptance-list-response': legalAcceptanceListResponse,
   // 2026-09-05 — the two identity spaces.
@@ -980,6 +995,7 @@ export const exportedConstants = {
  * classification here.
  */
 const SCHEMA_IO_INPUT: readonly string[] = [
+  'legal-offer-list-query', 'legal-offer-display-request', 'legal-offer-decision-request', 'legal-offer-decision-lookup-query',
   'controller-register-write',
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
@@ -1079,6 +1095,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'legal-offer-summary', 'legal-offer-list-response', 'legal-offer-decision-snapshot',
+  'legal-offer-display-response', 'legal-offer-decision-result', 'legal-offer-conflict-details',
   'journal-manifest-scope', 'journal-manifest-row', 'journal-manifest-entry', 'journal-manifest-batch',
   'journal-deletion-manifest', 'journal-manifest-intent-projection', 'journal-manifest-binding',
   'journal-mirror-attempt',

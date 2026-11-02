@@ -18,7 +18,9 @@
               "registration",
               "invitation",
               "order",
-              "existing_org"
+              "existing_org",
+              "amendment",
+              "price_offer"
             ]
           },
           "accepted_at": {
@@ -102,7 +104,34 @@
           "terms",
           "dpa"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "context": {
+                  "enum": [
+                    "amendment",
+                    "price_offer"
+                  ]
+                }
+              },
+              "required": [
+                "context"
+              ]
+            },
+            "then": {
+              "properties": {
+                "dpa": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "dpa"
+              ]
+            }
+          }
+        ]
       }
     },
     "next_cursor": {

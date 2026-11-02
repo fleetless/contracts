@@ -132,6 +132,10 @@ import {
 } from './identity.js'
 import { jobRunListResponse, jobRunQuery, jobRunSummary, jobRunSummaryQuery } from './jobs.js'
 import { legalAcceptanceListQuery, legalAcceptanceListResponse } from './legal-acceptances.js'
+import {
+  legalOfferListQuery, legalOfferListResponse, legalOfferDisplayRequest, legalOfferDisplayResponse,
+  legalOfferDecisionRequest, legalOfferDecisionLookupQuery, legalOfferDecisionResult,
+} from './legal-offers.js'
 import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
 import {
   authorizationServerMetadata,
@@ -814,6 +818,53 @@ export const ROUTES: readonly RouteEntry[] = [
 
   /* ---------------------------------------------------------------- org */
   {
+    method: 'GET', path: '/api/org/legal/offers', section: 'org',
+    summary: 'Lists Terms and price notices for the authenticated organization.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: legalOfferListQuery, request: null, response: legalOfferListResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'legal_offer_unavailable'], transport: 'http',
+    notes: 'Cache-Control: no-store. Any authenticated org member may read notices; support is read-only. No proof or decision rights are returned. ' +
+      'Newest first; default limit 50, maximum 100, canonical decimal strings only. Cursor is canonical unpadded base64url of UTF-8 JSON ' +
+      '{v:1,created_at:UTC,id:UUID} in that key order, scoped by Cloud to the active org. Basic Terms notices remain readable while their decision display is unavailable.',
+  },
+  {
+    method: 'POST', path: '/api/org/legal/offers/:id/display', section: 'org',
+    summary: 'Issues an Owner-bound Terms or price decision display.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The organization-scoped offer UUID.' }],
+    query: null, request: legalOfferDisplayRequest, response: legalOfferDisplayResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error', 'not_found', 'target_state_conflict', 'legal_offer_unavailable'], transport: 'http',
+    notes: 'Cache-Control: no-store. Real Owner only; support and synthetic identities cannot receive a proof. Display alone makes no decision. ' +
+      'Cloud stores the complete snapshot and a hash of the 32-byte proof for at most ten minutes, bound to Owner, org, offer revision and operation key. ' +
+      'Terms require a proved term_end_at: the entire Basic Terms display is unavailable until its truthful outcome wire and wording are approved. ' +
+      'Expired, withdrawn or changed offers require a fresh display; unknown/foreign offers return 404. target_state_conflict uses legalOfferConflictDetails.',
+  },
+  {
+    method: 'POST', path: '/api/org/legal/offers/:id/decisions', section: 'org',
+    summary: 'Records an explicit Owner acceptance or decline of a served offer.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The offer UUID bound to the served display.' }],
+    query: null, request: legalOfferDecisionRequest, response: legalOfferDecisionResult,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error', 'not_found', 'target_state_conflict', 'legal_offer_unavailable'], transport: 'http',
+    notes: 'Cache-Control: no-store. Real Owner only; support and synthetic identities cannot decide. Cloud atomically checks the actor/org/offer/revision, wording, ' +
+      'legal references, selection, prices, boundaries and expiry before consuming the proof and recording the decision. Changed-body/key replays and stale proofs conflict without mutation. ' +
+      'An exact same-key retry recovers the original response even after expiry. Declines stay out of the acceptance list. Terms decline schedules termination at the proved term end; ' +
+      'same-offer acceptance strictly before that end reverses only its causal cancellation and never backdates effect. Price decline causes no termination; ' +
+      'price acceptance at or after the offered boundary starts at the next full boundary. Basic Terms decisions remain unavailable. ' +
+      'target_state_conflict uses legalOfferConflictDetails; unavailable/not_found/tier_required/support_forbidden omit details.',
+  },
+  {
+    method: 'GET', path: '/api/org/legal/offers/:id/decisions', section: 'org',
+    summary: 'Recovers the original offer decision by operation key.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [{ name: 'id', description: 'The offer UUID of the original decision.' }],
+    query: legalOfferDecisionLookupQuery, request: null, response: legalOfferDecisionResult,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error', 'not_found', 'legal_offer_unavailable'], transport: 'http',
+    notes: 'Cache-Control: no-store. Real Owner only; support and synthetic identities are refused. Match the original Owner, org, offer and operation key; ' +
+      'unknown/foreign keys return 404 without disclosure. Return the exact original decision arm, including a decline before later acceptance. ' +
+      'Use this lookup after a lost response before asking for another display. No proof is returned.',
+  },
+  {
     method: 'GET', path: '/api/org/legal/acceptances', section: 'org',
     summary: "Lists the calling organization's accepted legal document versions, newest first.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
@@ -821,6 +872,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error'], transport: 'http',
     notes: 'A real Owner reads only the authenticated organization; Developer and support sessions cannot read it. ' +
       'Rows carry stored Terms and applicable DPA references, never the current versions substituted for history. ' +
+      'Accepted amendments and price offers use amendment and price_offer; declines appear only in the separate offer decision history. ' +
       'The default page limit is 50, maximum 100. The opaque cursor is unpadded base64url of UTF-8 JSON ' +
       '`[accepted_at,id]`, with a six-digit UTC timestamp and lowercase UUID; Cloud rejects noncanonical tokens. ' +
       'Follow `next_cursor` until null. Equal timestamps sort by id descending; a new acceptance cannot displace older rows.',

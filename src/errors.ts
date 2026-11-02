@@ -1096,6 +1096,8 @@ export const ERROR_CODES = [
    * configured.
    */
   'billing_unavailable',
+  /** `503`: legal offer storage is unavailable; no successful decision is asserted. Recover using the operation-key lookup before retrying. No details payload. */
+  'legal_offer_unavailable',
   /**
    * `502`: Mollie did not answer, or answered with an error, so nothing was
    * charged and nothing changed. `details` is `paymentProviderUnavailableDetails`: Mollie's own

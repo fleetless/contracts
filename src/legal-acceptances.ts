@@ -14,12 +14,19 @@ export type LegalAcceptanceListQuery = z.infer<typeof legalAcceptanceListQuery>
 
 export const legalAcceptanceVersionRow = z.object({
   id: z.uuid(),
-  context: z.enum(['registration', 'invitation', 'order', 'existing_org']),
+  context: z.enum(['registration', 'invitation', 'order', 'existing_org', 'amendment', 'price_offer']),
   accepted_at: z.iso.datetime({ precision: 6 }),
   text_id: z.string().min(1).max(80).regex(/\S/),
   terms: legalDocumentReference,
   dpa: legalDocumentReference.nullable(),
-}).strict()
+}).strict().superRefine((value, ctx) => {
+  if ((value.context === 'amendment' || value.context === 'price_offer') && value.dpa !== null) {
+    ctx.addIssue({ code: 'custom', path: ['dpa'], message: 'Offer acceptances do not incorporate a DPA.' })
+  }
+}).meta({ allOf: [{
+  if: { properties: { context: { enum: ['amendment', 'price_offer'] } }, required: ['context'] },
+  then: { properties: { dpa: { type: 'null' } }, required: ['dpa'] },
+}] })
 export type LegalAcceptanceVersionRow = z.infer<typeof legalAcceptanceVersionRow>
 
 export const legalAcceptanceListResponse = z.object({
