@@ -9,6 +9,13 @@ version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the exported `Job.state` and `JobRun.state` descriptions of final
+  `lost` causes, including terminal status without a recoverable result, and
+  the `job_lost` fallback for a bridge loss frame without an explicit error.
+  Wire shapes and error codes are unchanged.
+
 ## [11.0.0] — 2026-11-02
 
 ### Added

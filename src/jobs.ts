@@ -64,7 +64,7 @@ export const job = z.object({
     description: 'The action or service this job is running, as the published configuration exposes it. One slug carries one job at a time, so every observer of that slug sees the same one.',
   }),
   state: jobState.meta({
-    description: 'Where the job stands: `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`. `unknown` is not an outcome — the robot went offline or silent and the cloud does not know yet; the slug stays occupied and the bridge\'s next statement resolves it, `error` naming why the cloud lost sight of it. `lost` is final: the bridge stated it does not know the job and nothing else runs on its action, or the action server vanished mid-goal.',
+    description: 'Where the job stands: `running`, `unknown`, `succeeded`, `failed`, `cancelled` or `lost`. `unknown` is not an outcome — the robot went offline or silent and the cloud does not know yet; the slug stays occupied and the bridge\'s next statement resolves it, `error` naming why the cloud lost sight of it. `lost` is final after an action server disappears before terminal status (`action_server_lost`), a later query confirms the bridge does not know the job and no active goal accounts for it (`job_unknown_to_bridge`), or a terminal goal status is observed but its result cannot be recovered within the bounded wait (`job_lost`). An unqualified bridge loss report also uses `job_lost`, with a message distinguishing it from terminal-result loss. Cloud cleanup may settle a superseded job or a deleted robot\'s job as `lost` without an error code. A reconnect or omission from `hello.active_jobs` alone is not final.',
   }),
   origin: jobOrigin.meta({
     description: "Who started this job. `fleetless` for everything minted by the cloud; `external` for a goal the bridge found active on a published action without having sent it — no parameters, no starter, never written to `job_runs`.",
@@ -287,7 +287,7 @@ export const jobRun = z.object({
     description: 'Whether the slug was an `action` or a `service`.',
   }),
   state: jobState.meta({
-    description: 'How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final: the bridge did not know the run and nothing else ran on its action, so the outcome is unknowable rather than unknown.',
+    description: 'How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final after an action server disappears before terminal status (`action_server_lost`), a later query confirms the bridge does not know the job and no active goal accounts for it (`job_unknown_to_bridge`), or a terminal goal status is observed but its result cannot be recovered within the bounded wait (`job_lost`). An unqualified bridge loss report also uses `job_lost`, with a message distinguishing it from terminal-result loss. Cloud cleanup may settle a superseded run or a deleted robot\'s run as `lost` without an error code. A reconnect or omission from `hello.active_jobs` alone is not final.',
   }),
   started_at: z.iso.datetime().meta({
     description: 'When the run started, as an ISO 8601 timestamp. Runs are listed and filtered by this instant.',
