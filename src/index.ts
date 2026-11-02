@@ -2,6 +2,14 @@
 export { journalMirrorAttempt, journalExportItem, journalMixedExport, journalEvidenceRef, journalAccessProof, journalReplayReceiptBody, journalReplayReceipt } from './journal-restore.js'
 export type { JournalMirrorAttempt, JournalExportItem, JournalMixedExport, JournalEvidenceRef, JournalAccessProof, JournalReplayReceiptBody, JournalReplayReceipt } from './journal-restore.js'
 export {
+  journalManifestScope, journalManifestRow, journalManifestEntry, journalManifestBatch,
+  journalDeletionManifest, journalManifestIntentProjection, journalManifestBinding,
+} from './journal-manifests.js'
+export type {
+  JournalManifestScope, JournalManifestRow, JournalManifestEntry, JournalManifestBatch,
+  JournalDeletionManifest, JournalManifestIntentProjection, JournalManifestBinding,
+} from './journal-manifests.js'
+export {
   journalV2ActivationCheckpointBody, journalV2ActivationCheckpoint,
   journalGenerationCheckpointBody, journalGenerationCheckpoint,
   journalFinalSealBody, journalFinalSeal,

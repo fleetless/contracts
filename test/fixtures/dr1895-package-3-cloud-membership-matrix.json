@@ -1,0 +1,65 @@
+{
+  "schema": "fleetless.cloud-deletion-membership-matrix.v1",
+  "basis": {
+    "cloud_kind_matrix": "fb438e6",
+    "ops_fields": "e465abb4",
+    "fleetless_903": "18f38f21",
+    "fleetless_873": "f3ef8230",
+    "fleetless_872": "08bf0e2d"
+  },
+  "scope_variants": [
+    {"kind":"organization","fields":{"org_id":"uuid"}},
+    {"kind":"organization_scope","fields":{"org_id":"uuid","scope_id":"uuid","scope_generation":"positive_integer","approved_predicate_digest":"sha256"}},
+    {"kind":"central_mcp","fields":{}},
+    {"kind":"console_oauth","fields":{}},
+    {"kind":"global_ops_event","fields":{}},
+    {"kind":"operator_audit","fields":{}},
+    {"kind":"subject","fields":{"subject_kind":["developer","app_user"],"subject_id":"uuid"}}
+  ],
+  "non_organization_scope_kinds": {
+    "mcp_central_client.revoke":"central_mcp",
+    "mcp_central_interaction.expire":"central_mcp",
+    "mcp_central_client.expire":"central_mcp",
+    "console_interaction.expire":"console_oauth",
+    "console_code.expire":"console_oauth",
+    "ops_global_event.retention":"global_ops_event",
+    "operator_audit.retention":"operator_audit",
+    "auth_factor.remove":"subject"
+  },
+  "member_common": {"membership_kind":["affected","unaffected"]},
+  "row_variants": [
+    {"type":"uuid_row","table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes"],"fields":{"table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes"],"id":"uuid","row_generation":"uuid"},"physical_identity":["table","id"],"rule":"row_generation equals id for these immutable UUID row identities"},
+    {"type":"basic_activity_observation","table":"basic_activity_observations","fields":{"org_id":"uuid","audit_event_id":"uuid"},"physical_identity":["audit_event_id"],"rule":"audit_event_id is the actual primary key; the observation also carries org_id"},
+    {"type":"history_sample","table":"datapoint_series_samples","fields":{"robot_id":"uuid","series_id":"positive_integer","series_generation":"uuid","captured_at_epoch_us":"positive_safe_integer","sample_id":"uuid"},"physical_identity":["robot_id","series_id","captured_at_epoch_us","sample_id"],"rule":"captured_at_epoch_us is read losslessly from the actual timestamptz partition key; millisecond RFC 3339 is insufficient"},
+    {"type":"latency_bucket","table":"bridge_latency_buckets","fields":{"robot_id":"uuid","bucket_at":"utc_millis","bucket_generation":"uuid"},"physical_identity":["robot_id","bucket_at"],"rule":"the generation records old content but is not a second physical row at the same bucket key"},
+    {"type":"org_keyed_row","table":["basic_activity_history","synthetic_org_fixtures"],"fields":{"table":["basic_activity_history","synthetic_org_fixtures"],"org_id":"uuid"},"physical_identity":["table","org_id"],"rule":"one row per organization; synthetic fixture also binds its owner through a non-cascading FK"},
+    {"type":"app_mcp_client","table":"mcp_oauth_clients","fields":{"app_id":"uuid","client_row_id":"uuid"},"physical_identity":["client_row_id"],"rule":"client_row_id is the DB row UUID; textual wire client_id is restricted manifest data, never this identity"},
+    {"type":"central_mcp_client","table":"mcp_oauth_clients","fields":{"client_row_id":"uuid"},"physical_identity":["client_row_id"],"rule":"app_id is NULL; no invented org_id"},
+    {"type":"app_mcp_grant","table":"mcp_oauth_consent_grants","fields":{"app_id":"uuid","grant_id":"uuid","grant_generation":"uuid"},"physical_identity":["grant_id"],"rule":"upsert or re-grant rotates generation, but the same row UUID cannot be both affected and unaffected in one manifest; client_id text is not the row ID"},
+    {"type":"central_mcp_grant","table":"mcp_oauth_consent_grants","fields":{"grant_id":"uuid","grant_generation":"uuid"},"physical_identity":["grant_id"],"rule":"app_id is NULL; no invented org_id"},
+    {"type":"app_mcp_code","table":"mcp_oauth_codes","fields":{"app_id":"uuid","code_row_id":"uuid"},"physical_identity":["code_row_id"]},
+    {"type":"central_mcp_code","table":"mcp_oauth_codes","fields":{"code_row_id":"uuid"},"physical_identity":["code_row_id"],"rule":"app_id is NULL; no invented org_id"},
+    {"type":"app_mcp_interaction","table":"mcp_oauth_interactions","fields":{"app_id":"uuid","interaction_id":"opaque_id"},"physical_identity":["interaction_id"]},
+    {"type":"central_mcp_interaction","table":"mcp_oauth_interactions","fields":{"interaction_id":"opaque_id"},"physical_identity":["interaction_id"],"rule":"app_id is NULL; no invented org_id"},
+    {"type":"console_interaction","table":"console_oauth_interactions","fields":{"interaction_id":"opaque_id"},"physical_identity":["interaction_id"],"rule":"text primary key, no org FK or invented org_id; freeze resolved subject reachability"},
+    {"type":"org_ops_event","table":"ops_events","fields":{"org_id":"uuid","event_id":"uuid"},"physical_identity":["event_id"],"rule":"org_id was non-NULL at freeze; dependent jobs are separate uuid_row members"},
+    {"type":"global_ops_event","table":"ops_events","fields":{"event_id":"uuid"},"physical_identity":["event_id"],"rule":"org_id IS NULL at freeze; no invented org_id; dependent jobs are separate uuid_row members"},
+    {"type":"org_operator_audit","table":"operator_audit","fields":{"org_id":"uuid","audit_id":"uuid"},"physical_identity":["audit_id"],"rule":"org_id was non-NULL at freeze, before SET NULL can erase the ownership clue"},
+    {"type":"global_operator_audit","table":"operator_audit","fields":{"audit_id":"uuid"},"physical_identity":["audit_id"],"rule":"org_id IS NULL at freeze; global classification requires independent content review"}
+  ],
+  "object_entry_variants": [
+    {"kind":"asset_blob","fields":{"mapping_id":"uuid","source_project_id":"opaque_id","source_bucket":"opaque_id","old_key":"restricted_string","version_ids":"nonempty_unique_version_ids"},"physical_identity":["mapping_id"],"rule":"each affected and unaffected mapping is a separate entry; the same blob key/version may be referenced by distinct mappings; physical deletion requires no surviving mapping"},
+    {"kind":"export_archive","fields":{"mapping_id":"uuid","source_project_id":"opaque_id","source_bucket":"opaque_id","old_key":"restricted_string","version_ids":"nonempty_unique_version_ids"},"physical_identity":["mapping_id"]}
+  ],
+  "batch_variants": [
+    {"form":"sweep","kinds":["history.retention","audit.retention","job_run.retention","latency.retention","ops_event.retention","ops_global_event.retention","operator_audit.retention","oidc_interaction.expire","mcp_interaction.expire","mcp_central_interaction.expire","mcp_client.expire","mcp_central_client.expire","console_interaction.expire","console_code.expire"],"fields":{"batch_id":"uuid","kind":"closed_kind","cutoff_at":"utc_millis","policy_revision":"positive_integer","rows":"sorted_exact_affected_row_members"}},
+    {"form":"explicit_set","kinds":["history.slug_delete","robot_assets.clear"],"fields":{"batch_id":"uuid","kind":"closed_kind","rows":"sorted_exact_affected_row_members"}}
+  ],
+  "invariants": [
+    "Every row, mapping entry and batch list is sorted by physical row or mapping identity and has no duplicate identity, regardless of membership_kind. Versions within one mapping entry are unique.",
+    "Every batch row is exactly a member of the manifest rows; a later backdated row is not added by cutoff rediscovery.",
+    "A row whose nullable owner is NULL is classified as global only after source and content review; NULL alone is not a retention exception.",
+    "A shared object key can have affected and unaffected mappings, but the same mapping cannot occur in both classes.",
+    "Unknown tables, member types, fields, producers or historical identities keep C0 and erase closed."
+  ]
+}

@@ -1,7 +1,7 @@
 # DR-1895 package 3 wire inventory
 
 Work in progress for DR-3011. This is the single Contracts package branch;
-do not merge, release or pin it until the remaining rows below are integrated
+do not merge, release or pin it until the remaining consumer and coverage gates below are checked
 and Finn has reviewed the complete head. The package plan is DR-3010 section 1.
 
 ## Approved inputs
@@ -21,14 +21,14 @@ the semantic version of the completed package.
 | Registry control, `fleetless.registry-transition.v1` | `journalRegistryTransitionBody`, `journalRegistryTransition` and inferred types | Implemented, JSON schemas and negative fixtures |
 | Activation, `fleetless.registry-activation-receipt.v1` | `journalRegistryActivationReceiptBody`, `journalRegistryActivationReceipt` and inferred types | Implemented; C0 sentinel fields are distinct from later receipts |
 | v2 intent bodies/envelopes and exact `ids` | `journalIntentV2Body`, `journalIntentV2` and inferred types | Implemented from Cloud `013afb2`, with the existing four-value template enum; producer activation and v1 export remain unimplemented |
-| Protected manifests, including scoped rows, asset/export versions and frozen batches | Shared concrete shape from Philipp and Bernd | Not implemented; raw protected identifiers must never enter ordinary intents/receipts |
+| Protected manifests, including scoped rows, asset/export versions and frozen batches | `journalManifestScope`, `journalManifestRow`, `journalManifestEntry`, `journalManifestBatch`, `journalDeletionManifest`, `journalManifestIntentProjection`, `journalManifestBinding` and inferred types | Implemented from Cloud `c76fbeb1`; raw protected identifiers stay outside ordinary intents/receipts |
 | v2/generation activation checkpoints and final seal | `journalV2ActivationCheckpointBody`, `journalV2ActivationCheckpoint`, `journalGenerationCheckpointBody`, `journalGenerationCheckpoint`, `journalFinalSealBody`, `journalFinalSeal` and inferred types | Implemented from Ops `e465abb4`; original control bodies remain unchanged |
 | Mixed export bundle and closed mirror inventory | `journalMirrorAttempt`, `journalExportItem`, `journalMixedExport` and inferred types | Implemented from Ops `9e5fcbc3`; failed marker/inventory arms remain visible and cannot claim complete mirror coverage |
 | Replay operation outcomes, typed evidence, access proofs and gate receipt | `journalEvidenceRef`, `journalAccessProof`, `journalReplayReceiptBody`, `journalReplayReceipt` and inferred types | Implemented from Ops `9e5fcbc3`; a serializable failed scope cannot pass |
 
 ## Consumer validation boundary
 
-The twenty-one exports validate decoded object shape, not the signed wire bytes or
+The twenty-eight exports validate decoded object shape, not the signed wire bytes or
 activation. They reject extra/missing fields, nulls, noncanonical UUID/hash/time/
 LSN syntax, unsafe integers and invalid Ed25519 signature encodings. They do not
 normalize or strip signed fields. JSON Schema preserves the same structural
@@ -55,7 +55,7 @@ No customer route, storage resource, key, retention extension or traffic-opening
 operation is introduced by these definitions.
 
 Legacy v1 bytes must instead be preserved and verified by their original rules.
-The fixtures in `test/journal-controls.test.ts`, `test/journal-intents.test.ts`, `test/journal-seals.test.ts` and `test/journal-restore-wire.test.ts` are synthetic shared wire examples,
+The fixtures in `test/journal-controls.test.ts`, `test/journal-intents.test.ts`, `test/journal-seals.test.ts`, `test/journal-restore-wire.test.ts` and `test/journal-manifest-wire.test.ts` are synthetic shared wire examples,
 not valid cryptographic signatures or evidence of runtime coverage.
 
 The sequenced v2 checkpoint requires `first_v2_sequence = sequence + 1` within
@@ -97,14 +97,21 @@ batch without an invented organization ID; `ops_event.retention` still requires
 its organization. This delta is implemented, and the corrected Cloud template
 enum now agrees with Contracts. Registry source paths stay outside intent IDs.
 
-Frieda, Philipp and Bernd must still agree the protected manifest entries,
-including central/global scopes and closed batch kinds. Examples must cover whole/scoped erasure,
-unaffected access allowed versus policy-denied, later backdated/replacement rows,
-shared objects and old binding revocations. Arne integrates them here with strict
-kind-specific schemas, negative tests and artifacts before the one review/release.
-Unknown kinds remain rejected; an omitted registry row cannot be treated as a
-safe exclusion. No public erasure route is invented from #903, which assigns its
-exact route/copy separately.
+Cloud `c76fbeb1913b737b6f51c0edf0015870687b8bdd` closes the protected
+manifest candidate with seven scope arms, 18 row variants, two object mapping
+variants, 14 cutoff sweeps and two explicit frozen sets. Contracts validates
+the strict envelope and each arm. `journalManifestBinding` joins the exact
+manifest-backed v2 kind/IDs projection to one operation, scope and frozen batch;
+it requires sorted physical membership, no duplicated row/mapping identity,
+and every affected row in the one matching batch. Eight complete positive and
+ten negative Cloud vectors exercise whole/scoped, central/global, shared object,
+microsecond sample and dependent-row cases. The projection is not the signed
+intent, and placeholder hashes/version IDs are not protected readback evidence.
+JSON Schema consumers must enforce cross-record equality, physical ordering,
+version uniqueness and protected bytes separately. Unknown kinds remain
+rejected; an omitted registry row cannot be treated as a safe exclusion. No
+public erasure route is invented from #903, which assigns its exact route/copy
+separately.
 
 Ops `9e5fcbc3d231b3d96be9fb9cf1bd2789542daa24` closes the earlier
 failed-scope, mirror and evidence-binding questions. The test fixture is copied
@@ -123,10 +130,10 @@ JSON Schema consumers must perform the cross-record checks themselves. These
 fixtures have placeholder hashes and version IDs: shape validation is not
 signature, protected readback, deployed source coverage or permission to replay.
 
-Concrete freeze gaps remain: the manifest's central/global scope arms, closed
-batch kinds, complete manifest examples and shared reference binding, plus the
-deployed and historical source/identity/backup coverage. Whole/scope access and replay scenarios
-are consumer acceptance requirements; this draft does not claim to execute them.
+Concrete freeze gates remain: agreement of the Cloud/Ops consumers on the
+complete manifest and receipt head, plus deployed and historical
+source/identity/backup coverage. Whole/scope access and replay scenarios are
+consumer acceptance requirements; this draft does not claim to execute them.
 The current kind union is not proof of complete source coverage. Unregistered
 producers, unproved source identities, historical backfill gaps and unfinished
 writer/build rosters keep activation closed even when an intent parses.

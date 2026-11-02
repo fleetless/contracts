@@ -1,0 +1,1236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "history.retention",
+            "audit.retention",
+            "job_run.retention",
+            "latency.retention",
+            "ops_event.retention",
+            "ops_global_event.retention",
+            "operator_audit.retention",
+            "oidc_interaction.expire",
+            "mcp_interaction.expire",
+            "mcp_central_interaction.expire",
+            "mcp_client.expire",
+            "mcp_central_client.expire",
+            "console_interaction.expire",
+            "console_code.expire"
+          ]
+        },
+        "cutoff_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "policy_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "rows": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "uuid_row"
+                  },
+                  "table": {
+                    "type": "string",
+                    "enum": [
+                      "assets",
+                      "audit_events",
+                      "job_runs",
+                      "oidc_interactions",
+                      "organization_exports",
+                      "ops_notification_jobs",
+                      "console_oauth_codes"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "row_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "table",
+                  "id",
+                  "row_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "basic_activity_observation"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "audit_event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "audit_event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "history_sample"
+                  },
+                  "robot_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "series_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "series_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "captured_at_epoch_us": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "sample_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "robot_id",
+                  "series_id",
+                  "series_generation",
+                  "captured_at_epoch_us",
+                  "sample_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "latency_bucket"
+                  },
+                  "robot_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "bucket_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                  },
+                  "bucket_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "robot_id",
+                  "bucket_at",
+                  "bucket_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_keyed_row"
+                  },
+                  "table": {
+                    "type": "string",
+                    "enum": [
+                      "basic_activity_history",
+                      "synthetic_org_fixtures"
+                    ]
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "table",
+                  "org_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_client"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "client_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "client_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_client"
+                  },
+                  "client_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "client_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_grant"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "grant_id",
+                  "grant_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_grant"
+                  },
+                  "grant_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "grant_id",
+                  "grant_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_code"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "code_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "code_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_code"
+                  },
+                  "code_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "code_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_interaction"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_interaction"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "console_interaction"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_ops_event"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "global_ops_event"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_operator_audit"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "audit_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "audit_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "global_operator_audit"
+                  },
+                  "audit_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "audit_id"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "JSON Schema consumers must also check uuid_row generation equality and exact physical identity."
+          }
+        }
+      },
+      "required": [
+        "batch_id",
+        "kind",
+        "cutoff_at",
+        "policy_revision",
+        "rows"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "history.slug_delete",
+            "robot_assets.clear"
+          ]
+        },
+        "rows": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "uuid_row"
+                  },
+                  "table": {
+                    "type": "string",
+                    "enum": [
+                      "assets",
+                      "audit_events",
+                      "job_runs",
+                      "oidc_interactions",
+                      "organization_exports",
+                      "ops_notification_jobs",
+                      "console_oauth_codes"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "row_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "table",
+                  "id",
+                  "row_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "basic_activity_observation"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "audit_event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "audit_event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "history_sample"
+                  },
+                  "robot_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "series_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "series_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "captured_at_epoch_us": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "sample_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "robot_id",
+                  "series_id",
+                  "series_generation",
+                  "captured_at_epoch_us",
+                  "sample_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "latency_bucket"
+                  },
+                  "robot_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "bucket_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                  },
+                  "bucket_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "robot_id",
+                  "bucket_at",
+                  "bucket_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_keyed_row"
+                  },
+                  "table": {
+                    "type": "string",
+                    "enum": [
+                      "basic_activity_history",
+                      "synthetic_org_fixtures"
+                    ]
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "table",
+                  "org_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_client"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "client_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "client_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_client"
+                  },
+                  "client_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "client_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_grant"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "grant_id",
+                  "grant_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_grant"
+                  },
+                  "grant_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "grant_generation": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "grant_id",
+                  "grant_generation"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_code"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "code_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "code_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_code"
+                  },
+                  "code_row_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "code_row_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "app_mcp_interaction"
+                  },
+                  "app_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "app_id",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "central_mcp_interaction"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "console_interaction"
+                  },
+                  "interaction_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "interaction_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_ops_event"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "global_ops_event"
+                  },
+                  "event_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "event_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "org_operator_audit"
+                  },
+                  "org_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "audit_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "org_id",
+                  "audit_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "membership_kind": {
+                    "type": "string",
+                    "enum": [
+                      "affected",
+                      "unaffected"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "const": "global_operator_audit"
+                  },
+                  "audit_id": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                },
+                "required": [
+                  "membership_kind",
+                  "type",
+                  "audit_id"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "JSON Schema consumers must also check uuid_row generation equality and exact physical identity."
+          }
+        }
+      },
+      "required": [
+        "batch_id",
+        "kind",
+        "rows"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "description": "A batch binds one intent and contains exactly its frozen affected rows; JSON Schema consumers check this cross-record relation."
+}
