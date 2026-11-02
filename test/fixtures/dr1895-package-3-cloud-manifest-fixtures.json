@@ -1,5 +1,4 @@
 {
-  "schema": "fleetless.cloud-manifest-fixtures.v1",
   "positive": [
     {
       "name": "whole organization with a shared object version and distinct mapping ownership",
