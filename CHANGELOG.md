@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [12.1.0] — 2026-11-02
+
 ### Added
 
 - Strict v2-activation and generation checkpoint bodies/envelopes and final
