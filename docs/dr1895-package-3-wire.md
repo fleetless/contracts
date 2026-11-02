@@ -1,8 +1,10 @@
 # DR-1895 package 3 wire inventory
 
-Work in progress for DR-3011. This is the single Contracts package branch;
-do not merge, release or pin it until the remaining consumer and coverage gates below are checked
-and Finn has reviewed the complete head. The package plan is DR-3010 section 1.
+Work in progress for DR-3011. This is the single Contracts package branch.
+Keep it in Draft until the complete wire and its exact head pass Finn's review
+and CI. Finn then merges and publishes one bundled Contracts release before
+Cloud and Ops pin that exact version, as DR-3010 section 1 requires. Runtime
+activation and acceptance have separate gates below.
 
 ## Approved inputs
 
@@ -128,14 +130,32 @@ validation checks replay counts, exact erase-operation/proof membership and
 reference binding, and forbids a failed operation, access proof or access probe
 with `pass`. Passing access proofs require a nonempty probe list; policy negative
 export probes must resolve to denied probes for the same operation.
-JSON Schema consumers must perform the cross-record checks themselves. These
-fixtures have placeholder hashes and version IDs: shape validation is not
+For `verdict:pass`, whole and scoped organization erasure require
+`database:absent`; `not-applicable` and `revoked` cannot stand in for DB
+absence. The fixed object kinds `app_logo.delete` and
+`organization_export.expire` require `customer_target_object:absent`. Explicit
+key, grant and client revocations and the five `instance.*` authority kinds
+require `authority:revoked`. These are minimum static checks, not a complete
+surface inventory. Cloud and Ops must resolve every operation against the
+signed kind registry and protected manifest, then reject `not-applicable` for
+each applicable DB, object or authority surface. A retained shared blob may
+make physical object removal inapplicable only with the deleted owner's mapping
+absent, the surviving owner's reference intact and the target copy readable.
+Neither an empty evidence list nor a source-side 404 proves target absence.
+The generated JSON Schema checks the closed field shapes but cannot express
+these Zod cross-field and registry-dependent pass rules. JSON Schema consumers
+must implement the same minimum checks and the registry/manifest comparison
+before accepting a passing receipt. They must perform the other cross-record
+checks themselves as well. These fixtures have placeholder hashes and version
+IDs: shape validation is not
 signature, protected readback, deployed source coverage or permission to replay.
 
-Concrete freeze gates remain: agreement of the Cloud/Ops consumers on the
-complete manifest and receipt head, plus deployed and historical
-source/identity/backup coverage. Whole/scope access and replay scenarios are
-consumer acceptance requirements; this draft does not claim to execute them.
+Contracts release gate: a complete, reviewed package wire and green CI. The
+Cloud/Ops consumer field reconciliation is an input to that review; exact
+consumer pins follow the one bundled release. Cloud/Ops activation and
+acceptance additionally require deployed and historical source/identity/backup
+coverage, protected readbacks and whole/scope access and replay probes. This
+draft does not claim to execute those scenarios.
 The current kind union is not proof of complete source coverage. Unregistered
 producers, unproved source identities, historical backfill gaps and unfinished
 writer/build rosters keep activation closed even when an intent parses.
