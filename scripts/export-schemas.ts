@@ -12,6 +12,11 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import {
+  journalFirstCheckpointBody, journalFirstCheckpoint,
+  journalRegistryTransitionBody, journalRegistryTransition,
+  journalRegistryActivationReceiptBody, journalRegistryActivationReceipt,
+} from '../src/journal-controls.js'
 import { ROUTES, ROUTE_SECTIONS, type RouteEntry } from '../src/routes.js'
 import {
   bridgeHello,
@@ -361,6 +366,12 @@ import {
 } from '../src/billing.js'
 
 export const exportedSchemas = {
+  'journal-first-checkpoint-body': journalFirstCheckpointBody,
+  'journal-first-checkpoint': journalFirstCheckpoint,
+  'journal-registry-transition-body': journalRegistryTransitionBody,
+  'journal-registry-transition': journalRegistryTransition,
+  'journal-registry-activation-receipt-body': journalRegistryActivationReceiptBody,
+  'journal-registry-activation-receipt': journalRegistryActivationReceipt,
   'controller-register-write': controllerRegisterWrite,
   'controller-register-org-response': controllerRegisterOrgResponse,
   // The MCP server's datasheet. REST-only shapes: the bridge has no
@@ -1038,6 +1049,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'journal-first-checkpoint-body', 'journal-first-checkpoint',
+  'journal-registry-transition-body', 'journal-registry-transition',
+  'journal-registry-activation-receipt-body', 'journal-registry-activation-receipt',
   'controller-register-org-response',
   'mcp-robot-datasheet', 'mcp-role-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',

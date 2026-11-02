@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "fleetless.registry-activation-receipt.v1"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "signing_key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "control_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "mirror_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mirror_retain_until": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "fence_drain_evidence_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fence_drain_evidence_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_db_timeline": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "source_db_lsn": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+        },
+        "fence_retain_until": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "new_registry_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "new_registry_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "new_build_set_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "new_build_set_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "standby_head_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "standby_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "copy_inventory_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "copy_coverage_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "coverage_verdict": {
+          "type": "string",
+          "enum": [
+            "covered",
+            "gap"
+          ]
+        },
+        "control_sequence": {
+          "type": "number",
+          "const": 0
+        },
+        "old_registry_digest": {
+          "type": "string",
+          "const": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "old_registry_version_id": {
+          "type": "string",
+          "const": ""
+        },
+        "old_build_set_digest": {
+          "type": "string",
+          "const": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "old_build_set_version_id": {
+          "type": "string",
+          "const": ""
+        },
+        "previous_receipt_hash": {
+          "type": "string",
+          "const": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "receipt_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$"
+        }
+      },
+      "required": [
+        "schema",
+        "environment",
+        "generation",
+        "signing_key_id",
+        "control_hash",
+        "mirror_version_id",
+        "mirror_retain_until",
+        "fence_drain_evidence_hash",
+        "fence_drain_evidence_version_id",
+        "source_db_timeline",
+        "source_db_lsn",
+        "fence_retain_until",
+        "new_registry_digest",
+        "new_registry_version_id",
+        "new_build_set_digest",
+        "new_build_set_version_id",
+        "standby_head_hash",
+        "standby_id",
+        "copy_inventory_digest",
+        "copy_coverage_digest",
+        "coverage_verdict",
+        "control_sequence",
+        "old_registry_digest",
+        "old_registry_version_id",
+        "old_build_set_digest",
+        "old_build_set_version_id",
+        "previous_receipt_hash",
+        "receipt_hash",
+        "signature"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "fleetless.registry-activation-receipt.v1"
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "signing_key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "control_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "mirror_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mirror_retain_until": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "fence_drain_evidence_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "fence_drain_evidence_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_db_timeline": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "source_db_lsn": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+        },
+        "fence_retain_until": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "new_registry_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "new_registry_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "new_build_set_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "new_build_set_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "standby_head_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "standby_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "copy_inventory_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "copy_coverage_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "coverage_verdict": {
+          "type": "string",
+          "enum": [
+            "covered",
+            "gap"
+          ]
+        },
+        "control_sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "old_registry_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "old_registry_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "old_build_set_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "old_build_set_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "previous_receipt_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "receipt_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{85}[AQgw]$"
+        }
+      },
+      "required": [
+        "schema",
+        "environment",
+        "generation",
+        "signing_key_id",
+        "control_hash",
+        "mirror_version_id",
+        "mirror_retain_until",
+        "fence_drain_evidence_hash",
+        "fence_drain_evidence_version_id",
+        "source_db_timeline",
+        "source_db_lsn",
+        "fence_retain_until",
+        "new_registry_digest",
+        "new_registry_version_id",
+        "new_build_set_digest",
+        "new_build_set_version_id",
+        "standby_head_hash",
+        "standby_id",
+        "copy_inventory_digest",
+        "copy_coverage_digest",
+        "coverage_verdict",
+        "control_sequence",
+        "old_registry_digest",
+        "old_registry_version_id",
+        "old_build_set_digest",
+        "old_build_set_version_id",
+        "previous_receipt_hash",
+        "receipt_hash",
+        "signature"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

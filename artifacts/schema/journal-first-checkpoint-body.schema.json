@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "fleetless.journal-first-checkpoint.v1"
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generation": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "signing_key_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "number",
+      "const": 0
+    },
+    "previous_hash": {
+      "type": "string",
+      "const": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "checkpoint_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "fence_drain_evidence_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fence_drain_evidence_version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_db_timeline": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "source_db_lsn": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9A-F][0-9A-F]{0,7})\\/(?:0|[1-9A-F][0-9A-F]{0,7})$"
+    },
+    "registry_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "build_set_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "registry_version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "build_set_version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "copy_inventory_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "journal_primary_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pinned_standby_id": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "schema",
+    "environment",
+    "generation",
+    "signing_key_id",
+    "sequence",
+    "previous_hash",
+    "checkpoint_at",
+    "fence_drain_evidence_hash",
+    "fence_drain_evidence_version_id",
+    "source_db_timeline",
+    "source_db_lsn",
+    "registry_digest",
+    "build_set_digest",
+    "registry_version_id",
+    "build_set_version_id",
+    "copy_inventory_digest",
+    "journal_primary_id",
+    "pinned_standby_id"
+  ],
+  "additionalProperties": false
+}

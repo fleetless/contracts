@@ -1,5 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 export {
+  journalFirstCheckpointBody, journalFirstCheckpoint,
+  journalRegistryTransitionBody, journalRegistryTransition,
+  journalRegistryActivationReceiptBody, journalRegistryActivationReceipt,
+} from './journal-controls.js'
+export type {
+  JournalFirstCheckpointBody, JournalFirstCheckpoint,
+  JournalRegistryTransitionBody, JournalRegistryTransition,
+  JournalRegistryActivationReceiptBody, JournalRegistryActivationReceipt,
+} from './journal-controls.js'
+export {
   SLUG_RULE,
   ROS_NAME_RULE,
   ROS_TYPE_NAME_RULE,
