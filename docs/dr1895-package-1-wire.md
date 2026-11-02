@@ -4,8 +4,9 @@ Single package bundle for DR-3011, based on Contracts `76d65d1` and the
 updated full [#1008](https://github.com/fleetless/fleetless/issues/1008) spec at
 `21bd3dff5291fd7655adb8a5d1031334eae4a005`. The shared plan is DR-3008.
 The C.4 consumer alignment is [#965](https://github.com/fleetless/fleetless/issues/965).
-This branch does not approve customer wording, send notices, merge, publish a
-release or establish a consumer pin. Finn reviews
+The H.1/H.3/banner wording was approved by André in DR-3032 at 16:08 UTC;
+customer notice and legal publication still follow package 1. This branch
+does not send notices, merge, publish a release or establish a consumer pin. Finn reviews
 the complete bundle after Cloud and Console agree the exact head.
 
 ## New H.3 surface
@@ -20,12 +21,18 @@ Owner and refuse support/synthetic decisions. Every response is no-store.
 Terms and price snapshots have separate strict fields and text IDs. Four result
 arms distinguish accepted/declined Terms/prices. Terms summary and display
 expose the actual publication instant, per-organization acceptance deadline and
-developer access state. A pending display has a decline label; a suspended
-display has none and still permits acceptance. The provisional Terms text ID
-`DR-3032-unapproved-H.3-terms` marks synthetic, non-publishable wording until
-André confirms the customer text. Both Basic and paid Terms offers use the same
-wire. All H.3 DPA fields are
-explicitly null. A decline belongs only in decision history; accepted amendments
+developer access state. A pending display has the exact `Accept` and `Decline`
+labels; a suspended display has `Accept` and no decline label. The Terms text ID
+`DR-3032-2026-11-02-H.3-terms` identifies the H.3 wording approved in
+DR-3032 comment `01a19d04-f67d-747b-87a2-ad2d14cc0262`, based on the exact
+dialog in comment `01a19ce8-0136-73e6-bbb5-4ce75bc2041b`. It must not be
+used with an older draft or synthetic placeholder as customer-facing copy.
+The response `text` is the exact rendered dialog with the offered deadline and
+permanent proposed Terms URL; Cloud binds it to the proof and stored decision.
+The shared schema enforces the ID, action labels and state arms, while the
+consumer must verify the rendered wording and its source values. Both Basic
+and paid Terms offers use the same wire. All H.3 DPA fields are explicitly
+null. A decline belongs only in decision history; accepted amendments
 and prices also appear in the existing Owner acceptance history via the new
 `amendment` and `price_offer` contexts. Cloud must select those rows correctly;
 the row schema cannot infer an unexposed stored decision.
@@ -47,8 +54,9 @@ current term end and the Basic deadline as seven full days after publication,
 lock expiry and acceptance together, and clear only the Terms restriction on
 acceptance. The wire rejects a termination field. No Terms decision starts
 contract-end, retrieval or erasure work; no independent restriction is lifted.
-Schema success proves none of those operations. Synthetic fixture wording is
-not approved customer text.
+Schema success proves none of those operations. The tests exercise the approved
+H.3 wording with synthetic URLs, dates and identities; they are not customer
+offer records.
 
 ## Breaking C.4 migration
 
@@ -80,8 +88,8 @@ The new record shape does not mutate old evidence or authorize backfills.
   and its tests; the prior unconditional date requirement must not survive.
 - The Terms publication and deadline source, restriction reason, Console
   acceptance route under suspension and Cloud/Console field names must be
-  reconciled against the complete package heads. Customer wording remains a
-  separate publication gate under DR-3032.
+  reconciled against the complete package heads. The H.1/H.3/banner copy is
+  confirmed; publication and customer send still wait for the package release.
 - Finn reviews the complete head, then handles merge/release and the exact common
   Cloud/Console pin. There is no per-slice review or intermediate release.
 - Cloud/Console acceptance tests still prove paid/Basic deadline boundaries,

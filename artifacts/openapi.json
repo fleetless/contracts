@@ -28247,8 +28247,7 @@
                   },
                   "accept_label": {
                     "type": "string",
-                    "minLength": 1,
-                    "pattern": "\\S"
+                    "const": "Accept"
                   },
                   "current_terms": {
                     "type": "object",
@@ -28308,7 +28307,7 @@
                   },
                   "text_id": {
                     "type": "string",
-                    "const": "DR-3032-unapproved-H.3-terms"
+                    "const": "DR-3032-2026-11-02-H.3-terms"
                   },
                   "proposed_terms": {
                     "type": "object",
@@ -28375,8 +28374,7 @@
                   },
                   "decline_label": {
                     "type": "string",
-                    "minLength": 1,
-                    "pattern": "\\S"
+                    "const": "Decline"
                   }
                 },
                 "required": [
@@ -28457,8 +28455,7 @@
                   },
                   "accept_label": {
                     "type": "string",
-                    "minLength": 1,
-                    "pattern": "\\S"
+                    "const": "Accept"
                   },
                   "current_terms": {
                     "type": "object",
@@ -28518,7 +28515,7 @@
                   },
                   "text_id": {
                     "type": "string",
-                    "const": "DR-3032-unapproved-H.3-terms"
+                    "const": "DR-3032-2026-11-02-H.3-terms"
                   },
                   "proposed_terms": {
                     "type": "object",
