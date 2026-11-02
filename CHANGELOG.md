@@ -13,6 +13,9 @@ version.
 
 ### Added
 
+- Strict v2 deletion-intent bodies/envelopes with closed operation identities,
+  kind-bound protected-manifest references and matching JSON Schemas. These
+  shapes do not activate a producer or verify journal/replay evidence.
 - Strict first-checkpoint, registry-transition and registry-activation receipt
   bodies/envelopes for the private Cloud/Ops deletion journal, with matching
   JSON Schemas. Shape validation does not verify signatures or authorize restore.
