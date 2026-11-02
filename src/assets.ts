@@ -2,6 +2,7 @@
 import { z } from 'zod'
 
 import { slug } from './common.js'
+import { fileTooLargeDetails } from './file-too-large-details.js'
 
 /**
  * The asset store.
@@ -323,19 +324,17 @@ export type AssetStoreRefusedDetails = z.infer<typeof assetStoreRefusedDetails>
  *   reconciliation may treat as gone.
  * - **`upload_failed`** — the bytes exist and the transfer did not succeed.
  *   **Transient.** The asset is still wanted; a later sync will carry it.
- * - **`refused`** — never attempted. Either the robot's asset store had no
- *   room for it, in which case `details` carries the three numbers, or a
- *   producer-side ceiling was hit (a `.dae` carrying more internal references
- *   than one file or one sync will report), in which case it does not.
- *   **Transient in the same sense**: nothing is known to be missing, only
- *   unexamined.
+ * - **`refused`** — the receiver refused this file because the robot's store
+ *   was full (`details`) or its per-file limit was exceeded (`file_limit`),
+ *   or the producer never examined it. A `.dae` with too many internal
+ *   references is one example of the latter. **Transient in the same
+ *   sense**: reconciliation must not delete an asset still wanted.
  *
  * There was a fourth, `too_large`, for a file over a per-file ceiling. That
  * ceiling is gone from this enum, not from the cloud: a file over
- * `ASSET_FILE_MAX_BYTES` is refused by the cloud as `413 file_too_large`; a
- * producer that relays it reports `refused` with no details — so the kind
- * had no producer left here and one fewer thing to branch on is the whole of
- * the gain.
+ * `ASSET_FILE_MAX_BYTES` is refused by the cloud as `413 file_too_large`;
+ * a producer that relays it reports `refused` with `file_limit`, without a
+ * fourth kind.
  *
  * A consumer that cannot act on the distinction may still print `reference`
  * alone and lose nothing it had before.
@@ -355,7 +354,7 @@ export const assetFailure = z.object({
     description: 'What could not be provided, verbatim — the same string the asset would have been stored under, so a developer can match it against their own workspace by eye. For a failed URDF upload it is `robot_description`, which is **not** a mesh URI: a consumer must not assume every entry is one.',
   }),
   kind: assetFailureKind.meta({
-    description: 'Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed, and `refused` means it was never attempted, either because the robot\'s asset store had no room — then `details` carries the three numbers — or because a producer-side ceiling was hit.',
+    description: 'Why it failed. `unresolvable` means the reference names nothing the producer can find or may read, and is **permanent** — the only kind reconciliation may treat as gone. `upload_failed` means the bytes exist and the transfer did not succeed. `refused` means the store or per-file limit refused the upload, or the producer did not examine the reference; it remains transient for reconciliation.',
   }),
   /**
    * **The three numbers behind a full store.**
@@ -364,21 +363,29 @@ export const assetFailure = z.object({
    * not answer whether to delete an old sync or shrink the mesh;
    * `store_bytes`, `used_bytes` and `size_bytes` do.
    *
-   * **Present only on `refused`, and not on every `refused`.** The other half
-   * of that kind is the single collective entry a sync emits when it stops
-   * naming individual failures, and no store number describes it — requiring
-   * details there would mean inventing them. So the enforcement below is the
-   * half that can be enforced: details belong to `refused` and to nothing
-   * else. A forced `details: null` on every `unresolvable` buys nothing.
+   * **Present only on store-full `refused` entries.** A per-file refusal
+   * uses `file_limit`, while a producer that stops naming individual
+   * failures carries neither set of numbers. Requiring store details for
+   * either would mean inventing them. A forced `details: null` on every
+   * `unresolvable` buys nothing.
    */
   details: assetStoreRefusedDetails.nullish().meta({
-    description: 'The three numbers behind a `refused` entry the robot\'s store had no room for, and absent for every other kind — a forced `null` on every `unresolvable` entry buys nothing. A `refused` entry may also carry no details: the producer\'s own ceiling is the other half of that kind, and no store number describes it.',
+    description: 'The three numbers behind a `refused` entry the robot\'s store had no room for. Absent for every other kind and exclusive with `file_limit`; a forced `null` on every other entry buys nothing.',
+  }),
+  file_limit: fileTooLargeDetails.nullish().meta({
+    description: 'The enforced per-file limit and refused file size, if known, for a `refused` upload that received `413 file_too_large`. Exclusive with store-full `details`; absent on bare refusals and every other kind.',
   }),
 }).superRefine((f, ctx) => {
   // Enforced here, not merely described above — a rule that lives only in a
   // comment gets filled with something else.
   if (f.kind !== 'refused' && f.details != null) {
     ctx.addIssue({ code: 'custom', path: ['details'], message: 'store details belong to `refused` only' })
+  }
+  if (f.file_limit != null && f.kind !== 'refused') {
+    ctx.addIssue({ code: 'custom', path: ['file_limit'], message: 'file limit belongs to `refused` only' })
+  }
+  if (f.file_limit != null && f.details != null) {
+    ctx.addIssue({ code: 'custom', path: ['file_limit'], message: 'file limit and store details are exclusive' })
   }
 })
 export type AssetFailure = z.infer<typeof assetFailure>

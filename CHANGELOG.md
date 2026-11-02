@@ -9,6 +9,12 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- `file_limit` on a `refused` asset sync failure carries the enforced per-file
+  limit and known file size through Bridge progress and Cloud sync status.
+  Store-full `details` stays separate; failure kinds are unchanged.
+
 ## [12.0.0] — 2026-11-02
 
 ### Changed
