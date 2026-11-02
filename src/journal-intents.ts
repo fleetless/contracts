@@ -73,6 +73,7 @@ const branches = [
   captured('job_run.retention', z.strictObject({ ...org, ...batch })),
   captured('latency.retention', z.strictObject({ ...org, ...batch })),
   captured('ops_event.retention', z.strictObject({ ...org, ...batch })),
+  captured('ops_global_event.retention', z.strictObject(batch)),
   captured('operator_audit.retention', z.strictObject(batch)),
   plain('org_note_text.remove', z.strictObject({ ...org, old_note_generation: uuid })),
   plain('org_note_text.replace', z.strictObject({ ...org, old_note_generation: uuid })),

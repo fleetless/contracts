@@ -78,6 +78,12 @@ kind requires a concrete agreed wire revision before activation, not optional
 references or an epoch-dependent permissive union. The existing approval makes this inventory
 implementation work; it does not require another general spec approval.
 
+Cloud `fb438e6` adds a machine-readable matrix: 48 branches for 45 kinds.
+The additional `ops_global_event.retention` branch captures an exact protected
+batch without an invented organization ID; `ops_event.retention` still requires
+its organization. This delta is implemented, and the corrected Cloud template
+enum now agrees with Contracts. Registry source paths stay outside intent IDs.
+
 Frieda, Philipp and Bernd must still agree the exact member names/types for
 typed restricted probe/policy/preservation references, protected manifest entries,
 mixed export, seal and final receipt. Examples must cover whole/scoped erasure,

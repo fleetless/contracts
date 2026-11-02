@@ -51,7 +51,7 @@ const examples: [string, Record<string, unknown>, boolean][] = [
     'oidc_interaction.expire'].map((kind): [string, Record<string, unknown>, boolean] => [kind, { ...org, ...batch }, true]),
   ...['mcp_interaction.expire', 'mcp_client.expire'].map((kind): [string, Record<string, unknown>, boolean] =>
     [kind, { ...app, ...batch }, true]),
-  ...['operator_audit.retention', 'mcp_central_interaction.expire', 'mcp_central_client.expire',
+  ...['ops_global_event.retention', 'operator_audit.retention', 'mcp_central_interaction.expire', 'mcp_central_client.expire',
     'console_interaction.expire', 'console_code.expire'].map((kind): [string, Record<string, unknown>, boolean] =>
     [kind, batch, true]),
   ['org_note_text.remove', { ...org, old_note_generation: id }, false],
@@ -122,7 +122,7 @@ describe('closed v2 journal intents', () => {
             if (key in candidate.ids) rejects({ ...value, ids: { ...candidate.ids, [key]: number } })
           }
         }
-        if (candidate.kind.startsWith('mcp_central_') || candidate.kind.startsWith('console_')) {
+        if (candidate.kind.startsWith('mcp_central_') || candidate.kind.startsWith('console_') || candidate.kind === 'ops_global_event.retention') {
           rejects({ ...value, ids: { ...candidate.ids, org_id: id } })
         }
         if (candidate.kind === 'auth_factor.remove') rejects({ ...value, ids: { ...candidate.ids, subject_kind: 'app_user', factor_kind: 'passkey' } })
