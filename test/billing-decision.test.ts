@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import Ajv2020 from 'ajv/dist/2020.js'
+import addFormats from 'ajv-formats'
 import { billingDecisionDisplayRequest, billingDecisionDisplayResponse, planChangePrepareResponse } from '../src/billing.js'
 
 const key = '0c15bc92-c26c-4a56-aac8-0046ff758391'
@@ -31,6 +34,7 @@ const snapshot = {
     due_today_gross_cents: 0, prorated_net_cents: null, renewal_net_cents: 2900,
   },
   period: {
+    anchor: 'existing_period',
     display_time_zone: 'Europe/Berlin', starts_on: '2026-10-01', starts_at: '2026-09-30T22:00:00Z',
     current_period_ends_at: '2026-10-25T01:30:00Z', renews_at: '2026-10-25T01:30:00Z',
     effective: { mode: 'scheduled', at: '2026-10-25T01:30:00Z', at_period_end: true },
@@ -40,11 +44,62 @@ const snapshot = {
     text: 'By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for Acme Robotics.',
     terms, dpa,
   },
+  future_price_replacement: null,
   expires_at: '2026-10-25T01:20:00Z',
 }
 const display = { confirmation_proof: proof, expires_at: snapshot.expires_at, snapshot }
 
 describe('C.4 billing decision display', () => {
+  it('preserves conditional cycle, date exclusion and replacement requirements in the published schema', () => {
+    const ajv = new (Ajv2020 as any)({ strict: false }); (addFormats as any)(ajv)
+    const validate = ajv.compile(JSON.parse(readFileSync(new URL('../artifacts/schema/billing-decision-display-response.schema.json', import.meta.url), 'utf8')))
+    const { keep: _keep, ...selection } = snapshot.selection
+    for (const [cycle, periodName] of [['monthly', 'month'], ['yearly', 'year']]) {
+      const period = { anchor: 'on_first_successful_payment', cycle,
+        start_statement: 'Starts when your first payment succeeds',
+        period_statement: `First billing period: one full ${periodName} from successful payment; renews at the end of that period` }
+      const first = { ...snapshot, decision_kind: 'checkout', selection: { ...selection, cycle }, period,
+        amounts: { ...snapshot.amounts, vat_treatment_line: `19% German VAT: €5.51; total €34.51 per ${periodName}` } }
+      const valid = { ...display, snapshot: first }
+      expect(validate(valid), ajv.errorsText(validate.errors)).toBe(true)
+      expect(billingDecisionDisplayResponse.safeParse(valid).success).toBe(true)
+      for (const invalid of [
+        { ...first, selection: { ...selection, cycle: cycle === 'monthly' ? 'yearly' : 'monthly' } },
+        { ...first, period: { ...period, starts_on: '2026-11-02' } },
+        { ...first, decision_kind: 'paid_change' },
+        { ...first, future_price_replacement: undefined },
+        { ...first, future_price_replacement: { agreement_id: id } },
+      ]) {
+        expect(validate({ ...display, snapshot: invalid }), JSON.stringify(invalid)).toBe(false)
+        expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: invalid }).success).toBe(false)
+      }
+    }
+    const { anchor: _anchor, ...oldPeriod } = snapshot.period
+    expect(validate({ ...display, snapshot: { ...snapshot, period: oldPeriod } })).toBe(false)
+  })
+  it('represents first-payment timing only for checkout with a matching cycle', () => {
+    const { keep: _keep, ...selection } = snapshot.selection
+    const period = { anchor: 'on_first_successful_payment', cycle: 'monthly',
+      start_statement: 'Starts when your first payment succeeds',
+      period_statement: 'First billing period: one full month from successful payment; renews at the end of that period' }
+    const first = { ...snapshot, decision_kind: 'checkout', selection, period }
+    const valid = { ...display, snapshot: first }
+    expect(billingDecisionDisplayResponse.safeParse(valid).success).toBe(true)
+    for (const invalid of [
+      { ...first, decision_kind: 'paid_change' }, { ...first, period: { ...period, cycle: 'yearly' } },
+      { ...first, period: { ...period, starts_at: '2026-11-02T00:00:00Z' } },
+      { ...first, period: { ...period, effective: snapshot.period.effective } },
+      { ...first, period: { ...period, period_statement: 'Starts today' } },
+    ]) expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: invalid }).success).toBe(false)
+  })
+
+  it('requires the nullable future-price replacement and its visible server text', () => {
+    const replacement = { agreement_id: id, text: 'Synthetic replacement statement.' }
+    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, future_price_replacement: replacement } }).success).toBe(true)
+    for (const future_price_replacement of [undefined, {}, { agreement_id: id }, { text: 'Missing identity' }, { ...replacement, text: '' }, { ...replacement, extra: true }]) {
+      expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, future_price_replacement } }).success).toBe(false)
+    }
+  })
   it('accepts a Basic-route plan change and both purchase-intent kinds', () => {
     expect(billingDecisionDisplayResponse.safeParse(display).success).toBe(true)
     expect(planChangePrepareResponse.safeParse({ change_id: snapshot.decision_id, display }).success).toBe(true)

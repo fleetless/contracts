@@ -9,8 +9,23 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (major):** C.4 billing decision snapshots require a `period.anchor`
+  discriminator and nullable `future_price_replacement`. Existing periods keep
+  their date fields under `existing_period`; first paid checkout can instead
+  carry approved conditional timing under `on_first_successful_payment`, with
+  no fixed dates and a cycle matching the selection. Paid/plan changes require
+  existing periods. A replacement identifies the future agreement and its
+  visible server-rendered statement.
+- Owner acceptance history also recognizes `amendment` and `price_offer`.
+  Declines remain outside that list.
+
 ### Added
 
+- Strict organization Terms/price offer schemas, four authenticated routes,
+  explicit acceptance/decline and recovery shapes, canonical string queries,
+  and `legal_offer_unavailable`. H.3 snapshots and decisions have `dpa: null`.
 - Strict first-checkpoint, registry-transition and registry-activation receipt
   bodies/envelopes for the private Cloud/Ops deletion journal, with matching
   JSON Schemas. Shape validation does not verify signatures or authorize restore.

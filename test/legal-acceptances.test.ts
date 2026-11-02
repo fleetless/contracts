@@ -22,12 +22,17 @@ describe('Owner legal acceptance list contract', () => {
     expect(contracts).toHaveProperty('legalAcceptanceListResponse')
   })
 
-  it('accepts the four evidence contexts and independent legal references', () => {
+  it('accepts six acceptance contexts while excluding declines', () => {
     for (const context of ['registration', 'invitation', 'order', 'existing_org']) {
       expect(contracts.legalAcceptanceVersionRow.safeParse({ ...row, context, dpa }).success, context).toBe(true)
     }
+    for (const context of ['amendment', 'price_offer']) {
+      expect(contracts.legalAcceptanceVersionRow.safeParse({ ...row, context }).success).toBe(true)
+      expect(contracts.legalAcceptanceVersionRow.safeParse({ ...row, context, dpa }).success).toBe(false)
+    }
     expect(contracts.legalAcceptanceVersionRow.safeParse(row).success).toBe(true)
     expect(contracts.legalAcceptanceVersionRow.safeParse({ ...row, context: 'renewal' }).success).toBe(false)
+    expect(contracts.legalAcceptanceVersionRow.safeParse({ ...row, context: 'decline' }).success).toBe(false)
   })
 
   it('requires an exact six-digit UTC acceptance instant and a complete row', () => {
@@ -123,7 +128,7 @@ describe('published Owner legal acceptance list', () => {
   it('emits strict row, query, and nullable response JSON Schemas', () => {
     const rowSchema = load('legal-acceptance-version-row')
     expect(rowSchema.required).toEqual(['id', 'context', 'accepted_at', 'text_id', 'terms', 'dpa'])
-    expect(rowSchema.properties.context.enum).toEqual(['registration', 'invitation', 'order', 'existing_org'])
+    expect(rowSchema.properties.context.enum).toEqual(['registration', 'invitation', 'order', 'existing_org', 'amendment', 'price_offer'])
     const datePattern = new RegExp(rowSchema.properties.accepted_at.pattern)
     expect(datePattern.test('2026-10-31T07:31:48.123456Z')).toBe(true)
     expect(datePattern.test('2026-10-31T07:31:48.123Z')).toBe(false)

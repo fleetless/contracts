@@ -28,6 +28,7 @@ const acceptedNoPayment = {
 }
 const paidChange = { intent: { ...startedIntent, operation: 'paid_change', payment: { kind: 'mandate' } }, billing, charged: null }
 const period = {
+  anchor: 'existing_period',
   display_time_zone: 'Europe/Berlin', starts_on: '2026-10-01', starts_at: '2026-09-30T22:00:00Z',
   current_period_ends_at: '2026-10-25T01:30:00Z', renews_at: '2026-10-25T01:30:00Z',
   effective: { mode: 'scheduled', at: '2026-10-25T01:30:00Z', at_period_end: true },

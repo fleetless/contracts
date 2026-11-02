@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "field": {
+      "type": "string",
+      "enum": [
+        "offer",
+        "confirmation_proof",
+        "operation_key",
+        "period",
+        "term"
+      ]
+    },
+    "rule": {
+      "type": "string",
+      "enum": [
+        "withdrawn",
+        "stale",
+        "expired",
+        "reused",
+        "boundary_changed",
+        "term_unavailable"
+      ]
+    }
+  },
+  "required": [
+    "field",
+    "rule"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "string",
+      "pattern": "^(?:[1-9]|[1-9][0-9]|100)$"
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-][AQgw]|[A-Za-z0-9_-]{2}[AEIMQUYcgkosw048])?$",
+      "description": "Canonical unpadded base64url of UTF-8 JSON {v:1,created_at:UTC,id:UUID}, in that exact key order. Consumers must validate the decoded payload and organization scope; JSON Schema checks encoding syntax only."
+    }
+  },
+  "additionalProperties": false
+}

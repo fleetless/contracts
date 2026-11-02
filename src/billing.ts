@@ -499,7 +499,8 @@ function localDate(instant: string, timeZone: string): string | null {
     return `${get('year')}-${get('month')}-${get('day')}`
   } catch { return null }
 }
-export const billingDecisionPeriod = z.object({
+const existingBillingPeriod = z.object({
+  anchor: z.literal('existing_period'),
   display_time_zone: ianaTimeZone,
   starts_on: z.iso.date(),
   starts_at: utcInstant.nullable(),
@@ -514,6 +515,19 @@ export const billingDecisionPeriod = z.object({
   if (period.effective.mode === 'scheduled' && period.effective.at_period_end && period.effective.at !== period.current_period_ends_at) ctx.addIssue({ code: 'custom', path: ['effective', 'at'], message: 'Period-end effect must equal the current period boundary.' })
   if (period.effective.mode === 'on_confirmation' && localDate(period.effective.quoted_as_of_at, period.display_time_zone) !== period.effective.local_date) ctx.addIssue({ code: 'custom', path: ['effective', 'local_date'], message: 'Quoted local date must match the display zone.' })
 })
+const firstPaymentPeriod = z.discriminatedUnion('cycle', [
+  z.strictObject({
+    anchor: z.literal('on_first_successful_payment'), cycle: z.literal('monthly'),
+    start_statement: z.literal('Starts when your first payment succeeds'),
+    period_statement: z.literal('First billing period: one full month from successful payment; renews at the end of that period'),
+  }),
+  z.strictObject({
+    anchor: z.literal('on_first_successful_payment'), cycle: z.literal('yearly'),
+    start_statement: z.literal('Starts when your first payment succeeds'),
+    period_statement: z.literal('First billing period: one full year from successful payment; renews at the end of that period'),
+  }),
+])
+export const billingDecisionPeriod = z.union([existingBillingPeriod, firstPaymentPeriod])
 export type BillingDecisionPeriod = z.infer<typeof billingDecisionPeriod>
 
 const declaration = z.object({
@@ -535,14 +549,18 @@ const snapshotBase = z.object({
   ...quoteIdentity,
   amounts: billingDecisionAmounts,
   period: billingDecisionPeriod,
+  future_price_replacement: z.strictObject({ agreement_id: z.uuid(), text: z.string().min(1).regex(/\S/) }).nullable(),
   declaration,
   expires_at: utcInstant,
 }).strict()
 export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
   snapshotBase.extend({ decision_kind: z.literal('checkout'), selection: purchaseSelection }).strict(),
-  snapshotBase.extend({ decision_kind: z.literal('paid_change'), selection: purchaseSelection }).strict(),
-  snapshotBase.extend({ decision_kind: z.literal('plan_change'), selection: planChangeSelection }).strict(),
+  snapshotBase.extend({ decision_kind: z.literal('paid_change'), selection: purchaseSelection, period: existingBillingPeriod }).strict(),
+  snapshotBase.extend({ decision_kind: z.literal('plan_change'), selection: planChangeSelection, period: existingBillingPeriod }).strict(),
 ]).superRefine((value, ctx) => {
+  if (value.period.anchor === 'on_first_successful_payment' && value.period.cycle !== value.selection.cycle) {
+    ctx.addIssue({ code: 'custom', path: ['period', 'cycle'], message: 'First-payment period must match the selected cycle.' })
+  }
   const expected = `By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for ${value.organization_name}.`
   if (value.declaration.text !== expected) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved C.4 sentence and organization.' })
   if (value.amounts.vat_treatment === 'de_standard') {
@@ -554,7 +572,10 @@ export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
   const lines = value.amounts.addon_lines
   const expectedAddons = addonKey.options.filter((key) => value.selection.addons[key] > 0)
   if (lines.length !== expectedAddons.length || lines.some((line, i) => line.addon !== expectedAddons[i] || line.quantity !== value.selection.addons[line.addon])) ctx.addIssue({ code: 'custom', path: ['amounts', 'addon_lines'], message: 'Add-on lines must match absolute selection in catalogue order.' })
-})
+}).meta({ allOf: ['monthly', 'yearly'].map(cycle => ({
+  if: { properties: { period: { properties: { anchor: { const: 'on_first_successful_payment' }, cycle: { const: cycle } }, required: ['anchor', 'cycle'] } }, required: ['period'] },
+  then: { properties: { selection: { properties: { cycle: { const: cycle } }, required: ['cycle'] } }, required: ['selection'] },
+})) })
 export type BillingDecisionSnapshot = z.infer<typeof billingDecisionSnapshot>
 
 export const billingDecisionDisplayResponse = z.object({
