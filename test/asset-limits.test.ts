@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ASSET_UPLOAD_HEADERS, orgQuotas } from '../src/rest.js'
 import { ERROR_CODES } from '../src/errors.js'
+import { bridgeAssetProgress } from '../src/protocol.js'
 import {
   ROBOT_ASSET_STORE_BYTES,
   assetFailure,
@@ -98,6 +99,56 @@ describe('a failure entry after the ceiling went', () => {
   it('refuses store numbers on a kind they do not describe', () => {
     expect(at('unresolvable', full).success).toBe(false)
     expect(at('upload_failed', full).success).toBe(false)
+  })
+})
+
+describe('a per-file refusal on the sync wire', () => {
+  const reference = 'package://p/base.dae'
+  const full = { store_bytes: ROBOT_ASSET_STORE_BYTES, used_bytes: 999_000_000, size_bytes: 2_000_000 }
+  const fileLimit = { max_bytes: 1_000_000_000, size_bytes: 1_005_000_000 }
+  const failure = { reference, kind: 'refused' as const, file_limit: fileLimit }
+
+  it('keeps the failure kind closed and preserves known and unknown file sizes', () => {
+    expect(assetFailureKind.options).toEqual(['unresolvable', 'upload_failed', 'refused'])
+    expect(assetFailure.parse(failure)).toEqual(failure)
+    expect(assetFailure.parse({ ...failure, file_limit: { ...fileLimit, size_bytes: null } })).toEqual({
+      ...failure, file_limit: { ...fileLimit, size_bytes: null },
+    })
+    expect(assetFailure.safeParse({ reference, kind: 'refused' }).success).toBe(true)
+  })
+
+  it.each(['upload_failed', 'unresolvable'])('rejects a file limit on %s', (kind) => {
+    expect(assetFailure.safeParse({ ...failure, kind }).success).toBe(false)
+  })
+
+  it('keeps file and store limits exclusive', () => {
+    expect(assetFailure.safeParse({ ...failure, details: full }).success).toBe(false)
+    expect(assetFailure.safeParse({ ...failure, details: null }).success).toBe(true)
+    expect(assetFailure.safeParse({ reference, kind: 'refused', details: full }).success).toBe(true)
+  })
+
+  it.each([
+    { max_bytes: 0, size_bytes: 1_005_000_000 },
+    { max_bytes: 1.5, size_bytes: 1_005_000_000 },
+    { max_bytes: true, size_bytes: 1_005_000_000 },
+    { max_bytes: 1_000_000_000, size_bytes: 0 },
+    { max_bytes: 1_000_000_000, size_bytes: 1.5 },
+    { max_bytes: 1_000_000_000, size_bytes: true },
+  ])('rejects invalid file-limit numbers: %j', (file_limit) => {
+    expect(assetFailure.safeParse({ reference, kind: 'refused', file_limit }).success).toBe(false)
+  })
+
+  it('preserves known and null sizes through a Bridge frame and REST sync status', () => {
+    for (const size_bytes of [1_005_000_000, null]) {
+      const wireFailure = { ...failure, file_limit: { ...fileLimit, size_bytes } }
+      const frame = bridgeAssetProgress.parse({
+        type: 'asset_progress', sync_id: runningSync.sync_id, done: 1, total: 2,
+        failed: [wireFailure], state: 'finished',
+      })
+      expect(frame.failed).toEqual([wireFailure])
+      const status = assetSyncStatus.parse({ ...runningSync, state: 'failed', failed: frame.failed })
+      expect(status.failed).toEqual([wireFailure])
+    }
   })
 })
 
