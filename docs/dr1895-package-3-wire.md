@@ -9,7 +9,7 @@ and Finn has reviewed the complete head. The package plan is DR-3010 section 1.
 - [#903](https://github.com/fleetless/fleetless/issues/903), `18f38f21c5f3d748db2fdcc1b9c161f745a7c85e`.
 - [#873](https://github.com/fleetless/fleetless/issues/873), `f3ef8230c3222e6fca95a17ef15d9437727c262b`.
 - [#872](https://github.com/fleetless/fleetless/issues/872), `08bf0e2dce38718e41e71a7b4c8bea249f4042f4`.
-- Their shared `docs/superpowers/specs/2026-11-02-dr1895-package-3-approval.md`.
+- Their common package implementation approval of 2026-11-02.
 
 The three control formats below are specified field-for-field in #873 and #872.
 Their definitions are additive to Contracts base `76d65d1`; this does not decide
