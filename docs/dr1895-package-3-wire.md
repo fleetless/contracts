@@ -12,7 +12,7 @@ and Finn has reviewed the complete head. The package plan is DR-3010 section 1.
 - Their common package implementation approval of 2026-11-02.
 
 The three control formats below are specified field-for-field in #873 and #872.
-Their definitions are additive to Contracts base `76d65d1`; this does not decide
+Their definitions are additive to the published Contracts `12.1.0` base; this does not decide
 the semantic version of the completed package.
 
 | Surface | Contracts exports | State |

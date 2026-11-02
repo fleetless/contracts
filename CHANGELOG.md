@@ -9,20 +9,31 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Strict first-checkpoint, registry-transition and registry-activation receipt
+  bodies/envelopes for the private Cloud/Ops deletion journal, with matching
+  JSON Schemas. Shape validation does not verify signatures or authorize restore.
+- Strict v2 deletion-intent bodies/envelopes with 45 operation kinds, 48 closed
+  identity branches and kind-bound protected-manifest references. Protected
+  deletion manifests add seven scope arms, typed row and object memberships,
+  frozen cutoff or explicit-set batches and exact candidate intent binding.
+- Strict v2-activation and generation checkpoint bodies/envelopes and final
+  drain seal. Zod validates successor, changed-generation and cutoff relations;
+  JSON Schema consumers must enforce cross-field relations separately.
+- Mixed v1/v2 journal export and closed mirror-attempt shapes, including
+  unexpected delete markers and inventory failures, plus typed evidence refs,
+  whole/scoped access proofs and signable replay-receipt envelopes. Failed scopes
+  and incomplete mirror inventory remain reportable but cannot pass the gate.
+
+These additive shapes have generated JSON Schemas. They do not verify original
+signed bytes, protected readbacks, complete source coverage or live replay, and
+do not activate C0, a producer or a restore gate.
+
 ## [12.1.0] — 2026-11-02
 
 ### Added
 
-- Strict v2-activation and generation checkpoint bodies/envelopes and final
-  drain seal, with generated JSON Schemas. Zod validates the successor,
-  changed-generation and exact cutoff relations; JSON Schema consumers must
-  enforce those relations separately. Neither format grants traffic access.
-- Strict v2 deletion-intent bodies/envelopes with closed operation identities,
-  kind-bound protected-manifest references and matching JSON Schemas. These
-  shapes do not activate a producer or verify journal/replay evidence.
-- Strict first-checkpoint, registry-transition and registry-activation receipt
-  bodies/envelopes for the private Cloud/Ops deletion journal, with matching
-  JSON Schemas. Shape validation does not verify signatures or authorize restore.
 - `file_limit` on a `refused` asset sync failure carries the enforced per-file
   limit and known file size through Bridge progress and Cloud sync status.
   Store-full `details` stays separate; failure kinds are unchanged.
