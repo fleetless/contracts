@@ -14,6 +14,7 @@ const afterBasicDeadline = '2026-11-10T12:00:00.000Z'
 const terms = { version: '1.0', version_date: '2026-11-01', url: 'https://fleetless.dev/terms/v1.0/' }
 const proposed = { ...terms, version: '2.0', url: 'https://fleetless.dev/terms/v2.0/' }
 const proof = 'A'.repeat(43)
+const approvedTermsDialog = (deadline: string) => `Review the changes to our Terms: ${proposed.url}. The existing Terms continue until you accept. If you have not accepted by ${deadline}, console access and MCP console tools will be limited to accepting these changes. Robots, apps and app users are unaffected. You can accept at any time, even after that date.`
 const price = {
   plan: 'plus', cycle: 'monthly', addons: { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 },
   current_net_cents: 2900, offered_net_cents: 3000, offered_period_start_at: later, price_start_at: later, currency: 'eur',
@@ -35,11 +36,13 @@ const commonSnapshot = {
   issued_at: at, expires_at: '2026-11-02T12:10:00.000Z',
 }
 const snapshots = [
-  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-unapproved-H.3-terms', proposed_terms: proposed,
-    published_at: at, acceptance_deadline_at: later, terms_access: 'pending', summary: 'Changes', read_changes_label: 'Read the changes' },
-  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-unapproved-H.3-terms', proposed_terms: proposed,
+  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-2026-11-02-H.3-terms', proposed_terms: proposed,
+    text: approvedTermsDialog(later), published_at: at, acceptance_deadline_at: later,
+    terms_access: 'pending', summary: 'Changes', read_changes_label: 'Read the changes' },
+  { ...commonSnapshot, kind: 'terms', text_id: 'DR-3032-2026-11-02-H.3-terms', proposed_terms: proposed,
     issued_at: afterBasicDeadline, expires_at: '2026-11-10T12:10:00.000Z', published_at: at,
-    acceptance_deadline_at: basicDeadline, terms_access: 'suspended', decline_label: null,
+    text: approvedTermsDialog(basicDeadline), acceptance_deadline_at: basicDeadline,
+    terms_access: 'suspended', decline_label: null,
     summary: 'Changes', read_changes_label: 'Read the changes' },
   { ...commonSnapshot, kind: 'price', text_id: 'DR-1374-draft-3-H.3-price', proposed_terms: null,
     ...price, current_agreed_price_id: id, offered_price_proposal_id: id },
@@ -112,6 +115,9 @@ describe('H.3 legal offers', () => {
       { ...snapshots[0], ...price }, { ...snapshots[2], term_end_at: later },
       { ...snapshots[2], proposed_terms: proposed }, { ...snapshots[0], term_end_at: later },
       { ...snapshots[0], decline_label: null }, { ...snapshots[1], decline_label: 'Decline' },
+      { ...snapshots[0], accept_label: 'Approve' }, { ...snapshots[1], accept_label: 'Approve' },
+      { ...snapshots[0], decline_label: 'Reject' },
+      { ...snapshots[0], text_id: 'DR-3032-unapproved-H.3-terms' },
       { ...snapshots[0], text_id: 'DR-1374-draft-3-H.3-price' },
       { ...snapshots[2], current_net_cents: -1 }, { ...snapshots[2], offered_net_cents: 0.1 },
       { ...snapshots[2], addons: { ...price.addons, unknown: 1 } },

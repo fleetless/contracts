@@ -63,13 +63,14 @@ const snapshot = {
   current_terms: legalDocumentReference, dpa: z.null(), issued_at: utc, expires_at: utc,
 }
 const termsSnapshot = {
-  ...snapshot, kind: z.literal('terms'), text_id: z.literal('DR-3032-unapproved-H.3-terms'),
+  ...snapshot, kind: z.literal('terms'), text_id: z.literal('DR-3032-2026-11-02-H.3-terms'),
+  accept_label: z.literal('Accept'),
   proposed_terms: legalDocumentReference, published_at: utc, acceptance_deadline_at: utc,
   summary: text, read_changes_label: text,
 }
 /** Shape validation cannot prove the served wording, Owner, offer or state binding. */
 export const legalOfferDecisionSnapshot = z.union([
-  z.strictObject({ ...termsSnapshot, terms_access: z.literal('pending'), decline_label: text }),
+  z.strictObject({ ...termsSnapshot, terms_access: z.literal('pending'), decline_label: z.literal('Decline') }),
   z.strictObject({ ...termsSnapshot, terms_access: z.literal('suspended'), decline_label: z.null() }),
   z.strictObject({ ...snapshot, kind: z.literal('price'), text_id: z.literal('DR-1374-draft-3-H.3-price'),
     decline_label: text, proposed_terms: z.null(), ...price, current_agreed_price_id: z.uuid(), offered_price_proposal_id: z.uuid() }),
