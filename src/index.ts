@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+export { journalIntentV2Body, journalIntentV2 } from './journal-intents.js'
+export type { JournalIntentV2Body, JournalIntentV2 } from './journal-intents.js'
 export {
   journalFirstCheckpointBody, journalFirstCheckpoint,
   journalRegistryTransitionBody, journalRegistryTransition,

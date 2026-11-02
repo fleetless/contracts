@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { journalIntentV2Body, journalIntentV2 } from '../src/journal-intents.js'
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
  *
@@ -366,6 +367,8 @@ import {
 } from '../src/billing.js'
 
 export const exportedSchemas = {
+  'journal-intent-v2-body': journalIntentV2Body,
+  'journal-intent-v2': journalIntentV2,
   'journal-first-checkpoint-body': journalFirstCheckpointBody,
   'journal-first-checkpoint': journalFirstCheckpoint,
   'journal-registry-transition-body': journalRegistryTransitionBody,
@@ -1049,6 +1052,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'journal-intent-v2-body', 'journal-intent-v2',
   'journal-first-checkpoint-body', 'journal-first-checkpoint',
   'journal-registry-transition-body', 'journal-registry-transition',
   'journal-registry-activation-receipt-body', 'journal-registry-activation-receipt',
