@@ -13,6 +13,9 @@ version.
 
 ### Added
 
+- Strict first-checkpoint, registry-transition and registry-activation receipt
+  bodies/envelopes for the private Cloud/Ops deletion journal, with matching
+  JSON Schemas. Shape validation does not verify signatures or authorize restore.
 - `file_limit` on a `refused` asset sync failure carries the enforced per-file
   limit and known file size through Bridge progress and Cloud sync status.
   Store-full `details` stays separate; failure kinds are unchanged.
