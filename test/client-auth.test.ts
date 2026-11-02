@@ -75,9 +75,20 @@ describe('app-user sign-in for #98', () => {
     expect(invalidCodeDetails.safeParse({ attempts_left: -1 }).success).toBe(false)
   })
 
-  it('tells an app which methods it offers, and an app user whether they have a second factor', () => {
-    expect(clientProviderListResponse.safeParse({ providers: [], sign_in_methods: { password: false, email_code: true } }).success).toBe(true)
-    expect(clientProviderListResponse.safeParse({ providers: [] }).success).toBe(false)
+  it('requires the app two-factor policy on the public providers response', () => {
+    const base = { providers: [], sign_in_methods: { password: false, email_code: true } }
+    for (const two_factor of ['off', 'optional', 'required']) {
+      const parsed = clientProviderListResponse.safeParse({ ...base, two_factor })
+      expect(parsed.success).toBe(true)
+      if (parsed.success) expect(parsed.data).toMatchObject({ two_factor })
+    }
+    expect(clientProviderListResponse.safeParse(base).success).toBe(false)
+    expect(clientProviderListResponse.safeParse({ ...base, two_factor: 'enabled' }).success).toBe(false)
+    expect(clientProviderListResponse.safeParse({ ...base, two_factor: null }).success).toBe(false)
+    expect(clientProviderListResponse.safeParse({ providers: [], two_factor: 'off' }).success).toBe(false)
+  })
+
+  it('keeps a person\'s two-factor enrollment on their identity', () => {
     expect(clientIdentity.shape.two_factor_enabled).toBeDefined()
   })
 })

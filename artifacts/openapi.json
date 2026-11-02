@@ -21688,11 +21688,21 @@
             ],
             "additionalProperties": false,
             "description": "Which of password and emailed code the app accepts, so its sign-in page draws the right fields without guessing. The same value the developer set; public, like the provider buttons."
+          },
+          "two_factor": {
+            "type": "string",
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ],
+            "description": "The app's off, optional or required two-factor policy; not the caller's enrollment state."
           }
         },
         "required": [
           "providers",
-          "sign_in_methods"
+          "sign_in_methods",
+          "two_factor"
         ],
         "additionalProperties": false
       },
