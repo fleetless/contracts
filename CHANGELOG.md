@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [12.1.0] — 2026-11-02
+
 ### Added
 
 - `file_limit` on a `refused` asset sync failure carries the enforced per-file
