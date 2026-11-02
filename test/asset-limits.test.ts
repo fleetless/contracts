@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { Ajv2020 } from 'ajv/dist/2020.js'
+import * as formatsModule from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
 
 import { ASSET_UPLOAD_HEADERS, orgQuotas } from '../src/rest.js'
@@ -148,6 +150,49 @@ describe('a per-file refusal on the sync wire', () => {
       expect(frame.failed).toEqual([wireFailure])
       const status = assetSyncStatus.parse({ ...runningSync, state: 'failed', failed: frame.failed })
       expect(status.failed).toEqual([wireFailure])
+    }
+  })
+
+  it('keeps published full-wire validators in parity with Zod', () => {
+    const ajv = new Ajv2020({ allErrors: true, strict: false })
+    ;(formatsModule.default as unknown as (validator: Ajv2020) => void)(ajv)
+    const artifact = (directory: string, name: string) => JSON.parse(readFileSync(
+      join(import.meta.dirname, '..', 'artifacts', directory, `${name}.schema.json`), 'utf8',
+    ))
+    const openapi = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'artifacts', 'openapi.json'), 'utf8'))
+    const frame = (failed: unknown[]) => ({
+      type: 'asset_progress', sync_id: runningSync.sync_id, done: 1, total: 2,
+      failed, state: 'finished',
+    })
+    const status = (failed: unknown[]) => ({ ...runningSync, state: 'failed', failed })
+    const list = (failed: unknown[]) => ({
+      ...listBase, store: { bytes: ROBOT_ASSET_STORE_BYTES, used_bytes: 0 },
+      joint_state_slug: null, active_sync: status(failed),
+    })
+    const documents = [
+      { name: 'Bridge input', schema: artifact('schema', 'bridge-asset-progress'), value: frame, zod: bridgeAssetProgress },
+      { name: 'Bridge output', schema: artifact('schema-outgoing', 'bridge-asset-progress'), value: frame, zod: bridgeAssetProgress },
+      { name: 'sync status', schema: artifact('schema', 'asset-sync-status'), value: status, zod: assetSyncStatus },
+      { name: 'asset list', schema: artifact('schema', 'asset-list-response'), value: list, zod: assetListResponse },
+      { name: 'OpenAPI sync status', schema: openapi.components.schemas['asset-sync-status'], value: status, zod: assetSyncStatus },
+      { name: 'OpenAPI asset list', schema: openapi.components.schemas['asset-list-response'], value: list, zod: assetListResponse },
+    ]
+    const cases = [
+      { name: 'known size', entry: failure, allowed: true },
+      { name: 'null size', entry: { ...failure, file_limit: { ...fileLimit, size_bytes: null } }, allowed: true },
+      { name: 'upload failure with file limit', entry: { ...failure, kind: 'upload_failed' }, allowed: false },
+      { name: 'unresolvable with file limit', entry: { ...failure, kind: 'unresolvable' }, allowed: false },
+      { name: 'file and store limits together', entry: { ...failure, details: full }, allowed: false },
+      { name: 'store details on upload failure', entry: { reference, kind: 'upload_failed', details: full }, allowed: false },
+    ]
+    for (const document of documents) {
+      const validate = ajv.compile(document.schema)
+      for (const testCase of cases) {
+        const wire = document.value([testCase.entry])
+        expect(document.zod.safeParse(wire).success, `${document.name}: Zod ${testCase.name}`).toBe(testCase.allowed)
+        const accepted = validate(wire)
+        expect(accepted, `${document.name}: JSON Schema ${testCase.name}: ${ajv.errorsText(validate.errors)}`).toBe(testCase.allowed)
+      }
     }
   })
 })
