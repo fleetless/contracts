@@ -674,8 +674,8 @@ export type BridgeJobUpdate = z.infer<typeof bridgeJobUpdate>
  * **`error` is optional and, when present, applies to every job named in
  * `job_ids`.** A vanished action server is discovered once, by the bridge's
  * own liveness check on that one action, so a frame naming several jobs at
- * once always shares the same cause. Absent, the cloud settles the job
- * `lost` with no specific code.
+ * once always shares the same cause. Without `error`, the cloud settles each
+ * job `lost` with the generic `job_lost` error code; explicit causes are kept.
  */
 export const bridgeJobLost = z.object({
   type: z.literal('job_lost'),

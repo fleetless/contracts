@@ -39,7 +39,7 @@
         "cancelled",
         "lost"
       ],
-      "description": "How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final: the bridge did not know the run and nothing else ran on its action, so the outcome is unknowable rather than unknown."
+      "description": "How the run ended, or `running` while it is still going. `unknown` while the robot has not accounted for it — offline or silent — and updated once the bridge says how it stands. `lost` is final after an action server disappears before terminal status (`action_server_lost`), a later query confirms the bridge does not know the job and no active goal accounts for it (`job_unknown_to_bridge`), or a terminal goal status is observed but its result cannot be recovered within the bounded wait (`job_lost`). An unqualified bridge loss report also uses `job_lost`, with a message distinguishing it from terminal-result loss. Cloud cleanup may settle a superseded run or a deleted robot's run as `lost` without an error code. A reconnect or omission from `hello.active_jobs` alone is not final."
     },
     "started_at": {
       "type": "string",
