@@ -387,6 +387,19 @@ export const assetFailure = z.object({
   if (f.file_limit != null && f.details != null) {
     ctx.addIssue({ code: 'custom', path: ['file_limit'], message: 'file limit and store details are exclusive' })
   }
+}).meta({
+  // Zod refinements do not survive JSON Schema export. Keep the same
+  // cross-field rules on the entry so every enclosing wire artifact gets them.
+  allOf: [
+    {
+      if: { properties: { details: { type: 'object' } }, required: ['details'] },
+      then: { properties: { kind: { const: 'refused' } } },
+    },
+    {
+      if: { properties: { file_limit: { type: 'object' } }, required: ['file_limit'] },
+      then: { properties: { kind: { const: 'refused' }, details: { type: 'null' } } },
+    },
+  ],
 })
 export type AssetFailure = z.infer<typeof assetFailure>
 

@@ -12387,7 +12387,50 @@
                         "reference",
                         "kind"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": false,
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "details": {
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "details"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "kind": {
+                                "const": "refused"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "if": {
+                            "properties": {
+                              "file_limit": {
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "file_limit"
+                            ]
+                          },
+                          "then": {
+                            "properties": {
+                              "kind": {
+                                "const": "refused"
+                              },
+                              "details": {
+                                "type": "null"
+                              }
+                            }
+                          }
+                        }
+                      ]
                     },
                     "description": "What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody's renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list."
                   },
@@ -12732,7 +12775,50 @@
                 "reference",
                 "kind"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "details": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "details"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "kind": {
+                        "const": "refused"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "file_limit": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "file_limit"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "kind": {
+                        "const": "refused"
+                      },
+                      "details": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "description": "What could not be provided, one entry per reference, each saying why. Required rather than optional: a sync that quietly drops three meshes and reports success moves the failure into somebody's renderer, where it shows up as a robot with missing limbs and no cause. At most `1000` entries — a producer at its own ceiling reports one entry saying so rather than growing the list."
           },

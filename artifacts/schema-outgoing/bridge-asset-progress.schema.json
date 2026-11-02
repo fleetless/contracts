@@ -121,7 +121,50 @@
           "reference",
           "kind"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "details": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "details"
+              ]
+            },
+            "then": {
+              "properties": {
+                "kind": {
+                  "const": "refused"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "file_limit": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "file_limit"
+              ]
+            },
+            "then": {
+              "properties": {
+                "kind": {
+                  "const": "refused"
+                },
+                "details": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "state": {
