@@ -162,10 +162,14 @@ describe('H.3 legal offers', () => {
       expect(op.responses['200'].content['application/json'].schema.$ref).toBe('#/components/schemas/' + response)
     }
     expect(contracts.ERROR_CODES).toContain('legal_offer_unavailable')
+    const list = routesArtifact().routes.find(r => r.method === 'GET' && r.path === prefix)
+    expect(list?.notes).toContain('Terms-suspended')
     const display = routesArtifact().routes.find(r => r.method === 'POST' && r.path === prefix + '/:id/display')
     expect(display?.notes).toContain('Terms-suspended')
     const decisionRoute = routesArtifact().routes.find(r => r.method === 'POST' && r.path === prefix + '/:id/decisions')
     expect(decisionRoute?.notes).toContain('no contract termination')
+    const recovery = routesArtifact().routes.find(r => r.method === 'GET' && r.path === prefix + '/:id/decisions')
+    expect(recovery?.notes).toContain('Terms-suspended')
   })
 
   it('keeps offer acceptance history DPA-free in the generated schema too', () => {

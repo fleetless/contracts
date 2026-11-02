@@ -825,7 +825,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'validation_error', 'legal_offer_unavailable'], transport: 'http',
     notes: 'Cache-Control: no-store. Any authenticated org member may read notices; support is read-only. No proof or decision rights are returned. ' +
       'Newest first; default limit 50, maximum 100, canonical decimal strings only. Cursor is canonical unpadded base64url of UTF-8 JSON ' +
-      '{v:1,created_at:UTC,id:UUID} in that key order, scoped by Cloud to the active org. Terms notices expose the published deadline and developer access state for Basic and paid orgs.',
+      '{v:1,created_at:UTC,id:UUID} in that key order, scoped by Cloud to the active org. Terms notices expose the published deadline and developer access state for Basic and paid orgs. ' +
+      'The authenticated offer read stays reachable for a Terms-suspended org so an Owner can recover the acceptance path.',
   },
   {
     method: 'POST', path: '/api/org/legal/offers/:id/display', section: 'org',
@@ -866,7 +867,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error', 'not_found', 'legal_offer_unavailable'], transport: 'http',
     notes: 'Cache-Control: no-store. Real Owner only; support and synthetic identities are refused. Match the original Owner, org, offer and operation key; ' +
       'unknown/foreign keys return 404 without disclosure. Return the exact original decision arm, including a decline before later acceptance. ' +
-      'Use this lookup after a lost response before asking for another display. No proof is returned.',
+      'Use this lookup after a lost response before asking for another display. It remains reachable for a Terms-suspended org. No proof is returned.',
   },
   {
     method: 'GET', path: '/api/org/legal/acceptances', section: 'org',
