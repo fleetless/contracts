@@ -164,6 +164,15 @@ export type JournalEvidenceRef = z.infer<typeof journalEvidenceRef>
 
 const intentKindValues = journalIntentV2Body.options.map((branch) => branch.shape.kind.value) as [string, ...string[]]
 const intentKind = z.enum(intentKindValues)
+// These kinds have an unconditional target surface. Other object/authority
+// obligations depend on the signed kind registry and protected manifest.
+const objectRequiredKinds = new Set(['app_logo.delete', 'organization_export.expire'])
+const authorityRequiredKinds = new Set([
+  'server_key.revoke', 'mcp_grant.revoke', 'mcp_central_grant.revoke',
+  'mcp_client.revoke', 'mcp_central_client.revoke',
+  'instance.serial_lock', 'instance.serial_rotate_old', 'instance.license_revoke',
+  'instance.reporter_key_revoke', 'instance.instance_key_revoke',
+])
 const operationResult = z.strictObject({
   sequence: positiveInteger, operation_id: uuid, kind: intentKind,
   apply_result: z.enum(['applied', 'already-effective', 'failed']),
@@ -290,6 +299,17 @@ export const journalReplayReceiptBody = z.strictObject(receiptFields).superRefin
   if (value.verdict === 'pass') {
     if (value.failed_count !== 0 || value.operations.some((operation) => operation.database === 'failed' ||
       operation.customer_target_object === 'failed' || operation.authority === 'failed')) problem('Failed operation cannot pass', ['verdict'])
+    value.operations.forEach((operation, index) => {
+      if ((operation.kind === 'organization.erase' || operation.kind === 'organization.scope_erase') && operation.database !== 'absent') {
+        problem('Passing organization erase requires database absence', ['operations', index, 'database'])
+      }
+      if (objectRequiredKinds.has(operation.kind) && operation.customer_target_object !== 'absent') {
+        problem('Passing object deletion requires target object absence', ['operations', index, 'customer_target_object'])
+      }
+      if (authorityRequiredKinds.has(operation.kind) && operation.authority !== 'revoked') {
+        problem('Passing authority revocation requires revoked authority', ['operations', index, 'authority'])
+      }
+    })
     if (value.access_proofs.some((proof) => proof.affected_verdict === 'failed' || proof.unaffected_verdict === 'failed')) problem('Failed access proof cannot pass', ['verdict'])
     if (value.access_proofs.some((proof) => proof.probe_ref_ids.some((id) => {
       const probe = bound(id, 'probe_ref', proof.operation_id)
@@ -298,7 +318,7 @@ export const journalReplayReceiptBody = z.strictObject(receiptFields).superRefin
     if (!source || source.type !== 'probe_ref' || source.outcome !== 'denied') problem('Source isolation not proved', ['verdict'])
   }
 })
-  .describe('JSON Schema consumers must also verify counts, exact erase-proof set, reference bindings, pass conditions, signatures and protected-version readbacks.')
+  .describe('JSON Schema consumers must also verify counts, exact erase-proof set, reference bindings, kind/registry surface applicability and pass outcomes, signatures and protected-version readbacks.')
 export type JournalReplayReceiptBody = z.infer<typeof journalReplayReceiptBody>
 export const journalReplayReceipt = journalReplayReceiptBody.safeExtend({ receipt_hash: hash, signature })
 export type JournalReplayReceipt = z.infer<typeof journalReplayReceipt>

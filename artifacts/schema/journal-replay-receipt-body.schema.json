@@ -1248,5 +1248,5 @@
     "verdict"
   ],
   "additionalProperties": false,
-  "description": "JSON Schema consumers must also verify counts, exact erase-proof set, reference bindings, pass conditions, signatures and protected-version readbacks."
+  "description": "JSON Schema consumers must also verify counts, exact erase-proof set, reference bindings, kind/registry surface applicability and pass outcomes, signatures and protected-version readbacks."
 }

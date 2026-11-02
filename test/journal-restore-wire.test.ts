@@ -94,6 +94,50 @@ describe('package 3 restore wire', () => {
     expect(schema.safeParse(policyDenied).success).toBe(false)
   })
 
+  it('rejects a passing erase receipt that omits required database absence', () => {
+    const schema = (contracts as any).journalReplayReceiptBody
+    for (const name of ['whole_pass', 'scope_allowed_pass', 'scope_policy_denied_pass']) {
+      const original = fixture.receipts.find((value: any) => value.name === name).body
+      for (const database of ['not-applicable', 'revoked']) {
+        const changed = structuredClone(original)
+        changed.operations[0].database = database
+        expect(schema.safeParse(changed).success, `${name}: ${database}`).toBe(false)
+      }
+    }
+    const allSkipped = structuredClone(fixture.receipts.find((value: any) => value.name === 'whole_pass').body)
+    Object.assign(allSkipped.operations[0], {
+      database: 'not-applicable', customer_target_object: 'not-applicable', authority: 'not-applicable',
+    })
+    expect(schema.safeParse(allSkipped).success).toBe(false)
+  })
+
+  it('requires applicable object and authority outcomes for fixed operation kinds', () => {
+    const schema = (contracts as any).journalReplayReceiptBody
+    const whole = fixture.receipts.find((value: any) => value.name === 'whole_pass').body
+    for (const [kind, surface, required] of [
+      ['app_logo.delete', 'customer_target_object', 'absent'],
+      ['organization_export.expire', 'customer_target_object', 'absent'],
+      ['server_key.revoke', 'authority', 'revoked'],
+      ['mcp_grant.revoke', 'authority', 'revoked'],
+      ['mcp_central_grant.revoke', 'authority', 'revoked'],
+      ['mcp_client.revoke', 'authority', 'revoked'],
+      ['mcp_central_client.revoke', 'authority', 'revoked'],
+      ['instance.serial_lock', 'authority', 'revoked'],
+      ['instance.serial_rotate_old', 'authority', 'revoked'],
+      ['instance.license_revoke', 'authority', 'revoked'],
+      ['instance.reporter_key_revoke', 'authority', 'revoked'],
+      ['instance.instance_key_revoke', 'authority', 'revoked'],
+    ]) {
+      const changed = structuredClone(whole)
+      changed.operations[0].kind = kind
+      changed.access_proofs = []
+      changed.operations[0][surface] = 'not-applicable'
+      expect(schema.safeParse(changed).success, `${kind}: skipped ${surface}`).toBe(false)
+      changed.operations[0][surface] = required
+      expect(schema.safeParse(changed).success, `${kind}: ${required}`).toBe(true)
+    }
+  })
+
   it('rejects invalid global and operation EvidenceRef binding at the JSON Schema boundary', () => {
     const schema = (contracts as any).journalEvidenceRef
     expect(schema).toBeDefined()
