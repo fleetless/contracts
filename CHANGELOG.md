@@ -9,6 +9,13 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (major):** The public `GET /api/client/providers` response now
+  requires `two_factor: off | optional | required`, the app's two-factor
+  policy. It does not describe a person's enrollment state. Older responses
+  without this field no longer satisfy the contract.
+
 ### Fixed
 
 - Corrected the exported `Job.state` and `JobRun.state` descriptions of final

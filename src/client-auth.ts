@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { appIdentifier } from './apps.js'
-import { APP_USER_DISPLAY_NAME_MAX, appSignInMethods, providerSlug } from './app-users.js'
+import { APP_USER_DISPLAY_NAME_MAX, appSignInMethods, appTwoFactorPolicy, providerSlug } from './app-users.js'
 import { loginCode, password, recoveryCode, recoveryCodesList, sessionTokens, totpCode } from './identity.js'
 
 /**
@@ -360,10 +360,11 @@ export const clientProviderListQuery = z
 export type ClientProviderListQuery = z.infer<typeof clientProviderListQuery>
 
 /**
- * What the developer's login page needs to draw its provider buttons and its
- * password or code fields, and **nothing more**. This route is public and unauthenticated: the issuer, the
- * client id, the scopes and the linking policy are all management-side facts
- * that would tell a stranger how the app's federation is configured.
+ * What the developer's login page needs to draw its provider buttons,
+ * password or code fields, and two-factor policy. This route is public and
+ * unauthenticated: the issuer, the client id, the scopes and the linking
+ * policy are all management-side facts that would tell a stranger how the
+ * app's federation is configured. The policy says nothing about a person.
  *
  * Only **enabled** providers appear. A disabled one is not a button that
  * refuses; it is a button that is not there.
@@ -381,6 +382,9 @@ export const clientProviderListResponse = z.object({
     }),
   sign_in_methods: appSignInMethods.meta({
     description: 'Which of password and emailed code the app accepts, so its sign-in page draws the right fields without guessing. The same value the developer set; public, like the provider buttons.',
+  }),
+  two_factor: appTwoFactorPolicy.meta({
+    description: "The app's off, optional or required two-factor policy; not the caller's enrollment state.",
   }),
 })
 export type ClientProviderListResponse = z.infer<typeof clientProviderListResponse>
