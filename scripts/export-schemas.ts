@@ -1,4 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+import {
+  journalV2ActivationCheckpointBody, journalV2ActivationCheckpoint,
+  journalGenerationCheckpointBody, journalGenerationCheckpoint,
+  journalFinalSealBody, journalFinalSeal,
+} from '../src/journal-seals.js'
 import { journalIntentV2Body, journalIntentV2 } from '../src/journal-intents.js'
 /**
  * Exports every wire schema as JSON Schema into artifacts/schema/.
@@ -368,6 +373,12 @@ import {
 
 export const exportedSchemas = {
   'journal-intent-v2-body': journalIntentV2Body,
+  'journal-v2-activation-checkpoint-body': journalV2ActivationCheckpointBody,
+  'journal-v2-activation-checkpoint': journalV2ActivationCheckpoint,
+  'journal-generation-checkpoint-body': journalGenerationCheckpointBody,
+  'journal-generation-checkpoint': journalGenerationCheckpoint,
+  'journal-final-seal-body': journalFinalSealBody,
+  'journal-final-seal': journalFinalSeal,
   'journal-intent-v2': journalIntentV2,
   'journal-first-checkpoint-body': journalFirstCheckpointBody,
   'journal-first-checkpoint': journalFirstCheckpoint,
@@ -1052,6 +1063,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
  * every default already applied.
  */
 const SCHEMA_IO_OUTPUT: readonly string[] = [
+  'journal-v2-activation-checkpoint-body', 'journal-v2-activation-checkpoint',
+  'journal-generation-checkpoint-body', 'journal-generation-checkpoint',
+  'journal-final-seal-body', 'journal-final-seal',
   'journal-intent-v2-body', 'journal-intent-v2',
   'journal-first-checkpoint-body', 'journal-first-checkpoint',
   'journal-registry-transition-body', 'journal-registry-transition',

@@ -11,6 +11,10 @@ version.
 
 ### Added
 
+- Strict v2-activation and generation checkpoint bodies/envelopes and final
+  drain seal, with generated JSON Schemas. Zod validates the successor,
+  changed-generation and exact cutoff relations; JSON Schema consumers must
+  enforce those relations separately. Neither format grants traffic access.
 - Strict v2 deletion-intent bodies/envelopes with closed operation identities,
   kind-bound protected-manifest references and matching JSON Schemas. These
   shapes do not activate a producer or verify journal/replay evidence.

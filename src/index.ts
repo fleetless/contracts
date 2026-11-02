@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
+export {
+  journalV2ActivationCheckpointBody, journalV2ActivationCheckpoint,
+  journalGenerationCheckpointBody, journalGenerationCheckpoint,
+  journalFinalSealBody, journalFinalSeal,
+} from './journal-seals.js'
+export type {
+  JournalV2ActivationCheckpointBody, JournalV2ActivationCheckpoint,
+  JournalGenerationCheckpointBody, JournalGenerationCheckpoint,
+  JournalFinalSealBody, JournalFinalSeal,
+} from './journal-seals.js'
 export { journalIntentV2Body, journalIntentV2 } from './journal-intents.js'
 export type { JournalIntentV2Body, JournalIntentV2 } from './journal-intents.js'
 export {
