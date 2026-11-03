@@ -28,6 +28,8 @@ const uuidRowTable = z.enum([
   'organization_exports', 'ops_notification_jobs', 'console_oauth_codes',
 ])
 const member = { membership_kind: membership }
+// Retention sweeps name an expired time range instead of every deleted row.
+const retentionRangeTable = z.enum(['datapoint_series_samples', 'bridge_latency_buckets'])
 export const journalManifestRow = z.union([
   z.strictObject({ ...member, type: z.literal('uuid_row'), table: uuidRowTable, id: uuid, row_generation: uuid }),
   z.strictObject({ ...member, type: z.literal('basic_activity_observation'), org_id: uuid, audit_event_id: uuid }),
@@ -48,11 +50,29 @@ export const journalManifestRow = z.union([
   z.strictObject({ ...member, type: z.literal('global_ops_event'), event_id: uuid }),
   z.strictObject({ ...member, type: z.literal('org_operator_audit'), org_id: uuid, audit_id: uuid }),
   z.strictObject({ ...member, type: z.literal('global_operator_audit'), audit_id: uuid }),
+  z.strictObject({
+    type: z.literal('retention_range'),
+    membership_kind: z.literal('affected'),
+    table: retentionRangeTable.meta({ description: 'The table the range was deleted from.' }),
+    org_id: uuid,
+    robot_id: uuid,
+    series_id: positive.optional().meta({ description: 'The one datapoint series of the range; absent when the range covers every series of the robot. Never set for latency buckets.' }),
+    from: utcMillis.meta({ description: 'Inclusive lower bound of the deleted range (UTC, milliseconds).' }),
+    cutoff: utcMillis.meta({ description: 'Exclusive upper bound of the deleted range (UTC, milliseconds). Replay deletes every row of the table inside [from, cutoff) for this robot and series and no row at or after the cutoff.' }),
+    row_count: positive.meta({ description: 'How many rows the range held when it was frozen.' }),
+    rows_digest: hash.meta({ description: 'SHA-256 over the sorted row keys the range held when it was frozen (retention range digest v1); lets a backup of the range be checked against what was deleted.' }),
+  }),
 ]).superRefine((row, ctx) => {
   if (row.type === 'uuid_row' && row.row_generation !== row.id) {
     ctx.addIssue({ code: 'custom', path: ['row_generation'], message: 'Immutable UUID row generation must equal its ID' })
   }
-}).describe('JSON Schema consumers must also check uuid_row generation equality and exact physical identity.')
+  if (row.type === 'retention_range') {
+    if (row.from >= row.cutoff) ctx.addIssue({ code: 'custom', path: ['cutoff'], message: 'A retention range must end after it starts' })
+    if (row.table === 'bridge_latency_buckets' && row.series_id !== undefined) {
+      ctx.addIssue({ code: 'custom', path: ['series_id'], message: 'Latency buckets are not kept per series' })
+    }
+  }
+}).describe('JSON Schema consumers must also check uuid_row generation equality, exact physical identity and that a retention range starts before it ends.')
 export type JournalManifestRow = z.infer<typeof journalManifestRow>
 
 const entry = { mapping_id: uuid, source_project_id: opaqueId, source_bucket: opaqueId,
@@ -96,6 +116,7 @@ function rowKey(row: JournalManifestRow) {
     case 'console_interaction': return JSON.stringify(['console_oauth_interactions', row.interaction_id])
     case 'org_ops_event': case 'global_ops_event': return JSON.stringify(['ops_events', row.event_id])
     case 'org_operator_audit': case 'global_operator_audit': return JSON.stringify(['operator_audit', row.audit_id])
+    case 'retention_range': return JSON.stringify([row.table, 'range', row.robot_id, row.series_id ?? null, row.from])
   }
 }
 function entryKey(value: JournalManifestEntry) { return JSON.stringify([value.kind, value.mapping_id]) }
@@ -137,6 +158,51 @@ const nonOrganizationScope: Record<string, JournalManifestScope['kind']> = {
   'auth_factor.remove': 'subject',
 }
 
+const rangeTableOfKind: Record<string, string> = {
+  'history.retention': 'datapoint_series_samples',
+  'history.slug_delete': 'datapoint_series_samples',
+  'latency.retention': 'bridge_latency_buckets',
+}
+
+type RetentionRange = Extract<JournalManifestRow, { type: 'retention_range' }>
+
+/**
+ * A retention range belongs to exactly the history and latency retention
+ * kinds, stays inside the organization, robot, series and cutoff of its
+ * intent, and no two ranges of one robot overlap (a robot's ranges name a
+ * series all or none of them).
+ */
+function retentionRangeProblems(kind: string, ids: Record<string, unknown>, ranges: RetentionRange[]): string[] {
+  const problems: string[] = []
+  const table = rangeTableOfKind[kind]
+  if (table === undefined) return ['Retention ranges belong only to history and latency retention']
+  for (const range of ranges) {
+    if (range.table !== table) problems.push('Range table does not match the intent kind')
+    if (range.org_id !== ids.org_id) problems.push('Range organization does not match the intent')
+    if (kind === 'history.slug_delete' && (range.robot_id !== ids.robot_id || range.series_id !== ids.series_id)) {
+      problems.push('Range robot or series does not match the intent')
+    }
+    if (kind !== 'history.slug_delete' && typeof ids.cutoff_at === 'string' && range.cutoff > ids.cutoff_at) {
+      problems.push('Range reaches past the sweep cutoff')
+    }
+  }
+  const byRobot = new Map<string, RetentionRange[]>()
+  for (const range of ranges) byRobot.set(range.robot_id, [...(byRobot.get(range.robot_id) ?? []), range])
+  for (const group of byRobot.values()) {
+    if (new Set(group.map((range) => range.series_id === undefined)).size > 1) {
+      problems.push('A robot\'s ranges must name a series all or none')
+      continue
+    }
+    const bySeries = new Map<number | undefined, RetentionRange[]>()
+    for (const range of group) bySeries.set(range.series_id, [...(bySeries.get(range.series_id) ?? []), range])
+    for (const series of bySeries.values()) {
+      const ordered = [...series].sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0))
+      if (ordered.some((range, index) => index > 0 && range.from < ordered[index - 1]!.cutoff)) problems.push('Ranges of one robot overlap')
+    }
+  }
+  return problems
+}
+
 /** A structural candidate; it is not a signed intent or protected readback. */
 export const journalManifestBinding = z.strictObject({
   intent: journalManifestIntentProjection, manifest: journalDeletionManifest,
@@ -164,6 +230,8 @@ export const journalManifestBinding = z.strictObject({
   }
   const allows = allowedRows[manifest.scope.kind]
   if (allows && !manifest.rows.every(allows)) problem('Row outside closed source scope', ['manifest', 'rows'])
+  const ranges = manifest.rows.filter((row): row is RetentionRange => row.type === 'retention_range')
+  if (ranges.length > 0) for (const message of new Set(retentionRangeProblems(intent.kind, ids, ranges))) problem(message, ['manifest', 'rows'])
   const isSweep = sweepKinds.some((kind) => kind === intent.kind)
   const isExplicit = explicitKinds.some((kind) => kind === intent.kind)
   if (isSweep || isExplicit) {

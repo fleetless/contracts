@@ -843,9 +843,79 @@
               "audit_id"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "retention_range"
+              },
+              "membership_kind": {
+                "type": "string",
+                "const": "affected"
+              },
+              "table": {
+                "type": "string",
+                "enum": [
+                  "datapoint_series_samples",
+                  "bridge_latency_buckets"
+                ],
+                "description": "The table the range was deleted from."
+              },
+              "org_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "robot_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "series_id": {
+                "description": "The one datapoint series of the range; absent when the range covers every series of the robot. Never set for latency buckets.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "from": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                "description": "Inclusive lower bound of the deleted range (UTC, milliseconds)."
+              },
+              "cutoff": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                "description": "Exclusive upper bound of the deleted range (UTC, milliseconds). Replay deletes every row of the table inside [from, cutoff) for this robot and series and no row at or after the cutoff."
+              },
+              "row_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991,
+                "description": "How many rows the range held when it was frozen."
+              },
+              "rows_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "SHA-256 over the sorted row keys the range held when it was frozen (retention range digest v1); lets a backup of the range be checked against what was deleted."
+              }
+            },
+            "required": [
+              "type",
+              "membership_kind",
+              "table",
+              "org_id",
+              "robot_id",
+              "from",
+              "cutoff",
+              "row_count",
+              "rows_digest"
+            ],
+            "additionalProperties": false
           }
         ],
-        "description": "JSON Schema consumers must also check uuid_row generation equality and exact physical identity."
+        "description": "JSON Schema consumers must also check uuid_row generation equality, exact physical identity and that a retention range starts before it ends."
       }
     },
     "batches": {
@@ -1464,9 +1534,79 @@
                         "audit_id"
                       ],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "retention_range"
+                        },
+                        "membership_kind": {
+                          "type": "string",
+                          "const": "affected"
+                        },
+                        "table": {
+                          "type": "string",
+                          "enum": [
+                            "datapoint_series_samples",
+                            "bridge_latency_buckets"
+                          ],
+                          "description": "The table the range was deleted from."
+                        },
+                        "org_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "robot_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "series_id": {
+                          "description": "The one datapoint series of the range; absent when the range covers every series of the robot. Never set for latency buckets.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                          "description": "Inclusive lower bound of the deleted range (UTC, milliseconds)."
+                        },
+                        "cutoff": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                          "description": "Exclusive upper bound of the deleted range (UTC, milliseconds). Replay deletes every row of the table inside [from, cutoff) for this robot and series and no row at or after the cutoff."
+                        },
+                        "row_count": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "How many rows the range held when it was frozen."
+                        },
+                        "rows_digest": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$",
+                          "description": "SHA-256 over the sorted row keys the range held when it was frozen (retention range digest v1); lets a backup of the range be checked against what was deleted."
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "membership_kind",
+                        "table",
+                        "org_id",
+                        "robot_id",
+                        "from",
+                        "cutoff",
+                        "row_count",
+                        "rows_digest"
+                      ],
+                      "additionalProperties": false
                     }
                   ],
-                  "description": "JSON Schema consumers must also check uuid_row generation equality and exact physical identity."
+                  "description": "JSON Schema consumers must also check uuid_row generation equality, exact physical identity and that a retention range starts before it ends."
                 }
               }
             },
@@ -2069,9 +2209,79 @@
                         "audit_id"
                       ],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "retention_range"
+                        },
+                        "membership_kind": {
+                          "type": "string",
+                          "const": "affected"
+                        },
+                        "table": {
+                          "type": "string",
+                          "enum": [
+                            "datapoint_series_samples",
+                            "bridge_latency_buckets"
+                          ],
+                          "description": "The table the range was deleted from."
+                        },
+                        "org_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "robot_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "series_id": {
+                          "description": "The one datapoint series of the range; absent when the range covers every series of the robot. Never set for latency buckets.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "from": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                          "description": "Inclusive lower bound of the deleted range (UTC, milliseconds)."
+                        },
+                        "cutoff": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$",
+                          "description": "Exclusive upper bound of the deleted range (UTC, milliseconds). Replay deletes every row of the table inside [from, cutoff) for this robot and series and no row at or after the cutoff."
+                        },
+                        "row_count": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "How many rows the range held when it was frozen."
+                        },
+                        "rows_digest": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$",
+                          "description": "SHA-256 over the sorted row keys the range held when it was frozen (retention range digest v1); lets a backup of the range be checked against what was deleted."
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "membership_kind",
+                        "table",
+                        "org_id",
+                        "robot_id",
+                        "from",
+                        "cutoff",
+                        "row_count",
+                        "rows_digest"
+                      ],
+                      "additionalProperties": false
                     }
                   ],
-                  "description": "JSON Schema consumers must also check uuid_row generation equality and exact physical identity."
+                  "description": "JSON Schema consumers must also check uuid_row generation equality, exact physical identity and that a retention range starts before it ends."
                 }
               }
             },

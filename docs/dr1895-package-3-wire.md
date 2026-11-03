@@ -117,6 +117,19 @@ rejected; an omitted registry row cannot be treated as a safe exclusion. No
 public erasure route is invented from #903, which assigns its exact route/copy
 separately.
 
+Retention ranges (2026-11-03): the volume of `history.retention`,
+`history.slug_delete` and `latency.retention` made one manifest row per deleted
+sample or bucket impractical. `journalManifestRow` therefore has a 19th member,
+`retention_range`, naming the expired range of one robot (optionally one
+series) as `[from, cutoff)` with the frozen `row_count` and a `rows_digest`.
+The digest is SHA-256 over the sorted row keys the range held when it was
+frozen, so an older backup of the range can be compared with what was deleted;
+replay itself deletes by range and never by digest. A row written later with a
+timestamp inside the range is therefore inside the deletion; a row at or after
+`cutoff` is never touched. The exact-generation guarantee ("a newly written row
+survives") no longer holds for these two tables, by decision. The per-row
+members stay valid for journals written earlier.
+
 Ops `9e5fcbc3d231b3d96be9fb9cf1bd2789542daa24` closes the earlier
 failed-scope, mirror and evidence-binding questions. The test fixture is copied
 from its four complete unsigned receipt bodies and three mirror examples. A
