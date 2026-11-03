@@ -9,6 +9,13 @@ version.
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the `cancellation_document_url` and invoice PDF route descriptions:
+  Cloud always returns `null` for cancellation document URLs and does not
+  serve cancellation PDFs; cancellation documents are held in Lexware.
+  `cancelled` and the wire schemas are unchanged.
+
 ## [13.0.0] — 2026-11-02
 
 ### Changed
