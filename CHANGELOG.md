@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [13.0.1] — 2026-11-03
+
 ### Fixed
 
 - Corrected the `cancellation_document_url` and invoice PDF route descriptions:
