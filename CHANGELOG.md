@@ -9,6 +9,20 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- `retention_range` member of `journalManifestRow` for retention sweeps of
+  `datapoint_series_samples` and `bridge_latency_buckets`. One row names an
+  expired time range (`table`, `org_id`, `robot_id`, optional `series_id`,
+  `from` inclusive, `cutoff` exclusive, `row_count` and a SHA-256
+  `rows_digest` of the sorted row keys the range held when it was frozen)
+  instead of one manifest row per deleted row. Replay deletes the rows of the
+  range and none at or after its cutoff. `journalManifestBinding` accepts
+  ranges only under `history.retention`, `history.slug_delete` and
+  `latency.retention`, bound to the intent's organization, robot, series and
+  cutoff, with no overlap inside one robot. The per-row `history_sample` and
+  `latency_bucket` members stay valid for journals written before.
+
 ## [13.0.1] — 2026-11-03
 
 ### Fixed
