@@ -9,6 +9,11 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- Clarified that a confirmed paid change's optional `intent.invoice_id` identifies its
+  created charge or invoice, including the matching Lexware `billing.charges[].id`.
+
 ## [13.0.0] — 2026-11-02
 
 ### Changed

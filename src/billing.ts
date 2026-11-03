@@ -601,7 +601,12 @@ const intentIdentity = {
   intent_id: z.uuid().meta({ description: 'Opaque persisted purchase intent identity.' }),
   operation_key: purchaseOperationKey,
   operation: chargeOperation,
-  invoice_id: z.uuid().optional().meta({ description: 'The due charge or issued invoice, for invoice-paying operations.' }),
+  invoice_id: z.uuid().optional().meta({
+    description:
+      'For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with ' +
+      'payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the ' +
+      'matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.',
+  }),
 }
 export const purchaseHoldReason = z.enum([
   'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved',
