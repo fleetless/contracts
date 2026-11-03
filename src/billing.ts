@@ -859,7 +859,7 @@ export const billingInvoice = z.object({
   issued_at: z.iso.datetime().meta({ description: 'When the invoice was issued.' }),
   status: invoiceStatus.meta({ description: 'This invoice\'s own status.' }),
   cancellation_document_url: z.string().nullable().meta({
-    description: 'Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice\'s id, not the cancellation number.',
+    description: 'Cloud always returns `null` for this field, including cancelled historical Cloud invoices. Cancellation documents are held in Lexware.',
   }),
   currency: planCurrency.meta({ description: "The org's billing currency." }),
   net_cents: z.number().int().nonnegative().meta({ description: 'The charge, excluding VAT, in integer cents.' }),
@@ -871,7 +871,7 @@ export type BillingInvoice = z.infer<typeof billingInvoice>
 
 /** Optional document kind for `GET /api/billing/invoices/:id/pdf`; omitted means the original invoice. */
 export const billingInvoicePdfQuery = z.object({
-  kind: z.enum(['invoice', 'cancellation']).optional().meta({ description: 'The original invoice or its stored cancellation PDF; omitted means `invoice`.' }),
+  kind: z.enum(['invoice', 'cancellation']).optional().meta({ description: 'Omitted or `invoice` selects the original invoice PDF. `cancellation` is accepted but returns `404 not_found`: Cloud has no cancellation PDFs.' }),
 }).strict()
 export type BillingInvoicePdfQuery = z.infer<typeof billingInvoicePdfQuery>
 

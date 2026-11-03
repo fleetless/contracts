@@ -3726,15 +3726,15 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'GET', path: '/api/billing/invoices/:id/pdf', section: 'billing',
-    summary: "Downloads an invoice's original or cancellation PDF.",
+    summary: "Downloads a historical Cloud invoice's original PDF.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The invoice id, from `billingInvoice.id` in `GET /api/billing`\'s `invoices`.' }],
     query: billingInvoicePdfQuery, request: null, response: null, contentType: 'application/pdf',
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found'], transport: 'http',
     notes:
       'Owner-only. Omitted `kind` or `kind=invoice` returns the original PDF, rendered once with `pdfkit` when issued and stored as bytes. ' +
-      '`kind=cancellation` returns the stored cancellation PDF for this same invoice id; no read renders a new PDF. ' +
-      '`404 not_found` for an unknown id, one from another org, or a missing cancellation number or PDF. This reads historical Cloud ' +
+      '`kind=cancellation` returns `404 not_found`: Cloud has no cancellation PDFs. Cancellation documents are held in Lexware. ' +
+      '`404 not_found` also covers an unknown id or one from another org. This reads historical Cloud ' +
       "invoices only: a due charge has no PDF of its own here — its eventual Lexware invoice is a document, read through " +
       '`GET /api/billing/documents/:id/file`.',
   },

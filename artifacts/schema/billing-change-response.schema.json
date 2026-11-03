@@ -1131,7 +1131,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice's id, not the cancellation number."
+                    "description": "Cloud always returns `null` for this field, including cancelled historical Cloud invoices. Cancellation documents are held in Lexware."
                   },
                   "currency": {
                     "type": "string",
@@ -1455,7 +1455,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice's id, not the cancellation number."
+                  "description": "Cloud always returns `null` for this field, including cancelled historical Cloud invoices. Cancellation documents are held in Lexware."
                 },
                 "currency": {
                   "type": "string",
@@ -2303,7 +2303,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "Relative same-origin path `/api/billing/invoices/<id>/pdf?kind=cancellation` for a cancelled historical Cloud invoice with a stored cancellation number and PDF; otherwise `null`. The path uses this invoice's id, not the cancellation number."
+                    "description": "Cloud always returns `null` for this field, including cancelled historical Cloud invoices. Cancellation documents are held in Lexware."
                   },
                   "currency": {
                     "type": "string",

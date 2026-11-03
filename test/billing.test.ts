@@ -156,6 +156,11 @@ describe('billing shapes (I-2)', () => {
       .toMatchObject({ status: 'cancelled', cancellation_document_url: cancellationUrl })
     expect(billingInvoice.safeParse({ ...base, status: 'cancelled' }).success).toBe(false)
   })
+  it('documents that Cloud supplies no cancellation document URL', () => {
+    const description = billingInvoice.shape.cancellation_document_url.meta()?.description
+    expect(description).toContain('always returns `null`')
+    expect(description).toContain('Lexware')
+  })
   it('card, PayPal and Apple Pay; no SEPA (André, 2026-10-04)', () => {
     expect(paymentMethodKind.options).toEqual(['card', 'paypal', 'applepay'])
     expect(paymentMethodChangeRequest.safeParse({ operation_key: operationKey, method: 'applepay' }).success).toBe(true)
