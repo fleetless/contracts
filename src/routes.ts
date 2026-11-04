@@ -979,13 +979,12 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'DELETE', path: '/api/apps/:id', section: 'apps',
     summary: 'Deletes an app and everything it produced.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
-      'for an app outside their org, rather than a tier refusal that confirms the id exists. A full cascade — its users, roles, server keys, ' +
+      'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, roles, server keys, ' +
       'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
       'Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
       '`GET /api/apps/:id/deletion-preview`.',
@@ -1084,12 +1083,12 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/apps/:id/server-keys', section: 'apps',
     summary: 'Mints a server key for the app and returns the raw secret once.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 201,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: createServerKeyResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'Owner tier only: a server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, the same ' +
+      'A server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, the same ' +
       'trivial shape role creation takes. `key` is the only moment the raw secret exists outside the caller\'s hands — it is never in a ' +
       'listing, never in an audit event, and cannot be read back.',
   },
@@ -1107,29 +1106,29 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/apps/:id/server-keys/:keyId/rotate', section: 'apps',
     summary: 'Replaces a server key\'s secret in place and returns the new one once.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [
       { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
       { name: 'keyId', description: 'The server key\'s uuid, from `GET /api/apps/:id/server-keys`; a key of another app answers `404`.' },
     ],
     query: null, request: null, response: createServerKeyResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Owner tier, for the reason creation is. The old secret is refused from this call on, and any `/realtime` socket that authenticated with ' +
+      'The old secret is refused from this call on, and any `/realtime` socket that authenticated with ' +
       'it is closed — rotation is what a developer reaches for when a key has leaked, and the holder of that socket is exactly who they are ' +
       'rotating against.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/server-keys/:keyId', section: 'apps',
     summary: 'Revokes a server key and closes every socket holding it.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
     params: [
       { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
       { name: 'keyId', description: 'The server key\'s uuid, from `GET /api/apps/:id/server-keys`; a key of another app answers `404`.' },
     ],
     query: null, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Owner tier, like minting and rotating: all three decide who may speak for the whole app.',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'The key stops working at once. Minting, rotating and revoking all decide who may speak for the whole app.',
   },
 
 
@@ -2748,14 +2747,13 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/robots/:id/token/rotate', section: 'robots',
     summary: 'Mints a new bridge token for the robot and invalidates the old one.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 201,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: robotTokenRotateResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'Owner tier, behind the org-scoped lookup, so a developer-tier admin sees the `404` a stranger would for a robot outside their org rather ' +
-      'than a tier refusal that confirms the id exists. `token` is the only moment the new secret exists outside the caller\'s hands — the cloud ' +
-      'stores a hash — so a caller who loses it rotates again. Audited as `robot.token_rotated`, with no `details`: the one interesting value ' +
+      'A robot outside the caller\'s org answers `404`, as an unknown id does. `token` is the only moment the new secret exists outside the ' +
+      'caller\'s hands — the cloud stores a hash — so a caller who loses it rotates again. Audited as `robot.token_rotated`, with no `details`: the one interesting value ' +
       'here is the token. \n\n**It stops the bridge that is connected right now.** The old secret is gone the instant the hash is replaced, so ' +
       'the cloud closes that socket with `CLOSE_TOKEN_ROTATED` rather than leaving a bridge speaking on a credential nothing would accept ' +
       'again. A bridge that does not know the code reconnects and is refused at hello as `invalid_token`, which is the honest answer and ends ' +
@@ -2824,13 +2822,12 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'DELETE', path: '/api/robots/:id', section: 'robots',
     summary: 'Deletes a robot and everything it produced.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 204,
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: robotDeleteQuery, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'robot_in_use', 'robot_deletion_partial'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'robot_in_use', 'robot_deletion_partial'], transport: 'http',
     notes:
-      'Owner tier, and the gate runs **after** the org-scoped lookup: a developer-tier admin therefore sees the same `404` a stranger would ' +
-      'for a robot outside their org, rather than a tier refusal that confirms the id exists. A full cascade — everything the robot produced ' +
+      'A robot outside the caller\'s org answers `404`, as an unknown id does. A full cascade — everything the robot produced ' +
       'goes, except the audit trail, which is a record of what happened and must survive the thing it happened to. An open live session is ' +
       '`409 robot_in_use` unless `?force=true` is passed, matched as the bare string so the caller has to actually say it. A cascade that ' +
       'fails partway is `500 robot_deletion_partial` with the progress, never a bare `internal_error` that would read as "nothing happened".',
@@ -3396,12 +3393,12 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'POST', path: '/api/robots/:id/assets/sync', section: 'assets',
     summary: 'Asks the robot to upload its URDF and meshes, and returns the sync id.',
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: true, status: 202,
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 202,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: assetSyncRequest, response: assetSyncResponse,
-    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'validation_error', 'not_found', 'robot_offline', 'busy'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'robot_offline', 'busy'], transport: 'http',
     notes:
-      'Owner tier, unconditionally. The guard admits an end user or a server key, but only a developer session gets past the handler — and the ' +
+      'Developer sessions only. The guard admits an end user or a server key, but only a developer session gets past the handler — and the ' +
       'body is parsed **before** that `401`, because this route has always answered a malformed body first and the order has to survive. The ' +
       'request is strict: a caller naming a source that does not exist learns so, instead of silently getting a bridge sync they did not ask ' +
       'for. A robot that has reported nothing available to sync is `404`. A second sync is `409 busy` naming the `sync_id` that is actually ' +
@@ -3424,14 +3421,14 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'DELETE', path: '/api/robots/:id/assets', section: 'assets',
     summary: "Empties a robot's asset store: every URDF, mesh and texture, gone at once.",
-    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: true, status: 200,
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: assetsClearResponse,
-    errors: [...CLIENT_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'busy'], transport: 'http',
+    errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'busy'], transport: 'http',
     notes:
       'The store\'s escape hatch: a full store is never a dead end, and this is the blunt third of the three answers to it — the URDF upload ' +
-      'is exempt from the gate, reconcile after a sync already frees what the new URDF stopped referencing, and this route lets an Owner clear ' +
-      'the robot outright. Owner tier, unconditionally, like starting a sync. Removes every asset of the robot and resets its store to `0`; ' +
+      'is exempt from the gate, reconcile after a sync already frees what the new URDF stopped referencing, and this route lets a developer clear ' +
+      'the robot outright. Developer sessions only, like starting a sync. Removes every asset of the robot and resets its store to `0`; ' +
       "the next sync fills it again. It does not touch the bridge's availability report — `urdf_available` still answers from the connected " +
       'robot, unrelated to what this cloud happens to have stored. A clear while a sync is running is `409 busy` naming that sync\'s ' +
       'details, the same refusal starting a second sync gets, because deleting under a running upload would leave the store counter wrong.',

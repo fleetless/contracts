@@ -731,7 +731,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * | `GET /api/robots/{id}/assets/{assetId}` | developer **or** end user | `assets`, end users only |
  * | `GET /api/robots/{id}/assets/missing?name=` | developer **or** end user | `assets`, end users only |
  * | `GET /api/robots/{id}/urdf` | developer **or** end user | `assets`, end users only |
- * | `POST /api/robots/{id}/assets/sync` | developer, **Owner** tier | — |
+ * | `POST /api/robots/{id}/assets/sync` | developer | — |
  * | `GET /api/robots/{id}/assets/sync/{syncId}` | developer | — |
  * | `POST /api/bridge/assets` | robot token, per sync | — |
  *
@@ -757,9 +757,9 @@ export type JobResponse = z.infer<typeof jobResponse>
  * belonging to that robot. One mechanism instead of two, and robot deletion is
  * already a cascade.
  *
- * Reading is a role capability; **changing the store is Owner-tier** — a sync
- * spends the org's asset quota and a deletion breaks every app rendering that
- * robot, so neither is a Member's to do.
+ * Reading is a role capability; **changing the store takes a developer
+ * session, never an end user's** — a sync spends the org's asset quota and a
+ * deletion breaks every app rendering that robot.
  *
  * **`GET .../assets/missing` is the sole producer of `asset_missing`.** It
  * never succeeds,

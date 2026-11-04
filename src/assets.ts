@@ -562,7 +562,7 @@ export type AssetListResponse = z.infer<typeof assetListResponse>
  *
  * A full store is never a dead end: the URDF upload is exempt from the gate,
  * reconcile after every sync already frees what the new URDF stopped
- * referencing, and this route is the third leg — an Owner can empty the
+ * referencing, and this route is the third leg — a developer can empty the
  * store outright and let the next sync refill it. `deleted` and
  * `bytes_freed` are what changed, not the store's state afterward — that is
  * `0` by construction and not worth a field of its own.
