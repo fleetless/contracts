@@ -2088,7 +2088,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'the refusal has to carry a `WWW-Authenticate` challenge that a guard shared with the REST surface does not send. `Origin` is checked ' +
       'against the cloud\'s own, and a foreign one is the `403 forbidden` above. **Both catalogs, unconditionally**: every caller admitted ' +
       'here is a Fleetless user, so the tool list has nothing left to vary with and the admin-ness check on `tools/call` is gone — a console ' +
-      'tool that is still narrower than the catalog refuses for itself (`console_robots_write.delete` answers `tier_required` to a non-Owner). ' +
+      'tool that is still narrower than the catalog refuses for itself (`console_team_write.delete` refuses to remove an owner). ' +
       '`403 forbidden` is also what an `mcp_session` token whose subject is an **app user** gets: this endpoint serves the team only, and such ' +
       'a token belongs to its own app\'s endpoint. The code is `forbidden` rather than `mcp_disabled` because nothing is switched off — the ' +
       'caller is at the wrong server — and per-app sign-in mints exactly such tokens, so the two states must not share a word. ' +

@@ -258,7 +258,7 @@ describe('bundled MCP tool names', () => {
     expect(cameraSchema).not.toContain('camera_snapshot')
     const routeNotes = ROUTES.map((route) => route.notes).join(' ')
     expect(routeNotes).toContain('MCP action `robots.list`')
-    expect(routeNotes).toContain('console_robots_write.delete')
+    expect(routeNotes).toContain('console_team_write.delete')
     expect(routeNotes).not.toContain('console_robot_delete')
   })
 })
