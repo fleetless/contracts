@@ -122,6 +122,20 @@ describe('the collections section of the route manifest', () => {
     }
   })
 
+  it('answers a malformed id or a missing record only where an id is in the path', () => {
+    for (const [route] of CLIENT) {
+      const r = row(route)
+      const hasRecord = r.params.some((p) => p.name === 'rid')
+      if (r.params.length === 0 || !hasRecord) {
+        // A collection key is not an id, and the app is the bearer's: nothing to be malformed or missing.
+        expect(r.errors, route).not.toContain('invalid_uuid')
+        expect(r.errors, route).not.toContain('not_found')
+      } else {
+        expect(r.errors, route).toEqual(expect.arrayContaining(['invalid_uuid', 'not_found']))
+      }
+    }
+  })
+
   it('lists only catalogued error codes, and names the ones the cloud answers', () => {
     for (const r of section) for (const code of r.errors) expect(ERROR_CODES, `${key(r)} lists ${code}`).toContain(code)
     expect(row(`POST ${A}/:c/records`).errors).toEqual(
@@ -201,9 +215,11 @@ describe('the Owner tier', () => {
 })
 
 describe('the bodies', () => {
-  it('lets publish go without one, and no other route in the section', () => {
-    expect(row(`POST ${A}/schema/publish`).requestOptional).toBe(true)
-    for (const r of section.filter((x) => key(x) !== `POST ${A}/schema/publish`)) expect(r.requestOptional, key(r)).toBeUndefined()
+  it('lets publish and the three restores go without a body, and no other route in the section', () => {
+    // A body whose keys are all optional may be missing; the other bodies carry something the route cannot guess.
+    const optional = [`POST ${A}/schema/publish`, `POST ${A}/schema/versions/:v/restore`, `POST ${A}/:c/records/:rid/restore`, `POST ${C}/:c/records/:rid/restore`]
+    for (const route of optional) expect(row(route).requestOptional, route).toBe(true)
+    for (const r of section.filter((x) => !optional.includes(key(x)))) expect(r.requestOptional, key(r)).toBeUndefined()
   })
 
   it('hands back the export as a file, not as JSON', () => {
@@ -220,6 +236,80 @@ describe('the bodies', () => {
     expect(row(`POST ${C}/:c/records`).status).toBe(201)
     expect(row(`DELETE ${A}/:c/records/:rid`).status).toBe(204)
     expect(row(`DELETE ${A}/schema/draft`).status).toBe(204)
+  })
+})
+
+describe('what the notes say about limits', () => {
+  it('say that a page of records or revisions can be cut short, and what ends a list', () => {
+    for (const route of [`GET ${A}/:c/records`, `GET ${C}/:c/records`]) {
+      expect(row(route).notes ?? '', route).toMatch(/4 MiB/)
+      expect(row(route).notes ?? '', route).toMatch(/only `next_cursor: null` says the list is at its end/)
+    }
+    for (const route of [`GET ${A}/:c/records/:rid/history`, `GET ${C}/:c/records/:rid/history`]) {
+      expect(row(route).notes ?? '', route).toMatch(/4 MiB/)
+      expect(row(route).notes ?? '', route).toMatch(/next_before_seq/)
+    }
+  })
+
+  it('say how big a record write may be on every route that writes one', () => {
+    for (const route of [`POST ${A}/:c/records`, `PATCH ${A}/:c/records/:rid`, `POST ${C}/:c/records`, `PATCH ${C}/:c/records/:rid`]) {
+      expect(row(route).notes ?? '', route).toMatch(/record_too_large/)
+      expect(row(route).notes ?? '', route).toMatch(/2 MiB/)
+    }
+  })
+
+  it('say what the four import routes accept and wait for', () => {
+    for (const route of [`POST ${A}/:c/import/preview`, `POST ${A}/:c/import`, `POST ${C}/:c/import/preview`, `POST ${C}/:c/import`]) {
+      const notes = row(route).notes ?? ''
+      expect(notes, route).toMatch(/21,048,576 bytes/)
+      expect(notes, route).toMatch(/`401` before its body is read/)
+      expect(notes, route).toMatch(/retry_after_ms: 5000/)
+      expect(notes, route).toMatch(/reverse proxy/)
+      expect(row(route).errors, route).toContain('rate_limited')
+    }
+  })
+
+  it('say that an import without confirm answers the preview with 200, not 409', () => {
+    for (const route of [`POST ${A}/:c/import`, `POST ${C}/:c/import`]) {
+      const notes = row(route).notes ?? ''
+      expect(notes, route).toMatch(/without `confirm`/i)
+      expect(notes, route).toMatch(/`200`/)
+      expect(notes, route).toMatch(/not single-use/)
+    }
+  })
+
+  it('keep the purge sentence that the date must be in the past, and name the other refusals', () => {
+    for (const route of [`POST ${A}/history/purge-preview`, `POST ${A}/history/purge`]) {
+      const notes = row(route).notes ?? ''
+      expect(notes, route).toMatch(/not_in_past|in the past/)
+      expect(notes, route).toMatch(/nothing_to_purge/)
+      expect(notes, route).toMatch(/support_forbidden/)
+      expect(row(route).errors, route).toContain('support_forbidden')
+    }
+  })
+
+  it('say that an app user is refused before the collection is looked at, and a developer bearer always', () => {
+    for (const route of [`POST ${C}/:c/import/preview`, `POST ${C}/:c/import`, `GET ${C}/:c/export`]) {
+      expect(row(route).notes ?? '', route).toMatch(/before the collection is looked at/)
+    }
+    for (const [route] of CLIENT) expect(row(route).notes ?? '', route).toMatch(/[Dd]evelopers use `?\/api\/apps\/:id\/collections/)
+    expect(row(`POST ${C}/:c/import`).notes ?? '').toMatch(/423 instance_read_only/)
+  })
+
+  it('say that a version number is a whole number of at most nine digits, and a malformed id is 400', () => {
+    expect(row(`GET ${A}/schema/versions/:v`).params.find((p) => p.name === 'v')!.description).toMatch(/at most nine digits/)
+    for (const r of section.filter((x) => x.audience === 'developer')) {
+      const id = r.params.find((p) => p.name === 'id')
+      if (id) expect(id.description, key(r)).toMatch(/invalid_uuid/)
+    }
+  })
+
+  it('describe the collection frames on /realtime', () => {
+    const realtime = row('GET /realtime')
+    expect(realtime.summary).toMatch(/app collections/)
+    for (const frame of ['collection_subscribe', 'collection_event', 'collection_subscribe_error', 'collections_schema_published', '1013', '1009']) {
+      expect(realtime.notes ?? '', frame).toContain(frame)
+    }
   })
 })
 

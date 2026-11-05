@@ -11048,7 +11048,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11096,7 +11096,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11142,7 +11142,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11170,7 +11170,7 @@
             }
           }
         },
-        "description": "The request carries the document as YAML or JSON text. **Unlike a robot's configuration draft, a document with errors is refused**: `400 validation_error`, with `details.fields` naming each error by its path in the document. A syntax error is refused the same way. What is saved comes back with its warnings and information in `issues`, such as an `access` that names a role the app does not have. Saving the text of the published version again discards the draft, and `updated_at` is `null`.",
+        "description": "The request carries the document as YAML or JSON text. **Unlike a robot's configuration draft, a document with errors is refused**: `400 validation_error`, with `details.fields` naming each error by its path in the document. A syntax error is refused the same way. What is saved comes back with its warnings and information in `issues`, such as an `access` that names a role the organization does not have. Saving the text of the published version again discards the draft, and `updated_at` is `null`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11198,7 +11198,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11239,7 +11239,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11267,7 +11267,7 @@
             }
           }
         },
-        "description": "`effects` lists what would happen to existing records: collections removed or started again, fields removed or converted, values dropped, defaults filled. An effect that would change nothing is not listed, so an empty list means publishing touches no data. `access_changes` and the warnings in `issues` are information and need no confirmation. `token` stands for exactly the effects listed and is `null` when there are none. Nothing is written. Without a saved draft there is nothing to preview: `404 not_found`."
+        "description": "`effects` lists what would happen to existing records: collections removed or started again, fields removed or converted, values dropped, defaults filled. An effect that would change nothing is not listed, so an empty list means publishing touches no data. `access_changes` and the warnings in `issues` are information and need no confirmation. `token` stands for exactly the effects listed, on exactly this draft text and the version in force, and is `null` when there are no effects. `source_sha256` is the hash of the draft text that was previewed, for a publish to name even when there is no token. Nothing is written. Without a saved draft there is nothing to preview: `404 not_found`."
       }
     },
     "/api/apps/{id}/collections/schema/publish": {
@@ -11287,7 +11287,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11315,7 +11315,7 @@
             }
           }
         },
-        "description": "A publish whose preview lists no effects needs no body. One with effects needs the `token` of the current preview as `confirm`; a missing or outdated token is `409 confirmation_required` with the current preview, and its new token, in `details.preview`, and nothing is changed. If the data changed between the preview and the publish so that the effects differ, the token is outdated and the caller confirms the new preview. The new version, every effect on records with its revisions, and the audit entry `collection_schema.published` are written in one transaction or not at all. Afterwards every socket with a collection subscription in the app receives `collections_schema_published`, and subscriptions whose rights or collection are gone end. What the platform does itself, such as filling in defaults or creating the records of a collection with one record per robot, is never refused for a plan limit.",
+        "description": "A publish whose preview lists no effects needs no body. One with effects needs the `token` of the current preview as `confirm`; a missing or outdated token is `409 confirmation_required` with the current preview, and its new token, in `details.preview`, and nothing is changed. If the data changed between the preview and the publish so that the effects differ, or somebody saved the draft again, the token is outdated and the caller confirms the new preview. To be sure that the draft published is the draft that was looked at, also when there are no effects and so no token, send the preview's `source_sha256`: a draft with another text is not published, and the answer is `409 confirmation_required` with the current preview. The new version, every effect on records with its revisions, and the audit entry `collection_schema.published` are written in one transaction or not at all. Afterwards every socket with a collection subscription in the app receives `collections_schema_published`, and subscriptions whose rights or collection are gone end. What the platform does itself, such as filling in defaults or creating the records of a collection with one record per robot, is never refused for a plan limit.",
         "requestBody": {
           "required": false,
           "content": {
@@ -11345,7 +11345,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11373,7 +11373,7 @@
             }
           }
         },
-        "description": "`current` is the version in force, `null` before the first publish. Each version says who published it, when, how many records or values its effects touched and whether restoring it can also put records back (`restore_with_data`). Versions are kept for the life of the app."
+        "description": "`current` is the version in force, `null` before the first publish. Each version says who published it, when, how many records or values its effects touched and whether restoring it can also put records back (`restore_with_data`). A version that a restore published says whether that restore also put records back (`with_data`) and, if it did, how many changes were reverted, records came back or were deleted, and records of deleted robots stayed lost (`reverted_totals`). Versions are kept for the life of the app."
       }
     },
     "/api/apps/{id}/collections/schema/versions/{v}": {
@@ -11393,7 +11393,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11402,7 +11402,7 @@
             "name": "v",
             "in": "path",
             "required": true,
-            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`.",
+            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`: a positive whole number of at most nine digits. Anything else is the same `404 not_found` as a version the app does not have.",
             "schema": {
               "type": "string"
             }
@@ -11430,7 +11430,7 @@
             }
           }
         },
-        "description": "A `:v` that is not a version number and one that names no version of this app are the same `404`."
+        "description": "A `:v` that is not a positive whole number of at most nine digits and one that names no version of this app are the same `404 not_found`."
       }
     },
     "/api/apps/{id}/collections/schema/versions/{v}/restore-preview": {
@@ -11450,7 +11450,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11459,7 +11459,7 @@
             "name": "v",
             "in": "path",
             "required": true,
-            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`.",
+            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`: a positive whole number of at most nine digits. Anything else is the same `404 not_found` as a version the app does not have.",
             "schema": {
               "type": "string"
             }
@@ -11510,7 +11510,7 @@
             }
           }
         },
-        "description": "Without `data` a restore publishes the version's document with the ordinary effects of a publish. With `data=true` it also puts records back to their state at the version's **restore point**, the moment before the version that replaced it was published, **only in the collections the schema difference between the current version and this one touches**; the others keep their data. `collections` deselects some of those. `data_possible` and `data_reason` say whether that can be done at all: not when the restore point is more than 90 days old, not after an owner purged the history it needs, not for the current version. Asking for the records when they cannot come back is `400 validation_error`. Records of robots that were deleted since cannot come back and are counted in `robots_gone`. `token` is `null` when the restore would change no data."
+        "description": "Without `data` a restore publishes the version's document with the ordinary effects of a publish. With `data=true` it also puts records back to their state at the version's **restore point**, the moment before the version that replaced it was published, **only in the collections the schema difference between the current version and this one touches**; the others keep their data. `collections` deselects some of those. `data_possible` and `data_reason` say whether that can be done at all: not when the restore point is more than 90 days old, not after an owner purged the history it needs, not for the current version. Asking for the records when they cannot come back is `400 validation_error`. Records of robots that were deleted since cannot come back and are counted in `robots_gone`. `token` is `null` when the restore would change no data. A `:v` that is not a version of this app is `404 not_found`."
       }
     },
     "/api/apps/{id}/collections/schema/versions/{v}/restore": {
@@ -11530,7 +11530,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11539,7 +11539,7 @@
             "name": "v",
             "in": "path",
             "required": true,
-            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`.",
+            "description": "The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`: a positive whole number of at most nine digits. Anything else is the same `404 not_found` as a version the app does not have.",
             "schema": {
               "type": "string"
             }
@@ -11567,9 +11567,9 @@
             }
           }
         },
-        "description": "Send the `data` and `collections` of the preview together with its `token` as `confirm`; confirmation works as for a publish, including the `409 confirmation_required` answer with the current preview. Changes made since the restore point are reverted by new revisions, so they stay in the history and can be restored one by one. The restore is itself a version and can be undone by restoring the version before it. Audited as `collection_schema.restored`.",
+        "description": "Send the `data` and `collections` of the preview together with its `token` as `confirm`; confirmation works as for a publish, including the `409 confirmation_required` answer with the current preview. Changes made since the restore point are reverted by new revisions, so they stay in the history and can be restored one by one. The restore is itself a version and can be undone by restoring the version before it. Every key of the body is optional, so a restore of the document alone needs no body. Audited as `collection_schema.restored`.",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -11597,7 +11597,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11615,7 +11615,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `support_forbidden`, `invalid_uuid`, `not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11625,7 +11625,7 @@
             }
           }
         },
-        "description": "**Owner tier**: an organization owner, not a developer and not an app role. A developer is answered `403 tier_required`. The body is the one the purge takes; this call never removes anything. It counts the revisions older than `before` and their size, and names the schema versions whose records could no longer be put back. `before` must be in the past. Current values of records are never touched. Purging history is not offered through MCP.",
+        "description": "**Owner tier**: an organization owner, not a developer and not an app user. A developer is answered `403 tier_required`. The body is the one the purge takes; this call never removes anything. It counts the revisions older than `before` and their size, and names the schema versions whose records could no longer be put back: those whose records could be put back today and could not afterwards, judged like `restore_with_data` of the version list, and for the purge of one collection only the versions whose restore touches it. `before` must be in the past (`400 validation_error`, field `before`, rule `not_in_past`), and a date that would remove nothing is refused as well (rule `nothing_to_purge`). A support session is answered `403 support_forbidden`. Current values of records are never touched. Purging history is not offered through MCP.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11655,7 +11655,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11673,7 +11673,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `invalid_uuid`, `not_found`, `validation_error`, `confirmation_required`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `tier_required`, `support_forbidden`, `invalid_uuid`, `not_found`, `validation_error`, `confirmation_required`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11683,7 +11683,7 @@
             }
           }
         },
-        "description": "**Owner tier.** Always confirmed: the `token` of the preview goes in `confirm`, and an outdated one is `409 confirmation_required` with the current preview. The purge is audited as `collection_history.purged` and recorded for good with the collection, independent of how long the audit log is kept: the history of every affected record starts with a note saying who removed what, which the history answers as `purged`.",
+        "description": "**Owner tier.** Always confirmed: the `token` of the preview goes in `confirm`, and an outdated one is `409 confirmation_required` with the current preview. The purge is audited as `collection_history.purged` and recorded for good with the collection, independent of how long the audit log is kept: the history of every affected record starts with a note saying who removed what, which the history answers as `purged`. The refusals of the preview apply (`not_in_past`, `nothing_to_purge`), and a support session is answered `403 support_forbidden`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11713,7 +11713,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11763,7 +11763,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
             }
           },
           {
@@ -11771,7 +11771,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "How many records to return, 1 to 500. Default 50.",
+              "description": "The most records to return, 1 to 500. Default 50. A page can hold fewer: see `next_cursor`.",
               "anyOf": [
                 {
                   "type": "string",
@@ -11855,7 +11855,7 @@
             }
           }
         },
-        "description": "A developer has every right, so here `404 collection_not_found` only means that the published schema has no collection with that key. App users and server keys use `/api/client/collections`, where `access` in the schema decides what each may do with a collection's records. Records of a collection that belongs to robots are those of robots the app has attached; a detached robot's records are kept and hidden until it is attached again. \n\n`filter` is JSON text, `sort` takes up to three fields and breaks ties by `id`, `limit` is at most 500, and `next_cursor` is `null` on the last page, which a short page does not say on its own. `robot=<id>` finds the record of one robot in a collection with one record per robot. `deleted=true` lists deleted records instead, newest deletion first. A filter that breaks the grammar, an unknown field or a cursor that does not belong to this query is `400 validation_error` naming the path."
+        "description": "A developer has every right, so here `404 collection_not_found` only means that the published schema has no collection with that key. App users and server keys use `/api/client/collections`, where `access` in the schema decides what each may do with a collection's records. Records of a collection that belongs to robots are those of robots the app has attached; a detached robot's records are kept and hidden until it is attached again. \n\n`filter` is JSON text, `sort` takes up to three fields and breaks ties by `id`, `limit` is at most 500, and `next_cursor` is `null` on the last page. `robot=<id>` finds the record of one robot in a collection with one record per robot. `deleted=true` lists deleted records instead, newest deletion first, each with `deleted_at` and `deleted_by`, which a live record does not have. A filter that breaks the grammar, an unknown field or a cursor that does not belong to this query is `400 validation_error` naming the path. \n\n**A page can be cut short.** A page of records ends at 4 MiB of stored record values (for the list of deleted records, of the revisions that deleted them), so it can hold fewer than `limit` records while more follow. It always holds at least one record when there is one, `next_cursor` continues after the last record it holds, and a list of ordinary size is never cut; only `next_cursor: null` says the list is at its end. `total` is not affected, and the records `expand` embeds are not counted."
       },
       "post": {
         "operationId": "post_api_apps_id_collections_c_records",
@@ -11873,7 +11873,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11910,7 +11910,7 @@
             }
           }
         },
-        "description": "`values` holds the fields by key; defaults fill the fields left out. A collection that belongs to robots needs the `robot_id` of a robot the app has attached (`400 robot_not_attached`). A collection with one record per robot never creates or deletes records through the API: they come with the robots, and the attempt is `400 validation_error` with `rule: one_per_robot_is_automatic`. A required field with no value is `400 required_missing`, a reference that does not hold is `400 reference_invalid`, a value taken by another record of a unique field is `400 validation_error` with `rule: unique`, and a record of more than 1 MB as JSON is refused as well. Over the plan's record or byte limit the answer is `409 plan_limit`. \n\nWrites are limited to 600 a minute for the app and 120 for one caller; above that the answer is `429 rate_limited` with `retry_after_ms` in the details and a `Retry-After` header in seconds. Audited as `collection_record.created`.",
+        "description": "`values` holds the fields by key; defaults fill the fields left out. A collection that belongs to robots needs the `robot_id` of a robot the app has attached (`400 robot_not_attached`). A collection with one record per robot never creates or deletes records through the API: they come with the robots, and the attempt is `400 validation_error` with `rule: one_per_robot_is_automatic`. A required field with no value is `400 required_missing`, a reference that does not hold is `400 reference_invalid`, a value taken by another record of a unique field is `400 validation_error` with `rule: unique`. The values of a record may be 1,048,576 bytes as JSON; more is `400 validation_error` (field `values`, rule `record_too_large`), and so is a request body of more than 2 MiB, so a record at the cap is sent in a body a little over 1 MiB. Over the plan's record or byte limit the answer is `409 plan_limit`. \n\nWrites are limited to 600 a minute for the app and 120 for one caller; above that the answer is `429 rate_limited` with `retry_after_ms` in the details and a `Retry-After` header in seconds. Audited as `collection_record.created`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11940,7 +11940,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11958,7 +11958,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -11970,7 +11970,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
             }
           }
         ],
@@ -12014,7 +12014,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12032,7 +12032,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12060,7 +12060,7 @@
             }
           }
         },
-        "description": "Only the fields sent change; `null` clears a field. With `expected_revision`, a record that has moved on is `409 record_changed` with its current `revision` in the details, and nothing is changed. Clearing a required field is `400 required_missing`; a record whose required fields were emptied by a schema change can still be updated in its other fields. The `robot_id` of a record never changes: sending it is `400 validation_error`. An update that makes the record bigger can be refused with `409 plan_limit`; one that makes it smaller never is. Audited as `collection_record.updated`.",
+        "description": "Only the fields sent change; `null` clears a field. With `expected_revision`, a record that has moved on is `409 record_changed` with its current `revision` in the details, and nothing is changed. Clearing a required field is `400 required_missing`; a record whose required fields were emptied by a schema change can still be updated in its other fields. The `robot_id` of a record never changes: sending it is `400 validation_error`. The values of a record may be 1,048,576 bytes as JSON; more is `400 validation_error` (field `values`, rule `record_too_large`), and so is a request body of more than 2 MiB, so a record at the cap is sent in a body a little over 1 MiB. An update that makes the record bigger can be refused with `409 plan_limit`; one that makes it smaller never is. Audited as `collection_record.updated`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12088,7 +12088,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12106,7 +12106,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12127,7 +12127,7 @@
             }
           }
         },
-        "description": "A record that other records point at through a reference with `on_delete: prevent` is not deleted: `409 record_referenced`, with the collections that point at it and how many records each has, never their ids or values. With `on_delete: clear` those references are cleared, each as a revision. The record stays in the history, with all its values, and can be restored. A collection with one record per robot refuses a delete with `400 validation_error`. Audited as `collection_record.deleted`."
+        "description": "A record that other records point at through a reference with `on_delete: prevent` is not deleted: `409 record_referenced`, with the collections that point at it, among those the caller may read, and how many records each has, never their ids or values. With `on_delete: clear` those references are cleared, each as a revision. The record stays in the history, with all its values, and can be restored. A collection with one record per robot refuses a delete with `400 validation_error`. Audited as `collection_record.deleted`."
       }
     },
     "/api/apps/{id}/collections/{c}/records/{rid}/history": {
@@ -12147,7 +12147,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12165,7 +12165,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12175,7 +12175,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "How many revisions to return, 1 to 500.",
+              "description": "The most revisions to return, 1 to 500. A page can hold fewer: see `next_before_seq`.",
               "anyOf": [
                 {
                   "type": "string",
@@ -12231,7 +12231,7 @@
             }
           }
         },
-        "description": "Each revision names the operation, the actor, the time, the reason when the change was not an ordinary write (`schema v5`, `import`, `restore v4`) and the fields it changed with their old and new value; a `delete` revision carries the whole record. The history also answers for a deleted record. `purged` is set when an organization owner removed the older part of it. Page with `before_seq`. Reads are not audited."
+        "description": "Each revision names the operation, the actor, the time, the reason when the change was not an ordinary write (`schema v5`, `import`, `restore v4`) and the fields it changed with their old and new value; a `delete` revision carries the whole record. The history also answers for a deleted record. `purged` is set when an organization owner removed the older part of it. Page with `before_seq`. Reads are not audited. \n\nA page of revisions ends at 4 MiB of stored revisions, since the changes of a revision keep the old and the new value and a `delete` the whole record. It always holds at least one revision, `next_before_seq` names the last revision the page holds, and a history of ordinary size is never cut."
       }
     },
     "/api/apps/{id}/collections/{c}/records/{rid}/restore": {
@@ -12251,7 +12251,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12269,7 +12269,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12299,7 +12299,7 @@
         },
         "description": "With `seq`, the record gets the values it had after that revision; without it, a deleted record comes back as it was deleted, with its id. Fields that the schema no longer has and values that no longer validate are dropped, and a value that is now taken by another record of a unique field is refused with `400 validation_error`. The restore is a new revision (`op: restore`), never a rewrite of the history. Audited as `collection_record.restored`.",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -12327,7 +12327,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12354,7 +12354,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12364,7 +12364,7 @@
             }
           }
         },
-        "description": "CSV (UTF-8, a header row, RFC 4180; a `json` field as JSON text) or a JSON array of objects, at most 10 MB and 50,000 rows; more is `400 validation_error`. Nothing is written. `counts` says how many records would be unchanged, new, updated and deleted. Every problem is listed with its row, column, value and reason, up to 1,000 of them; one invalid row, a reference that cannot be resolved, a plan limit that would be exceeded or a deletion that a `prevent` reference blocks fails the whole import. `token` is `null` while there are errors. In `mirror` mode, `mirror_scope: collection` means every record not in the file would be deleted: show it prominently. A `confirm` sent to this route is ignored.",
+        "description": "CSV (UTF-8, a header row, RFC 4180; a `json` field as JSON text) or a JSON array of objects, at most 10 MB and 50,000 rows; more is `400 validation_error`. Nothing is written. `counts` says how many records would be unchanged, new, updated and deleted. Every problem is listed with its row, column, value and reason, up to 1,000 of them; one invalid row, a reference that cannot be resolved, a plan limit that would be exceeded or a deletion that a `prevent` reference blocks fails the whole import. `token` is `null` while there are errors. In `mirror` mode, `mirror_scope: collection` means every record not in the file would be deleted: show it prominently. A `confirm` sent to this route is ignored. A blank cell is no value: the field's default on a new record, a cleared field on an existing one. A multiple `select` is a JSON list or comma-separated values, and a `json` field is JSON text. A column named after a system field is left out unless it is mapped, and the apostrophe that an export puts in front of a cell that looks like a formula is taken off. \n\nThe request body is at most 21,048,576 bytes (twice the 10,000,000 characters of a file, since a file inside a JSON string can double in size on the way, plus 1 MiB); a larger one is `400 validation_error`, field `content`, rule `too_large`. A request without a bearer token is `401` before its body is read. An app runs one import at a time, preview or confirmation, and the cloud three at once; the next is `429 rate_limited` with `retry_after_ms: 5000`. A file of 50,000 rows takes about half a minute in each of its two requests. The cloud sets no request timeout of its own, so a reverse proxy in front of it must allow a minute or more on these routes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12394,7 +12394,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12431,7 +12431,7 @@
             }
           }
         },
-        "description": "The same body as the preview, with the preview's `token` as `confirm`. Without it, or with an outdated one, nothing is imported and the answer is `409 confirmation_required` with the current preview in `details.preview`; a file with errors is never imported, and its preview lists them. A confirmed import runs in one transaction: either every row is written, with revisions whose reason is `import`, or none is. It counts as one write for the rate limit however many rows it has, and is audited once as `collection_import.completed`. Records the import adds can take the organization over its plan's limit: `409 plan_limit`.",
+        "description": "The same body as the preview, with the preview's `token` as `confirm`. **Without `confirm` nothing is imported and the answer is `200` with the preview**, the body of the preview route and not an import result. With a token that is not the one of the current preview, because the data moved on or it belongs to another import, nothing is imported and the answer is `409 confirmation_required` with the current preview in `details.preview`. A file with errors is never imported: its preview, with `token: null`, comes back whatever `confirm` says. The token stands for the file and its settings, the counts, the records the import would match with their revisions and the ones a mirror would delete. It is not single-use, so a keyless import confirmed twice creates its rows twice: look at the collection before repeating a confirmation whose answer was lost. A confirmed import runs in one transaction: either every row is written, with revisions whose reason is `import`, or none is. It counts as one write for the rate limit however many rows it has, and is audited once as `collection_import.completed`. Records the import adds can take the organization over its plan's limit: `409 plan_limit`. On a single-organization instance whose licence has lapsed (read-only administration) it is `423 instance_read_only`; the preview is not. \n\nThe request body is at most 21,048,576 bytes (twice the 10,000,000 characters of a file, since a file inside a JSON string can double in size on the way, plus 1 MiB); a larger one is `400 validation_error`, field `content`, rule `too_large`. A request without a bearer token is `401` before its body is read. An app runs one import at a time, preview or confirmation, and the cloud three at once; the next is `429 rate_limited` with `retry_after_ms: 5000`. A file of 50,000 rows takes about half a minute in each of its two requests. The cloud sets no request timeout of its own, so a reverse proxy in front of it must allow a minute or more on these routes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -12461,7 +12461,7 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12545,7 +12545,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again."
+              "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again. A reference field in the file whose target collection has no such unique field is `400 validation_error` (field `references`, rule `not_unique`); with no reference field among the columns the value is ignored."
             }
           },
           {
@@ -12558,7 +12558,7 @@
                 "true",
                 "false"
               ],
-              "description": "`true` adds the system fields `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`, and `robot_id` in a collection that belongs to robots. Default `false`."
+              "description": "`true` adds the system fields after the fields: `robot_id` in a collection that belongs to robots, then `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`. `created_by` and `updated_by` are the actors' labels. Default `false`."
             }
           }
         ],
@@ -12584,7 +12584,7 @@
             }
           }
         },
-        "description": "Answers `text/csv; charset=utf-8` as an attachment, or, with `format=json`, an attachment of `application/json`: an array of objects. Either way there is no response schema. The filter, search and sort are those of the record list, so the file holds what the list showed. A collection that belongs to robots always has a `robot` column with the robot's name. `references` writes reference fields as ids, or as a unique field of the target, so that the file can be imported again; `system=true` adds the system fields. Reads and exports are not audited."
+        "description": "Answers `text/csv; charset=utf-8` as an attachment, or, with `format=json`, an attachment of `application/json`: an array of objects. Either way there is no response schema. The filter, search and sort are those of the record list, so the file holds what the list showed. The columns are `robot` (the robot's name) first in a collection that belongs to robots, then the fields, then with `system=true` `robot_id` (robot-bound collections), `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`, where `created_by` and `updated_by` are the actors' labels. `references` writes reference fields as ids, or as a unique field of the target, so that the file can be imported again; a reference field whose target has no such unique field is `400 validation_error` (field `references`, rule `not_unique`). A cell that could be read as a formula gets an apostrophe in front, which an import takes off again. Reads and exports are not audited."
       }
     },
     "/api/client/collections": {
@@ -12695,7 +12695,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
             }
           },
           {
@@ -12703,7 +12703,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "How many records to return, 1 to 500. Default 50.",
+              "description": "The most records to return, 1 to 500. Default 50. A page can hold fewer: see `next_cursor`.",
               "anyOf": [
                 {
                   "type": "string",
@@ -12777,7 +12777,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12787,7 +12787,7 @@
             }
           }
         },
-        "description": "The twin of `GET /api/apps/:id/collections/:c/records`, for the app the bearer belongs to. **`404 collection_not_found` or `403 forbidden`.** A caller who has none of `read`, `create`, `update` and `delete` on a collection is answered `404 collection_not_found`, exactly as for a key the schema does not have, so a collection they may not touch cannot be found out by asking. A caller who has some right on it, but not the one the request needs, is answered `403 forbidden`. Records of a collection that belongs to robots are those of robots the app has attached and the caller's role reaches; asking for another robot is `400 robot_not_attached`. With `expand`, a referenced record is embedded only when the caller may read its collection; otherwise the field keeps the id. `deleted=true` needs the right to create."
+        "description": "The twin of `GET /api/apps/:id/collections/:c/records`, for the app the bearer belongs to. **`404 collection_not_found` or `403 forbidden`.** A caller who has none of `read`, `create`, `update` and `delete` on a collection is answered `404 collection_not_found`, exactly as for a key the schema does not have, so a collection they may not touch cannot be found out by asking. A caller who has some right on it, but not the one the request needs, is answered `403 forbidden`. Records of a collection that belongs to robots are those of robots the app has attached and the caller's role reaches; asking for another robot is `400 robot_not_attached`. With `expand`, a referenced record is embedded only when the caller may read its collection; otherwise the field keeps the id. `deleted=true` needs the right to create, and lists each record with `deleted_at` and `deleted_by`. \n\n**A page can be cut short.** A page of records ends at 4 MiB of stored record values (for the list of deleted records, of the revisions that deleted them), so it can hold fewer than `limit` records while more follow. It always holds at least one record when there is one, `next_cursor` continues after the last record it holds, and a list of ordinary size is never cut; only `next_cursor: null` says the list is at its end. `total` is not affected, and the records `expand` embeds are not counted. \n\nA developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\")."
       },
       "post": {
         "operationId": "post_api_client_collections_c_records",
@@ -12829,7 +12829,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `required_missing`, `reference_invalid`, `robot_not_attached`, `plan_limit`, `rate_limited`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `collection_not_found`, `validation_error`, `required_missing`, `reference_invalid`, `robot_not_attached`, `plan_limit`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12839,7 +12839,7 @@
             }
           }
         },
-        "description": "The twin of `POST /api/apps/:id/collections/:c/records`, with the same rules and limits. The caller needs the right to create in `access`. An app user who sets a reference must be allowed to read the target collection, otherwise `400 reference_invalid` with the reason `not_readable`. The record's `created_by` is the caller; it is what `own` compares later.",
+        "description": "The twin of `POST /api/apps/:id/collections/:c/records`, with the same rules and limits. The caller needs the right to create in `access`. An app user who sets a reference must be allowed to read the target collection, otherwise `400 reference_invalid` with the reason `not_readable`. The record's `created_by` is the caller; it is what `own` compares later. The values of a record may be 1,048,576 bytes as JSON; more is `400 validation_error` (field `values`, rule `record_too_large`), and so is a request body of more than 2 MiB, so a record at the cap is sent in a body a little over 1 MiB. \n\nA developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\").",
         "requestBody": {
           "required": true,
           "content": {
@@ -12884,7 +12884,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12896,7 +12896,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
             }
           }
         ],
@@ -12922,7 +12922,7 @@
             }
           }
         },
-        "description": "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`. `expand` works as on the list: a referenced record is embedded only when the caller may read its collection, otherwise the field keeps the id; a name that is not a reference field is `400 validation_error`."
+        "description": "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`. `expand` works as on the list: a referenced record is embedded only when the caller may read its collection, otherwise the field keeps the id; a name that is not a reference field is `400 validation_error`. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\")."
       },
       "patch": {
         "operationId": "patch_api_client_collections_c_records_rid",
@@ -12955,7 +12955,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -12983,7 +12983,7 @@
             }
           }
         },
-        "description": "The twin of `PATCH /api/apps/:id/collections/:c/records/:rid`. Where `access` allows `update` for `own` records only, a record created by someone else is `403 forbidden` for this caller.",
+        "description": "The twin of `PATCH /api/apps/:id/collections/:c/records/:rid`. Where `access` allows `update` for `own` records only, a record created by someone else is `403 forbidden` for this caller. The values of a record may be 1,048,576 bytes as JSON; more is `400 validation_error` (field `values`, rule `record_too_large`), and so is a request body of more than 2 MiB, so a record at the cap is sent in a body a little over 1 MiB. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\").",
         "requestBody": {
           "required": true,
           "content": {
@@ -13026,7 +13026,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -13047,7 +13047,7 @@
             }
           }
         },
-        "description": "The twin of `DELETE /api/apps/:id/collections/:c/records/:rid`. `409 record_referenced` carries counts only, so a caller learns nothing about records in collections they may not read."
+        "description": "The twin of `DELETE /api/apps/:id/collections/:c/records/:rid`. `409 record_referenced` carries counts only, and names only collections the caller may read, so a caller learns nothing about records in collections they may not read. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\")."
       }
     },
     "/api/client/collections/{c}/records/{rid}/history": {
@@ -13082,7 +13082,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -13092,7 +13092,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "How many revisions to return, 1 to 500.",
+              "description": "The most revisions to return, 1 to 500. A page can hold fewer: see `next_before_seq`.",
               "anyOf": [
                 {
                   "type": "string",
@@ -13148,7 +13148,7 @@
             }
           }
         },
-        "description": "Whoever may update a record may read its history; the right to read alone is not enough. With `own`, that is the records the caller created."
+        "description": "Whoever may update a record may read its history; the right to read alone is not enough. With `own`, that is the records the caller created. A page of revisions ends at 4 MiB of stored revisions, since the changes of a revision keep the old and the new value and a `delete` the whole record. It always holds at least one revision, `next_before_seq` names the last revision the page holds, and a history of ordinary size is never cut. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\")."
       }
     },
     "/api/client/collections/{c}/records/{rid}/restore": {
@@ -13183,7 +13183,7 @@
             "name": "rid",
             "in": "path",
             "required": true,
-            "description": "The record's uuid: the `id` of a record that a create or a list returned.",
+            "description": "The record's uuid: the `id` of a record that a create or a list returned. A malformed id is `400 invalid_uuid`.",
             "schema": {
               "type": "string"
             }
@@ -13211,9 +13211,9 @@
             }
           }
         },
-        "description": "The twin of `POST /api/apps/:id/collections/:c/records/:rid/restore`. Restoring a revision of a live record needs the right to update it; bringing a deleted record back needs the right to create.",
+        "description": "The twin of `POST /api/apps/:id/collections/:c/records/:rid/restore`. Restoring a revision of a live record needs the right to update it; bringing a deleted record back needs the right to create. Every key of the body is optional. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\").",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -13265,7 +13265,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `collection_not_found`, `validation_error`, `robot_not_attached`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13275,7 +13275,7 @@
             }
           }
         },
-        "description": "The twin of `POST /api/apps/:id/collections/:c/import/preview`. **A server key only**: import and export are for developers and for the app's server keys, so an app user is answered `403 forbidden`.",
+        "description": "The twin of `POST /api/apps/:id/collections/:c/import/preview`. **A server key only**: import and export are for developers and for the app's server keys, so an app user is answered `403 forbidden` for any collection key, one that does not exist included, before the collection is looked at. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\"). \n\nA blank cell is no value: the field's default on a new record, a cleared field on an existing one. A multiple `select` is a JSON list or comma-separated values, and a `json` field is JSON text. A column named after a system field is left out unless it is mapped, and the apostrophe that an export puts in front of a cell that looks like a formula is taken off. \n\nThe request body is at most 21,048,576 bytes (twice the 10,000,000 characters of a file, since a file inside a JSON string can double in size on the way, plus 1 MiB); a larger one is `400 validation_error`, field `content`, rule `too_large`. A request without a bearer token is `401` before its body is read. An app runs one import at a time, preview or confirmation, and the cloud three at once; the next is `429 rate_limited` with `retry_after_ms: 5000`. A file of 50,000 rows takes about half a minute in each of its two requests. The cloud sets no request timeout of its own, so a reverse proxy in front of it must allow a minute or more on these routes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13329,7 +13329,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`, `confirmation_required`, `plan_limit`, `rate_limited`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `collection_not_found`, `validation_error`, `robot_not_attached`, `confirmation_required`, `plan_limit`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13339,7 +13339,7 @@
             }
           }
         },
-        "description": "The twin of `POST /api/apps/:id/collections/:c/import`, with the same two-step confirmation. **A server key only**; an app user is answered `403 forbidden`.",
+        "description": "The twin of `POST /api/apps/:id/collections/:c/import`, with the same two-step confirmation: without `confirm` the answer is `200` with the preview and nothing is imported, and the token is not single-use. **A server key only**; an app user is answered `403 forbidden` for any collection key, one that does not exist included, before the collection is looked at. On a single-organization instance whose licence has lapsed (read-only administration) it is `423 instance_read_only`, as the developer import is; the preview, single record writes and reads stay allowed. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\"). \n\nThe request body is at most 21,048,576 bytes (twice the 10,000,000 characters of a file, since a file inside a JSON string can double in size on the way, plus 1 MiB); a larger one is `400 validation_error`, field `content`, rule `too_large`. A request without a bearer token is `401` before its body is read. An app runs one import at a time, preview or confirmation, and the cloud three at once; the next is `429 rate_limited` with `retry_after_ms: 5000`. A file of 50,000 rows takes about half a minute in each of its two requests. The cloud sets no request timeout of its own, so a reverse proxy in front of it must allow a minute or more on these routes.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13450,7 +13450,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again."
+              "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again. A reference field in the file whose target collection has no such unique field is `400 validation_error` (field `references`, rule `not_unique`); with no reference field among the columns the value is ignored."
             }
           },
           {
@@ -13463,7 +13463,7 @@
                 "true",
                 "false"
               ],
-              "description": "`true` adds the system fields `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`, and `robot_id` in a collection that belongs to robots. Default `false`."
+              "description": "`true` adds the system fields after the fields: `robot_id` in a collection that belongs to robots, then `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`. `created_by` and `updated_by` are the actors' labels. Default `false`."
             }
           }
         ],
@@ -13479,7 +13479,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `collection_not_found`, `validation_error`, `robot_not_attached`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -13489,7 +13489,7 @@
             }
           }
         },
-        "description": "The twin of `GET /api/apps/:id/collections/:c/export`: `text/csv; charset=utf-8` as an attachment, or JSON when `format=json`. **A server key only**; an app user is answered `403 forbidden`. A server key exports the records of the robots the app has attached."
+        "description": "The twin of `GET /api/apps/:id/collections/:c/export`: `text/csv; charset=utf-8` as an attachment, or JSON when `format=json`. **A server key only**; an app user is answered `403 forbidden` for any collection key, one that does not exist included, before the collection is looked at. A server key exports the records of the robots the app has attached. A developer's bearer is answered `403 forbidden` (\"Developers use /api/apps/:id/collections.\")."
       }
     }
   },
@@ -25515,7 +25515,8 @@
                           },
                           "pattern": {
                             "type": "string",
-                            "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                            "maxLength": 1000,
+                            "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
                           },
                           "searchable": {
                             "type": "boolean",
@@ -26084,15 +26085,17 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991,
-                  "description": "The row the problem is in, counted from 1 over the records of the file, so the header of a CSV is not counted. 0 marks a problem with the file as a whole."
+                  "description": "The row the problem is in, counted from 1 over the records of the file, so the header of a CSV is not counted. 0 marks a problem with the file as a whole, and a deletion of a `mirror` that a `prevent` reference blocks (the column is then the key column and the value the key of the record)."
                 },
                 "column": {
                   "type": "string",
-                  "description": "The column as named in the file. Empty when the problem is not about one column."
+                  "maxLength": 200,
+                  "description": "The column as named in the file. Empty when the problem is not about one column. Cut to 200 characters, an ellipsis included."
                 },
                 "value": {
                   "type": "string",
-                  "description": "The value as found in the file."
+                  "maxLength": 200,
+                  "description": "The value as found in the file, cut to 200 characters with an ellipsis (`…`) at the end when it was longer."
                 },
                 "reason": {
                   "type": "string",
@@ -26153,7 +26156,7 @@
                 "type": "null"
               }
             ],
-            "description": "Stands for exactly this import: send it as `confirm` to carry it out. Null while the file has errors."
+            "description": "Stands for exactly this import: send it as `confirm` to carry it out. Null while the file has errors. It is not single-use; see the note on the import routes."
           }
         },
         "required": [
@@ -26181,7 +26184,7 @@
           "content": {
             "type": "string",
             "maxLength": 10000000,
-            "description": "The file as text, at most 10,000,000 characters and 50,000 rows."
+            "description": "The file as text, at most 10,000,000 characters and as many bytes of UTF-8, and 50,000 rows (`400 validation_error`, rule `too_large` or `too_many_rows`; the latter is raised as soon as the 50,001st row is read, so it does not say how many there are). A byte order mark at the start of a JSON file is ignored."
           },
           "mapping": {
             "type": "object",
@@ -26202,7 +26205,7 @@
               ],
               "description": "The key of the field the column is imported into, the literal `robot`, or an empty string to leave the column out."
             },
-            "description": "Where each column of the file goes, by the column name in the header (for JSON, the property name). A column that is not listed is imported into the field with the same key."
+            "description": "Where each column of the file goes, by the column name in the header (for JSON, the property name). A column that is not listed is imported into the field with the same key. A column named after a system field (`id`, `created_at`, `created_by`, `updated_at`, `updated_by`, `revision`, `robot_id`) is left out unless it is mapped."
           },
           "references": {
             "type": "object",
@@ -26221,7 +26224,7 @@
           "key": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]{0,62}$",
-            "description": "A unique field that matches rows to existing records: a row whose value is found updates that record, the rest create records. Without a key every row creates a record. A collection with one record per robot is only updated, matched by robot, and needs no key."
+            "description": "A unique field that matches rows to existing records: a row whose value is found updates that record, the rest create records. Without a key every row creates a record. A collection with one record per robot is only updated, matched by robot, takes no key and no mirror, and two rows for one robot are an error."
           },
           "mode": {
             "type": "string",
@@ -26229,7 +26232,7 @@
               "upsert",
               "mirror"
             ],
-            "description": "`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`."
+            "description": "`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`. A mirror deletes at most 50,000 records, a file without rows is refused, and a deletion that a `prevent` reference blocks fails the whole import."
           },
           "scope": {
             "type": "object",
@@ -26250,18 +26253,18 @@
               }
             },
             "additionalProperties": false,
-            "description": "Limits which records `mirror` may delete: those matching a filter, or those of one robot. Name one of them. Without a scope the whole collection is mirrored."
+            "description": "Limits which records `mirror` may delete: those matching a filter, or those of one robot. Name exactly one of them: an empty `scope` is `400 validation_error` (rule `empty`), and so is a `scope` on an import that is not a `mirror` (rule `needs_mirror`). Without a scope the whole collection is mirrored, every robot's records included. `robot_id` of the request does not narrow a mirror; use `scope.robot_id`."
           },
           "robot_id": {
             "type": "string",
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "description": "The robot every row belongs to, in a collection that belongs to robots, when the file has no `robot` column."
+            "description": "The robot every row belongs to, in a collection that belongs to robots, when the file has no `robot` column; sent together with a `robot` column it is refused (rule `robot_column_present`). It says which robot the rows are for and does not narrow a `mirror`: that is `scope.robot_id`."
           },
           "confirm": {
             "type": "string",
             "minLength": 1,
-            "description": "The `token` of the preview of exactly this import. A missing or outdated token is answered with `confirmation_required` and the current preview."
+            "description": "The `token` of the preview of exactly this import. Without it the import route answers the preview and imports nothing. A token that is not the one of the current preview, because the data moved on or it belongs to another import, is answered `409 confirmation_required` with the current preview in `details.preview`. A file with errors is never imported: its preview comes back with `token: null`, whatever `confirm` says."
           }
         },
         "required": [
@@ -26374,7 +26377,7 @@
                       "unknown_role"
                     ]
                   },
-                  "description": "`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the app does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop."
+                  "description": "`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the organization does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop."
                 },
                 "revisions": {
                   "type": "integer",
@@ -26475,7 +26478,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200,
-                "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
               }
             },
             "required": [
@@ -26514,7 +26517,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200,
-                "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
               }
             },
             "required": [
@@ -26549,6 +26552,46 @@
             },
             "additionalProperties": {},
             "description": "The record's fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection."
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+          },
+          "deleted_by": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "developer",
+                  "app_user",
+                  "server_key",
+                  "fleetless"
+                ],
+                "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "description": "The id of the developer, app user or server key. The nil id for the platform."
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "label"
+            ],
+            "additionalProperties": false,
+            "description": "Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record."
           }
         },
         "required": [
@@ -26616,7 +26659,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200,
-                      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                     }
                   },
                   "required": [
@@ -26714,7 +26757,7 @@
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 200,
-                              "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                             }
                           },
                           "required": [
@@ -26753,7 +26796,7 @@
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 200,
-                              "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                             }
                           },
                           "required": [
@@ -26788,6 +26831,46 @@
                           },
                           "additionalProperties": {},
                           "description": "The record's fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection."
+                        },
+                        "deleted_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                          "description": "When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+                        },
+                        "deleted_by": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "developer",
+                                "app_user",
+                                "server_key",
+                                "fleetless"
+                              ],
+                              "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+                            },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "The id of the developer, app user or server key. The nil id for the platform."
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "id",
+                            "label"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record."
                         }
                       },
                       "required": [
@@ -26823,7 +26906,8 @@
               ],
               "additionalProperties": false,
               "description": "One change in the history of a record."
-            }
+            },
+            "description": "The revisions of the page, newest first. A page is cut short at 4 MiB of stored revisions, since the changes of a revision keep the old and the new value and a `delete` the whole record. It always holds at least one revision, and a history of ordinary size is never cut."
           },
           "next_before_seq": {
             "anyOf": [
@@ -26836,7 +26920,7 @@
                 "type": "null"
               }
             ],
-            "description": "Send it as `before_seq` to read older revisions. Null when there are none."
+            "description": "Send it as `before_seq` to read older revisions; it names the last revision this page holds, also when the page was cut short. Null when there are none."
           },
           "purged": {
             "anyOf": [
@@ -26872,7 +26956,7 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 200,
-                        "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                        "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                       }
                     },
                     "required": [
@@ -26966,7 +27050,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200,
-                      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                     }
                   },
                   "required": [
@@ -27005,7 +27089,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200,
-                      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                     }
                   },
                   "required": [
@@ -27040,6 +27124,46 @@
                   },
                   "additionalProperties": {},
                   "description": "The record's fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection."
+                },
+                "deleted_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                  "description": "When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+                },
+                "deleted_by": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "developer",
+                        "app_user",
+                        "server_key",
+                        "fleetless"
+                      ],
+                      "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "description": "The id of the developer, app user or server key. The nil id for the platform."
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200,
+                      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "label"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record."
                 }
               },
               "required": [
@@ -27055,7 +27179,8 @@
               ],
               "additionalProperties": false,
               "description": "A record of a collection: its system fields and its values."
-            }
+            },
+            "description": "The records of the page. A page is cut short at 4 MiB of stored record values (for the list of deleted records, of the revisions that deleted them), so it can hold fewer than `limit` records while more follow. It always holds at least one record when there is one, and a list of ordinary size is never cut."
           },
           "next_cursor": {
             "anyOf": [
@@ -27066,13 +27191,13 @@
                 "type": "null"
               }
             ],
-            "description": "Send it as `cursor` to read the next page. Null when this is the last page, which a short page does not say on its own."
+            "description": "Send it as `cursor` to read the next page; it continues after the last record this page holds. Null when this is the last page, which a short page does not say on its own: only `null` says the list is at its end."
           },
           "total": {
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991,
-            "description": "The number of records that match, sent only when `count=true` was asked for."
+            "description": "The number of records that match, sent only when `count=true` was asked for. A page cut short does not change it."
           }
         },
         "required": [
@@ -27104,7 +27229,7 @@
               "type": "string"
             },
             "additionalProperties": {},
-            "description": "The fields to set by key. A `null` clears a field. On an update, fields that are left out keep their value."
+            "description": "The fields to set by key. A `null` clears a field. On an update, fields that are left out keep their value. A record may hold 1,048,576 bytes of values as JSON; more is `400 validation_error`, field `values`, rule `record_too_large`, and so is a request body of more than 2 MiB."
           },
           "robot_id": {
             "type": "string",
@@ -27230,7 +27355,7 @@
                                       }
                                     }
                                   ],
-                                  "description": "A role key, or a list of role keys."
+                                  "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                                 },
                                 {
                                   "type": "object",
@@ -27295,7 +27420,7 @@
                                       }
                                     }
                                   ],
-                                  "description": "A role key, or a list of role keys."
+                                  "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                                 },
                                 {
                                   "type": "object",
@@ -27399,7 +27524,8 @@
                                   },
                                   "pattern": {
                                     "type": "string",
-                                    "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                                    "maxLength": 1000,
+                                    "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
                                   },
                                   "searchable": {
                                     "type": "boolean",
@@ -27847,7 +27973,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "The collections of the app by key, at most 50."
+                    "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none."
                   }
                 },
                 "required": [
@@ -27901,7 +28027,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
-                    "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                    "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                   }
                 },
                 "required": [
@@ -27975,10 +28101,15 @@
             "type": "string",
             "minLength": 1,
             "description": "The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview."
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The `source_sha256` of the preview that was looked at. When it is sent and the saved draft is another text, because somebody saved it again since, nothing is published and the answer is `409 confirmation_required` with the current preview. Leave it out to publish whichever draft is saved; a token (`confirm`) already binds the draft it was made for."
           }
         },
         "additionalProperties": false,
-        "description": "Publishes the draft. The body may be empty when the preview lists no effects; otherwise it carries the preview's token as `confirm`."
+        "description": "Publishes the draft. The body may be empty when the preview lists no effects; otherwise it carries the preview's token as `confirm`. Send `source_sha256` as well to be sure that the draft published is the one that was looked at."
       },
       "collections-publish-response": {
         "type": "object",
@@ -28469,7 +28600,7 @@
               "minimum": 1,
               "maximum": 9007199254740991
             },
-            "description": "Versions whose records can no longer be restored once the history is gone."
+            "description": "Versions whose records could be put back today and could not once the history is gone, judged the way `restore_with_data` of the version list is. For the purge of one collection only the versions whose restore touches that collection are named."
           },
           "token": {
             "type": "string",
@@ -28495,7 +28626,7 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
-            "description": "Revisions older than this UTC time are removed. The current values of records stay."
+            "description": "Revisions older than this UTC time are removed. The current values of records stay. It must lie in the past (`400 validation_error`, field `before`, rule `not_in_past`), and a date older than every revision is refused as well (rule `nothing_to_purge`)."
           },
           "collection": {
             "type": "string",
@@ -30091,6 +30222,11 @@
               "description": "A change of the roles that may do one thing with the records of a collection. Information only; it does not need confirming."
             }
           },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The SHA-256 of the draft text this preview is for (UTF-8, lowercase hex). Send it as `source_sha256` when publishing to publish exactly this draft, also when there are no effects and so no token."
+          },
           "token": {
             "anyOf": [
               {
@@ -30100,7 +30236,7 @@
                 "type": "null"
               }
             ],
-            "description": "Stands for exactly this list of effects: send it as `confirm` when publishing. Null when there are no effects, since publishing then needs no confirmation."
+            "description": "Stands for exactly this list of effects, on exactly this draft text and the version in force now: send it as `confirm` when publishing. If the draft was saved again, or the data or the version changed, the token no longer holds. Null when there are no effects, since publishing then needs no confirmation."
           }
         },
         "required": [
@@ -30110,6 +30246,7 @@
           "issues",
           "effects",
           "access_changes",
+          "source_sha256",
           "token"
         ],
         "additionalProperties": false,
@@ -30151,7 +30288,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 200,
-                "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
               }
             },
             "required": [
@@ -30190,6 +30327,54 @@
           "restore_with_data": {
             "type": "boolean",
             "description": "Whether restoring this version can also put records back: its restore point is at most 90 days old, has not been purged, and it is not the current version."
+          },
+          "with_data": {
+            "type": "boolean",
+            "description": "Whether this version came from a restore that also put records back. `false` for an ordinary publish and for a restore of the document alone."
+          },
+          "reverted_totals": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "changes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Changes made since the restore point that were reverted."
+                  },
+                  "records_back": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Deleted records that came back."
+                  },
+                  "records_deleted": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Records created since the restore point that were deleted."
+                  },
+                  "robots_gone": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Records of robots that were deleted since, which could not come back."
+                  }
+                },
+                "required": [
+                  "changes",
+                  "records_back",
+                  "records_deleted",
+                  "robots_gone"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What putting the records back did, in all the collections together, so that the history of versions can say what came back. Null unless `with_data`."
           },
           "source": {
             "type": "string",
@@ -30291,7 +30476,7 @@
                                   }
                                 }
                               ],
-                              "description": "A role key, or a list of role keys."
+                              "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                             },
                             {
                               "type": "object",
@@ -30356,7 +30541,7 @@
                                   }
                                 }
                               ],
-                              "description": "A role key, or a list of role keys."
+                              "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                             },
                             {
                               "type": "object",
@@ -30460,7 +30645,8 @@
                               },
                               "pattern": {
                                 "type": "string",
-                                "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                                "maxLength": 1000,
+                                "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
                               },
                               "searchable": {
                                 "type": "boolean",
@@ -30908,7 +31094,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "The collections of the app by key, at most 50."
+                "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none."
               }
             },
             "required": [
@@ -30926,6 +31112,8 @@
           "effect_counts",
           "restored_from",
           "restore_with_data",
+          "with_data",
+          "reverted_totals",
           "source",
           "doc"
         ],
@@ -30986,7 +31174,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 200,
-                      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+                      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
                     }
                   },
                   "required": [
@@ -31025,6 +31213,54 @@
                 "restore_with_data": {
                   "type": "boolean",
                   "description": "Whether restoring this version can also put records back: its restore point is at most 90 days old, has not been purged, and it is not the current version."
+                },
+                "with_data": {
+                  "type": "boolean",
+                  "description": "Whether this version came from a restore that also put records back. `false` for an ordinary publish and for a restore of the document alone."
+                },
+                "reverted_totals": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "changes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Changes made since the restore point that were reverted."
+                        },
+                        "records_back": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Deleted records that came back."
+                        },
+                        "records_deleted": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Records created since the restore point that were deleted."
+                        },
+                        "robots_gone": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991,
+                          "description": "Records of robots that were deleted since, which could not come back."
+                        }
+                      },
+                      "required": [
+                        "changes",
+                        "records_back",
+                        "records_deleted",
+                        "robots_gone"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "What putting the records back did, in all the collections together, so that the history of versions can say what came back. Null unless `with_data`."
                 }
               },
               "required": [
@@ -31033,7 +31269,9 @@
                 "published_by",
                 "effect_counts",
                 "restored_from",
-                "restore_with_data"
+                "restore_with_data",
+                "with_data",
+                "reverted_totals"
               ],
               "additionalProperties": false,
               "description": "A published version of the schema document."

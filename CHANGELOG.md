@@ -23,35 +23,55 @@ version.
   filter and sort of a list request and report every problem with a JSON
   Pointer path. Four JSON templates (`pose2d`, `point2d`, `polygon2d`,
   `range1d`) are built in, and a field may carry an inline JSON Schema.
+  `collections:` with nothing under it (YAML null) reads as no collections,
+  the form of a template for a new app. A `json` value may nest arrays and
+  objects 32 levels deep, and a `text` pattern is at most 1,000 characters;
+  the cloud may also refuse a pattern as too complex.
 - **Records.** A record travels as an envelope, `collectionRecord`: its system
   fields (id, robot, who and when, revision), the rendered display text and the
   required fields it is missing, with its own values under `values`. Writes
   send `values`, an optional robot and an optional expected revision, and a
   stale revision is answered `record_changed`. Lists take a filter, a search, a
   sort, `expand`, a page of 1 to 500 and a cursor, and reading one record
-  takes the same `expand` (`collectionRecordGetQuery`); every change keeps a
-  revision, `collectionRevision`, which the history route lists and the restore
-  route can bring back.
+  takes the same `expand` (`collectionRecordGetQuery`); a page ends at 4 MiB
+  of stored values, so only a `null` cursor says a list is at its end. The
+  list of deleted records marks each record with `deleted_at` and
+  `deleted_by`. Every change keeps a revision, `collectionRevision`, which the
+  history route lists (in pages that end at 4 MiB as well) and the restore
+  route can bring back. An actor is labelled by display name; an email
+  address is shown only to a developer or a server key and to the person
+  themselves.
 - **Schema lifecycle.** Saving a draft, previewing it, publishing it, listing
   and restoring versions, and purging old history are separate steps. A change
   that would alter or remove data is previewed first: the preview lists its
   effects (ten kinds) and a token that stands for exactly that list, and the
-  confirming request sends the token back as `confirm`. A version can be
-  restored together with its data for 90 days.
+  confirming request sends the token back as `confirm`; the preview also
+  carries `source_sha256`, the hash of the draft it is for, which a publish can
+  send back so that a draft saved again in between is not published unseen,
+  also when there are no effects and so no token. A version can be restored
+  together with its data for 90 days, and a version that a restore published
+  says whether it put records back (`with_data`) and how many
+  (`reverted_totals`).
 - **Import and export.** An import is all or nothing and takes two requests, a
   preview that lists at most 1,000 errors with row, column, value and reason,
-  and a confirmation with the preview's token. Modes are `upsert` and `mirror`.
-  The export query takes the filter, search and sort of a record list.
+  and a confirmation with the preview's token; without a token the import
+  route answers the preview, and a token that no longer holds is `409
+  confirmation_required`. Modes are `upsert` and `mirror`, and a mirror's
+  `scope` names a filter or a robot. The export query takes the filter, search
+  and sort of a record list.
 - **Realtime.** `collection_subscribe` and `collection_unsubscribe` open and
   close a subscription on the client socket, `collection_event` carries
   `created`, `updated`, `deleted`, `removed` and `entered` with the whole
   record, and `collection_subscribe_error` and `collections_schema_published`
   tell a client its subscription failed or its definitions changed. An
-  accepted subscription is silent: subscribe first, then list.
+  accepted subscription is silent: subscribe first, then list. A developer
+  connection names the app in `app_id`; a socket holds 50 subscriptions at
+  most, and one that falls too far behind is closed with 1013.
 - **Limits.** `COLLECTION_LIMITS` names every bound in one place: record size
   (1 MiB), text lengths, select options, filter depth and conditions, page
-  sizes, import size (10 MB, 50,000 rows) and the write rates (600 a minute for
-  an app, 120 for one acting user or key).
+  sizes, import size (10 MB, 50,000 rows), pattern length, `json` nesting
+  depth, the longest text an import error repeats and the write rates (600 a
+  minute for an app, 120 for one acting user or key).
 - **Routes and codes.** A new route section, App collections, with the
   developer routes under `/api/apps/:id/collections` and the same records,
   import and export for app users and server keys under
@@ -81,18 +101,30 @@ version.
   `collection_records`, the records that go with the robot per app. All three
   are required fields of responses the server sends, like the other counts.
   A consumer that builds these objects itself (a test double, say) adds them.
+- **Quota and effective-rights answers have new required fields.**
+  `orgQuotas` gains `collection_records` and `collection_bytes`, and
+  `effectiveRightsResponse` gains `collections`. A consumer that builds these
+  answers itself adds them, as above; one that only reads them is unaffected.
+- **Fewer refusals are listed where they cannot happen.** The client routes
+  that have no record in their path (the list, the create, the import, the
+  import preview and the export) no longer list `invalid_uuid` and `not_found`.
+  The bodies of the three restore routes are optional, since all their keys
+  are, and the purge routes list `support_forbidden`.
 
 ### Removed
 
-- **The `robot_details` built-in; this is why the release is a major.**
-  `robotDetailsDoc`, `putRobotDetailsRequest` and `putRobotDetailsResponse`
-  (with their types and the three JSON Schema artifacts), the route `PUT
-  /api/robots/:id/details`, and the reserved slug: `RESERVED_SLUGS` is now
-  `bridge_state`, `history`, `assets` and `job_history`, so `robot_details` is
-  an ordinary slug that a configuration may use. The descriptions of `datapointDescriptor`,
-  `datapointListResponse` and the configuration sections name `bridge_state` as
-  the only built-in datapoint. Nothing replaces the document, and nothing was
-  deprecated first.
+- **Breaking (major):** The `robot_details` built-in. `robotDetailsDoc`,
+  `putRobotDetailsRequest` and `putRobotDetailsResponse` (with their types and
+  the three JSON Schema artifacts), the route `PUT /api/robots/:id/details`,
+  and the reserved slug are gone: `RESERVED_SLUGS` is now `bridge_state`,
+  `history`, `assets` and `job_history`, so `robot_details` is an ordinary slug
+  that a configuration may use. The descriptions of `datapointDescriptor`,
+  `datapointListResponse` and the configuration sections name `bridge_state`
+  as the only built-in datapoint. Nothing was deprecated first. To move over,
+  keep what a robot's details held in a collection with one record per robot
+  (`binding: one_per_robot`) in the app's collections document, and read and
+  write it with the collection routes; delete the calls of the removed route
+  and the code that parsed the removed schemas.
 
 ## [14.0.0] — 2026-11-05
 
