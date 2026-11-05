@@ -451,6 +451,11 @@ export {
   orgEventUnsubscribe,
   orgEventReplay,
   orgEventDropped,
+  collectionSubscribe,
+  collectionUnsubscribe,
+  collectionEvent,
+  collectionSubscribeError,
+  collectionsSchemaPublished,
 } from './realtime.js'
 export type {
   ClientAuth,
@@ -476,6 +481,11 @@ export type {
   OrgEventUnsubscribe,
   OrgEventReplay,
   OrgEventDropped,
+  CollectionSubscribe,
+  CollectionUnsubscribe,
+  CollectionEvent,
+  CollectionSubscribeError,
+  CollectionsSchemaPublished,
 } from './realtime.js'
 export {
   password,

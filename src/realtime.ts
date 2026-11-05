@@ -5,6 +5,8 @@ import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
+import { collectionKey } from './collections.js'
+import { collectionFilter, collectionRecord } from './collections-records.js'
 
 /**
  * Client realtime protocol: WebSocket subscriptions on datapoints, the
@@ -538,3 +540,116 @@ export const orgEventDropped = z
   })
   .strict()
 export type OrgEventDropped = z.infer<typeof orgEventDropped>
+
+// ---------------------------------------------------------------------------
+// App collections
+// ---------------------------------------------------------------------------
+
+/**
+ * The name a client gives one of its collection subscriptions. Every event and
+ * every refusal of that subscription carries it back, so one socket can hold
+ * several subscriptions, to the same collection with different filters
+ * included, and tell their events apart.
+ */
+const collectionRequestId = z.string().min(1).max(64).meta({
+  description: 'Chosen by the client, unique among the collection subscriptions open on this socket. Every frame about the subscription carries it.',
+})
+
+/**
+ * Subscribe to the changes of one collection's records.
+ *
+ * **There is no acknowledgement and no first snapshot.** An accepted
+ * subscription is silent until a record changes; only a refusal is answered,
+ * with `collection_subscribe_error`. To show the records that exist, subscribe
+ * first and list afterwards, so that no change can fall between the two.
+ *
+ * The caller's rights are checked on every event, not only on subscribe: a
+ * record that the caller may no longer see, because its values changed, the
+ * role lost the right or the robot was detached, is announced once as
+ * `removed`, and one that comes into view as `entered`.
+ */
+export const collectionSubscribe = z
+  .object({
+    type: z.literal('collection_subscribe'),
+    request_id: collectionRequestId,
+    collection: collectionKey.meta({ description: 'The key of the collection.' }),
+    robot_id: z.uuid().meta({ description: 'Only the records of this robot, in a collection that belongs to robots.' }).optional(),
+    filter: collectionFilter
+      .meta({
+        description:
+          'Only records matching this filter are delivered, with the grammar of the `filter` of the record list but as an object, not JSON text. The whole frame is at most 16,384 bytes, which fits the longest filter allowed.',
+      })
+      .optional(),
+  })
+  .strict()
+  .meta({ description: 'Subscribes to the changes of the records of one collection.' })
+export type CollectionSubscribe = z.infer<typeof collectionSubscribe>
+
+export const collectionUnsubscribe = z
+  .object({
+    type: z.literal('collection_unsubscribe'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription to end.' }),
+  })
+  .strict()
+  .meta({ description: 'Ends a collection subscription.' })
+export type CollectionUnsubscribe = z.infer<typeof collectionUnsubscribe>
+
+/**
+ * One change to a record the subscriber can see. `record` is the whole record,
+ * up to 1 MB, in the shape the REST routes answer.
+ */
+export const collectionEvent = z
+  .object({
+    type: z.literal('collection_event'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription the event belongs to.' }),
+    event: z.enum(['created', 'updated', 'deleted', 'removed', 'entered']).meta({
+      description:
+        '`created`, `updated` and `deleted`: the record was written. `removed`: the record left the view of this subscription without being deleted, because its values no longer match the filter, the role lost the right to read it or its robot was detached. `entered`: the record came into view the same way.',
+    }),
+    id: z.uuid().meta({ description: 'The id of the record.' }),
+    record: collectionRecord
+      .meta({
+        description:
+          'The record: as it is now for `created`, `updated`, `entered` and `removed`, and as it was for `deleted`. Absent only on a `removed` event for a record the subscriber may no longer read, so that its values are not told.',
+      })
+      .optional(),
+  })
+  .strict()
+  .meta({ description: 'A record came into view, changed or went away.' })
+export type CollectionEvent = z.infer<typeof collectionEvent>
+
+/**
+ * Refusal of a collection subscription, or the end of one. The codes are those
+ * of REST: `collection_not_found`, `forbidden`, `robot_not_attached` and
+ * `validation_error` when the subscribe is refused; `collection_removed`,
+ * `forbidden` and `robot_not_attached` when a running subscription ends because
+ * a publish removed its collection or the role or the robot no longer allows it.
+ *
+ * `request_id` echoes what the client sent and is a plain string for the reason
+ * `subscribeError`'s ids are: the refusal must be constructible when the id
+ * itself was what was wrong.
+ */
+export const collectionSubscribeError = z
+  .object({
+    type: z.literal('collection_subscribe_error'),
+    request_id: z.string().meta({ description: 'The `request_id` of the subscription, as the client sent it.' }),
+    code: z.string().min(1).meta({ description: 'A stable error code, as in REST.' }),
+    message: z.string().min(1),
+  })
+  .strict()
+  .meta({ description: 'A collection subscription was refused or has ended.' })
+export type CollectionSubscribeError = z.infer<typeof collectionSubscribeError>
+
+/**
+ * Sent to every socket that holds a collection subscription in the app when a
+ * schema version was published or restored. Rights and collections may have
+ * changed, so a client that cached definitions reads them again.
+ */
+export const collectionsSchemaPublished = z
+  .object({
+    type: z.literal('collections_schema_published'),
+    version: z.number().int().min(1).meta({ description: 'The version that is in force now.' }),
+  })
+  .strict()
+  .meta({ description: 'A new schema version is in force for the app.' })
+export type CollectionsSchemaPublished = z.infer<typeof collectionsSchemaPublished>

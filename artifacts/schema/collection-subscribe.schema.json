@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "collection_subscribe"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Chosen by the client, unique among the collection subscriptions open on this socket. Every frame about the subscription carries it."
+    },
+    "collection": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "The key of the collection."
+    },
+    "robot_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Only the records of this robot, in a collection that belongs to robots."
+    },
+    "filter": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {},
+      "description": "Only records matching this filter are delivered, with the grammar of the `filter` of the record list but as an object, not JSON text. The whole frame is at most 16,384 bytes, which fits the longest filter allowed."
+    }
+  },
+  "required": [
+    "type",
+    "request_id",
+    "collection"
+  ],
+  "additionalProperties": false,
+  "description": "Subscribes to the changes of the records of one collection."
+}

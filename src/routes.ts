@@ -44,6 +44,34 @@ import {
 import { alertListResponse, orgAlertsQuery, orgFiringAlertsResponse } from './alerts.js'
 import { asset, assetListResponse, assetsClearResponse, assetSyncRequest, assetSyncResponse, assetSyncStatus, missingAssetQuery } from './assets.js'
 import { auditListResponse, auditQuery } from './audit.js'
+import {
+  collectionDefinitionsResponse,
+  collectionListResponse,
+  collectionRecord,
+  collectionRecordHistoryQuery,
+  collectionRecordHistoryResponse,
+  collectionRecordListQuery,
+  collectionRecordListResponse,
+  collectionRecordRestoreRequest,
+  collectionRecordWrite,
+} from './collections-records.js'
+import {
+  collectionsDraftResponse,
+  collectionsPublishRequest,
+  collectionsPublishResponse,
+  collectionsPurgePreview,
+  collectionsPurgeRequest,
+  collectionsPurgeResponse,
+  collectionsRestorePreview,
+  collectionsRestorePreviewQuery,
+  collectionsRestoreRequest,
+  collectionsRestoreResponse,
+  collectionsSchemaPreview,
+  collectionsVersionResponse,
+  collectionsVersionsResponse,
+  putCollectionsDraftRequest,
+} from './collections-schema.js'
+import { collectionExportQuery, collectionImportPreview, collectionImportRequest, collectionImportResult } from './collections-transfer.js'
 import { feedbackRequest, feedbackResponse } from './feedback.js'
 import {
   CLIENT_OIDC_CALLBACK_PATH,
@@ -236,7 +264,7 @@ export type RouteAuth = 'developer' | 'developer_or_client' | 'none' | 'robot_up
 export type RouteTransport = 'http' | 'websocket'
 export type RouteSection =
   | 'health' | 'developer-auth' | 'client-auth' | 'org' | 'billing' | 'users' | 'apps'
-  | 'robots' | 'config' | 'alerts' | 'commands' | 'cameras' | 'assets'
+  | 'collections' | 'robots' | 'config' | 'alerts' | 'commands' | 'cameras' | 'assets'
   | 'mcp' | 'transports'
 
 export interface RouteParam {
@@ -302,6 +330,7 @@ export const ROUTE_SECTIONS: readonly { readonly id: RouteSection; readonly titl
   { id: 'billing', title: 'Billing' },
   { id: 'users', title: 'Team' },
   { id: 'apps', title: 'Apps' },
+  { id: 'collections', title: 'App collections' },
   { id: 'robots', title: 'Robots' },
   { id: 'config', title: 'Configuration (draft/publish)' },
   { id: 'alerts', title: 'Alerts' },
@@ -420,6 +449,48 @@ const MOLLIE = ['payment_provider_unavailable'] as const satisfies readonly Erro
  * two lists were kept as separate constants while they still read alike.
  */
 const CLIENT_GUARD = ['unauthorized', 'token_expired', 'token_revoked', 'forbidden'] as const satisfies readonly ErrorCode[]
+
+/**
+ * **What the app collection routes share**, written once: the path parameters
+ * they describe the same way, the refusals every one of them can answer, and the
+ * two paragraphs that tell a reader who may do what.
+ */
+const COLLECTIONS_APP: RouteParam = { name: 'id', description: "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`." }
+const COLLECTIONS_VERSION: RouteParam = {
+  name: 'v',
+  description: 'The schema version number, as listed by `GET /api/apps/:id/collections/schema/versions`.',
+}
+const COLLECTIONS_KEY: RouteParam = {
+  name: 'c',
+  description: "The collection's key, as listed by `GET /api/apps/:id/collections`. The records of a collection whose key is `schema` or `history` are reached the same way.",
+}
+const COLLECTIONS_KEY_CLIENT: RouteParam = {
+  name: 'c',
+  description: "The collection's key, as listed by `GET /api/client/collections`.",
+}
+const COLLECTIONS_RECORD: RouteParam = {
+  name: 'rid',
+  description: "The record's uuid: the `id` of a record that a create or a list returned.",
+}
+
+/** The guard's refusals, a malformed uuid, and an app (or record) that is not there. */
+const COLLECTIONS_DEVELOPER = [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'] as const satisfies readonly ErrorCode[]
+/** The same for the client twins, which also name a collection and can be refused for a missing right. */
+const COLLECTIONS_CLIENT = [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'collection_not_found'] as const satisfies readonly ErrorCode[]
+
+const COLLECTIONS_RIGHTS =
+  "**Who may do what.** Developers and the app's server keys do everything with records. The schema, its versions and its restore are for " +
+  "developers only, and purging old history is for an organization owner alone. An app user's rights come from `access` in the published " +
+  "schema, per collection: `read`, `create`, `update` and `delete` each name roles, and `update` and `delete` can also say `{ all, own }`, " +
+  "where `own` compares `created_by` with the caller. A collection, or an action, that `access` does not mention is allowed to nobody. " +
+  "In a collection that belongs to robots a caller reaches only the records of robots the app has attached and the caller's role reaches. " +
+  "The history of a record is readable, and its revisions restorable, by whoever may update it; a deleted record is brought back with " +
+  "the right to create."
+
+const COLLECTIONS_UNKNOWN =
+  "**`404 collection_not_found` or `403 forbidden`.** A caller who has none of `read`, `create`, `update` and `delete` on a collection is " +
+  "answered `404 collection_not_found`, exactly as for a key the schema does not have, so a collection they may not touch cannot be found " +
+  "out by asking. A caller who has some right on it, but not the one the request needs, is answered `403 forbidden`."
 
 /**
  * **The steps of a developer sign-in, written once for both portal flows.**
@@ -3848,6 +3919,401 @@ export const ROUTES: readonly RouteEntry[] = [
       'still on the beta) carrying `store_bytes`, `used_bytes` and `size_bytes`, while the sync carries on with the next file. Rate limited per ' +
       'robot inside that same hook, which is why `rateLimited` is `false`: there is no rate-limiting preHandler registered on this route. The ' +
       'URDF itself is never refused for the store; only meshes and textures are charged against it.',
+  },
+
+  /* ------------------------------------------------------ app collections */
+  {
+    method: 'GET', path: '/api/apps/:id/collections', section: 'collections',
+    summary: 'Lists the collections of the published schema with their binding, counts, readers and warnings.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: null, response: collectionListResponse,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes:
+      "Per collection: the binding, how many records and fields it has, the roles that may read it, the size of its history and the warnings " +
+      "(`no_role_access`, `unknown_role`, `history_growing`). `version` is `null` and the list empty until a schema has been published. \n\n" +
+      COLLECTIONS_RIGHTS + " \n\n" + COLLECTIONS_UNKNOWN,
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/schema/draft', section: 'collections',
+    summary: "Reads the app's schema draft, or the published version's text when there is no draft.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: null, response: collectionsDraftResponse,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes:
+      "`source` is the text a developer edits: the saved draft; without one, the text of the published version; before the first publish, " +
+      "empty. `updated_at: null` says no draft is saved. `doc` is the parsed document, `null` for empty text. \n\n" +
+      "**Developers only.** The schema routes (draft, preview, publish, versions, restore) can be used by a developer and by nobody else: no app " +
+      "role and no server key can be granted them, which is why none of them has a twin under `/api/client`. Rights for the records of the " +
+      "collections are written in the schema itself, as `access` on each collection, and take effect when it is published.",
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/collections/schema/draft', section: 'collections',
+    summary: 'Replaces the schema draft with a whole document and answers what was found in it.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: putCollectionsDraftRequest, response: collectionsDraftResponse,
+    errors: [...COLLECTIONS_DEVELOPER, 'validation_error'], transport: 'http',
+    notes:
+      "The request carries the document as YAML or JSON text. **Unlike a robot's configuration draft, a document with errors is refused**: " +
+      "`400 validation_error`, with `details.fields` naming each error by its path in the document. A syntax error is refused the same way. " +
+      "What is saved comes back with its warnings and information in `issues`, such as an `access` that names a role the app does not have. " +
+      "Saving the text of the published version again discards the draft, and `updated_at` is `null`.",
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/collections/schema/draft', section: 'collections',
+    summary: 'Discards the schema draft.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [COLLECTIONS_APP], query: null, request: null, response: null,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes: "The next `GET` of the draft answers the text of the published version again. The published version and the records are not touched.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/schema/preview', section: 'collections',
+    summary: 'Computes what publishing the draft would do to the data as it is now.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: null, response: collectionsSchemaPreview,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes:
+      "`effects` lists what would happen to existing records: collections removed or started again, fields removed or converted, values " +
+      "dropped, defaults filled. An effect that would change nothing is not listed, so an empty list means publishing touches no data. " +
+      "`access_changes` and the warnings in `issues` are information and need no confirmation. `token` stands for exactly the effects listed " +
+      "and is `null` when there are none. Nothing is written. Without a saved draft there is nothing to preview: `404 not_found`.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/schema/publish', section: 'collections',
+    summary: 'Publishes the draft as the next schema version.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: collectionsPublishRequest, requestOptional: true, response: collectionsPublishResponse,
+    errors: [...COLLECTIONS_DEVELOPER, 'validation_error', 'confirmation_required'], transport: 'http',
+    notes:
+      "A publish whose preview lists no effects needs no body. One with effects needs the `token` of the current preview as `confirm`; a " +
+      "missing or outdated token is `409 confirmation_required` with the current preview, and its new token, in `details.preview`, and nothing is " +
+      "changed. If the data changed between the preview and the publish so that the effects differ, the token is outdated and the caller " +
+      "confirms the new preview. The new version, every effect on records with its revisions, and the audit entry `collection_schema.published` " +
+      "are written in one transaction or not at all. Afterwards every socket with a collection subscription in the app receives " +
+      "`collections_schema_published`, and subscriptions whose rights or collection are gone end. What the platform does itself, such as filling " +
+      "in defaults or creating the records of a collection with one record per robot, is never refused for a plan limit.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/schema/versions', section: 'collections',
+    summary: 'Lists the published schema versions, newest first.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: null, response: collectionsVersionsResponse,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes:
+      "`current` is the version in force, `null` before the first publish. Each version says who published it, when, how many records or values its " +
+      "effects touched and whether restoring it can also put records back (`restore_with_data`). Versions are kept for the life of the app.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/schema/versions/:v', section: 'collections',
+    summary: 'Reads one published version: its document and the text it was published from.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_VERSION], query: null, request: null, response: collectionsVersionResponse,
+    errors: [...COLLECTIONS_DEVELOPER], transport: 'http',
+    notes: "A `:v` that is not a version number and one that names no version of this app are the same `404`.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/schema/versions/:v/restore-preview', section: 'collections',
+    summary: 'Computes what restoring a version would do, optionally including the records.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_VERSION], query: collectionsRestorePreviewQuery, request: null, response: collectionsRestorePreview,
+    errors: [...COLLECTIONS_DEVELOPER, 'validation_error'], transport: 'http',
+    notes:
+      "Without `data` a restore publishes the version's document with the ordinary effects of a publish. With `data=true` it also puts records back to " +
+      "their state at the version's **restore point**, the moment before the version that replaced it was published, **only in the collections the " +
+      "schema difference between the current version and this one touches**; the others keep their data. `collections` deselects some of those. " +
+      "`data_possible` and `data_reason` say whether that can be done at all: not when the restore point is more than 90 days old, not after an owner purged the " +
+      "history it needs, not for the current version. Asking for the records when they cannot come back is `400 validation_error`. Records of robots " +
+      "that were deleted since cannot come back and are counted in `robots_gone`. `token` is `null` when the restore would change no data.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/schema/versions/:v/restore', section: 'collections',
+    summary: 'Restores a version by publishing its document as a new version, optionally with its records.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_VERSION], query: null, request: collectionsRestoreRequest, response: collectionsRestoreResponse,
+    errors: [...COLLECTIONS_DEVELOPER, 'validation_error', 'confirmation_required'], transport: 'http',
+    notes:
+      "Send the `data` and `collections` of the preview together with its `token` as `confirm`; confirmation works as for a publish, " +
+      "including the `409 confirmation_required` answer with the current preview. Changes made since the restore point are reverted by new " +
+      "revisions, so they stay in the history and can be restored one by one. The restore is itself a version and can be undone by restoring the " +
+      "version before it. Audited as `collection_schema.restored`.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/history/purge-preview', section: 'collections',
+    summary: 'Computes what removing the history older than a date would remove.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: collectionsPurgeRequest, response: collectionsPurgePreview,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
+    notes:
+      "**Owner tier**: an organization owner, not a developer and not an app role. A developer is answered `403 tier_required`. The body is the one the purge " +
+      "takes; this call never removes anything. It counts the revisions older than `before` and their size, and names the schema versions whose " +
+      "records could no longer be put back. `before` must be in the past. Current values of records are never touched. Purging history is " +
+      "not offered through MCP.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/history/purge', section: 'collections',
+    summary: 'Removes the history older than a date, for one collection or the whole app.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
+    params: [COLLECTIONS_APP], query: null, request: collectionsPurgeRequest, response: collectionsPurgeResponse,
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'invalid_uuid', 'not_found', 'validation_error', 'confirmation_required'], transport: 'http',
+    notes:
+      "**Owner tier.** Always confirmed: the `token` of the preview goes in `confirm`, and an outdated one is `409 confirmation_required` with the " +
+      "current preview. The purge is audited as `collection_history.purged` and recorded for good with the collection, independent of how long the " +
+      "audit log is kept: the history of every affected record starts with a note saying who removed what, which the history answers as `purged`.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/:c/records', section: 'collections',
+    summary: 'Lists the records of a collection, filtered, searched and sorted.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY], query: collectionRecordListQuery, request: null, response: collectionRecordListResponse,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "A developer has every right, so here `404 collection_not_found` only means that the published schema has no collection with that key. App " +
+      "users and server keys use `/api/client/collections`, where `access` in the schema decides what each may do with a collection's records. " +
+      "Records of a collection that belongs to robots are those of robots the app has attached; a detached robot's records are kept and hidden until " +
+      "it is attached again. \n\n" +
+      "`filter` is JSON text, `sort` takes up to three fields and breaks ties by `id`, `limit` is at most 500, and `next_cursor` is `null` on the last " +
+      "page, which a short page does not say on its own. `robot=<id>` finds the record of one robot in a collection with one record per robot. " +
+      "`deleted=true` lists deleted records instead, newest deletion first. A filter that breaks the grammar, an unknown field or a cursor that " +
+      "does not belong to this query is `400 validation_error` naming the path.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/:c/records', section: 'collections',
+    summary: 'Creates a record.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY], query: null, request: collectionRecordWrite, response: collectionRecord,
+    errors: [
+      ...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'required_missing', 'reference_invalid', 'robot_not_attached', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "`values` holds the fields by key; defaults fill the fields left out. A collection that belongs to robots needs the `robot_id` of a robot the app has " +
+      "attached (`400 robot_not_attached`). A collection with one record per robot never creates or deletes records through the API: they come " +
+      "with the robots, and the attempt is `400 validation_error` with `rule: one_per_robot_is_automatic`. A required field with no value is " +
+      "`400 required_missing`, a reference that does not hold is `400 reference_invalid`, a value taken by another record of a unique field " +
+      "is `400 validation_error` with `rule: unique`, and a record of more than 1 MB as JSON is refused as well. Over the plan's record or byte limit " +
+      "the answer is `409 plan_limit`. \n\n" +
+      "Writes are limited to 600 a minute for the app and 120 for one caller; above that the answer is `429 rate_limited` with `retry_after_ms` in " +
+      "the details and a `Retry-After` header in seconds. Audited as `collection_record.created`.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/:c/records/:rid', section: 'collections',
+    summary: 'Reads one record.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: null, request: null, response: collectionRecord,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found'], transport: 'http',
+    notes:
+      "A record that is deleted, of another collection or of a robot the app has not attached reads exactly like one that never existed: `404 not_found`. " +
+      "Deleted records are found with `deleted=true` on the list.",
+  },
+  {
+    method: 'PATCH', path: '/api/apps/:id/collections/:c/records/:rid', section: 'collections',
+    summary: 'Changes some fields of a record.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: null, request: collectionRecordWrite, response: collectionRecord,
+    errors: [
+      ...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'required_missing', 'reference_invalid', 'record_changed', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "Only the fields sent change; `null` clears a field. With `expected_revision`, a record that has moved on is `409 record_changed` with its " +
+      "current `revision` in the details, and nothing is changed. Clearing a required field is `400 required_missing`; a record whose required fields " +
+      "were emptied by a schema change can still be updated in its other fields. The `robot_id` of a record never changes: sending it is " +
+      "`400 validation_error`. An update that makes the record bigger can be refused with `409 plan_limit`; one that makes it smaller never is. " +
+      "Audited as `collection_record.updated`.",
+  },
+  {
+    method: 'DELETE', path: '/api/apps/:id/collections/:c/records/:rid', section: 'collections',
+    summary: 'Deletes a record.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: null, request: null, response: null,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'record_referenced', 'rate_limited'], transport: 'http',
+    notes:
+      "A record that other records point at through a reference with `on_delete: prevent` is not deleted: `409 record_referenced`, with the collections " +
+      "that point at it and how many records each has, never their ids or values. With `on_delete: clear` those references are cleared, each as " +
+      "a revision. The record stays in the history, with all its values, and can be restored. A collection with one record per robot " +
+      "refuses a delete with `400 validation_error`. Audited as `collection_record.deleted`.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/:c/records/:rid/history', section: 'collections',
+    summary: "Reads a record's history, newest first.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: collectionRecordHistoryQuery, request: null, response: collectionRecordHistoryResponse,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error'], transport: 'http',
+    notes:
+      "Each revision names the operation, the actor, the time, the reason when the change was not an ordinary write (`schema v5`, `import`, `restore v4`) " +
+      "and the fields it changed with their old and new value; a `delete` revision carries the whole record. The history also answers for a " +
+      "deleted record. `purged` is set when an organization owner removed the older part of it. Page with `before_seq`. Reads are not audited.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/:c/records/:rid/restore', section: 'collections',
+    summary: 'Puts a record back to an earlier revision, or brings a deleted record back.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: null, request: collectionRecordRestoreRequest, response: collectionRecord,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'plan_limit', 'rate_limited'], transport: 'http',
+    notes:
+      "With `seq`, the record gets the values it had after that revision; without it, a deleted record comes back as it was deleted, with its id. " +
+      "Fields that the schema no longer has and values that no longer validate are dropped, and a value that is now taken by another record of a " +
+      "unique field is refused with `400 validation_error`. The restore is a new revision (`op: restore`), never a rewrite of the history. " +
+      "Audited as `collection_record.restored`.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/:c/import/preview', section: 'collections',
+    summary: 'Checks a file of records against a collection and answers what importing it would do.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY], query: null, request: collectionImportRequest, response: collectionImportPreview,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "CSV (UTF-8, a header row, RFC 4180; a `json` field as JSON text) or a JSON array of objects, at most 10 MB and 50,000 rows; more is " +
+      "`400 validation_error`. Nothing is written. `counts` says how many records would be unchanged, new, updated and deleted. Every problem is " +
+      "listed with its row, column, value and reason, up to 1,000 of them; one invalid row, a reference that cannot be resolved, a plan limit " +
+      "that would be exceeded or a deletion that a `prevent` reference blocks fails the whole import. `token` is `null` while there are errors. " +
+      "In `mirror` mode, `mirror_scope: collection` means every record not in the file would be deleted: show it prominently. A `confirm` sent to " +
+      "this route is ignored.",
+  },
+  {
+    method: 'POST', path: '/api/apps/:id/collections/:c/import', section: 'collections',
+    summary: 'Imports a file of records, all or nothing, once the preview has been confirmed.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY], query: null, request: collectionImportRequest, response: collectionImportResult,
+    errors: [
+      ...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'robot_not_attached', 'confirmation_required', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "The same body as the preview, with the preview's `token` as `confirm`. Without it, or with an outdated one, nothing is imported and the " +
+      "answer is `409 confirmation_required` with the current preview in `details.preview`; a file with errors is never imported, and its preview " +
+      "lists them. A confirmed import runs in one " +
+      "transaction: either every row is written, with revisions whose reason is `import`, or none is. It counts as one write for the rate limit " +
+      "however many rows it has, and is audited once as `collection_import.completed`. Records the import adds can take the organization over its " +
+      "plan's limit: `409 plan_limit`.",
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/collections/:c/export', section: 'collections',
+    summary: 'Downloads the records of a collection as a CSV or JSON file.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY], query: collectionExportQuery, request: null, response: null, contentType: 'text/csv',
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "Answers `text/csv; charset=utf-8` as an attachment, or, with `format=json`, an attachment of `application/json`: an array of objects. Either way " +
+      "there is no response schema. The filter, search and sort are those of the record list, so the file holds what the list showed. A collection " +
+      "that belongs to robots always has a `robot` column with the robot's name. `references` writes reference fields as ids, or as a unique field of " +
+      "the target, so that the file can be imported again; `system=true` adds the system fields. Reads and exports are not audited.",
+  },
+
+  /* ---- the same collections for app users and server keys, under /api/client */
+  {
+    method: 'GET', path: '/api/client/collections', section: 'collections',
+    summary: 'Lists the collections the caller may read, with their fields and what the caller may do with them.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: collectionDefinitionsResponse,
+    errors: [...CLIENT_GUARD], transport: 'http',
+    notes:
+      "Everything an app needs to draw a form: for each readable collection its fields, its display template and `can`, what this caller may " +
+      "do with its records. A collection the caller cannot read is absent. The caller is an app user or a server key of the app; **a developer's " +
+      "bearer is answered `403 forbidden`**, because developers use `/api/apps/:id/collections`. \n\n" +
+      COLLECTIONS_RIGHTS + " \n\n" + COLLECTIONS_UNKNOWN,
+  },
+  {
+    method: 'GET', path: '/api/client/collections/:c/records', section: 'collections',
+    summary: 'Lists the records of a collection the caller may read, filtered, searched and sorted.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT], query: collectionRecordListQuery, request: null, response: collectionRecordListResponse,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "The twin of `GET /api/apps/:id/collections/:c/records`, for the app the bearer belongs to. " +
+      COLLECTIONS_UNKNOWN + " Records of a collection that belongs to robots are those of robots the app has attached and the caller's role " +
+      "reaches; asking for another robot is `400 robot_not_attached`. With `expand`, a referenced record is embedded only when the caller may " +
+      "read its collection; otherwise the field keeps the id. `deleted=true` needs the right to create.",
+  },
+  {
+    method: 'POST', path: '/api/client/collections/:c/records', section: 'collections',
+    summary: 'Creates a record in a collection the caller may create in.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 201,
+    params: [COLLECTIONS_KEY_CLIENT], query: null, request: collectionRecordWrite, response: collectionRecord,
+    errors: [
+      ...COLLECTIONS_CLIENT, 'validation_error', 'required_missing', 'reference_invalid', 'robot_not_attached', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "The twin of `POST /api/apps/:id/collections/:c/records`, with the same rules and limits. The caller needs the right to create in `access`. " +
+      "An app user who sets a reference must be allowed to read the target collection, otherwise `400 reference_invalid` with the reason " +
+      "`not_readable`. The record's `created_by` is the caller; it is what `own` compares later.",
+  },
+  {
+    method: 'GET', path: '/api/client/collections/:c/records/:rid', section: 'collections',
+    summary: 'Reads one record the caller may read.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: null, request: null, response: collectionRecord,
+    errors: [...COLLECTIONS_CLIENT], transport: 'http',
+    notes: "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`.",
+  },
+  {
+    method: 'PATCH', path: '/api/client/collections/:c/records/:rid', section: 'collections',
+    summary: 'Changes some fields of a record the caller may update.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: null, request: collectionRecordWrite, response: collectionRecord,
+    errors: [
+      ...COLLECTIONS_CLIENT, 'validation_error', 'required_missing', 'reference_invalid', 'record_changed', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "The twin of `PATCH /api/apps/:id/collections/:c/records/:rid`. Where `access` allows `update` for `own` records only, a record created " +
+      "by someone else is `403 forbidden` for this caller.",
+  },
+  {
+    method: 'DELETE', path: '/api/client/collections/:c/records/:rid', section: 'collections',
+    summary: 'Deletes a record the caller may delete.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 204,
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: null, request: null, response: null,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error', 'record_referenced', 'rate_limited'], transport: 'http',
+    notes:
+      "The twin of `DELETE /api/apps/:id/collections/:c/records/:rid`. `409 record_referenced` carries counts only, so a caller learns nothing about " +
+      "records in collections they may not read.",
+  },
+  {
+    method: 'GET', path: '/api/client/collections/:c/records/:rid/history', section: 'collections',
+    summary: "Reads the history of a record the caller may update.",
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: collectionRecordHistoryQuery, request: null, response: collectionRecordHistoryResponse,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error'], transport: 'http',
+    notes: "Whoever may update a record may read its history; the right to read alone is not enough. With `own`, that is the records the caller created.",
+  },
+  {
+    method: 'POST', path: '/api/client/collections/:c/records/:rid/restore', section: 'collections',
+    summary: 'Puts a record back to an earlier revision, or brings a deleted record back.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: null, request: collectionRecordRestoreRequest, response: collectionRecord,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error', 'plan_limit', 'rate_limited'], transport: 'http',
+    notes:
+      "The twin of `POST /api/apps/:id/collections/:c/records/:rid/restore`. Restoring a revision of a live record needs the right to update it; " +
+      "bringing a deleted record back needs the right to create.",
+  },
+  {
+    method: 'POST', path: '/api/client/collections/:c/import/preview', section: 'collections',
+    summary: 'Checks a file of records against a collection and answers what importing it would do.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT], query: null, request: collectionImportRequest, response: collectionImportPreview,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "The twin of `POST /api/apps/:id/collections/:c/import/preview`. **A server key only**: import and export are for developers and for the app's " +
+      "server keys, so an app user is answered `403 forbidden`.",
+  },
+  {
+    method: 'POST', path: '/api/client/collections/:c/import', section: 'collections',
+    summary: 'Imports a file of records, all or nothing, once the preview has been confirmed.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT], query: null, request: collectionImportRequest, response: collectionImportResult,
+    errors: [
+      ...COLLECTIONS_CLIENT, 'validation_error', 'robot_not_attached', 'confirmation_required', 'plan_limit', 'rate_limited',
+    ], transport: 'http',
+    notes:
+      "The twin of `POST /api/apps/:id/collections/:c/import`, with the same two-step confirmation. **A server key only**; an app user is answered " +
+      "`403 forbidden`.",
+  },
+  {
+    method: 'GET', path: '/api/client/collections/:c/export', section: 'collections',
+    summary: 'Downloads the records of a collection as a CSV or JSON file.',
+    audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
+    params: [COLLECTIONS_KEY_CLIENT], query: collectionExportQuery, request: null, response: null, contentType: 'text/csv',
+    errors: [...COLLECTIONS_CLIENT, 'validation_error', 'robot_not_attached'], transport: 'http',
+    notes:
+      "The twin of `GET /api/apps/:id/collections/:c/export`: `text/csv; charset=utf-8` as an attachment, or JSON when `format=json`. **A server key " +
+      "only**; an app user is answered `403 forbidden`. A server key exports the records of the robots the app has attached.",
   },
 
   /* ------------------------------------ realtime and bridge transports */

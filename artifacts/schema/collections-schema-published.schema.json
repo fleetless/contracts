@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "collections_schema_published"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "The version that is in force now."
+    }
+  },
+  "required": [
+    "type",
+    "version"
+  ],
+  "additionalProperties": false,
+  "description": "A new schema version is in force for the app."
+}

@@ -103,6 +103,11 @@ import {
   orgEventUnsubscribe,
   orgEventReplay,
   orgEventDropped,
+  collectionSubscribe,
+  collectionUnsubscribe,
+  collectionEvent,
+  collectionSubscribeError,
+  collectionsSchemaPublished,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
@@ -588,6 +593,11 @@ export const exportedSchemas = {
   'org-event-unsubscribe': orgEventUnsubscribe,
   'org-event-replay': orgEventReplay,
   'org-event-dropped': orgEventDropped,
+  'collection-subscribe': collectionSubscribe,
+  'collection-unsubscribe': collectionUnsubscribe,
+  'collection-event': collectionEvent,
+  'collection-subscribe-error': collectionSubscribeError,
+  'collections-schema-published': collectionsSchemaPublished,
   'api-error': apiError,
   org: org,
   'auth-me-response': authMeResponse,
@@ -1106,6 +1116,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'subscribe-error', 'datapoint-event', 'resource-health-event', 'job-event',
   'client-invoke', 'client-cancel', 'client-publish', 'command-result', 'error-frame',
   'org-event-subscribe', 'org-event-unsubscribe',
+  // Collection subscriptions, in both directions as the frames above are.
+  'collection-subscribe', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error',
+  'collections-schema-published',
 
   // --- REST request bodies and queries -------------------------------------
   'create-robot-request', 'waitlist-request',
