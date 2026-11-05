@@ -6920,7 +6920,7 @@
             }
           }
         },
-        "description": "A draft that is valid YAML but not a Fleetless configuration is `422 draft_not_a_document`, carrying every issue rather than the blocking subset — nothing about that text is publishable, so there is no subset to pick, and the warning naming the checks that could not run is part of reading the list correctly. A document with `severity: \"error\"` issues is `422 validation_error` with just those. The draft's own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it."
+        "description": "A draft that is valid YAML but not a Fleetless configuration is `422 draft_not_a_document`, carrying every issue rather than the blocking subset — nothing about that text is publishable, so there is no subset to pick, and the warning naming the checks that could not run is part of reading the list correctly. A document with `severity: \"error\"` issues is `422 validation_error` with just those. The draft's own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it. The answer carries `warnings`: every `warning` of the published document, role keys that name no role of the organization included. A warning never blocks a publish."
       }
     },
     "/api/robots/{id}/config/versions": {
@@ -22578,6 +22578,24 @@
                             "additionalProperties": false
                           },
                           "description": "Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "Which role may read this datapoint: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `read` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                         }
                       },
                       "required": [
@@ -22728,6 +22746,24 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 2000
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "Which role may start this action: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `invoke` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                         }
                       },
                       "required": [
@@ -22878,6 +22914,24 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 2000
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "Which role may call this service: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `invoke` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                         }
                       },
                       "required": [
@@ -23061,6 +23115,24 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 2000
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "Which role may send to this publisher, which is what driving the robot is: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `publish` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                         }
                       },
                       "required": [
@@ -23308,6 +23380,24 @@
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 2000
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "Which role may see this camera: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `read` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                         }
                       },
                       "required": [
@@ -23321,6 +23411,102 @@
                       "additionalProperties": false
                     },
                     "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                  },
+                  "access": {
+                    "type": "object",
+                    "properties": {
+                      "rules": {
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "match": {
+                              "type": "string",
+                              "maxLength": 255,
+                              "pattern": "^(?:\\/(?:\\*\\*|(?![A-Za-z0-9_*]*\\*\\*)(?:\\*|[A-Za-z_])[A-Za-z0-9_*]*))+$",
+                              "description": "A glob over the ROS name an entry is exposed by: the `topic` of a datapoint or a publisher, the `ros_name` of a service or an action, the source topic of a camera that reads a ROS topic. `*` stands for one name segment, or for any characters inside one (`/joint_*`); `**` stands for any number of segments, none included, so `/arm/**` fits `/arm` and everything below it. Always absolute."
+                            },
+                            "kinds": {
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "read",
+                                  "invoke",
+                                  "publish"
+                                ]
+                              },
+                              "description": "Narrows the rule to some kinds of access. Without it the rule fits entries of every kind."
+                            },
+                            "role": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                },
+                                {
+                                  "minItems": 1,
+                                  "maxItems": 50,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                  }
+                                }
+                              ],
+                              "description": "The role that may use what this rule fits: one key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. A key that names no role of the organization is a warning when you publish and grants nothing."
+                            }
+                          },
+                          "required": [
+                            "match",
+                            "role"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Ordered rules that give a role to every entry whose ROS name fits `match`, so a whole namespace is covered by one line. For an entry the order of precedence is its own `role`, then the first rule that fits it, then the organization's default for its kind. A rule that fits no entry of this document is a warning and changes nothing."
+                      },
+                      "assets": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          },
+                          {
+                            "minItems": 1,
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            }
+                          }
+                        ],
+                        "description": "Who may use this robot's asset store — the meshes and the URDF a viewer draws it from — in place of the organization's default for `assets`. One role key, or a list of keys."
+                      },
+                      "job_history": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          },
+                          {
+                            "minItems": 1,
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            }
+                          }
+                        ],
+                        "description": "Who may read this robot's job history, in place of the organization's default for `job_history`. One role key, or a list of keys. A run names the person who started it, so whoever may read the history learns who else has been driving the robot."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Who may use what on this robot, beyond the `role` an entry can carry itself: ordered `rules` over ROS name patterns, and the robot-level `assets` and `job_history`. Everything in it is optional. For an entry the precedence is its own `role`, then the first rule that fits, then the organization's default for its kind; only the published version counts. The robot ignores this section."
                   },
                   "low_bandwidth": {
                     "description": "Overrides for the bridge's low-bandwidth mode; see the section schema.",
@@ -23740,6 +23926,24 @@
                         "additionalProperties": false
                       },
                       "description": "Alerts watching this value, keyed by slug; each moves between `ok` and `firing` and writes an org event on every transition. No mail is sent. **The key is the identity**, so renaming an alert is a delete plus a create: its runtime state is lost, and an alert that is still true fires again."
+                    },
+                    "role": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          }
+                        }
+                      ],
+                      "description": "Which role may read this datapoint: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `read` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                     }
                   },
                   "required": [
@@ -23890,6 +24094,24 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 2000
+                    },
+                    "role": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          }
+                        }
+                      ],
+                      "description": "Which role may start this action: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `invoke` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                     }
                   },
                   "required": [
@@ -24040,6 +24262,24 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 2000
+                    },
+                    "role": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          }
+                        }
+                      ],
+                      "description": "Which role may call this service: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `invoke` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                     }
                   },
                   "required": [
@@ -24223,6 +24463,24 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 2000
+                    },
+                    "role": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          }
+                        }
+                      ],
+                      "description": "Which role may send to this publisher, which is what driving the robot is: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `publish` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                     }
                   },
                   "required": [
@@ -24470,6 +24728,24 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 2000
+                    },
+                    "role": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        },
+                        {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          }
+                        }
+                      ],
+                      "description": "Which role may see this camera: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `read` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
                     }
                   },
                   "required": [
@@ -24483,6 +24759,102 @@
                   "additionalProperties": false
                 },
                 "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+              },
+              "access": {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "match": {
+                          "type": "string",
+                          "maxLength": 255,
+                          "pattern": "^(?:\\/(?:\\*\\*|(?![A-Za-z0-9_*]*\\*\\*)(?:\\*|[A-Za-z_])[A-Za-z0-9_*]*))+$",
+                          "description": "A glob over the ROS name an entry is exposed by: the `topic` of a datapoint or a publisher, the `ros_name` of a service or an action, the source topic of a camera that reads a ROS topic. `*` stands for one name segment, or for any characters inside one (`/joint_*`); `**` stands for any number of segments, none included, so `/arm/**` fits `/arm` and everything below it. Always absolute."
+                        },
+                        "kinds": {
+                          "minItems": 1,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "read",
+                              "invoke",
+                              "publish"
+                            ]
+                          },
+                          "description": "Narrows the rule to some kinds of access. Without it the rule fits entries of every kind."
+                        },
+                        "role": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            },
+                            {
+                              "minItems": 1,
+                              "maxItems": 50,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              }
+                            }
+                          ],
+                          "description": "The role that may use what this rule fits: one key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. A key that names no role of the organization is a warning when you publish and grants nothing."
+                        }
+                      },
+                      "required": [
+                        "match",
+                        "role"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Ordered rules that give a role to every entry whose ROS name fits `match`, so a whole namespace is covered by one line. For an entry the order of precedence is its own `role`, then the first rule that fits it, then the organization's default for its kind. A rule that fits no entry of this document is a warning and changes nothing."
+                  },
+                  "assets": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      },
+                      {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        }
+                      }
+                    ],
+                    "description": "Who may use this robot's asset store — the meshes and the URDF a viewer draws it from — in place of the organization's default for `assets`. One role key, or a list of keys."
+                  },
+                  "job_history": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      },
+                      {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        }
+                      }
+                    ],
+                    "description": "Who may read this robot's job history, in place of the organization's default for `job_history`. One role key, or a list of keys. A run names the person who started it, so whoever may read the history learns who else has been driving the robot."
+                  }
+                },
+                "additionalProperties": false,
+                "description": "Who may use what on this robot, beyond the `role` an entry can carry itself: ordered `rules` over ROS name patterns, and the robot-level `assets` and `job_history`. Everything in it is optional. For an entry the precedence is its own `role`, then the first rule that fits, then the organization's default for its kind; only the published version counts. The robot ignores this section."
               },
               "low_bandwidth": {
                 "description": "Overrides for the bridge's low-bandwidth mode; see the section schema.",
@@ -34803,11 +35175,58 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "slug": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "slug",
+                "code",
+                "message",
+                "severity"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Every `warning` of the published document — an unknown topic, a role key that names no role of the organization, a rule that fits nothing. A warning never blocks a publish; it is here so the author does not have to go looking for it. `[]` for a document with none."
           }
         },
         "required": [
           "version",
-          "published_at"
+          "published_at",
+          "warnings"
         ],
         "additionalProperties": false
       },

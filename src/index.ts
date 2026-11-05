@@ -220,6 +220,8 @@ export {
   lowBandwidthSection,
   LOW_BANDWIDTH_DEFAULTS,
   robotConfigDoc,
+  accessRule,
+  accessSection,
   validationIssue,
   configState,
   snapshotIntervalSeconds,
@@ -249,6 +251,8 @@ export type {
   DatapointConfig,
   LowBandwidthSection,
   RobotConfigDoc,
+  AccessRule,
+  AccessSection,
   ValidationIssue,
   ConfigState,
 } from './config.js'
@@ -266,6 +270,47 @@ export {
   configSchemaHash,
 } from './config-issues.js'
 export type { SchemaIssue, ExposureSection } from './config-issues.js'
+/**
+ * Roles and the rights a document resolves to — one implementation for the
+ * cloud, the console editor and anything else that has to answer "who may use
+ * this?" the same way. See `rights.ts`.
+ */
+export {
+  ROLE_KEY_PATTERN,
+  ROLE_KEY_RULE,
+  roleKey,
+  roleRef,
+  ACCESS_KINDS,
+  accessKind,
+  ENTRY_KINDS,
+  MAX_ORG_ROLES,
+  ROLE_NAME_MAX,
+  SEED_ROLES,
+  SEED_DEFAULTS,
+  entryKindOf,
+  rosNameOf,
+  matchRosGlob,
+  roleClosure,
+  roleSatisfies,
+  listExposures,
+  requirementOf,
+  findCycle,
+  collectRoleRefs,
+  roleIssues,
+} from './rights.js'
+export type {
+  RoleKey,
+  RoleRef,
+  AccessKind,
+  EntryKind,
+  RoleNode,
+  RoleGraph,
+  RoleDefaults,
+  RequirementSource,
+  Requirement,
+  ExposureRef,
+  RightsTarget,
+} from './rights.js'
 export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf } from './introspection.js'
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {

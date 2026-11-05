@@ -58,14 +58,14 @@ describe('a refusal says what is wrong', () => {
  * spellings of one rule; nothing consumes `patternErrorMessage` at runtime —
  * it is documentation in a published artifact. An unwatched second spelling
  * of a live rule drifts silently, which is how `buildAcceptUrl` came to mail
- * a URL three ways. So the two are asserted equal at all 24 pattern
+ * a URL three ways. So the two are asserted equal at all 41 pattern
  * positions the document has.
  *
  * **Where the two are not byte-identical, and why.** At the ten map-key
  * positions the message must also name the offending key — `Invalid key in
  * record`, naming neither, is the worst message in the format and the
  * commonest beginner mistake. So a key refusal is asserted to contain the
- * rule's sentence **verbatim** plus the key; at the fourteen value positions
+ * rule's sentence **verbatim** plus the key; at the thirty-one value positions
  * the sentence is the whole message and equality is exact.
  */
 const schema = z.toJSONSchema(robotConfigDoc, { io: 'input' }) as Record<string, any>
@@ -137,6 +137,7 @@ type Row = { doc: unknown, at: string }
 const BAD_KEY = 'Battery'
 const BAD_ROS_NAME = 'not-absolute'
 const BAD_ROS_TYPE = 'sensor_msgs/BatteryState'
+const BAD_ROLE = 'Bad Key'
 
 const doc = (body: Record<string, unknown>) => ({ fleetless: 1, ...body })
 const entry = <T extends object>(base: T, override: Record<string, unknown>) => ({ ...base, ...override })
@@ -173,10 +174,32 @@ const VIOLATIONS: Record<string, Row> = {
   '.cameras.<slug>.source#3.device': { doc: doc({ cameras: { front: entry(CAMERA, { source: { kind: 'v4l2', device: '/etc/passwd' } }) } }), at: 'cameras.front.source.device' },
 }
 
+/**
+ * A role is written in nine places, and each is a union of one key and a list of
+ * keys, so each has two pattern positions: the key itself (`#0`) and an element
+ * of the list (`#1[]`, whose issue lands on the element). The rows are built
+ * from one table of where a role can stand rather than typed eighteen times.
+ */
+const ROLE_PLACES: Array<[path: string, build: (role: unknown) => unknown, at: string]> = [
+  ['.datapoints.<slug>.role', (role) => doc({ datapoints: { battery: entry(DATAPOINT, { role }) } }), 'datapoints.battery.role'],
+  ['.actions.<slug>.role', (role) => doc({ actions: { navigate: entry(ACTION, { role }) } }), 'actions.navigate.role'],
+  ['.services.<slug>.role', (role) => doc({ services: { reset: entry(SERVICE, { role }) } }), 'services.reset.role'],
+  ['.publishers.<slug>.role', (role) => doc({ publishers: { drive: entry(PUBLISHER, { role }) } }), 'publishers.drive.role'],
+  ['.cameras.<slug>.role', (role) => doc({ cameras: { front: entry(CAMERA, { role }) } }), 'cameras.front.role'],
+  ['.access.rules[].role', (role) => doc({ access: { rules: [{ match: '/arm/**', role }] } }), 'access.rules.0.role'],
+  ['.access.assets', (role) => doc({ access: { assets: role } }), 'access.assets'],
+  ['.access.job_history', (role) => doc({ access: { job_history: role } }), 'access.job_history'],
+]
+for (const [path, build, at] of ROLE_PLACES) {
+  VIOLATIONS[`${path}#0`] = { doc: build(BAD_ROLE), at }
+  VIOLATIONS[`${path}#1[]`] = { doc: build(['operate', BAD_ROLE]), at: `${at}.1` }
+}
+VIOLATIONS['.access.rules[].match'] = { doc: doc({ access: { rules: [{ match: 'arm/**', role: 'operate' }] } }), at: 'access.rules.0.match' }
+
 describe('one rule, one sentence', () => {
   it('has a violating document for every pattern the document declares', () => {
     expect([...patternNodes.keys()].sort()).toEqual(Object.keys(VIOLATIONS).sort())
-    expect(patternNodes.size).toBe(24)
+    expect(patternNodes.size).toBe(41)
   })
 
   for (const [path, node] of patternNodes) {
@@ -235,6 +258,7 @@ const FIXTURE: Record<string, any> = {
       topic: '/battery',
       type: 'sensor_msgs/msg/BatteryState',
       field: 'percentage',
+      role: 'observe',
       rate_throttle_hz: 2,
       description: 'What this value is, for whoever meets it in the console.',
       numeric: { scale: 100, offset: 0, unit: '%', decimals: 1 },
@@ -243,14 +267,19 @@ const FIXTURE: Record<string, any> = {
       alerts: { low: { condition: { fire_at: 15, resolve_at: 18 }, severity: 'warning', name: 'Battery low', enabled: true } },
     },
   },
-  actions: { navigate: { ...ACTION, message: { pose: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Drives to a target pose on the map.' } },
-  services: { reset: { ...SERVICE, message: { a: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Resets odometry to the origin.' } },
-  publishers: { drive: { ...PUBLISHER, parameters: { speed: PARAMETER_FULL }, description: 'Velocity command. If sending stops, the robot stops.' } },
+  actions: { navigate: { ...ACTION, message: { pose: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Drives to a target pose on the map.', role: ['operate', 'admin'] } },
+  services: { reset: { ...SERVICE, message: { a: '\\${speed}' }, parameters: { speed: PARAMETER_FULL }, description: 'Resets odometry to the origin.', role: 'operate' } },
+  publishers: { drive: { ...PUBLISHER, parameters: { speed: PARAMETER_FULL }, description: 'Velocity command. If sending stops, the robot stops.', role: 'admin' } },
   cameras: {
     cam_ros: { source: { kind: 'ros', topic: '/camera/image_raw', type: 'sensor_msgs/msg/Image' }, ...CAMERA_REST },
     cam_rtsp: { source: { kind: 'rtsp', url: 'rtsp://cam-1.plant.local/stream1', transport: 'tcp', credentials: { username: 'ops', password: 'secret' } }, ...CAMERA_REST },
     cam_mjpeg: { source: { kind: 'mjpeg', url: 'http://cam-1.plant.local/video.mjpg', credentials: { username: 'ops', password: 'secret' } }, ...CAMERA_REST },
-    cam_v4l2: { source: { kind: 'v4l2', device: '/dev/video0' }, ...CAMERA_REST },
+    cam_v4l2: { source: { kind: 'v4l2', device: '/dev/video0' }, ...CAMERA_REST, role: 'observe' },
+  },
+  access: {
+    rules: [{ match: '/arm/**', kinds: ['invoke', 'publish'], role: ['operate', 'admin'] }],
+    assets: 'observe',
+    job_history: ['operate'],
   },
 }
 
@@ -283,6 +312,9 @@ function requiredPositions(node: any, value: any, path: string[] = [], out: Arra
   for (const [key, sub] of Object.entries<any>(here.properties ?? {})) requiredPositions(sub, value?.[key], [...path, key], out)
   if (here.additionalProperties && typeof here.additionalProperties === 'object')
     for (const key of Object.keys(value ?? {})) requiredPositions(here.additionalProperties, value[key], [...path, key], out)
+  // An array of objects, such as `access.rules`: each element is entered at its own index.
+  if (here.items && typeof here.items === 'object' && Array.isArray(value))
+    value.forEach((element, i) => requiredPositions(here.items, element, [...path, String(i)], out))
   return out
 }
 
@@ -309,8 +341,8 @@ describe('a required key that is absent names itself', () => {
     // Not a number anybody typed: it falls out of the walk. It is asserted so
     // that a walk which came back empty — or which stopped entering a section —
     // fails here rather than passing vacuously over nothing.
-    expect(REQUIRED.length).toBe(52)
-    expect(new Set(REQUIRED.map((r) => r.path.join('.'))).size).toBe(19)
+    expect(REQUIRED.length).toBe(54)
+    expect(new Set(REQUIRED.map((r) => r.path.join('.'))).size).toBe(20)
   })
 
   for (const { path, key } of REQUIRED) {

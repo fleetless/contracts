@@ -2850,7 +2850,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'A draft that is valid YAML but not a Fleetless configuration is `422 draft_not_a_document`, carrying every issue rather than the ' +
       'blocking subset — nothing about that text is publishable, so there is no subset to pick, and the warning naming the checks that could ' +
       'not run is part of reading the list correctly. A document with `severity: "error"` issues is `422 validation_error` with just those. ' +
-      'The draft\'s own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it.',
+      'The draft\'s own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it. ' +
+      'The answer carries `warnings`: every `warning` of the published document, role keys that name no role of the organization included. ' +
+      'A warning never blocks a publish.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/versions', section: 'config',

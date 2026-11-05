@@ -9,6 +9,24 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- Roles in `fleetless.yaml`. `role` — one role key, or a list of keys — is an
+  optional field of every entry of `datapoints`, `actions`, `services`,
+  `publishers` and `cameras`, and the new optional `access` section holds
+  `rules` (each with a `match` glob over the entry's ROS name, optional
+  `kinds` and a `role`) and the robot-level `assets` and `job_history`.
+  `accessRule` and `accessSection` are exported. The bridge ignores both
+  fields.
+- The helpers that resolve them, from the package root: `roleKey`, `roleRef`,
+  `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
+  `listExposures`, `requirementOf`, `collectRoleRefs` and `roleIssues`, with
+  `ACCESS_KINDS`, `ENTRY_KINDS`, `MAX_ORG_ROLES`, `ROLE_NAME_MAX`,
+  `SEED_ROLES`, `SEED_DEFAULTS` and their types. `roleIssues` yields the two
+  warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
+- `warnings` on `publishConfigResponse`: every warning of the published
+  document, `[]` when it has none.
+
 ### Removed
 
 - The per-app role routes: `POST` and `GET /api/apps/:id/roles`, `PATCH` and

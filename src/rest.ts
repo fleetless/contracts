@@ -271,6 +271,9 @@ export type PutConfigDraftRequest = z.infer<typeof putConfigDraftRequest>
 export const publishConfigResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
+  warnings: z.array(validationIssue).meta({
+    description: 'Every `warning` of the published document — an unknown topic, a role key that names no role of the organization, a rule that fits nothing. A warning never blocks a publish; it is here so the author does not have to go looking for it. `[]` for a document with none.',
+  }),
 })
 export type PublishConfigResponse = z.infer<typeof publishConfigResponse>
 

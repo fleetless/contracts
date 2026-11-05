@@ -328,8 +328,8 @@ describe('REST shapes', () => {
   })
 
   it('numbers published versions from one', () => {
-    expect(publishConfigResponse.safeParse({ version: 1, published_at: '2026-08-10T12:01:00.000Z' }).success).toBe(true)
-    expect(publishConfigResponse.safeParse({ version: 0, published_at: '2026-08-10T12:01:00.000Z' }).success).toBe(false)
+    expect(publishConfigResponse.safeParse({ version: 1, published_at: '2026-08-10T12:01:00.000Z', warnings: [] }).success).toBe(true)
+    expect(publishConfigResponse.safeParse({ version: 0, published_at: '2026-08-10T12:01:00.000Z', warnings: [] }).success).toBe(false)
   })
 
   it('marks a cached graph as stale while the bridge is away', () => {
