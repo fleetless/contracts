@@ -9,51 +9,24 @@ version.
 
 ## [Unreleased]
 
-### Added
+Per-app roles are replaced by organization roles. What follows is one major
+release; every breaking item is named once, under Removed or Changed.
 
-- Roles in `fleetless.yaml`. `role` — one role key, or a list of keys — is an
-  optional field of every entry of `datapoints`, `actions`, `services`,
-  `publishers` and `cameras`, and the new optional `access` section holds
-  `rules` (each with a `match` glob over the entry's ROS name, optional
-  `kinds` and a `role`) and the robot-level `assets` and `job_history`.
-  `accessRule` and `accessSection` are exported. The bridge ignores both
-  fields.
-- The helpers that resolve them, from the package root: `roleKey`, `roleRef`,
-  `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
-  `listExposures`, `requirementOf`, `collectRoleRefs` and `roleIssues`, with
-  `ACCESS_KINDS`, `ENTRY_KINDS`, `MAX_ORG_ROLES`, `ROLE_NAME_MAX`,
-  `SEED_ROLES`, `SEED_DEFAULTS` and their types. `roleIssues` yields the two
-  warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
-- `warnings` on `publishConfigResponse`: every warning of the published
-  document, `[]` when it has none. **Breaking (major):** the field is required,
-  so an answer from a cloud that does not send it yet no longer satisfies the
-  contract.
-- Organization roles on the wire. Six developer routes, none owner-only:
-  `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
-  and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
-  its counts and the keys that are written somewhere but are no role; a rename
-  with `update_references` that has places to rewrite is two calls, the first
-  answered with a preview and a `confirm` token, and one with none applies at
-  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`,
-  `orgRoleListResponse`, `danglingReference`, `referencePlace`,
-  `createOrgRoleRequest`, `patchOrgRoleRequest`, `roleRenamePreview`,
-  `roleDefaultsResponse` and `putRoleDefaultsRequest`, each with its type and
-  JSON Schema artifact.
-- The error codes `role_cycle` (`400`, `details` is `roleCycleDetails`),
-  `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
-  the preview that carries the token to confirm with).
-- The journal kind `org_role.delete`, recorded like `server_key.revoke`.
-- App access and effective rights on the wire. `GET` and `PUT
-  /api/apps/:id/access` read and replace what an app locks (`locked_kinds` for
-  whole kinds of access, `locked` for single exposures of single robots) and
-  the role its users get by default; the answer carries `warnings` for what is
-  out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
-  answers, per attached robot, every capability with whether it is granted,
-  where its requirement came from and the datasheet an MCP session of that
-  role would get. Developer routes, none owner-only. Shapes: `appAccess`,
-  `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
-  `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
-  The lists of an access name each kind, slug and robot once, and are bounded.
+### Removed
+
+- **Breaking (major):** The per-app role routes: `POST` and `GET
+  /api/apps/:id/roles`, `PATCH` and `DELETE /api/apps/:id/roles/:roleId`,
+  `PUT` and `GET /api/apps/:id/roles/:roleId/permissions`, and `GET
+  /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
+  from here on.
+- **Breaking (major):** The shapes of those routes, with their types and JSON
+  Schema artifacts: `role`, `roleListResponse`, `roleRenameRequest`,
+  `roleDeleteQuery`, `roleInUseDetails`, `rolePermissions` and
+  `mcpRolePreviewResponse`.
+- **Breaking (major):** The error codes `role_name_taken`, `role_in_use` and
+  `last_role`.
+- **Breaking (major):** `appDeletionSummary.role_count`. Deleting an app
+  deletes no role, so the preview counts five things, not six.
 
 ### Changed
 
@@ -82,27 +55,75 @@ version.
 - **Breaking (major):** app users and app invitations hold a role key.
   `role_id` is replaced by `role`, a role key, in `appUser`,
   `createAppUserRequest`, `patchAppUserRequest`, `createAppInvitationRequest`
-  and `appInvitation` (so also `pendingAppInvitation`). `appUser.role` and
-  `appInvitation.role` are required; `role` is optional in the three requests,
-  and absent means the app's `default_role`. A malformed key is refused; a key
-  that names no role is accepted and grants nothing. `409 target_state_conflict`
-  now names `default_role` (rule `not_set`) where it named `default_role_id`,
-  and a role of another app is no longer a `404`. A consumer that sent or read
-  `role_id` sends and reads the role's key now.
+  and `appInvitation` (so also `pendingAppInvitation`). `role` is optional in
+  the three requests, and absent means the app's `default_role`; `appInvitation`
+  requires it. `appUser.role` and `pendingAppInvitation.role` are nullable: an
+  account, or a pending invitation whose app has no default role, left without a
+  key lists with `role: null` and reaches nothing. A malformed key is refused; a
+  key that names no role is accepted and grants nothing. `409
+  target_state_conflict` now names `default_role` (rule `not_set`) where it
+  named `default_role_id`, and a role of another app is no longer a `404`. A
+  consumer that sent or read `role_id` sends and reads the role's key now.
+- **Breaking (major):** locks follow a slug rename where role grants used to.
+  `renameSlugResponse.rewritten_grants` is `rewritten_locks` and
+  `slugUsageResponse.grant_count` is `lock_count`: the app locks that list the
+  renamed slug now list the new name as well, in every app of the
+  organization. A rename that would push a lock past the most slugs it can hold
+  is refused with `409 target_state_conflict`, rule `lock_full`.
+- **Breaking (major):** `publishConfigResponse` requires `warnings`: every
+  warning of the published document, `[]` when it has none. An answer from a
+  cloud that does not send it yet no longer satisfies the contract.
+- The journal kind `app_role.delete` is retired: no producer writes it any more,
+  and it stays in the contract so that journals written before still parse and
+  replay.
 
-### Removed
+### Added
 
-- **Breaking (major):** The per-app role routes: `POST` and `GET
-  /api/apps/:id/roles`, `PATCH` and `DELETE /api/apps/:id/roles/:roleId`,
-  `PUT` and `GET /api/apps/:id/roles/:roleId/permissions`, and `GET
-  /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
-  from here on.
-- **Breaking (major):** The shapes of those routes, with their types and JSON
-  Schema artifacts: `role`, `roleListResponse`, `roleRenameRequest`,
-  `roleDeleteQuery`, `roleInUseDetails`, `rolePermissions` and
-  `mcpRolePreviewResponse`.
-- **Breaking (major):** The error codes `role_name_taken`, `role_in_use` and
-  `last_role`.
+- Roles in `fleetless.yaml`. `role` — one role key, or a list of keys — is an
+  optional field of every entry of `datapoints`, `actions`, `services`,
+  `publishers` and `cameras`, and the new optional `access` section holds
+  `rules` (each with a `match` glob over the entry's ROS name, optional
+  `kinds` and a `role`) and the robot-level `assets` and `job_history`.
+  `accessRule` and `accessSection` are exported. The bridge ignores both
+  fields.
+- The helpers that resolve them, from the package root: `roleKey`, `roleRef`,
+  `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
+  `listExposures`, `requirementOf`, `collectRoleRefs` and `roleIssues`, with
+  `ACCESS_KINDS`, `ENTRY_KINDS`, `MAX_ORG_ROLES`, `ROLE_NAME_MAX`,
+  `SEED_ROLES`, `SEED_DEFAULTS` and their types. `roleIssues` yields the two
+  warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
+- Organization roles on the wire. Six developer routes, none owner-only:
+  `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
+  and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
+  its counts and the keys that are written somewhere but are no role; a rename
+  with `update_references` that has places to rewrite is two calls, the first
+  answered with a preview and a `confirm` token, and one with none applies at
+  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`,
+  `orgRoleListResponse`, `danglingReference`, `referencePlace`,
+  `createOrgRoleRequest`, `patchOrgRoleRequest`, `roleRenamePreview`,
+  `roleDefaultsResponse` and `putRoleDefaultsRequest`, each with its type and
+  JSON Schema artifact.
+- The error codes `role_cycle` (`400`, `details` is `roleCycleDetails`),
+  `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
+  the preview that carries the token to confirm with).
+- The journal kind `org_role.delete`, recorded like `server_key.revoke`.
+- App access and effective rights on the wire. `GET` and `PUT
+  /api/apps/:id/access` read and replace what an app locks (`locked_kinds` for
+  whole kinds of access, `locked` for single exposures of single robots) and
+  the role its users get by default; the answer carries `warnings` for what is
+  out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
+  answers, per attached robot, every capability with whether it is granted,
+  where its requirement came from and the datasheet an MCP session of that
+  role would get. Developer routes, none owner-only. Shapes: `appAccess`,
+  `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
+  `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
+  The lists of an access name each kind, slug and robot once, and are bounded.
+- `revision` on the access of an app. `appAccessResponse` carries the revision
+  of the stored access, and the `PUT /api/apps/:id/access` body may send back
+  the one it was composed from: when the stored access has changed since (a
+  write, a slug rename that extended a lock, a robot detached), the write is
+  refused with `409 target_state_conflict`, rule `stale`, and nothing is
+  written. Without a `revision` the body replaces what is stored, as before.
 
 ## [13.2.0] — 2026-11-05
 

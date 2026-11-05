@@ -126,7 +126,7 @@
             "action",
             "service"
           ],
-          "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
+          "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from the slug alone which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
         }
       },
       "required": [

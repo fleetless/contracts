@@ -1795,7 +1795,7 @@
             }
           }
         },
-        "description": "The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names `default_role_id` or `default_role` is `400 validation_error`. Changing the robot set closes every live subscription the app's users hold, since a robot they were using may no longer be reachable.",
+        "description": "The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names a default role, by id or by key, is `400 validation_error`. Changing the robot set closes every live subscription the app's users hold, since a robot they were using may no longer be reachable.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2141,7 +2141,7 @@
             }
           }
         },
-        "description": "An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that is no role or a lock on a slug the robot does not have. None of it is an error."
+        "description": "An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that is no role or a lock on a slug the robot does not have. None of it is an error. `revision` identifies the access as it stands: send it back with the next `PUT` and a write composed from a stale read is refused."
       },
       "put": {
         "operationId": "put_api_apps_id_access",
@@ -2177,7 +2177,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`, `target_state_conflict`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2187,7 +2187,7 @@
             }
           }
         },
-        "description": "A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as `warnings`. A change that can narrow rights re-checks the live subscriptions of the app's users at once.",
+        "description": "A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as `warnings`. A change that can narrow rights re-checks the live subscriptions of the app's users at once. \n\n**Send the `revision` you read.** The access can change under a caller without a write of its own: a slug rename adds the new name to every lock that lists the old one, and detaching a robot drops its lock. A body composed before such a change would lift the lock it added, so a `revision` that is no longer the stored one is `409 target_state_conflict` naming `revision` (rule `stale`), and nothing is written, audited or announced; read the access again and compose the body anew. Left out, the body replaces whatever is stored, as before: the last writer wins. A `revision` that is not a revision is `400 validation_error`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2314,7 +2314,7 @@
             }
           }
         },
-        "description": "Answers `{ \"users\": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries rather than spreading the stored row."
+        "description": "Answers `{ \"users\": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries rather than spreading the stored row. An account that holds no role key lists with `role: null`; it reaches nothing until `PATCH /api/apps/:id/users/:userId` gives it one."
       },
       "post": {
         "operationId": "post_api_apps_id_users",
@@ -2811,7 +2811,7 @@
             }
           }
         },
-        "description": "Answers `{ \"invitations\": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that page into a live credential for somebody else's account. `mail` is omitted too — it described what happened at creation time, and re-serving it invites a reader to take it as current."
+        "description": "Answers `{ \"invitations\": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that page into a live credential for somebody else's account. `mail` is omitted too — it described what happened at creation time, and re-serving it invites a reader to take it as current. An invitation that holds no role key and whose app has no default role lists with `role: null`; accepting or reissuing it is `409 target_state_conflict` naming `default_role`."
       },
       "post": {
         "operationId": "post_api_apps_id_invitations",
@@ -2914,7 +2914,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `rate_limited`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `target_state_conflict`, `rate_limited`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2924,7 +2924,7 @@
             }
           }
         },
-        "description": "The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to one invitation would reopen the door the listing's missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start again. \n\nLimited server-side to **five reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is not pending and answers `404`."
+        "description": "The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to one invitation would reopen the door the listing's missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start again. An invitation that holds no role key and whose app has no default role is refused with `409 target_state_conflict` naming `default_role` (rule `not_set`) before the old link is revoked: set the default role, or revoke it and invite again. \n\nLimited server-side to **five reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is not pending and answers `404`."
       }
     },
     "/api/apps/{id}/invitations/{invId}": {
@@ -5630,7 +5630,7 @@
             }
           }
         },
-        "description": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. `password` is required while the app's password method is on and refused while it is off, both as `400 validation_error` naming the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `default_role` with rule `not_set` when the invitation carries no role and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. A role deleted since the invitation was issued is no obstacle: the account is created holding the key and reaches nothing. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works.",
+        "description": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. `password` is required while the app's password method is on and refused while it is off, both as `400 validation_error` naming the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `default_role` with rule `not_set` when the invitation holds no role key (it lists with `role: null`) and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. A role deleted since the invitation was issued is no obstacle: the account is created holding the key and reaches nothing. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works.",
         "requestBody": {
           "required": true,
           "content": {
@@ -7003,7 +7003,7 @@
     "/api/robots/{id}/exposures": {
       "get": {
         "operationId": "get_api_robots_id_exposures",
-        "summary": "Lists every grantable slug of a robot with its kind — the material the roles matrix is built from.",
+        "summary": "Lists every exposed slug of a robot with its kind — the material an app picks its locks from.",
         "tags": [
           "robots"
         ],
@@ -7045,7 +7045,7 @@
             }
           }
         },
-        "description": "Developer-only: this is what a role *could* be granted, which is a configuration fact rather than something an end user is entitled to enumerate."
+        "description": "Developer-only: this is what a role could be required to use and an app could lock, which is a configuration fact rather than something an end user is entitled to enumerate."
       }
     },
     "/api/robots/{id}/datapoints/{slug}": {
@@ -7525,7 +7525,7 @@
     "/api/robots/{id}/config/rename-slug": {
       "post": {
         "operationId": "post_api_robots_id_config_rename_slug",
-        "summary": "Renames a slug in the draft and moves every role grant and the recorded history with the name.",
+        "summary": "Renames a slug in the draft and moves the app locks and the recorded history with the name.",
         "tags": [
           "config"
         ],
@@ -7557,7 +7557,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`, `unknown_slug`, `reserved_slug`, `duplicate_slug`, `history_migrating`, `internal_error`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`, `draft_not_a_document`, `unknown_slug`, `reserved_slug`, `duplicate_slug`, `history_migrating`, `target_state_conflict`, `internal_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7567,7 +7567,7 @@
             }
           }
         },
-        "description": "One transaction: the draft document and every app-role grant carrying the slug are rewritten, and the recorded history moves with the name without rewriting any stored sample, so a rename takes the same time however much history there is. Samples the robot still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with `409 history_migrating`; nothing is written, and the same request succeeds once the migration has finished.",
+        "description": "One transaction: the draft document and every app lock that lists the slug are rewritten, and the recorded history moves with the name without rewriting any stored sample, so a rename takes the same time however much history there is. Locks follow the rename: a lock that listed the old slug lists the new one as well, in every app of the organization, so a locked capability stays locked; the old name stays in the lock until the next `PUT /api/apps/:id/access`, and `rewritten_locks` counts the locks touched. A lock that would grow past the most slugs it can hold refuses the whole rename with `409 target_state_conflict` naming `to` (rule `lock_full`); nothing is written. Samples the robot still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with `409 history_migrating`; nothing is written, and the same request succeeds once the migration has finished.",
         "requestBody": {
           "required": true,
           "content": {
@@ -7634,7 +7634,7 @@
             }
           }
         },
-        "description": "A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are *this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole purpose is to be complete is not worth the ambiguity."
+        "description": "A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are *this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole purpose is to be complete is not worth the ambiguity. `lock_count` counts the app locks the rename would extend with the new name."
       }
     },
     "/api/robots/{id}/alerts": {
@@ -8233,7 +8233,7 @@
             }
           }
         },
-        "description": "**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A slug is `409 busy` while it holds a `running` job, an `unknown` one the robot has not accounted for yet, or an `external` goal someone else started; the refusal's `details.running` names that job, `state` and `origin` included. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above.",
+        "description": "**One route for both kinds**, because a path segment naming the kind would demand a fact the rights model does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A slug is `409 busy` while it holds a `running` job, an `unknown` one the robot has not accounted for yet, or an `external` goal someone else started; the refusal's `details.running` names that job, `state` and `origin` included. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11452,6 +11452,11 @@
               "additionalProperties": false
             },
             "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
+          },
+          "revision": {
+            "description": "The `revision` of the access this body was composed from, as `GET` or `PUT /api/apps/:id/access` answered it. When it is sent and the stored access has changed since, the write is refused with `409 target_state_conflict` naming `revision` (rule `stale`) and nothing is written; read the access again and compose the body anew. Left out, the body replaces whatever is stored: the last writer wins.",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         "required": [
@@ -11526,6 +11531,11 @@
             },
             "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
           },
+          "revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The revision of the access as it stands. Send it back as `revision` of the next `PUT` to have that write refused when the access has changed in between."
+          },
           "warnings": {
             "type": "array",
             "items": {
@@ -11585,6 +11595,7 @@
           "default_role",
           "locked_kinds",
           "locked",
+          "revision",
           "warnings"
         ],
         "additionalProperties": false
@@ -11837,12 +11848,6 @@
             "maximum": 9007199254740991,
             "description": "App users deleted with the app. They are the developer's own customers, not Fleetless users, and exist in no other app."
           },
-          "role_count": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Roles deleted with the app, each with its per-robot slug grants."
-          },
           "server_key_count": {
             "type": "integer",
             "minimum": 0,
@@ -11870,7 +11875,6 @@
         },
         "required": [
           "user_count",
-          "role_count",
           "server_key_count",
           "invitation_count",
           "oidc_provider_count",
@@ -11965,9 +11969,16 @@
                   "description": "The address the invitation was addressed to."
                 },
                 "role": {
-                  "type": "string",
-                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
-                  "description": "The key of the role the invitee holds once they accept. Resolved at creation, so a later change to the app's default role does not silently re-aim an outstanding invitation. A role deleted in the meantime leaves the key behind, and it grants nothing."
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The key of the role the invitee holds once they accept, or `null` for an invitation that holds none and whose app has no default role to stand in for it. Such an invitation is answered `409 target_state_conflict` naming `default_role` when it is accepted or reissued: set the app's default role, or revoke it and invite again. A role deleted in the meantime leaves the key behind, and it grants nothing."
                 },
                 "expires_at": {
                   "type": "string",
@@ -12401,9 +12412,16 @@
             "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
           },
           "role": {
-            "type": "string",
-            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
-            "description": "The key of the organization role this user holds. The role, the robots' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in."
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The key of the organization role this user holds, or `null` for an account that holds none (one the move to organization roles could not map to a key). The role, the robots' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in. Without a key the user reaches nothing and can still sign in; `PATCH /api/apps/:id/users/:userId` sets one."
           },
           "status": {
             "type": "string",
@@ -12538,9 +12556,16 @@
                   "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
                 },
                 "role": {
-                  "type": "string",
-                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
-                  "description": "The key of the organization role this user holds. The role, the robots' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in."
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The key of the organization role this user holds, or `null` for an account that holds none (one the move to organization roles could not map to a key). The role, the robots' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in. Without a key the user reaches nothing and can still sign in; `PATCH /api/apps/:id/users/:userId` sets one."
                 },
                 "status": {
                   "type": "string",
@@ -21249,7 +21274,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Every camera the published configuration exposes on this robot **and** the caller's role grants. A developer sees all of them; an end user sees what their role allows."
+            "description": "Every camera the published configuration exposes on this robot **and** the caller's role may use. A developer sees all of them; an end user sees what their role allows."
           }
         },
         "required": [
@@ -23251,7 +23276,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
                   },
                   "actions": {
                     "type": "object",
@@ -23419,7 +23444,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
                   },
                   "services": {
                     "type": "object",
@@ -23587,7 +23612,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
                   },
                   "publishers": {
                     "type": "object",
@@ -23791,7 +23816,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
                   },
                   "cameras": {
                     "type": "object",
@@ -24057,7 +24082,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
                   },
                   "access": {
                     "type": "object",
@@ -24599,7 +24624,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
               },
               "actions": {
                 "type": "object",
@@ -24767,7 +24792,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
               },
               "services": {
                 "type": "object",
@@ -24935,7 +24960,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
               },
               "publishers": {
                 "type": "object",
@@ -25139,7 +25164,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
               },
               "cameras": {
                 "type": "object",
@@ -25405,7 +25430,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
               },
               "access": {
                 "type": "object",
@@ -26531,7 +26556,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
+            "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role may read."
           }
         },
         "required": [
@@ -28017,7 +28042,7 @@
                   "action",
                   "service"
                 ],
-                "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
+                "description": "Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from the slug alone which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape."
               }
             },
             "required": [
@@ -40241,10 +40266,11 @@
       "rename-slug-response": {
         "type": "object",
         "properties": {
-          "rewritten_grants": {
+          "rewritten_locks": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "The app locks that listed the old slug and now list the new one as well. Locks follow a rename, in every app of the organization, so a renamed capability stays locked."
           },
           "history_moved": {
             "type": "boolean"
@@ -40255,7 +40281,7 @@
           }
         },
         "required": [
-          "rewritten_grants",
+          "rewritten_locks",
           "history_moved",
           "requires_publish"
         ],
@@ -41165,10 +41191,11 @@
       "slug-usage-response": {
         "type": "object",
         "properties": {
-          "grant_count": {
+          "lock_count": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "The app locks that list this slug, which a rename would extend with the new name. The count is what the rename rewrites, in every app of the organization."
           },
           "app_identifiers": {
             "type": "array",
@@ -41186,7 +41213,7 @@
           }
         },
         "required": [
-          "grant_count",
+          "lock_count",
           "app_identifiers",
           "has_recorded_history",
           "alert_count"

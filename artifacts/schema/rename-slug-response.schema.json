@@ -2,10 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "rewritten_grants": {
+    "rewritten_locks": {
       "type": "integer",
       "minimum": 0,
-      "maximum": 9007199254740991
+      "maximum": 9007199254740991,
+      "description": "The app locks that listed the old slug and now list the new one as well. Locks follow a rename, in every app of the organization, so a renamed capability stays locked."
     },
     "history_moved": {
       "type": "boolean"
@@ -16,7 +17,7 @@
     }
   },
   "required": [
-    "rewritten_grants",
+    "rewritten_locks",
     "history_moved",
     "requires_publish"
   ],

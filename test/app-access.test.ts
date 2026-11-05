@@ -32,6 +32,7 @@ function artifact(name: string) {
 }
 
 const access = { default_role: 'observe', locked_kinds: ['publish'], locked: [{ robot_id: robot, slugs: ['arm_home'] }] }
+const revision = '0123456789abcdef'.repeat(4)
 const warning = { code: 'unknown_lock_slug', message: 'The robot has no capability named arm_home.', robot_id: robot, slug: 'arm_home' }
 const capability = {
   name: 'arm_home', kind: 'invoke', granted: true, requirement: ['operate'], source: 'rule', rule_index: 0, rule_match: '/arm/*',
@@ -102,14 +103,40 @@ describe('appAccess', () => {
     expect(appAccess.safeParse({ ...access, default_role: 'Observe' }).success).toBe(false)
     expect(appAccess.safeParse({ ...access, default_role: '' }).success).toBe(false)
   })
+
+  it('may carry the revision it was composed from; without it the body replaces whatever is stored', () => {
+    expect(appAccess.safeParse({ ...access, revision }).success).toBe(true)
+    expect(appAccess.safeParse(access).success).toBe(true)
+    expect(artifact('app-access')({ ...access, revision })).toBe(true)
+    expect(artifact('app-access')(access)).toBe(true)
+  })
+
+  it('refuses a revision that cannot be one: not 64 lower-case hexadecimal characters, null, or a number', () => {
+    for (const bad of ['', 'abc', 'A'.repeat(64), 'g'.repeat(64), revision + '0', revision.slice(1), null, 1]) {
+      expect(appAccess.safeParse({ ...access, revision: bad }).success, JSON.stringify(bad)).toBe(false)
+      expect(artifact('app-access')({ ...access, revision: bad }), JSON.stringify(bad)).toBe(false)
+    }
+  })
 })
 
 describe('appAccessResponse', () => {
-  it('is the access as it stands together with its warnings', () => {
-    expect(appAccessResponse.safeParse({ ...access, warnings: [warning] }).success).toBe(true)
-    expect(appAccessResponse.safeParse({ ...access, warnings: [] }).success).toBe(true)
-    expect(appAccessResponse.safeParse(access).success, 'warnings are always present').toBe(false)
-    expect(artifact('app-access-response')({ ...access, warnings: [warning] })).toBe(true)
+  it('is the access as it stands together with its revision and its warnings', () => {
+    expect(appAccessResponse.safeParse({ ...access, revision, warnings: [warning] }).success).toBe(true)
+    expect(appAccessResponse.safeParse({ ...access, revision, warnings: [] }).success).toBe(true)
+    expect(appAccessResponse.safeParse({ ...access, revision }).success, 'warnings are always present').toBe(false)
+    expect(artifact('app-access-response')({ ...access, revision, warnings: [warning] })).toBe(true)
+  })
+
+  it('always carries the revision a write is checked against', () => {
+    expect(appAccessResponse.safeParse({ ...access, warnings: [] }).success).toBe(false)
+    expect(appAccessResponse.safeParse({ ...access, revision: 'abc', warnings: [] }).success).toBe(false)
+    expect(artifact('app-access-response')({ ...access, warnings: [] })).toBe(false)
+  })
+
+  it('answers what the PUT takes plus the warnings, so a read can be sent back as it is', () => {
+    const answer = appAccessResponse.parse({ ...access, revision, warnings: [warning] })
+    const { warnings: _warnings, ...body } = answer
+    expect(appAccess.safeParse(body).success).toBe(true)
   })
 
   it('names the three warnings an access can earn', () => {
@@ -215,6 +242,17 @@ describe('the app access routes', () => {
     expect(notes).toContain('role_known')
     expect(notes).toMatch(/nothing/)
     expect(route('PUT /api/apps/:id/access')!.notes ?? '').toMatch(/replace/i)
+  })
+
+  it('document the revision check: a stale body is a 409 that writes nothing, and a missing revision is last writer wins', () => {
+    const put = route('PUT /api/apps/:id/access')!
+    expect(put.errors).toContain('target_state_conflict')
+    expect(put.notes ?? '').toMatch(/`revision`/)
+    expect(put.notes ?? '').toMatch(/409 target_state_conflict/)
+    expect(put.notes ?? '').toMatch(/stale/)
+    expect(put.notes ?? '').toMatch(/last\s+writer wins/)
+    expect(route('GET /api/apps/:id/access')!.errors).not.toContain('target_state_conflict')
+    expect(route('GET /api/apps/:id/access')!.notes ?? '').toMatch(/`revision`/)
   })
 
   it('reach the OpenAPI document, the query as parameters', () => {

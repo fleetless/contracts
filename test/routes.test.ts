@@ -2403,6 +2403,20 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
   })
 })
 
+describe('the slug rename and the app locks', () => {
+  it('moves the locks with the name, counts them, and can refuse when a lock has no room left', () => {
+    const rename = ROUTES.find((r) => key(r) === 'POST /api/robots/:id/config/rename-slug')!
+    expect(rename.summary).not.toMatch(/grant/i)
+    expect(rename.notes ?? '').not.toMatch(/grant/i)
+    expect(rename.notes ?? '').toMatch(/Locks follow the rename/)
+    expect(rename.notes ?? '').toMatch(/rewritten_locks/)
+    expect(rename.notes ?? '').toMatch(/lock_full/)
+    expect(rename.errors).toContain('target_state_conflict')
+    const usage = ROUTES.find((r) => key(r) === 'GET /api/robots/:id/config/slug-usage/:slug')!
+    expect(usage.notes ?? '').toMatch(/lock_count/)
+    expect(usage.notes ?? '').not.toMatch(/grant/i)
+  })
+})
 
 describe('owner purchase intents', () => {
   it('requires operation keys on both hosted payment entries and supports unpaid responses', () => {

@@ -8,12 +8,6 @@
       "maximum": 9007199254740991,
       "description": "App users deleted with the app. They are the developer's own customers, not Fleetless users, and exist in no other app."
     },
-    "role_count": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 9007199254740991,
-      "description": "Roles deleted with the app, each with its per-robot slug grants."
-    },
     "server_key_count": {
       "type": "integer",
       "minimum": 0,
@@ -41,7 +35,6 @@
   },
   "required": [
     "user_count",
-    "role_count",
     "server_key_count",
     "invitation_count",
     "oidc_provider_count",

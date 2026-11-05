@@ -64,6 +64,11 @@
         "additionalProperties": false
       },
       "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
+    },
+    "revision": {
+      "description": "The `revision` of the access this body was composed from, as `GET` or `PUT /api/apps/:id/access` answered it. When it is sent and the stored access has changed since, the write is refused with `409 target_state_conflict` naming `revision` (rule `stale`) and nothing is written; read the access again and compose the body anew. Left out, the body replaces whatever is stored: the last writer wins.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   },
   "required": [

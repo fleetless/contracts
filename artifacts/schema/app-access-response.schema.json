@@ -65,6 +65,11 @@
       },
       "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
     },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "The revision of the access as it stands. Send it back as `revision` of the next `PUT` to have that write refused when the access has changed in between."
+    },
     "warnings": {
       "type": "array",
       "items": {
@@ -124,6 +129,7 @@
     "default_role",
     "locked_kinds",
     "locked",
+    "revision",
     "warnings"
   ],
   "additionalProperties": false

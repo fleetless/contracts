@@ -93,8 +93,8 @@ export const appUser = z.object({
   display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().meta({
     description: 'Optional human name, shown by the developer\'s own UI instead of the address where present. `null` when the user never supplied one; never used for authentication.',
   }),
-  role: roleKey.meta({
-    description: 'The key of the organization role this user holds. The role, the robots\' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in.',
+  role: roleKey.nullable().meta({
+    description: 'The key of the organization role this user holds, or `null` for an account that holds none (one the move to organization roles could not map to a key). The role, the robots\' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in. Without a key the user reaches nothing and can still sign in; `PATCH /api/apps/:id/users/:userId` sets one.',
   }),
   status: appUserStatus.meta({
     description: 'Where the account is in its lifecycle. Only `active` may log in; `pending_verification` and `blocked` are both refused with the same `invalid_credentials` a wrong password gets, so a failed login is not an account-enumeration oracle.',
@@ -258,7 +258,11 @@ export type AppInvitation = z.infer<typeof appInvitation>
  * `mail` is omitted for a duller reason: it described what happened at
  * creation time, and re-serving it invites a reader to take it as current.
  */
-export const pendingAppInvitation = appInvitation.omit({ accept_url: true, mail: true })
+export const pendingAppInvitation = appInvitation.omit({ accept_url: true, mail: true }).extend({
+  role: roleKey.nullable().meta({
+    description: 'The key of the role the invitee holds once they accept, or `null` for an invitation that holds none and whose app has no default role to stand in for it. Such an invitation is answered `409 target_state_conflict` naming `default_role` when it is accepted or reissued: set the app\'s default role, or revoke it and invite again. A role deleted in the meantime leaves the key behind, and it grants nothing.',
+  }),
+})
 export type PendingAppInvitation = z.infer<typeof pendingAppInvitation>
 
 /** `GET /api/apps/:id/invitations` — pending only. An accepted invitation is history, not something to revoke. */

@@ -255,7 +255,7 @@ export const ERROR_CODES = [
   'bridge_timeout',
   // Identity and rights. `forbidden` is deliberately the answer both
   // for "your role does not grant this" and for "there is no such slug":
-  // roles are the only filter, and a caller must not be able to map
+  // rights are the only filter, and a caller must not be able to map
   // the configuration of an app they have no rights in.
   'unauthorized',
   'forbidden',
@@ -684,7 +684,7 @@ export const ERROR_CODES = [
    * the role's datasheet (`mcpRobotDatasheet`) already lists every exposure
    * the role does grant, so a second code would split an outcome nobody acts
    * on differently. To anyone else the two must be indistinguishable anyway,
-   * because roles are the only filter.
+   * because rights are the only filter.
    */
   'tool_not_available',
   // Capabilities.

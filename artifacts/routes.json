@@ -949,7 +949,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names `default_role_id` or `default_role` is `400 validation_error`. Changing the robot set closes every live subscription the app's users hold, since a robot they were using may no longer be reachable."
+      "notes": "The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names a default role, by id or by key, is `400 validation_error`. Changing the robot set closes every live subscription the app's users hold, since a robot they were using may no longer be reachable."
     },
     {
       "method": "GET",
@@ -1161,7 +1161,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that is no role or a lock on a slug the robot does not have. None of it is an error."
+      "notes": "An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that is no role or a lock on a slug the robot does not have. None of it is an error. `revision` identifies the access as it stands: send it back with the next `PUT` and a write composed from a stale read is refused."
     },
     {
       "method": "PUT",
@@ -1188,10 +1188,11 @@
         "token_revoked",
         "invalid_uuid",
         "validation_error",
-        "not_found"
+        "not_found",
+        "target_state_conflict"
       ],
       "transport": "http",
-      "notes": "A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as `warnings`. A change that can narrow rights re-checks the live subscriptions of the app's users at once."
+      "notes": "A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as `warnings`. A change that can narrow rights re-checks the live subscriptions of the app's users at once. \n\n**Send the `revision` you read.** The access can change under a caller without a write of its own: a slug rename adds the new name to every lock that lists the old one, and detaching a robot drops its lock. A body composed before such a change would lift the lock it added, so a `revision` that is no longer the stored one is `409 target_state_conflict` naming `revision` (rule `stale`), and nothing is written, audited or announced; read the access again and compose the body anew. Left out, the body replaces whatever is stored, as before: the last writer wins. A `revision` that is not a revision is `400 validation_error`."
     },
     {
       "method": "GET",
@@ -1250,7 +1251,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"users\": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries rather than spreading the stored row."
+      "notes": "Answers `{ \"users\": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries rather than spreading the stored row. An account that holds no role key lists with `role: null`; it reaches nothing until `PATCH /api/apps/:id/users/:userId` gives it one."
     },
     {
       "method": "POST",
@@ -1551,7 +1552,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Answers `{ \"invitations\": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that page into a live credential for somebody else's account. `mail` is omitted too — it described what happened at creation time, and re-serving it invites a reader to take it as current."
+      "notes": "Answers `{ \"invitations\": [pendingAppInvitation, …] }` — pending only, since an accepted invitation is history rather than something to revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that page into a live credential for somebody else's account. `mail` is omitted too — it described what happened at creation time, and re-serving it invites a reader to take it as current. An invitation that holds no role key and whose app has no default role lists with `role: null`; accepting or reissuing it is `409 target_state_conflict` naming `default_role`."
     },
     {
       "method": "POST",
@@ -1615,10 +1616,11 @@
         "token_revoked",
         "invalid_uuid",
         "not_found",
+        "target_state_conflict",
         "rate_limited"
       ],
       "transport": "http",
-      "notes": "The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to one invitation would reopen the door the listing's missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start again. \n\nLimited server-side to **five reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is not pending and answers `404`."
+      "notes": "The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to one invitation would reopen the door the listing's missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start again. An invitation that holds no role key and whose app has no default role is refused with `409 target_state_conflict` naming `default_role` (rule `not_set`) before the old link is revoked: set the default role, or revoke it and invite again. \n\nLimited server-side to **five reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is not pending and answers `404`."
     },
     {
       "method": "DELETE",
@@ -4541,7 +4543,7 @@
         "quota_exceeded"
       ],
       "transport": "http",
-      "notes": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. `password` is required while the app's password method is on and refused while it is off, both as `400 validation_error` naming the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `default_role` with rule `not_set` when the invitation carries no role and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. A role deleted since the invitation was issued is no obstacle: the account is created holding the key and reaches nothing. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works."
+      "notes": "**An app invitation, not a team one.** `POST /api/org/invitations/accept` is the other space and answers `204`; this one answers a session, because the person is landing in the developer's app and there is no second door for them to sign in through. The role is the one the invitation fixed at creation, so a later change to the app's default role does not re-aim a link already in somebody's inbox, and the invitation **bypasses `allowed_domains`** — a developer inviting somebody by hand has already made the decision the whitelist automates. The answer is a `clientSignInResult`: a `twoFactorChallenge` instead of tokens when the app requires two-factor. `password` is required while the app's password method is on and refused while it is off, both as `400 validation_error` naming the field. \n\n**One refusal for every token that does not work: `410 token_spent`** — unknown, expired past the seven days, revoked by the developer, or already accepted. There is one code because telling them apart would say whether a token ever existed, and because the one thing the holder of a dead link can do is ask the developer for a new one, whichever of the four it was. A chosen password under twelve characters is part of the `400 validation_error`, naming the `password` field. `409 email_taken` is an address this app has acquired since the invitation was written **as an account that is already in use** — the invitation stays outstanding rather than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still `pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the invitation's role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 target_state_conflict` names `default_role` with rule `not_set` when the invitation holds no role key (it lists with `role: null`) and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. A role deleted since the invitation was issued is no obstacle: the account is created holding the key and reaches nothing. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link still works."
     },
     {
       "method": "POST",
@@ -5255,7 +5257,7 @@
       "method": "GET",
       "path": "/api/robots/:id/exposures",
       "section": "robots",
-      "summary": "Lists every grantable slug of a robot with its kind — the material the roles matrix is built from.",
+      "summary": "Lists every exposed slug of a robot with its kind — the material an app picks its locks from.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -5278,7 +5280,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Developer-only: this is what a role *could* be granted, which is a configuration fact rather than something an end user is entitled to enumerate."
+      "notes": "Developer-only: this is what a role could be required to use and an app could lock, which is a configuration fact rather than something an end user is entitled to enumerate."
     },
     {
       "method": "GET",
@@ -5559,7 +5561,7 @@
       "method": "POST",
       "path": "/api/robots/:id/config/rename-slug",
       "section": "config",
-      "summary": "Renames a slug in the draft and moves every role grant and the recorded history with the name.",
+      "summary": "Renames a slug in the draft and moves the app locks and the recorded history with the name.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -5586,10 +5588,11 @@
         "reserved_slug",
         "duplicate_slug",
         "history_migrating",
+        "target_state_conflict",
         "internal_error"
       ],
       "transport": "http",
-      "notes": "One transaction: the draft document and every app-role grant carrying the slug are rewritten, and the recorded history moves with the name without rewriting any stored sample, so a rename takes the same time however much history there is. Samples the robot still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with `409 history_migrating`; nothing is written, and the same request succeeds once the migration has finished."
+      "notes": "One transaction: the draft document and every app lock that lists the slug are rewritten, and the recorded history moves with the name without rewriting any stored sample, so a rename takes the same time however much history there is. Locks follow the rename: a lock that listed the old slug lists the new one as well, in every app of the organization, so a locked capability stays locked; the old name stays in the lock until the next `PUT /api/apps/:id/access`, and `rewritten_locks` counts the locks touched. A lock that would grow past the most slugs it can hold refuses the whole rename with `409 target_state_conflict` naming `to` (rule `lock_full`); nothing is written. Samples the robot still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so `requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with `409 history_migrating`; nothing is written, and the same request succeeds once the migration has finished."
     },
     {
       "method": "GET",
@@ -5623,7 +5626,7 @@
         "draft_not_a_document"
       ],
       "transport": "http",
-      "notes": "A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are *this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole purpose is to be complete is not worth the ambiguity."
+      "notes": "A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are *this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole purpose is to be complete is not worth the ambiguity. `lock_count` counts the app locks the rename would extend with the new name."
     },
     {
       "method": "GET",
@@ -5898,7 +5901,7 @@
         "internal_error"
       ],
       "transport": "http",
-      "notes": "**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A slug is `409 busy` while it holds a `running` job, an `unknown` one the robot has not accounted for yet, or an `external` goal someone else started; the refusal's `details.running` names that job, `state` and `origin` included. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above."
+      "notes": "**One route for both kinds**, because a path segment naming the kind would demand a fact the rights model does not carry. An action answers `202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline robot never learns their parameters were wrong. A slug is `409 busy` while it holds a `running` job, an `unknown` one the robot has not accounted for yet, or an `external` goal someone else started; the refusal's `details.running` names that job, `state` and `origin` included. A service the robot reports as failed answers `502` carrying **the job's own error code**, which is an open set and not one of the codes above."
     },
     {
       "method": "GET",
@@ -7441,7 +7444,7 @@
       "method": "GET",
       "path": "/realtime",
       "section": "transports",
-      "summary": "The client WebSocket: subscriptions on datapoints, jobs, bridge state and presence, plus full command parity with REST.",
+      "summary": "The client WebSocket: subscriptions on datapoints (the built-in bridge state included), jobs and cameras, plus full command parity with REST.",
       "audience": "client",
       "auth": "none",
       "rateLimited": false,

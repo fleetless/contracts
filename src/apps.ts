@@ -82,10 +82,13 @@ export type AppListResponse = z.infer<typeof appListResponse>
  * What deleting an app would destroy — read before the irreversible click,
  * and carried again by the `app.deleted` audit event.
  *
- * **Six numbers, never a sum**, for the reason `robotDeletionSummary` states
+ * **Five numbers, never a sum**, for the reason `robotDeletionSummary` states
  * at length: the console reads this aloud as one sentence, and a total would
- * describe six unrelated magnitudes with one figure on the one screen whose
+ * describe five unrelated magnitudes with one figure on the one screen whose
  * entire justification is naming what cannot be undone.
+ *
+ * Roles are not here: they belong to the organization, so deleting an app
+ * deletes none of them. What the app locks goes with its settings.
  *
  * Robots are not here because they do not go: they belong to the
  * organization, not to the app. The audit trail is not here either — a record
@@ -94,9 +97,6 @@ export type AppListResponse = z.infer<typeof appListResponse>
 export const appDeletionSummary = z.object({
   user_count: z.number().int().nonnegative().meta({
     description: 'App users deleted with the app. They are the developer\'s own customers, not Fleetless users, and exist in no other app.',
-  }),
-  role_count: z.number().int().nonnegative().meta({
-    description: 'Roles deleted with the app, each with its per-robot slug grants.',
   }),
   server_key_count: z.number().int().nonnegative().meta({
     description: 'Server keys deleted with the app. A client still holding one is refused at its next request.',
@@ -153,10 +153,10 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
  * remains only for MCP. `group_id` named a group that owned the app; who may
  * log into an app is the app's own user list.
  *
- * `default_role_id` is absent too, and it does have a successor: the default
- * role is part of the app's access, replaced together with its locks by
+ * The id-based default role is absent too, and it does have a successor: the
+ * default role is part of the app's access, replaced together with its locks by
  * `PUT /api/apps/:id/access` and read as `app.default_role`. A patch that still
- * names `default_role_id` is refused rather than dropped.
+ * names the old field is refused rather than dropped.
  *
  * The route keeps its own check as belt-and-braces; a schema and a handler
  * agreeing is not two policies, it is one policy stated where each half can
@@ -262,12 +262,41 @@ const appAccessFields = {
 }
 
 /**
+ * **Which state of the access a write was composed from.** A fingerprint of
+ * the stored access that changes whenever the stored access does, whoever
+ * changed it: another developer's write, but also a slug rename, which adds the
+ * new name to every lock that lists the old one, and a robot detached from the
+ * app, which drops its lock. Opaque: compare it, do not compute it.
+ *
+ * It is what keeps a full replacement from silently undoing a lock that
+ * landed after the caller read the access.
+ */
+const appAccessRevision = z.string().regex(/^[0-9a-f]{64}$/).meta({
+  description:
+    'A fingerprint of the stored access, 64 lower-case hexadecimal characters. It changes whenever the stored access changes, by whichever route ' +
+    '(a write here, a slug rename that adds the new name to a lock, a robot detached from the app). Treat it as opaque: send back the one you read.',
+})
+
+/**
  * `PUT /api/apps/:id/access`: the whole access of one app, **replaced**. Every
  * field is named on every write, so the body is exactly what the app has
  * afterwards; strict, so a field this route does not take is refused rather
  * than dropped.
+ *
+ * `revision` is the one field that is not part of the access: it says which
+ * state this body was composed from. A caller that read before it wrote sends
+ * it back, and a write composed from a stale read is refused instead of
+ * lifting a lock that landed in between.
  */
-export const appAccess = z.object(appAccessFields).strict()
+export const appAccess = z.object({
+  ...appAccessFields,
+  revision: appAccessRevision.optional().meta({
+    description:
+      'The `revision` of the access this body was composed from, as `GET` or `PUT /api/apps/:id/access` answered it. When it is sent and the stored ' +
+      'access has changed since, the write is refused with `409 target_state_conflict` naming `revision` (rule `stale`) and nothing is written; read ' +
+      'the access again and compose the body anew. Left out, the body replaces whatever is stored: the last writer wins.',
+  }),
+}).strict()
 export type AppAccess = z.infer<typeof appAccess>
 
 /**
@@ -292,9 +321,12 @@ export const accessWarning = z.object({
 })
 export type AccessWarning = z.infer<typeof accessWarning>
 
-/** What `GET` and `PUT /api/apps/:id/access` answer: the access as it stands, and what is out of step in it. */
+/** What `GET` and `PUT /api/apps/:id/access` answer: the access as it stands, its revision, and what is out of step in it. */
 export const appAccessResponse = z.object({
   ...appAccessFields,
+  revision: appAccessRevision.meta({
+    description: 'The revision of the access as it stands. Send it back as `revision` of the next `PUT` to have that write refused when the access has changed in between.',
+  }),
   warnings: z.array(accessWarning).meta({
     description: 'What the access names that does not exist as written. Empty when nothing is out of step.',
   }),

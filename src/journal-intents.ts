@@ -43,6 +43,8 @@ const branches = [
   captured('app.delete', z.strictObject(app)),
   captured('member.remove', z.strictObject({ ...org, user_id: uuid })),
   captured('app_user.remove', z.strictObject({ ...app, app_user_id: uuid })),
+  // Retired: per-app roles no longer exist, so nothing writes this kind. It stays so
+  // journals written before still parse and replay (as a no-op).
   captured('app_role.delete', z.discriminatedUnion('move_mode', [
     z.strictObject({ ...app, role_id: uuid, move_mode: z.literal('none') }),
     z.strictObject({ ...app, role_id: uuid, move_mode: z.literal('reassign'), move_to_role_id: uuid }),

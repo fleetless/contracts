@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   ACCESS_KINDS,
@@ -83,6 +86,27 @@ describe('role keys', () => {
     expect(roleRef.safeParse(['operate', 'Bad']).success).toBe(false)
     expect(roleRef.safeParse(7).success).toBe(false)
     expect(roleRef.safeParse(null).success).toBe(false)
+  })
+})
+
+describe('the retired per-app role vocabulary', () => {
+  // The old capability name, the id-based default role and the per-role permission shapes are gone from the
+  // package without an alias; a source file that names one again is a regression however it got there.
+  const RETIRED = ['action_history', 'default_role_id', 'rolePermissions']
+  const root = fileURLToPath(new URL('../src/', import.meta.url))
+  const sources = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+
+  it('finds the source files', () => {
+    expect(sources.length).toBeGreaterThan(30)
+  })
+
+  it('is named by no file under src', () => {
+    for (const file of sources) {
+      const text = readFileSync(file, 'utf8')
+      for (const word of RETIRED) expect(text.includes(word), `${file} names ${word}`).toBe(false)
+    }
   })
 })
 

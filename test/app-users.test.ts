@@ -356,10 +356,11 @@ describe('appUser and the requests that write one', () => {
     expect(appUser.safeParse(withoutIt).success).toBe(false)
   })
 
-  it('requires a role: an app user with no role could reach nothing and would still be listed', () => {
+  it('names the role, present but nullable: an account left without a key lists with null, a missing field is a mapper bug', () => {
     const { role, ...withoutRole } = ROW
     void role
     expect(appUser.safeParse(withoutRole).success).toBe(false)
+    expect(appUser.safeParse({ ...ROW, role: null }).success).toBe(true)
     // The old per-app role id is not a role any more, and a row that still carries only it is incomplete.
     expect(appUser.safeParse({ ...withoutRole, role_id: UUID }).success).toBe(false)
   })
@@ -368,7 +369,6 @@ describe('appUser and the requests that write one', () => {
     expect(appUser.safeParse({ ...ROW, role: 'night_shift' }).success).toBe(true)
     expect(appUser.safeParse({ ...ROW, role: 'Bad Key' }).success).toBe(false)
     expect(appUser.safeParse({ ...ROW, role: UUID }).success).toBe(false)
-    expect(appUser.safeParse({ ...ROW, role: null }).success).toBe(false)
   })
 
   it('createAppUserRequest takes an optional role key: absent means the default role of the app', () => {
@@ -466,6 +466,24 @@ describe('appInvitation — the accept link is nullable, and that is a policy', 
     expect('email' in pendingAppInvitation.shape).toBe(true)
     expect('role' in pendingAppInvitation.shape).toBe(true)
     expect('role_id' in pendingAppInvitation.shape).toBe(false)
+  })
+
+  /**
+   * An invitation issued before organization roles can hold no key, and when its app has no default
+   * role to stand in, the list says so with `null`. The invitation as issued never does: creating one
+   * without a role and without a default is refused.
+   */
+  it('pendingAppInvitation lists a keyless invitation with a null role; the invitation as issued keeps its role required', () => {
+    const { accept_url, mail, ...pending } = ROW
+    void accept_url
+    void mail
+    expect(pendingAppInvitation.safeParse(pending).success).toBe(true)
+    expect(pendingAppInvitation.safeParse({ ...pending, role: null }).success).toBe(true)
+    const { role, ...withoutRole } = pending
+    void role
+    expect(pendingAppInvitation.safeParse(withoutRole).success).toBe(false)
+    expect(pendingAppInvitation.safeParse({ ...pending, role: 'Bad Key' }).success).toBe(false)
+    expect(appInvitation.safeParse({ ...ROW, role: null }).success).toBe(false)
   })
 })
 
