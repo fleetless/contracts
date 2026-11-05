@@ -1735,11 +1735,12 @@ export const BRIDGE_LATENCY_RETENTION_DAYS = 7
  * `GET /api/robots/:id/jobs/history`** — robot-scoped, one route for
  * developers and clients like every other robot-scoped read (`.../jobs`,
  * `.../assets`, `.../datapoints`), never a parallel `/api/client/…` twin. An
- * end user reaches it only when their role's `capabilities.action_history`
- * says so — otherwise `403 capability_required`, naming the capability — and
- * sees only runs on slugs their role grants. On this route `?robot_id=` is
- * not a filter: the path already names the robot, and a query naming a
- * different one is refused rather than quietly answered about the path's.
+ * end user reaches it only when their role satisfies the robot's
+ * `job_history` requirement — otherwise `403 capability_required`, naming the
+ * capability — and sees only runs on slugs their role grants. On this route
+ * `?robot_id=` is not a filter: the path already names the robot, and a query
+ * naming a different one is refused rather than quietly answered about the
+ * path's.
  *
  * **It discloses the actor, and that is what a developer weighs before
  * granting the capability.** A `jobRun` names who invoked it — `jobActor`

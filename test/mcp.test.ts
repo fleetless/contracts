@@ -24,6 +24,7 @@ import {
 } from '../src/index.js'
 import * as contracts from '../src/index.js'
 import {
+  mcpCapabilities,
   mcpExposure,
   mcpRobotDatasheet,
   MCP_ASSET_LINK_PATH,
@@ -269,7 +270,7 @@ describe('mcp datasheet contracts', () => {
     const sheet = mcpRobotDatasheet.parse({
       robot_id: ROBOT,
       robot_name: 'Packbot 1',
-      capabilities: { action_history: true, assets: false },
+      capabilities: { job_history: true, assets: false },
       exposures: [
         { slug: 'battery', kind: 'datapoint', description: 'Battery charge.', unit: '%', decimals: 1, input_schema: null },
         { slug: 'dock', kind: 'action', description: null, unit: null, decimals: null, input_schema: { type: 'object', properties: {} } },
@@ -279,12 +280,20 @@ describe('mcp datasheet contracts', () => {
     expect(sheet.exposures).toHaveLength(3)
   })
 
+  it('names the two capabilities job_history and assets, and no other', () => {
+    expect(Object.keys(mcpCapabilities.shape)).toEqual(['job_history', 'assets'])
+    expect(mcpCapabilities.safeParse({ job_history: true, assets: false }).success).toBe(true)
+    // A capabilities object that names only one of the two does not satisfy the contract: no alias stands in for job_history.
+    expect(mcpCapabilities.safeParse({ assets: false }).success).toBe(false)
+    expect(mcpCapabilities.safeParse({ job_history: true }).success).toBe(false)
+  })
+
   /** One valid exposure and one valid datasheet, so a test can break exactly one thing. */
   const EXPOSURE = { slug: 'front', kind: 'camera', description: null, unit: null, decimals: null, input_schema: null }
   const datasheet = (overrides: Record<string, unknown> = {}) => ({
     robot_id: ROBOT,
     robot_name: 'Packbot 1',
-    capabilities: { action_history: false, assets: false },
+    capabilities: { job_history: false, assets: false },
     exposures: [EXPOSURE],
     ...overrides,
   })

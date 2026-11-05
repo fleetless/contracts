@@ -123,7 +123,7 @@ describe('the access section', () => {
     ['a key that is not a role key on assets', { assets: 'Bad Key' }],
     ['an empty list on job_history', { job_history: [] }],
     ['a kind that is not an entry kind', { rules: [{ ...rule, kinds: ['assets'] }] }],
-    ['a kind of the old vocabulary', { rules: [{ ...rule, kinds: ['action_history'] }] }],
+    ['a kind of the old vocabulary', { rules: [{ ...rule, kinds: ['presence'] }] }],
     ['an empty list of kinds', { rules: [{ ...rule, kinds: [] }] }],
     ['a key the format does not know in a rule', { rules: [{ ...rule, extra: true }] }],
     ['a key the format does not know in access', { rules: [rule], presence: 'operate' }],

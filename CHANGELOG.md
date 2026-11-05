@@ -61,6 +61,15 @@ version.
   has no role to name (a developer, a server key, an app user whose key is no
   role). It is part of the `GET /api/client/me` answer and of the realtime
   `auth_ok` frame. A consumer that read `role_id` reads `role.key` now.
+- **Breaking (major):** `mcpCapabilities.action_history` is renamed
+  `job_history`, without an alias. The capability names the same thing, the
+  past jobs of a robot (`GET /api/robots/:id/jobs/history`), and now matches
+  the `job_history` of the `fleetless.yaml` `access` section and of the
+  organization defaults. It travels in the `capabilities` of
+  `mcpRobotDatasheet` (`robots.describe` and `GET /api/robots/:id/datasheet`)
+  and is what `capability_required` names beside `assets`. A producer that
+  sends `action_history` no longer satisfies the schema, and a consumer that
+  read it reads `job_history` now.
 
 ### Removed
 

@@ -5367,7 +5367,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "**The REST twin of the MCP action `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
+      "notes": "**The REST twin of the MCP action `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, `job_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, services, publishers and capabilities, which is what an app needs before it can draw a screen."
     },
     {
       "method": "GET",
@@ -5858,7 +5858,7 @@
         "validation_error"
       ],
       "transport": "http",
-      "notes": "Needs the `action_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing durable recorded what had run. Two residuals worth stating rather than implying away. `history` is a syntactically valid slug, and a static segment matches before a parameter, so a robot with a service literally slugged `history` can no longer be **read** through `GET /api/robots/:id/jobs/:slug`; invoking, cancelling and the listing are unaffected. And a run row names its actor by email address, so an end user holding this capability learns which other people have been driving the machine. `robot_id` in the query is shared with the org-wide read; a *different* one here is refused rather than quietly answered about the robot in the path."
+      "notes": "Needs the `job_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing durable recorded what had run. Two residuals worth stating rather than implying away. `history` is a syntactically valid slug, and a static segment matches before a parameter, so a robot with a service literally slugged `history` can no longer be **read** through `GET /api/robots/:id/jobs/:slug`; invoking, cancelling and the listing are unaffected. And a run row names its actor by email address, so an end user holding this capability learns which other people have been driving the machine. `robot_id` in the query is shared with the org-wide read; a *different* one here is refused rather than quietly answered about the robot in the path."
     },
     {
       "method": "POST",

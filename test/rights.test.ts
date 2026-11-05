@@ -91,7 +91,7 @@ describe('kinds and the seed', () => {
     expect([...ACCESS_KINDS]).toEqual(['read', 'invoke', 'publish', 'assets', 'job_history'])
     expect([...ENTRY_KINDS]).toEqual(['read', 'invoke', 'publish'])
     expect(accessKind.safeParse('job_history').success).toBe(true)
-    expect(accessKind.safeParse('action_history').success).toBe(false)
+    expect(accessKind.safeParse('presence').success).toBe(false)
   })
 
   it('limits an organization to fifty roles with names of at most sixty characters', () => {

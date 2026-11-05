@@ -691,7 +691,7 @@ export const ERROR_CODES = [
   /**
    * An app-wide **capability** the caller's role does not grant — today
    * `assets` (`GET /api/robots/:id/assets` and the URDF/by-id byte routes)
-   * and `action_history` (`GET /api/robots/:id/jobs/history`). The message
+   * and `job_history` (`GET /api/robots/:id/jobs/history`). The message
    * names which one.
    *
    * **Distinct from `forbidden`, and the distinction is the point.**

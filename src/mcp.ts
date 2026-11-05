@@ -185,9 +185,9 @@ export const mcpExposure = z.object({
 })
 export type McpExposure = z.infer<typeof mcpExposure>
 
-/** The two role capabilities a robot tool can need beyond a slug grant. `presence` is a stream and has no tool. */
+/** The two capabilities of a robot as a whole that a tool can need beyond a slug: its past jobs and its asset files. */
 export const mcpCapabilities = z.object({
-  action_history: z.boolean(),
+  job_history: z.boolean(),
   assets: z.boolean(),
 })
 export type McpCapabilities = z.infer<typeof mcpCapabilities>

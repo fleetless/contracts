@@ -15,7 +15,7 @@
     "capabilities": {
       "type": "object",
       "properties": {
-        "action_history": {
+        "job_history": {
           "type": "boolean"
         },
         "assets": {
@@ -23,7 +23,7 @@
         }
       },
       "required": [
-        "action_history",
+        "job_history",
         "assets"
       ],
       "additionalProperties": false
