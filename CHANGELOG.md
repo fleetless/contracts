@@ -34,10 +34,11 @@ version.
   its counts and the keys that are written somewhere but are no role; a rename
   with `update_references` that has places to rewrite is two calls, the first
   answered with a preview and a `confirm` token, and one with none applies at
-  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`, `orgRoleListResponse`,
-  `danglingReference`, `referencePlace`, `createOrgRoleRequest`,
-  `patchOrgRoleRequest`, `roleRenamePreview`, `roleDefaultsResponse` and
-  `putRoleDefaultsRequest`, each with its type and JSON Schema artifact.
+  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`,
+  `orgRoleListResponse`, `danglingReference`, `referencePlace`,
+  `createOrgRoleRequest`, `patchOrgRoleRequest`, `roleRenamePreview`,
+  `roleDefaultsResponse` and `putRoleDefaultsRequest`, each with its type and
+  JSON Schema artifact.
 - The error codes `role_cycle` (`400`, `details` is `roleCycleDetails`),
   `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
   the preview that carries the token to confirm with).

@@ -113,7 +113,7 @@ describe('patchOrgRoleRequest', () => {
     expect(artifact('patch-org-role-request')({ key: 'defaults' })).toBe(false)
   })
 
-  it('says in its artifact that the one-field rule is the cloud\'s to refuse', () => {
+  it('lets an empty patch through in its artifact, because the one-field rule has no JSON Schema form', () => {
     // A `.refine()` has no JSON Schema form: the artifact lets an empty patch through, and the comment on the shape says why.
     expect(artifact('patch-org-role-request')({})).toBe(true)
   })
