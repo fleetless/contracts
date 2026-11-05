@@ -70,9 +70,11 @@ describe('exposure model', () => {
     // `history` is not a built-in — nothing publishes it, no plane serves it.
     // Reserved because `GET /api/robots/:id/jobs/history` (see `routes.test.ts`)
     // is a literal sibling of `/jobs/:slug`, so an action of that name would be
-    // unreachable. Order matters too: the console's built-in slug list
+    // unreachable. `assets` and `job_history` name the robot-level capabilities,
+    // so an exposure of the same name would make a capability's `name` ambiguous.
+    // Order matters too: the console's built-in slug list
     // annotates against this union, so a reorder must not pass unremarked.
-    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'history'])
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'history', 'assets', 'job_history'])
   })
 
   it('carries a whole configuration as one document', () => {

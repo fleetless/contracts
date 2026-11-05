@@ -18,7 +18,13 @@ release; every breaking item is named once, under Removed or Changed.
   /api/apps/:id/roles`, `PATCH` and `DELETE /api/apps/:id/roles/:roleId`,
   `PUT` and `GET /api/apps/:id/roles/:roleId/permissions`, and `GET
   /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
-  from here on.
+  from here on. What a role may use is no longer a matrix kept per app: it is
+  written in each robot's `fleetless.yaml` (`role` on an entry, `access.rules`,
+  `access.assets` and `access.job_history`) and in the organization's defaults
+  (`PUT /api/org/roles/defaults`), and what an app takes away is its locks
+  (`PUT /api/apps/:id/access`). To carry a per-app role over, create an
+  organization role with the role's key, name the key where the matrix granted
+  access, and give the app's users and invitations that key.
 - **Breaking (major):** The shapes of those routes, with their types and JSON
   Schema artifacts: `role`, `roleListResponse`, `roleRenameRequest`,
   `roleDeleteQuery`, `roleInUseDetails`, `rolePermissions` and
@@ -73,6 +79,17 @@ release; every breaking item is named once, under Removed or Changed.
 - **Breaking (major):** `publishConfigResponse` requires `warnings`: every
   warning of the published document, `[]` when it has none. An answer from a
   cloud that does not send it yet no longer satisfies the contract.
+- **Breaking (major):** the slugs `assets` and `job_history` are reserved, like
+  `bridge_state`, `robot_details` and `history`: `RESERVED_SLUGS` lists them,
+  and a configured entry of either name is refused when the document is
+  validated. They name the robot-level capabilities, so an exposure of the same
+  name would have left the `name` of an `effectiveCapability` ambiguous.
+- `POST /api/apps/:id/invitations/:invId/reissue` lists `target_state_conflict`:
+  an invitation that holds no role key, in an app with no default role, is
+  refused with it (rule `not_set`, field `default_role`) before the old link is
+  revoked.
+- The mail template variable `role.name` is the display name of the
+  organization role the invitee is given.
 - The journal kind `app_role.delete` is retired: no producer writes it any more,
   and it stays in the contract so that journals written before still parse and
   replay.
@@ -87,11 +104,15 @@ release; every breaking item is named once, under Removed or Changed.
   `accessRule` and `accessSection` are exported. The bridge ignores both
   fields.
 - The helpers that resolve them, from the package root: `roleKey`, `roleRef`,
-  `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
+  `accessKind`, `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
   `listExposures`, `requirementOf`, `collectRoleRefs` and `roleIssues`, with
-  `ACCESS_KINDS`, `ENTRY_KINDS`, `MAX_ORG_ROLES`, `ROLE_NAME_MAX`,
-  `SEED_ROLES`, `SEED_DEFAULTS` and their types. `roleIssues` yields the two
-  warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
+  `ROLE_KEY_PATTERN` and `ROLE_KEY_RULE` (the pattern a role key must match
+  and the sentence that says so), `ACCESS_KINDS`, `ENTRY_KINDS`,
+  `MAX_ORG_ROLES`, `ROLE_NAME_MAX`, `SEED_ROLES`, `SEED_DEFAULTS` and their
+  types. `RoleRef` is the type of a `role` field, one key or a list of keys;
+  `RoleRefUse`, the result of `collectRoleRefs`, is one place a document names
+  a key. `roleIssues` yields the two warnings a document can earn,
+  `unknown_role` and `rule_matches_nothing`.
 - Organization roles on the wire. Six developer routes, none owner-only:
   `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
   and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
@@ -114,9 +135,10 @@ release; every breaking item is named once, under Removed or Changed.
   out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
   answers, per attached robot, every capability with whether it is granted,
   where its requirement came from, whether the robot is `reachable` at all and
-  the datasheet an MCP session of that role would get. Developer routes, none owner-only. Shapes: `appAccess`,
-  `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
-  `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
+  the datasheet an MCP session of that role would get. Developer routes, none
+  owner-only. Shapes: `appAccess`, `appLock`, `accessWarning`,
+  `appAccessResponse`, `effectiveRightsQuery`, `effectiveCapability`,
+  `effectiveRobotRights` and `effectiveRightsResponse`.
   The lists of an access name each kind, slug and robot once, and are bounded;
   `MAX_LOCK_SLUGS` is the most slugs one lock can name.
 - `revision` on the access of an app. `appAccessResponse` carries the revision

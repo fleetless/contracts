@@ -287,8 +287,6 @@ export {
   ROLE_NAME_MAX,
   SEED_ROLES,
   SEED_DEFAULTS,
-  entryKindOf,
-  rosNameOf,
   matchRosGlob,
   roleClosure,
   roleSatisfies,
@@ -301,6 +299,7 @@ export {
 export type {
   RoleKey,
   RoleRef,
+  RoleRefUse,
   AccessKind,
   EntryKind,
   RoleNode,

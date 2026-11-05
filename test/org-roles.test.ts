@@ -34,13 +34,13 @@ const place = {
   kind: 'config', label: 'Arm', path: 'services.arm_home.role', robot_id: id, app_id: null, user_id: null,
   document: 'published', new_version: 4,
 }
-const role = { key: 'wartung', name: 'Maintenance', inherits: ['observe'], users: 3, invitations: 1, app_defaults: 0, references: 2 }
+const role = { key: 'maintenance', name: 'Maintenance', inherits: ['observe'], users: 3, invitations: 1, app_defaults: 0, references: 2 }
 
 describe('createOrgRoleRequest', () => {
   it('accepts a key, a name and optional parents', () => {
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: ['observe'] }).success).toBe(true)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance' }).success).toBe(true)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: [] }).success).toBe(true)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', inherits: ['observe'] }).success).toBe(true)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance' }).success).toBe(true)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', inherits: [] }).success).toBe(true)
   })
 
   it('refuses a key that is not a role key', () => {
@@ -54,26 +54,26 @@ describe('createOrgRoleRequest', () => {
     expect(createOrgRoleRequest.safeParse({ key: 'defaults', name: 'Defaults' }).success).toBe(false)
     expect(createOrgRoleRequest.safeParse({ key: 'default', name: 'Default' }).success).toBe(true)
     expect(createOrgRoleRequest.safeParse({ key: 'defaults_2', name: 'Defaults' }).success).toBe(true)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: ['defaults'] }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', inherits: ['defaults'] }).success).toBe(false)
     expect(artifact('create-org-role-request')({ key: 'defaults', name: 'Defaults' })).toBe(false)
     expect(artifact('create-org-role-request')({ key: 'defaults_2', name: 'Defaults' })).toBe(true)
   })
 
   it('bounds the name at 1 to 60 characters, after trimming', () => {
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: '' }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: '   ' }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'n'.repeat(61) }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'n'.repeat(60) }).success).toBe(true)
-    const trimmed = createOrgRoleRequest.parse({ key: 'wartung', name: `  ${'n'.repeat(60)}  ` })
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: '' }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: '   ' }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'n'.repeat(61) }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'n'.repeat(60) }).success).toBe(true)
+    const trimmed = createOrgRoleRequest.parse({ key: 'maintenance', name: `  ${'n'.repeat(60)}  ` })
     expect(trimmed.name).toBe('n'.repeat(60))
   })
 
   it('refuses a parent that is not a role key, and every key it does not know', () => {
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: ['Observe'] }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: 'observe' }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', users: 1 }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', inherits: ['Observe'] }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', inherits: 'observe' }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance', name: 'Maintenance', users: 1 }).success).toBe(false)
     expect(createOrgRoleRequest.safeParse({ name: 'Maintenance' }).success).toBe(false)
-    expect(createOrgRoleRequest.safeParse({ key: 'wartung' }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'maintenance' }).success).toBe(false)
   })
 })
 
@@ -192,7 +192,7 @@ describe('what the role list answers', () => {
 
   it('names the inheriting role by its key, since display names are not unique', () => {
     const inherits = {
-      kind: 'role_inherits', label: 'Maintenance', path: 'wartung', robot_id: null, app_id: null, user_id: null, document: null, new_version: null,
+      kind: 'role_inherits', label: 'Maintenance', path: 'maintenance', robot_id: null, app_id: null, user_id: null, document: null, new_version: null,
     }
     expect(referencePlace.safeParse(inherits).success).toBe(true)
     const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/reference-place.schema.json', import.meta.url), 'utf8'))
@@ -211,7 +211,7 @@ describe('what the role list answers', () => {
 
 describe('the rename preview and the cycle', () => {
   it('carries every place a rename would rewrite and the token that confirms it', () => {
-    const preview = { from: 'wartung', to: 'service', references: [place], reference_count: 1, confirm: 'a'.repeat(64) }
+    const preview = { from: 'maintenance', to: 'service', references: [place], reference_count: 1, confirm: 'a'.repeat(64) }
     expect(roleRenamePreview.safeParse(preview).success).toBe(true)
     expect(roleRenamePreview.safeParse({ ...preview, confirm: undefined }).success).toBe(false)
     expect(roleRenamePreview.safeParse({ ...preview, reference_count: -1 }).success).toBe(false)

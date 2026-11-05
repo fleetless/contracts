@@ -97,7 +97,7 @@ describe('the access section', () => {
         job_history: ['operate'],
         rules: [
           { match: '/arm/**', role: 'admin' },
-          { match: '/diagnostics/*', kinds: ['read'], role: ['wartung', 'admin'] },
+          { match: '/diagnostics/*', kinds: ['read'], role: ['maintenance', 'admin'] },
         ],
       },
     }))

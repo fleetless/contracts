@@ -1073,9 +1073,9 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, roles, server keys, ' +
+      'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, server keys, ' +
       'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
-      'Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
+      'Its robots and the organization\'s roles are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
       '`GET /api/apps/:id/deletion-preview`.',
   },
   {
@@ -2897,7 +2897,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: datapointListResponse,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'A developer bearer sees the robot\'s whole list unfiltered; an end user or a server key sees only the slugs their role grants, and a ' +
+      'A developer bearer sees the robot\'s whole list unfiltered; an end user sees only the slugs their role grants, a server key every slug its app does not lock, and a ' +
       'robot their app does not attach answers `404` exactly as one that does not exist.',
   },
   {

@@ -13,7 +13,6 @@ import {
   SEED_ROLES,
   accessKind,
   collectRoleRefs,
-  entryKindOf,
   findCycle,
   listExposures,
   matchRosGlob,
@@ -24,10 +23,9 @@ import {
   roleKey,
   roleRef,
   roleSatisfies,
-  rosNameOf,
   validationIssue,
 } from '../src/index.js'
-import type { RobotConfigDoc, RoleDefaults, RoleGraph } from '../src/index.js'
+import type { ExposureSection, RobotConfigDoc, RoleDefaults, RoleGraph, RoleRef, RoleRefUse } from '../src/index.js'
 
 /** A role graph from `{ key: [parents] }`; the display name is not under test. */
 const graphOf = (edges: Record<string, string[]>): RoleGraph =>
@@ -143,17 +141,13 @@ describe('kinds and the seed', () => {
     const seeded = new Set(SEED_ROLES.map((r) => r.key))
     for (const keys of Object.values(SEED_DEFAULTS)) for (const key of keys) expect(seeded.has(key)).toBe(true)
   })
-
-  it('maps every section to the kind of access it needs', () => {
-    expect(entryKindOf('datapoints')).toBe('read')
-    expect(entryKindOf('cameras')).toBe('read')
-    expect(entryKindOf('services')).toBe('invoke')
-    expect(entryKindOf('actions')).toBe('invoke')
-    expect(entryKindOf('publishers')).toBe('publish')
-  })
 })
 
-describe('rosNameOf', () => {
+/** The ROS name `listExposures` reports for one entry of a section; the entry is not run through the schema, so a malformed one can be tried. */
+const rosNameOfEntry = (section: ExposureSection, entry: unknown): string | null =>
+  listExposures({ fleetless: 1, [section]: { probe: entry } } as unknown as RobotConfigDoc)[0]?.rosName ?? null
+
+describe('the ROS name of an entry', () => {
   it.each([
     ['datapoints', { topic: '/battery_state' }, '/battery_state'],
     ['publishers', { topic: '/cmd_vel' }, '/cmd_vel'],
@@ -168,7 +162,7 @@ describe('rosNameOf', () => {
     ['datapoints', null, null],
     ['services', 'nonsense', null],
   ] as const)('%s %j gives %j', (section, entry, expected) => {
-    expect(rosNameOf(section, entry)).toBe(expected)
+    expect(rosNameOfEntry(section, entry)).toBe(expected)
   })
 })
 
@@ -219,10 +213,10 @@ describe('matchRosGlob', () => {
 })
 
 describe('roleClosure', () => {
-  const graph = graphOf({ observe: [], operate: ['observe'], wartung: ['observe'], admin: ['operate', 'wartung', 'gone'] })
+  const graph = graphOf({ observe: [], operate: ['observe'], maintenance: ['observe'], admin: ['operate', 'maintenance', 'gone'] })
 
   it('is the role and everything it inherits from that exists', () => {
-    expect(roleClosure(graph, 'admin').sort()).toEqual(['admin', 'observe', 'operate', 'wartung'])
+    expect(roleClosure(graph, 'admin').sort()).toEqual(['admin', 'maintenance', 'observe', 'operate'])
     expect(roleClosure(graph, 'observe')).toEqual(['observe'])
   })
 
@@ -241,8 +235,8 @@ describe('roleSatisfies', () => {
   const graph = graphOf({
     observe: [],
     operate: ['observe'],
-    wartung: ['observe'],
-    admin: ['operate', 'wartung'],
+    maintenance: ['observe'],
+    admin: ['operate', 'maintenance'],
     d1: [],
     d2: ['d1'],
     d3: ['d2'],
@@ -254,7 +248,7 @@ describe('roleSatisfies', () => {
   })
 
   it('is met through any parent of a role that has several', () => {
-    expect(roleSatisfies(graph, 'admin', ['wartung'])).toEqual({ satisfied: true, via: 'wartung', unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['maintenance'])).toEqual({ satisfied: true, via: 'maintenance', unknown: [] })
     expect(roleSatisfies(graph, 'admin', ['operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
   })
 
@@ -267,10 +261,10 @@ describe('roleSatisfies', () => {
   })
 
   it('is met by any one of a list, and reports the nearest ancestor that was, whatever the list order', () => {
-    // Closure order from admin is admin, operate, wartung, observe: operate comes first although the list names wartung first.
-    expect(roleSatisfies(graph, 'admin', ['d1', 'wartung', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
-    expect(roleSatisfies(graph, 'admin', ['operate', 'wartung'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
-    expect(roleSatisfies(graph, 'admin', ['wartung', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    // Closure order from admin is admin, operate, maintenance, observe: operate comes first although the list names maintenance first.
+    expect(roleSatisfies(graph, 'admin', ['d1', 'maintenance', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['operate', 'maintenance'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['maintenance', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
     // A parent is nearer than its own parent, even when the list names the grandparent first.
     expect(roleSatisfies(graph, 'admin', ['observe', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
   })
@@ -297,9 +291,9 @@ describe('roleSatisfies', () => {
   })
 
   it('keeps the parents that remain when one was deleted', () => {
-    const wounded = graphOf({ observe: [], operate: ['observe'], admin: ['operate', 'wartung'] })
+    const wounded = graphOf({ observe: [], operate: ['observe'], admin: ['operate', 'maintenance'] })
     expect(roleSatisfies(wounded, 'admin', ['operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
-    expect(roleSatisfies(wounded, 'admin', ['wartung'])).toEqual({ satisfied: false, via: null, unknown: ['wartung'] })
+    expect(roleSatisfies(wounded, 'admin', ['maintenance'])).toEqual({ satisfied: false, via: null, unknown: ['maintenance'] })
   })
 
   it('terminates on a cycle in the graph', () => {
@@ -352,7 +346,7 @@ const DOC = robotConfigDoc.parse({
   fleetless: 1,
   datapoints: {
     battery: { topic: '/battery_state', type: 'sensor_msgs/msg/BatteryState' },
-    raw_diagnostics: { topic: '/diagnostics/raw', type: 'diagnostic_msgs/msg/DiagnosticArray', role: 'wartung' },
+    raw_diagnostics: { topic: '/diagnostics/raw', type: 'diagnostic_msgs/msg/DiagnosticArray', role: 'maintenance' },
     diag_summary: { topic: '/diagnostics/summary', type: 'diagnostic_msgs/msg/DiagnosticStatus' },
   },
   actions: {
@@ -381,7 +375,7 @@ const DOC = robotConfigDoc.parse({
     assets: 'operate',
     rules: [
       { match: '/arm/**', kinds: ['invoke'], role: 'admin' },
-      { match: '/diagnostics/*', role: ['wartung', 'admin'] },
+      { match: '/diagnostics/*', role: ['maintenance', 'admin'] },
       { match: '/**', kinds: ['read'], role: 'operate' },
     ],
   },
@@ -422,13 +416,13 @@ describe('requirementOf an entry', () => {
   const req = (slug: string, doc = DOC, defaults = DEFAULTS) => requirementOf(doc, defaults, { slug })
 
   it('takes the role of the entry first, a single key as a one-element list', () => {
-    expect(req('raw_diagnostics')).toEqual({ roles: ['wartung'], source: { kind: 'entry' } })
+    expect(req('raw_diagnostics')).toEqual({ roles: ['maintenance'], source: { kind: 'entry' } })
   })
 
   it('takes a list on the entry as it is', () => {
     expect(req('arm_home')).toEqual({ roles: ['admin'], source: { kind: 'entry' } })
-    const several = robotConfigDoc.parse({ fleetless: 1, services: { reset: { ros_name: '/r', type: 'std_srvs/srv/Trigger', role: ['operate', 'wartung'] } } })
-    expect(requirementOf(several, DEFAULTS, { slug: 'reset' })).toEqual({ roles: ['operate', 'wartung'], source: { kind: 'entry' } })
+    const several = robotConfigDoc.parse({ fleetless: 1, services: { reset: { ros_name: '/r', type: 'std_srvs/srv/Trigger', role: ['operate', 'maintenance'] } } })
+    expect(requirementOf(several, DEFAULTS, { slug: 'reset' })).toEqual({ roles: ['operate', 'maintenance'], source: { kind: 'entry' } })
   })
 
   it('lets the entry override a rule that would fit it', () => {
@@ -438,7 +432,7 @@ describe('requirementOf an entry', () => {
 
   it('takes the first rule that fits, in the order written', () => {
     // `/diagnostics/summary` fits rule 1 (`/diagnostics/*`) and rule 2 (`/**`, read); rule 1 is earlier.
-    expect(req('diag_summary')).toEqual({ roles: ['wartung', 'admin'], source: { kind: 'rule', index: 1, match: '/diagnostics/*' } })
+    expect(req('diag_summary')).toEqual({ roles: ['maintenance', 'admin'], source: { kind: 'rule', index: 1, match: '/diagnostics/*' } })
   })
 
   it('honours the kinds of a rule', () => {
@@ -512,8 +506,8 @@ describe('requirementOf a capability', () => {
   })
 
   it('takes a list at the robot level as it is', () => {
-    const doc = robotConfigDoc.parse({ fleetless: 1, access: { job_history: ['operate', 'wartung'] } })
-    expect(requirementOf(doc, DEFAULTS, { capability: 'job_history' })).toEqual({ roles: ['operate', 'wartung'], source: { kind: 'robot' } })
+    const doc = robotConfigDoc.parse({ fleetless: 1, access: { job_history: ['operate', 'maintenance'] } })
+    expect(requirementOf(doc, DEFAULTS, { capability: 'job_history' })).toEqual({ roles: ['operate', 'maintenance'], source: { kind: 'robot' } })
   })
 
   it('asks for nobody when there is neither a key nor a default', () => {
@@ -535,12 +529,20 @@ describe('requirementOf a capability', () => {
 })
 
 describe('collectRoleRefs', () => {
+  it('names its result type apart from the type of a role field', () => {
+    // `RoleRef` is what a `role` field holds (one key or a list); `RoleRefUse` is one place a key is named.
+    const field: RoleRef[] = ['operate', ['operate', 'admin']]
+    const use: RoleRefUse = collectRoleRefs(DOC)[0]!
+    expect(field.every((f) => roleRef.safeParse(f).success)).toBe(true)
+    expect(use).toEqual({ key: 'maintenance', path: 'datapoints.raw_diagnostics.role', slug: 'raw_diagnostics' })
+  })
+
   it('finds every key the document names, each with its path', () => {
     expect(collectRoleRefs(DOC)).toEqual([
-      { key: 'wartung', path: 'datapoints.raw_diagnostics.role', slug: 'raw_diagnostics' },
+      { key: 'maintenance', path: 'datapoints.raw_diagnostics.role', slug: 'raw_diagnostics' },
       { key: 'admin', path: 'services.arm_home.role[0]', slug: 'arm_home' },
       { key: 'admin', path: 'access.rules[0].role', slug: null },
-      { key: 'wartung', path: 'access.rules[1].role[0]', slug: null },
+      { key: 'maintenance', path: 'access.rules[1].role[0]', slug: null },
       { key: 'admin', path: 'access.rules[1].role[1]', slug: null },
       { key: 'operate', path: 'access.rules[2].role', slug: null },
       { key: 'operate', path: 'access.assets', slug: null },
@@ -548,8 +550,8 @@ describe('collectRoleRefs', () => {
   })
 
   it('reads access.job_history as well', () => {
-    const doc = robotConfigDoc.parse({ fleetless: 1, access: { job_history: 'wartung' } })
-    expect(collectRoleRefs(doc)).toEqual([{ key: 'wartung', path: 'access.job_history', slug: null }])
+    const doc = robotConfigDoc.parse({ fleetless: 1, access: { job_history: 'maintenance' } })
+    expect(collectRoleRefs(doc)).toEqual([{ key: 'maintenance', path: 'access.job_history', slug: null }])
   })
 
   it('finds nothing in a document without roles, or in no document', () => {
@@ -559,7 +561,7 @@ describe('collectRoleRefs', () => {
 })
 
 describe('roleIssues', () => {
-  const known = graphOf({ observe: [], operate: ['observe'], admin: ['operate'], wartung: ['observe'] })
+  const known = graphOf({ observe: [], operate: ['observe'], admin: ['operate'], maintenance: ['observe'] })
   const doc = (body: Record<string, unknown>) => robotConfigDoc.parse({ fleetless: 1, ...body })
   const SERVICE = { ros_name: '/arm/home', type: 'std_srvs/srv/Trigger' }
 

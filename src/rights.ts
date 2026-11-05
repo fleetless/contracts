@@ -86,6 +86,7 @@ export const roleRef = z.union(
     },
   ],
 })
+export type RoleRef = z.infer<typeof roleRef>
 
 /* ----------------------------------------------------------------- kinds */
 
@@ -217,11 +218,6 @@ const ENTRY_KIND_OF: Record<ExposureSection, EntryKind> = {
 
 const SECTIONS = Object.keys(ENTRY_KIND_OF) as ExposureSection[]
 
-/** `read` for datapoints and cameras, `invoke` for services and actions, `publish` for publishers. */
-export function entryKindOf(section: ExposureSection): EntryKind {
-  return ENTRY_KIND_OF[section]
-}
-
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 
@@ -233,7 +229,7 @@ const asString = (value: unknown): string | null => (typeof value === 'string' ?
  * camera whose source is a ROS topic. `null` for every other camera — an
  * address on the network or a device is not a ROS name, so no rule can fit it.
  */
-export function rosNameOf(section: ExposureSection, entry: unknown): string | null {
+function rosNameOf(section: ExposureSection, entry: unknown): string | null {
   const record = asRecord(entry)
   if (record === null) return null
   switch (section) {
@@ -412,16 +408,16 @@ export function requirementOf(
  * `services.arm_home.role[1]` — so a reader can point at the key itself.
  * `slug` is the entry for a reference on an entry, `null` otherwise.
  */
-export interface RoleRef {
+export interface RoleRefUse {
   key: string
   path: string
   slug: string | null
 }
 
 /** Every role key the document names: on entries, in rules, and on `access.assets` and `access.job_history`. */
-export function collectRoleRefs(doc: RobotConfigDoc | null): RoleRef[] {
+export function collectRoleRefs(doc: RobotConfigDoc | null): RoleRefUse[] {
   if (doc === null) return []
-  const refs: RoleRef[] = []
+  const refs: RoleRefUse[] = []
   const add = (value: string | readonly string[] | undefined, path: string, slug: string | null) => {
     if (value === undefined) return
     if (typeof value === 'string') refs.push({ key: value, path, slug })
