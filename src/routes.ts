@@ -526,8 +526,8 @@ const COLLECTIONS_IMPORT_LIMITS =
   "The request body is at most 21,048,576 bytes (twice the 10,000,000 characters of a file, since a file inside a JSON string can double in " +
   "size on the way, plus 1 MiB); a larger one is `400 validation_error`, field `content`, rule `too_large`. A request without a bearer token is " +
   "`401` before its body is read. An app runs one import at a time, preview or confirmation, and the cloud three at once; the next is " +
-  "`429 rate_limited` with `retry_after_ms: 5000`. A file of 50,000 rows takes about half a minute in each of its two requests. The cloud sets no " +
-  "request timeout of its own, so a reverse proxy in front of it must allow a minute or more on these routes.";
+  "`429 rate_limited` with `retry_after_ms: 5000`. A large file can take a while in each of its two requests. The cloud sets no " +
+  "request timeout of its own, so a reverse proxy in front of it must not cut these routes short.";
 
 const COLLECTIONS_IMPORT_CELLS =
   "A blank cell is no value: the field's default on a new record, a cleared field on an existing one. A multiple `select` is a JSON list or " +

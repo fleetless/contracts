@@ -400,10 +400,8 @@ describe('listExposures', () => {
     ])
   })
 
-  it('does not list the built-in datapoints, which are no entry of the document', () => {
-    const slugs = listExposures(DOC).map((e) => e.slug)
-    expect(slugs).not.toContain('bridge_state')
-    expect(slugs).not.toContain('robot_details')
+  it('does not list the built-in datapoint, which is no entry of the document', () => {
+    expect(listExposures(DOC).map((e) => e.slug)).not.toContain('bridge_state')
   })
 
   it('lists nothing for no document, or for one with no sections', () => {

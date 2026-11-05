@@ -365,7 +365,7 @@ describe('REST shapes', () => {
     ).toBe(true)
   })
 
-  it('describes the readable datapoints including the built-ins', () => {
+  it('describes the readable datapoints including the built-in bridge_state', () => {
     expect(
       datapointListResponse.safeParse({
         datapoints: [
@@ -375,7 +375,6 @@ describe('REST shapes', () => {
       }).success,
     ).toBe(true)
   })
-
 })
 
 describe('error vocabulary', () => {

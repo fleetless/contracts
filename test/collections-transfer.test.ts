@@ -379,6 +379,14 @@ describe('the published schemas', () => {
     expect(existsSync(new URL(`${name}.schema.json`, dir))).toBe(true)
   })
 
+  it('the confirmation_required artifact says how to go on after a publish refused for its source_sha256', () => {
+    const artifact = JSON.parse(readFileSync(new URL('confirmation-required-details.schema.json', dir), 'utf8'))
+    const description: string = artifact.properties.preview.description
+    expect(description).toContain('`source_sha256`')
+    expect(description).toMatch(/`token` can be `null`/)
+    expect(description).toMatch(/publish again with its `source_sha256`/)
+  })
+
   it('the import request artifact describes every option and takes none that is not there', () => {
     const artifact = JSON.parse(readFileSync(new URL('collection-import-request.schema.json', dir), 'utf8'))
     expect(Object.keys(artifact.properties).sort()).toEqual([

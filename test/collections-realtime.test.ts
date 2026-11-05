@@ -175,16 +175,6 @@ describe('collection_event', () => {
   })
 })
 
-describe('collection_subscribe_error ends and refusals', () => {
-  it('lists the codes a running subscription ends with, and the one for a frame before auth', () => {
-    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-subscribe-error.schema.json', import.meta.url), 'utf8'))
-    expect(artifact.properties.code.description).toMatch(/unauthorized/)
-    const source = readFileSync(new URL('../src/realtime.ts', import.meta.url), 'utf8')
-    for (const code of ['collection_removed', 'forbidden', 'robot_not_attached', 'validation_error', 'internal_error']) expect(source, code).toContain(`\`${code}\``)
-    expect(source).toMatch(/at most 5,000 of its records/)
-  })
-})
-
 describe('collection_subscribe_error', () => {
   const failure = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
     type: 'collection_subscribe_error',
@@ -198,8 +188,22 @@ describe('collection_subscribe_error', () => {
     expect(collectionSubscribeError.safeParse(failure()).success).toBe(true)
   })
 
-  it.each(['collection_not_found', 'forbidden', 'robot_not_attached', 'validation_error', 'collection_removed'])('can carry %s', (code) => {
+  // The codes of a refused subscribe and of one that ends while it runs, and `unauthorized` for a subscribe sent before `auth`.
+  it.each([
+    'collection_not_found',
+    'forbidden',
+    'robot_not_attached',
+    'validation_error',
+    'collection_removed',
+    'internal_error',
+    'unauthorized',
+  ])('can carry %s', (code) => {
     expect(collectionSubscribeError.safeParse(failure({ code })).success).toBe(true)
+  })
+
+  it('says in the published schema that a subscribe before auth is answered with `unauthorized`', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-subscribe-error.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.code.description).toMatch(/unauthorized/)
   })
 
   it('echoes a request id that was itself the problem', () => {

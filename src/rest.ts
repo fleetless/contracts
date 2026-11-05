@@ -98,7 +98,7 @@ export type JointStatePutResponse = z.infer<typeof jointStatePutResponse>
  * same call for the same reason: fold cameras in and the sentence "this deletes
  * N slugs and M cameras" counts them twice. A list row has the same problem.
  *
- * **Counted from the published configuration, and excluding the built-ins.**
+ * **Counted from the published configuration, and excluding the built-in datapoint.**
  * `GET /api/robots/:id/exposures` answers *which* slugs and prepends the
  * built-in datapoint, `bridge_state`, as `builtin: true`; this answers *how
  * many* and counts only what somebody configured. So a robot with an empty

@@ -305,7 +305,7 @@ function ruleFits(rule: { match: string; kinds?: readonly EntryKind[] }, kind: E
   return (rule.kinds === undefined || rule.kinds.includes(kind)) && matchRosGlob(rule.match, rosName)
 }
 
-/** One exposed entry of a document, as the rights resolver sees it. Built-in datapoints are not listed. */
+/** One exposed entry of a document, as the rights resolver sees it. The built-in datapoint, `bridge_state`, is not listed. */
 export interface ExposureRef {
   slug: string
   section: ExposureSection
@@ -448,7 +448,7 @@ const subjectOf = (path: string): string => {
  * - `rule_matches_nothing`: an `access.rules` rule that fits no exposed entry
  *   of this document, so it changes nothing. A rule's `kinds` are honoured,
  *   and an entry without a ROS name — a camera that is not a ROS topic — is
- *   never matched. The built-in datapoints are not entries.
+ *   never matched. The built-in datapoint, `bridge_state`, is not an entry.
  */
 export function roleIssues(doc: RobotConfigDoc | null, graph: RoleGraph): ValidationIssue[] {
   if (doc === null) return []

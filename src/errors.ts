@@ -199,7 +199,7 @@ export const confirmationRequiredDetails = z
   .object({
     preview: z.unknown().meta({
       description:
-        'The current preview of the operation, with its `token`: a `collectionsSchemaPreview` for a publish, a `collectionsRestorePreview` for a restore, a `collectionsPurgePreview` for a purge and a `collectionImportPreview` for an import. Confirm it by sending that `token` as `confirm`.',
+        'The current preview of the operation, with its `token`: a `collectionsSchemaPreview` for a publish, a `collectionsRestorePreview` for a restore, a `collectionsPurgePreview` for a purge and a `collectionImportPreview` for an import. Confirm it by sending that `token` as `confirm`. A publish that names a `source_sha256` which is not the saved draft\'s, because the draft was saved again since it was previewed, is refused the same way with a preview whose `token` can be `null` (no effects, nothing to confirm): read this preview, then publish again with its `source_sha256`, and with its `token` as `confirm` when it has one.',
     }),
   })
   .strict()

@@ -76,10 +76,16 @@ version.
   developer routes under `/api/apps/:id/collections` and the same records,
   import and export for app users and server keys under
   `/api/client/collections`; only the two history purge routes need the Owner
-  tier. New error codes `confirmation_required`, `record_referenced`,
-  `record_changed`, `collection_not_found`, `collection_removed`,
-  `reference_invalid`, `required_missing` and `robot_not_attached`, with their
-  details, and the audit actions listed as `COLLECTION_AUDIT_ACTIONS`.
+  tier. New error codes `record_referenced`, `record_changed`,
+  `collection_not_found`, `collection_removed`, `reference_invalid`,
+  `required_missing` and `robot_not_attached`, with their details, and the
+  audit actions listed as `COLLECTION_AUDIT_ACTIONS`. `confirmation_required`,
+  which organization roles have used since 14.0.0, now also answers a
+  publish, restore, purge or import that would change data. Its `details` is
+  `{ preview }` here (`confirmationRequiredDetails`, the token in
+  `details.preview.token`) and the rename preview itself for a role rename
+  (the token in `details.confirm`), so a client that handles both looks for
+  `details.preview` first.
 - **Plan limits for collections.** `planLimitKey` gains `collection_records`
   and `collection_bytes`, counted per organization across its apps over
   current records only: 25,000 records and 1 GB on Basic, 250,000 and 10 GB on
@@ -105,11 +111,16 @@ version.
   `orgQuotas` gains `collection_records` and `collection_bytes`, and
   `effectiveRightsResponse` gains `collections`. A consumer that builds these
   answers itself adds them, as above; one that only reads them is unaffected.
-- **Fewer refusals are listed where they cannot happen.** The client routes
-  that have no record in their path (the list, the create, the import, the
-  import preview and the export) no longer list `invalid_uuid` and `not_found`.
-  The bodies of the three restore routes are optional, since all their keys
-  are, and the purge routes list `support_forbidden`.
+- **Breaking (major):** `planLimits` requires `collection_records` and
+  `collection_bytes`, like its other keys. That is the `limits` of `orgPlan`
+  (`GET /api/org/plan`), of every plan catalogue entry and of
+  `planChangeDecisionStatusResponse`, and the constant `PLANS`. A consumer
+  that builds plan limits itself, or keeps a `Record<PlanLimitKey, ...>`,
+  adds both keys, and a validator built from the old artifacts refuses the new
+  answers. The enums that follow `planLimitKey` widen as well:
+  `addonCatalogueEntry.raises` and `assetPlanLimitDetails.limit` accept the
+  two new keys, although no add-on raises them and an asset refusal never
+  names them, so an exhaustive `switch` over either needs the two cases.
 
 ### Removed
 
