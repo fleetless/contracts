@@ -683,9 +683,10 @@ export const parameterMap = slugKeyed(parameterSpec)
  * reserved everywhere.
  *
  * The first is a built-in: the cloud already publishes something under it,
- * so a configured entry would be a second producer for one name. `history` is reserved for a different reason and is not a built-in
- * — nothing publishes it. `GET /api/robots/:id/jobs/history` is a **literal
- * sibling** of `GET /api/robots/:id/jobs/:slug`, so an action or service named
+ * so a configured entry would be a second producer for one name. `history`
+ * is reserved for a different reason and is not a built-in — nothing
+ * publishes it. `GET /api/robots/:id/jobs/history` is a **literal sibling**
+ * of `GET /api/robots/:id/jobs/:slug`, so an action or service named
  * `history` would have a job route no caller could ever reach. Reserving the
  * name is the honest half of that: the alternative is a slug the format
  * accepts and one route silently cannot address.
