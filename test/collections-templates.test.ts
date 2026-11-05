@@ -133,4 +133,46 @@ describe('parseDisplayTemplate', () => {
   it('says which placeholder is wrong when there are several', () => {
     expect(message('{{good}} {{bad-one}}')).toContain('{{bad-one}}')
   })
+
+  describe('long runs of spaces', () => {
+    // The bound is generous: the work is one pass, a few milliseconds, where trimming with a
+    // pattern that restarts at every space took seconds for the first of these.
+    const timed = <T>(run: () => T): { result: T; ms: number } => {
+      const started = performance.now()
+      const result = run()
+      return { result, ms: performance.now() - started }
+    }
+
+    it('are read in linear time when they sit inside a placeholder', () => {
+      const { result, ms } = timed(() => parseDisplayTemplate(`{{a${' '.repeat(200_000)}b}}`))
+      expect(result.ok).toBe(false)
+      expect(ms).toBeLessThan(100)
+    })
+
+    it('are read in linear time when they pad a placeholder, and are trimmed away', () => {
+      const { result, ms } = timed(() => parseDisplayTemplate(`{{${' '.repeat(200_000)}name${' '.repeat(200_000)}}}`))
+      expect(result).toMatchObject({ ok: true, placeholders: [{ path: ['name'] }] })
+      expect(ms).toBeLessThan(100)
+    })
+
+    it('are read in linear time in a template that is all spaces between braces', () => {
+      const { result, ms } = timed(() => parseDisplayTemplate(`{{${' '.repeat(200_000)}}}`))
+      expect(result.ok).toBe(false)
+      expect(ms).toBeLessThan(100)
+    })
+
+    it('do not make the message as long as the placeholder', () => {
+      const text = message(`{{a${' '.repeat(10_000)}b}}`)
+      expect(text.length).toBeLessThan(300)
+      expect(text).toContain('…')
+    })
+  })
+
+  it('copies a short placeholder into its message whole, and cuts a long one at 80 characters', () => {
+    const shortKey = 'a'.repeat(40)
+    expect(message(`{{${shortKey}-x}}`)).toContain(`{{${shortKey}-x}}`)
+    const long = `{{${'b'.repeat(200)}}}`
+    expect(message(`${long}`)).not.toContain('b'.repeat(81))
+    expect(message(`${long}`)).toContain(`${long.slice(0, 80)}…`)
+  })
 })

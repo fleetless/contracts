@@ -26,6 +26,18 @@ export type CollectionValueOptions = {
    * handed the schema itself: for a template name, the template's schema.
    */
   validateJsonValue?: (schema: unknown, value: unknown) => string | null
+  /**
+   * Whether `value` matches the regular expression `pattern` of a `text`
+   * field. Patterns are written in the RE2 subset and the server matches them
+   * with an RE2 engine, whose time grows with the text and not with the
+   * pattern. Contracts has no such engine, and the JavaScript one can take
+   * exponential time for a pattern such as `(a+)+$`, so the server passes its
+   * own. Without one the JavaScript engine is used, which suits feedback on an
+   * author's own pattern in a browser and not matching what other people send.
+   * It throws for a pattern it cannot compile; that is reported like a pattern
+   * the JavaScript engine cannot compile.
+   */
+  matchPattern?: (pattern: string, value: string) => boolean
 }
 
 const problem = (code: string, message: string): CollectionValueProblem => ({ code, message })
@@ -41,6 +53,7 @@ function characters(value: string): number {
 }
 
 const LINE_BREAK = /[\r\n\u2028\u2029]/
+const NUL = '\u0000'
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/
 /**
@@ -79,6 +92,47 @@ function compile(pattern: string): RegExp | null {
 }
 
 /**
+ * Does a string, or a key of an object, anywhere in `value` hold a NUL
+ * character? A database that stores records as JSON cannot hold one, so it is
+ * refused here and not left to fail at the write. Walked with a list of what is
+ * left to look at and not by recursion, because a value nested a hundred
+ * thousand levels deep must be refused, not crash the stack.
+ */
+function containsNul(value: unknown): boolean {
+  const pending: unknown[] = [value]
+  while (pending.length > 0) {
+    const item = pending.pop()
+    if (typeof item === 'string') {
+      if (item.includes(NUL)) return true
+    } else if (Array.isArray(item)) {
+      for (const child of item) pending.push(child)
+    } else if (typeof item === 'object' && item !== null) {
+      for (const [key, child] of Object.entries(item)) {
+        if (key.includes(NUL)) return true
+        pending.push(child)
+      }
+    }
+  }
+  return false
+}
+
+/**
+ * Whether `value` matches `pattern`, by the injected matcher or else by the
+ * JavaScript engine. `null` means the pattern cannot be compiled.
+ */
+function matchesPattern(pattern: string, value: string, options: CollectionValueOptions): boolean | null {
+  if (options.matchPattern !== undefined) {
+    try {
+      return options.matchPattern(pattern, value)
+    } catch {
+      return null
+    }
+  }
+  const expression = compile(pattern)
+  return expression === null ? null : expression.test(value)
+}
+
+/**
  * Checks `value` against `field`. Returns `null` when it fits and the first
  * problem when it does not.
  *
@@ -97,20 +151,22 @@ export function checkCollectionValue(
   switch (field.type) {
     case 'text': {
       if (typeof value !== 'string') return problem('type', 'Expected text.')
+      if (value.includes(NUL)) return problem('type', 'The text contains a NUL character (U+0000), which cannot be stored.')
       if (LINE_BREAK.test(value)) return problem('type', 'Expected one line of text. Line breaks belong in long_text fields.')
       const max = Math.min(field.max_length ?? COLLECTION_LIMITS.textDefault, COLLECTION_LIMITS.textMax)
       if (value.length > max && characters(value) > max) {
         return problem('max_length', `Too long: the text has ${characters(value)} characters and the field allows ${max}.`)
       }
       if (field.pattern !== undefined) {
-        const expression = compile(field.pattern)
-        if (expression === null) return problem('pattern', 'The pattern of this field is not a valid regular expression, so no text can match it.')
-        if (!expression.test(value)) return problem('pattern', `The text does not match the pattern ${quote(field.pattern)}.`)
+        const matched = matchesPattern(field.pattern, value, options)
+        if (matched === null) return problem('pattern', 'The pattern of this field is not a valid regular expression, so no text can match it.')
+        if (!matched) return problem('pattern', `The text does not match the pattern ${quote(field.pattern)}.`)
       }
       return null
     }
     case 'long_text': {
       if (typeof value !== 'string') return problem('type', 'Expected text.')
+      if (value.includes(NUL)) return problem('type', 'The text contains a NUL character (U+0000), which cannot be stored.')
       const max = Math.min(field.max_length ?? COLLECTION_LIMITS.longTextDefault, COLLECTION_LIMITS.longTextMax)
       if (value.length > max && characters(value) > max) {
         return problem('max_length', `Too long: the text has ${characters(value)} characters and the field allows ${max}.`)
@@ -168,6 +224,9 @@ export function checkCollectionValue(
     case 'json': {
       if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'bigint') {
         return problem('type', 'Expected a JSON value.')
+      }
+      if (containsNul(value)) {
+        return problem('type', 'The value contains a NUL character (U+0000) in a string or a key, which cannot be stored.')
       }
       if (field.schema === undefined) return null
       let schema: unknown = field.schema

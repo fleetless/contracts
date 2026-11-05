@@ -159,6 +159,118 @@ describe('checkCollectionValue', () => {
   })
 })
 
+describe('checkCollectionValue with an injected matchPattern', () => {
+  const text = field({ type: 'text', pattern: '^[A-Z]+$' })
+
+  it('lets the matcher decide: its answer wins over the built-in one', () => {
+    // The built-in engine would accept 'ABC' and refuse 'abc'; the matcher says the opposite.
+    expect(checkCollectionValue(text, 'ABC', { matchPattern: () => false })?.code).toBe('pattern')
+    expect(checkCollectionValue(text, 'abc', { matchPattern: () => true })).toBeNull()
+  })
+
+  it('hands the matcher the pattern and the value as they are', () => {
+    const matchPattern = vi.fn(() => true)
+    checkCollectionValue(text, 'ABC', { matchPattern })
+    expect(matchPattern).toHaveBeenCalledTimes(1)
+    expect(matchPattern).toHaveBeenCalledWith('^[A-Z]+$', 'ABC')
+  })
+
+  it('names the pattern in the message when the matcher refuses', () => {
+    const problem = checkCollectionValue(text, 'abc', { matchPattern: () => false })
+    expect(problem?.message).toContain('^[A-Z]+$')
+  })
+
+  it('is not asked for a field without a pattern, or about a value an earlier check refused', () => {
+    const matchPattern = vi.fn(() => true)
+    expect(checkCollectionValue(field({ type: 'text' }), 'abc', { matchPattern })).toBeNull()
+    expect(checkCollectionValue(text, 'AB\nC', { matchPattern })?.code).toBe('type')
+    expect(checkCollectionValue(field({ type: 'text', pattern: '^A', max_length: 3 }), 'AAAA', { matchPattern })?.code).toBe('max_length')
+    expect(checkCollectionValue(text, 5, { matchPattern })?.code).toBe('type')
+    expect(matchPattern).not.toHaveBeenCalled()
+  })
+
+  it('reports a pattern the matcher cannot compile like one the built-in engine cannot', () => {
+    const matchPattern = () => {
+      throw new Error('invalid expression')
+    }
+    const problem = checkCollectionValue(text, 'ABC', { matchPattern })
+    expect(problem?.code).toBe('pattern')
+    expect(problem).toEqual(checkCollectionValue(field({ type: 'text', pattern: '(' }), 'ABC'))
+  })
+
+  it('leaves behaviour as it was without a matcher', () => {
+    expect(checkCollectionValue(text, 'ABC')).toBeNull()
+    expect(checkCollectionValue(text, 'abc')?.code).toBe('pattern')
+    expect(checkCollectionValue(text, 'abc', {})?.code).toBe('pattern')
+  })
+})
+
+describe('checkCollectionValue refuses a NUL character', () => {
+  const NUL = '\u0000'
+
+  it.each([
+    ['text', field({ type: 'text' })],
+    ['long_text', field({ type: 'long_text' })],
+  ])('in a %s value, as a type problem that names it', (_name, definition) => {
+    for (const value of [`a${NUL}b`, NUL, `abc${NUL}`]) {
+      const problem = checkCollectionValue(definition, value)
+      expect(problem?.code, JSON.stringify(value)).toBe('type')
+      expect(problem?.message).toContain('NUL')
+    }
+    expect(checkCollectionValue(definition, 'a b')).toBeNull()
+  })
+
+  it('in a text value that also has a pattern, before the pattern is asked', () => {
+    const matchPattern = vi.fn(() => true)
+    expect(checkCollectionValue(field({ type: 'text', pattern: '.' }), `a${NUL}`, { matchPattern })?.code).toBe('type')
+    expect(matchPattern).not.toHaveBeenCalled()
+  })
+
+  describe('in a json value', () => {
+    const json = field({ type: 'json' })
+
+    it.each([
+      ['a string', `a${NUL}b`],
+      ['a string in a list', ['ok', `a${NUL}`]],
+      ['a string in an object', { note: `a${NUL}b` }],
+      ['a key of an object', { [`a${NUL}`]: 1 }],
+      ['a string far down', { a: [{ b: { c: [`x${NUL}`] } }] }],
+    ])('%s', (_name, value) => {
+      const problem = checkCollectionValue(json, value)
+      expect(problem?.code).toBe('type')
+      expect(problem?.message).toContain('NUL')
+    })
+
+    it('but accepts the escaped text of a NUL and every other value', () => {
+      expect(checkCollectionValue(json, { a: '\\u0000', b: [1, null, true, 'x'], c: {} })).toBeNull()
+      expect(checkCollectionValue(json, 'plain')).toBeNull()
+      expect(checkCollectionValue(json, [])).toBeNull()
+    })
+
+    it('before the JSON schema is asked', () => {
+      const validateJsonValue = vi.fn(() => null)
+      const pose = field({ type: 'json', schema: 'pose2d' })
+      const problem = checkCollectionValue(pose, { x: 1, y: 2, yaw: 0, frame_id: `map${NUL}` }, { validateJsonValue })
+      expect(problem?.code).toBe('type')
+      expect(validateJsonValue).not.toHaveBeenCalled()
+    })
+
+    it('in a value nested too deep for recursion', () => {
+      let deep: unknown = `x${NUL}`
+      for (let i = 0; i < 200_000; i += 1) deep = [deep]
+      expect(checkCollectionValue(json, deep)?.code).toBe('type')
+      let clean: unknown = 'x'
+      for (let i = 0; i < 200_000; i += 1) clean = { a: clean }
+      expect(checkCollectionValue(json, clean)).toBeNull()
+    })
+  })
+
+  it('does not look at values that are not text', () => {
+    expect(checkCollectionValue(field({ type: 'number' }), 1)).toBeNull()
+    expect(checkCollectionValue(field({ type: 'boolean' }), true)).toBeNull()
+  })
+})
+
 describe('checkCollectionValue on json fields', () => {
   it('json with a template name calls validateJsonValue with the template schema', () => {
     const validateJsonValue = vi.fn(() => null)

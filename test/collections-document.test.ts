@@ -356,6 +356,19 @@ describe('the published JSON Schema', () => {
     )
   })
 
+  it('says in which dialect a text pattern is written and checked', () => {
+    const artifact = load()
+    const fields = artifact.properties.collections.additionalProperties.properties.fields.additionalProperties
+    const members: Record<string, any>[] = fields.oneOf ?? fields.anyOf
+    const text = members.find((member) => member.properties.type.const === 'text')!
+    const description: string = text.properties.pattern.description
+    expect(description).toContain('RE2')
+    expect(description).toMatch(/lookahead/)
+    expect(description).toMatch(/lookbehind/)
+    expect(description).toMatch(/backreference/)
+    expect(description).toMatch(/unicode/)
+  })
+
   it('describes the keys it asks an author to write', () => {
     const artifact = load()
     const definition = artifact.properties.collections.additionalProperties

@@ -44,6 +44,8 @@ export type CollectionsDocumentIssuesOptions = {
   validateJsonSchema?: (schema: unknown) => string | null
   /** Checks a value against a JSON Schema, as for `checkCollectionValue`. Needed to judge a `default` on a `json` field. */
   validateJsonValue?: (schema: unknown, value: unknown) => string | null
+  /** Matches a text against a `pattern`, as for `checkCollectionValue`. Used to judge a `default` the way a write is judged. */
+  matchPattern?: (pattern: string, value: string) => boolean
 }
 
 /** The keys every record has, for display placeholders and references. */
@@ -52,6 +54,9 @@ const RESERVED_KEYS: readonly string[] = COLLECTION_RESERVED_KEYS
 const ACTIONS = ['read', 'create', 'update', 'delete'] as const
 
 const isRobotBound = (collection: CollectionDefinition): boolean => collection.binding !== 'global'
+
+/** A piece of the document for a message: a very long one is cut, so a message never repeats a megabyte back. */
+const clip = (text: string): string => (text.length > 80 ? `${text.slice(0, 80)}…` : text)
 
 /** Does a record of `collection` have a field or system value called `key`? */
 function hasKey(collection: CollectionDefinition, key: string): boolean {
@@ -65,13 +70,17 @@ function hasKey(collection: CollectionDefinition, key: string): boolean {
 /**
  * Why a pattern cannot be used, or `null`.
  *
- * Patterns are written in the RE2 dialect and evaluated by the JavaScript
- * engine in unicode mode. The two agree on everything an author normally
- * writes; RE2 leaves out what makes a match slow in the worst case, so the
- * constructs it lacks are refused here instead of being quietly accepted by
- * the engine that has them: lookahead, lookbehind and backreferences. Finding
- * them means reading the pattern the way the engine does, because the same
- * characters are plain text inside a character class or after a backslash.
+ * Patterns are written in the RE2 subset, and the server matches values with
+ * an RE2 engine, whose running time does not depend on the pattern (see
+ * `matchPattern` in `checkCollectionValue`). This function reads a pattern with
+ * the JavaScript engine in unicode mode, which agrees with RE2 on everything an
+ * author normally writes, and refuses the constructs RE2 lacks so that a
+ * pattern means the same in both: lookahead, lookbehind and backreferences.
+ * Finding them means reading the pattern the way the engine does, because the
+ * same characters are plain text inside a character class or after a backslash.
+ *
+ * It does not make matching with the JavaScript engine safe: a pattern such as
+ * `(a+)+$` is valid RE2 and slow there.
  */
 function patternProblem(pattern: string): string | null {
   let inClass = false
@@ -204,7 +213,10 @@ export function collectionsDocumentIssues(
     }
 
     if (field.default !== undefined && defaultCheckable) {
-      const found = checkCollectionValue(judged, field.default, { validateJsonValue: options.validateJsonValue })
+      const found = checkCollectionValue(judged, field.default, {
+        validateJsonValue: options.validateJsonValue,
+        matchPattern: options.matchPattern,
+      })
       if (found !== null) {
         add('error', `${path}.default`, 'invalid_default', `The default is not a valid value for this ${field.type} field: ${found.message}`)
       }
@@ -223,13 +235,18 @@ export function collectionsDocumentIssues(
       add('error', path, 'display_template_invalid', parsed.message)
       return
     }
+    // A placeholder used again is the same problem again: say it once for each collection.
+    const reported = new Set<string>()
     for (const placeholder of parsed.placeholders) {
       if (!resolves(collection, placeholder.path)) {
+        const name = placeholder.path.join('.')
+        if (reported.has(name)) continue
+        reported.add(name)
         const hint =
           placeholder.path[0] === 'robot'
             ? ' robot.name is only available on collections of robots (per_robot and one_per_robot).'
             : ''
-        add('error', path, 'display_placeholder_unresolved', `${placeholder.raw} does not name a field of this collection, a system field or a field reached through a reference.${hint}`)
+        add('error', path, 'display_placeholder_unresolved', `${clip(placeholder.raw)} does not name a field of this collection, a system field or a field reached through a reference.${hint}`)
       }
     }
   }

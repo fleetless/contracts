@@ -298,6 +298,23 @@ describe('invalid_pattern', () => {
     expect(issuesFor('(?=a)(?!b)')).toHaveLength(1)
   })
 
+  describe('with a matchPattern', () => {
+    // The built-in engine accepts 'B' for '^B' and refuses 'A'; the matcher below says the opposite.
+    const withDefault = (extra: Record<string, unknown>) => things({ code: { type: 'text', pattern: '^B', ...extra } })
+
+    it('judges a default with it, as a write is judged', () => {
+      const document = withDefault({ default: 'A' })
+      expect(withCode(collectionsDocumentIssues(document), 'invalid_default')).toHaveLength(1)
+      expect(withCode(collectionsDocumentIssues(document, { matchPattern: () => true }), 'invalid_default')).toEqual([])
+      expect(withCode(collectionsDocumentIssues(withDefault({ default: 'B' }), { matchPattern: () => false }), 'invalid_default')).toHaveLength(1)
+    })
+
+    it('still refuses a pattern it cannot read, whatever the matcher says', () => {
+      const document = things({ code: { type: 'text', pattern: 'a(?=b)' } })
+      expect(withCode(collectionsDocumentIssues(document, { matchPattern: () => true }), 'invalid_pattern')).toHaveLength(1)
+    })
+  })
+
   it('does not look at patterns of other types', () => {
     // `pattern` is a text option; the schema refuses it elsewhere.
     expect(withCode(collectionsDocumentIssues(things({ code: { type: 'text' } })), 'invalid_pattern')).toEqual([])
@@ -383,6 +400,31 @@ describe('display templates', () => {
   it('reports each unresolved placeholder', () => {
     const issues = withCode(collectionsDocumentIssues(place('{{one}} {{name}} {{two}}')), 'display_placeholder_unresolved')
     expect(issues.map((issue) => issue.message.includes('{{one}}') || issue.message.includes('{{two}}'))).toEqual([true, true])
+  })
+
+  it('reports a placeholder that is used many times once, however it is spelled', () => {
+    const display = `${'{{nope}} '.repeat(1000)}{{ nope }} {{other}} {{nope}}`
+    const issues = withCode(collectionsDocumentIssues(place(display)), 'display_placeholder_unresolved')
+    expect(issues).toHaveLength(2)
+    expect(issues[0]!.message).toContain('{{nope}}')
+    expect(issues[1]!.message).toContain('{{other}}')
+  })
+
+  it('reports the same unresolved placeholder once for each collection that uses it', () => {
+    const document = doc({
+      one: { binding: 'global', display: '{{nope}} {{nope}}', fields: { name: { type: 'text' } } },
+      two: { binding: 'global', display: '{{nope}}', fields: { name: { type: 'text' } } },
+    })
+    const issues = withCode(collectionsDocumentIssues(document), 'display_placeholder_unresolved')
+    expect(issues.map((issue) => issue.path)).toEqual(['collections.one.display', 'collections.two.display'])
+  })
+
+  it('cuts a long placeholder at 80 characters in its message', () => {
+    const padded = `{{${' '.repeat(10_000)}nope${' '.repeat(10_000)}}}`
+    const [issue] = withCode(collectionsDocumentIssues(place(padded)), 'display_placeholder_unresolved')
+    expect(issue!.message.length).toBeLessThan(400)
+    expect(issue!.message).toContain('…')
+    expect(issue!.message).not.toContain(' '.repeat(81))
   })
 
   it('does not repeat a broken reference target as an unresolved placeholder', () => {
@@ -492,6 +534,14 @@ describe('invalid_default', () => {
   it('still judges a default against the rest of a field whose pattern is broken', () => {
     const issues = collectionsDocumentIssues(things({ f: { type: 'text', pattern: '(', max_length: 2, default: 'abc' } }))
     expect(withCode(issues, 'invalid_default')).toHaveLength(1)
+  })
+})
+
+describe('a default with a NUL character', () => {
+  it('is an invalid default, since no write could store it', () => {
+    const issues = collectionsDocumentIssues(things({ note: { type: 'text', default: 'a\u0000b' } }))
+    expect(withCode(issues, 'invalid_default')).toMatchObject([{ path: 'collections.things.fields.note.default', severity: 'error' }])
+    expect(withCode(issues, 'invalid_default')[0]!.message).toContain('NUL')
   })
 })
 

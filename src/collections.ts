@@ -174,7 +174,7 @@ const textField = z
       .string()
       .meta({
         description:
-          'A regular expression the value must match somewhere in it; anchor it with `^` and `$` to match the whole value. Lookahead, lookbehind and backreferences are not supported.',
+          'A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value.',
       })
       .optional(),
     searchable: z.boolean().meta({ description: 'Include this field in the `search` of record lists.' }).optional(),
