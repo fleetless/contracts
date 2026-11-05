@@ -5,7 +5,7 @@
     "expand": {
       "type": "string",
       "minLength": 1,
-      "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+      "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
     }
   },
   "additionalProperties": false

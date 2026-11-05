@@ -22,7 +22,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+      "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
     }
   },
   "required": [

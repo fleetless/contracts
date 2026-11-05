@@ -40,8 +40,11 @@ const schemaVersion = z.number().int().min(1)
 /**
  * Who made a change. `fleetless` is the platform itself (a schema change, an
  * automatic record) and always carries the nil id. `label` is worked out when
- * the record is read, so a user who has since been deleted reads `Deleted user`
- * instead of leaving the record with a dangling id.
+ * the record is read, from the person's display name, so a user who has since
+ * been deleted reads `Deleted user` instead of leaving the record with a
+ * dangling id. An email address is the fallback only for a reader who may see
+ * it: a developer or a server key reading a person without a name, and an app
+ * user reading their own label.
  */
 export const collectionActor = z
   .object({
@@ -49,7 +52,10 @@ export const collectionActor = z
       description: 'What made the change: a developer, a user of the app, a server key of the app, or the platform itself.',
     }),
     id: z.uuid().meta({ description: 'The id of the developer, app user or server key. The nil id for the platform.' }),
-    label: z.string().min(1).max(200).meta({ description: 'A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists.' }),
+    label: z.string().min(1).max(200).meta({
+      description:
+        'A name to show: the person\'s display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person\'s address.',
+    }),
   })
   .meta({ description: 'Who or what made a change to a record.' })
 export type CollectionActor = z.infer<typeof collectionActor>
@@ -81,6 +87,12 @@ export const collectionRecord = z
       description:
         'The record\'s fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection.',
     }),
+    deleted_at: timestamp
+      .meta({ description: 'When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record.' })
+      .optional(),
+    deleted_by: collectionActor
+      .meta({ description: 'Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record.' })
+      .optional(),
   })
   .meta({ description: 'A record of a collection: its system fields and its values.' })
 export type CollectionRecord = z.infer<typeof collectionRecord>
@@ -368,7 +380,10 @@ const wireBoolean = z.enum(['true', 'false'])
 const expandParam = z
   .string()
   .min(1)
-  .meta({ description: 'Reference fields to embed as records, separated by commas. Only one hop is followed.' })
+  .meta({
+    description:
+      'Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page.',
+  })
 
 /**
  * The query string of a record list. `filter` is the JSON text of a filter,
@@ -402,7 +417,11 @@ export const collectionRecordListQuery = z
       })
       .optional(),
     expand: expandParam.optional(),
-    limit: pageLimit.meta({ description: `How many records to return, 1 to ${COLLECTION_LIMITS.pageMax}. Default ${COLLECTION_LIMITS.pageDefault}.` }).optional(),
+    limit: pageLimit
+      .meta({
+        description: `The most records to return, 1 to ${COLLECTION_LIMITS.pageMax}. Default ${COLLECTION_LIMITS.pageDefault}. A page can hold fewer: see \`next_cursor\`.`,
+      })
+      .optional(),
     cursor: z.string().min(1).meta({ description: 'The `next_cursor` of the previous page.' }).optional(),
     count: wireBoolean.meta({ description: '`true` adds `total`, the number of records that match.' }).optional(),
     deleted: wireBoolean
@@ -422,11 +441,15 @@ export type CollectionRecordGetQuery = z.infer<typeof collectionRecordGetQuery>
 
 export const collectionRecordListResponse = z
   .object({
-    records: z.array(collectionRecord),
-    next_cursor: z.string().nullable().meta({
-      description: 'Send it as `cursor` to read the next page. Null when this is the last page, which a short page does not say on its own.',
+    records: z.array(collectionRecord).meta({
+      description:
+        'The records of the page. A page is cut short at 4 MiB of stored record values (for the list of deleted records, of the revisions that deleted them), so it can hold fewer than `limit` records while more follow. It always holds at least one record when there is one, and a list of ordinary size is never cut.',
     }),
-    total: count.meta({ description: 'The number of records that match, sent only when `count=true` was asked for.' }).optional(),
+    next_cursor: z.string().nullable().meta({
+      description:
+        'Send it as `cursor` to read the next page; it continues after the last record this page holds. Null when this is the last page, which a short page does not say on its own: only `null` says the list is at its end.',
+    }),
+    total: count.meta({ description: 'The number of records that match, sent only when `count=true` was asked for. A page cut short does not change it.' }).optional(),
   })
   .meta({ description: 'One page of records.' })
 export type CollectionRecordListResponse = z.infer<typeof collectionRecordListResponse>
@@ -443,7 +466,7 @@ export type CollectionRecordListResponse = z.infer<typeof collectionRecordListRe
 export const collectionRecordWrite = z
   .object({
     values: z.record(z.string(), z.unknown()).meta({
-      description: 'The fields to set by key. A `null` clears a field. On an update, fields that are left out keep their value.',
+      description: `The fields to set by key. A \`null\` clears a field. On an update, fields that are left out keep their value. A record may hold ${COLLECTION_LIMITS.recordBytes.toLocaleString('en-US')} bytes of values as JSON; more is \`400 validation_error\`, field \`values\`, rule \`record_too_large\`, and so is a request body of more than 2 MiB.`,
     }),
     robot_id: z.uuid().meta({ description: 'The robot of a new record in a collection that belongs to robots. Fixed once the record exists.' }).optional(),
     expected_revision: z
@@ -484,7 +507,9 @@ export type CollectionRevision = z.infer<typeof collectionRevision>
 
 export const collectionRecordHistoryQuery = z
   .object({
-    limit: pageLimit.meta({ description: `How many revisions to return, 1 to ${COLLECTION_LIMITS.pageMax}.` }).optional(),
+    limit: pageLimit
+      .meta({ description: `The most revisions to return, 1 to ${COLLECTION_LIMITS.pageMax}. A page can hold fewer: see \`next_before_seq\`.` })
+      .optional(),
     before_seq: wireSeqCursor.meta({ description: 'Only revisions older than this `seq`: the next page, since the history is read newest first.' }).optional(),
   })
   .strict()
@@ -492,9 +517,13 @@ export type CollectionRecordHistoryQuery = z.infer<typeof collectionRecordHistor
 
 export const collectionRecordHistoryResponse = z
   .object({
-    revisions: z.array(collectionRevision),
+    revisions: z.array(collectionRevision).meta({
+      description:
+        'The revisions of the page, newest first. A page is cut short at 4 MiB of stored revisions, since the changes of a revision keep the old and the new value and a `delete` the whole record. It always holds at least one revision, and a history of ordinary size is never cut.',
+    }),
     next_before_seq: z.number().int().positive().nullable().meta({
-      description: 'Send it as `before_seq` to read older revisions. Null when there are none.',
+      description:
+        'Send it as `before_seq` to read older revisions; it names the last revision this page holds, also when the page was cut short. Null when there are none.',
     }),
     purged: z
       .object({
@@ -537,7 +566,7 @@ export const collectionSummary = z
       .array(z.enum(['no_role_access', 'history_growing', 'unknown_role']))
       .meta({
         description:
-          '`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the app does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop.',
+          '`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the organization does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop.',
       }),
     revisions: count.meta({ description: 'Entries in the history of all the collection\'s records.' }),
     history_bytes: count.meta({ description: 'The size of that history in bytes.' }),

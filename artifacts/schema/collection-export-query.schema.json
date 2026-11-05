@@ -38,7 +38,7 @@
     "references": {
       "type": "string",
       "minLength": 1,
-      "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again."
+      "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again. A reference field in the file whose target collection has no such unique field is `400 validation_error` (field `references`, rule `not_unique`); with no reference field among the columns the value is ignored."
     },
     "system": {
       "type": "string",
@@ -46,7 +46,7 @@
         "true",
         "false"
       ],
-      "description": "`true` adds the system fields `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`, and `robot_id` in a collection that belongs to robots. Default `false`."
+      "description": "`true` adds the system fields after the fields: `robot_id` in a collection that belongs to robots, then `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`. `created_by` and `updated_by` are the actors' labels. Default `false`."
     }
   },
   "required": [

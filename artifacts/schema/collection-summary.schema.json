@@ -47,7 +47,7 @@
           "unknown_role"
         ]
       },
-      "description": "`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the app does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop."
+      "description": "`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the organization does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop."
     },
     "revisions": {
       "type": "integer",

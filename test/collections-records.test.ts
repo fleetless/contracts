@@ -348,6 +348,18 @@ describe('parseCollectionSort', () => {
   })
 })
 
+describe('collectionActor labels', () => {
+  const description = (): string => collectionActor.shape.label.meta()?.description ?? ''
+
+  it('say what a label is for each reader, not that it is always an address', () => {
+    expect(description()).toMatch(/display name/)
+    expect(description()).toContain('Team member')
+    expect(description()).toContain('`User`')
+    expect(description()).toContain('Deleted user')
+    expect(description()).not.toMatch(/an email address, a key name/)
+  })
+})
+
 describe('collectionActor', () => {
   it('accepts the four kinds, the nil id included', () => {
     for (const kind of ['developer', 'app_user', 'server_key', 'fleetless']) {
@@ -393,6 +405,18 @@ describe('collectionRecord', () => {
   it('refuses a malformed timestamp and an actor without a label', () => {
     expect(collectionRecord.safeParse(record({ created_at: 'yesterday' })).success).toBe(false)
     expect(collectionRecord.safeParse(record({ created_by: { kind: 'developer', id: ROBOT } })).success).toBe(false)
+  })
+
+  it('marks a deleted record in the list of deleted records, and only there', () => {
+    const deleted = record({ deleted_at: AT, deleted_by: developer })
+    const parsed = collectionRecord.safeParse(deleted)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.deleted_at).toBe(AT)
+    expect(parsed.data?.deleted_by).toEqual(developer)
+    // Absent on a live record, which is what the plain parse above shows; present only as a pair of well-formed values.
+    expect(collectionRecord.safeParse(record({ deleted_at: 'yesterday' })).success).toBe(false)
+    expect(collectionRecord.safeParse(record({ deleted_by: { kind: 'developer' } })).success).toBe(false)
+    expect(collectionRecord.safeParse(record({ deleted_at: null })).success).toBe(false)
   })
 
   it('lets a reference value hold an embedded record', () => {
@@ -507,6 +531,16 @@ describe('collectionRecordListResponse', () => {
   it('accepts a page, with and without a total', () => {
     expect(collectionRecordListResponse.safeParse({ records: [record()], next_cursor: null }).success).toBe(true)
     expect(collectionRecordListResponse.safeParse({ records: [], next_cursor: 'abc', total: 0 }).success).toBe(true)
+  })
+
+  it('says that a page can be shorter than the limit and only a null cursor ends the list', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-record-list-response.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.records.description).toMatch(/4 MiB/)
+    expect(artifact.properties.records.description).toMatch(/fewer than `limit` records while more follow/)
+    expect(artifact.properties.next_cursor.description).toMatch(/only `null` says the list is at its end/)
+    const history = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-record-history-response.schema.json', import.meta.url), 'utf8'))
+    expect(history.properties.revisions.description).toMatch(/4 MiB/)
+    expect(history.properties.next_before_seq.description).toMatch(/last revision this page holds/)
   })
 
   it('needs next_cursor, even when it is null', () => {

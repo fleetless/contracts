@@ -8,7 +8,7 @@
         "type": "string"
       },
       "additionalProperties": {},
-      "description": "The fields to set by key. A `null` clears a field. On an update, fields that are left out keep their value."
+      "description": "The fields to set by key. A `null` clears a field. On an update, fields that are left out keep their value. A record may hold 1,048,576 bytes of values as JSON; more is `400 validation_error`, field `values`, rule `record_too_large`, and so is a request body of more than 2 MiB."
     },
     "robot_id": {
       "type": "string",

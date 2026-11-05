@@ -97,7 +97,8 @@
                     },
                     "pattern": {
                       "type": "string",
-                      "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                      "maxLength": 1000,
+                      "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
                     },
                     "searchable": {
                       "type": "boolean",

@@ -208,7 +208,10 @@ export type ConfirmationRequiredDetails = z.infer<typeof confirmationRequiredDet
 /**
  * The `details` of a `409 record_referenced` refusal. Counts only: the caller
  * may not be allowed to read the records that point here, so neither their
- * ids nor their values are told.
+ * ids nor their values are told. Nor is the key of a collection the caller may
+ * not read, for the reason `collection_not_found` is answered for one: the list
+ * names only collections the caller may read, and it is empty when every
+ * collection that points here is one they may not.
  */
 export const recordReferencedDetails = z
   .object({
@@ -221,8 +224,10 @@ export const recordReferencedDetails = z
           })
           .strict(),
       )
-      .min(1)
-      .meta({ description: 'The collections whose records reference the record, each with how many.' }),
+      .meta({
+        description:
+          'The collections whose records reference the record, each with how many. Only collections the caller may read are named, so the list is empty when the records that point here are all in collections the caller cannot read; the refusal still stands.',
+      }),
   })
   .strict()
 export type RecordReferencedDetails = z.infer<typeof recordReferencedDetails>
@@ -1261,7 +1266,8 @@ export const ERROR_CODES = [
    * `409`: the record cannot be deleted, or an import cannot delete it,
    * because other records point at it through a reference whose `on_delete` is
    * `prevent`. `details` is `recordReferencedDetails`: the collections that
-   * reference it and how many records each has, never their ids or values.
+   * reference it, among those the caller may read, and how many records each
+   * has, never their ids or values.
    */
   'record_referenced',
   /**

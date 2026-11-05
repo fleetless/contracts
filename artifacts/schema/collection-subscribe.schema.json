@@ -10,7 +10,13 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Chosen by the client, unique among the collection subscriptions open on this socket. Every frame about the subscription carries it."
+      "description": "Chosen by the client, unique among the collection subscriptions open on this socket: a `request_id` that is already in use is refused with `validation_error`. Every frame about the subscription carries it."
+    },
+    "app_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The app whose collection to follow. Required on the connection of a developer, whose token belongs to the organization and so to no app: without it the subscribe is refused with `validation_error`. On the connection of an app user or a server key it can be left out, because the token names the app; if it is sent, it must be that app, otherwise `validation_error`. An app that does not exist or belongs to another organization is answered `collection_not_found`."
     },
     "collection": {
       "type": "string",
@@ -29,7 +35,7 @@
         "type": "string"
       },
       "additionalProperties": {},
-      "description": "Only records matching this filter are delivered, with the grammar of the `filter` of the record list but as an object, not JSON text. The whole frame is at most 16,384 bytes, which fits the longest filter allowed."
+      "description": "Only records matching this filter are delivered, with the grammar of the `filter` of the record list but as an object, not JSON text. The whole frame is at most 16,384 bytes; a larger frame closes the socket with code 1009 (message too big) instead of being answered, so a filter with many long values may not fit."
     }
   },
   "required": [

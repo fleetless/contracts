@@ -106,6 +106,23 @@ describe('the import request', () => {
     expect(scoped({ robot_id: ROBOT })).toBe(true)
     expect(scoped({ filter: { hall: { eq: 'A' } }, robot_id: ROBOT })).toBe(false)
   })
+
+  it('leaves the empty scope and the scope without a mirror to the cloud, and says so', () => {
+    // JSON Schema cannot express either rule, so the cloud answers them (`empty`, `needs_mirror`) and the shape stays a plain object.
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-import-request.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.scope.description).toMatch(/empty `scope`/)
+    expect(artifact.properties.scope.description).toMatch(/needs_mirror/)
+    expect(artifact.properties.scope.description).toMatch(/`scope\.robot_id`/)
+    expect(artifact.properties.robot_id.description).toMatch(/does not narrow a `mirror`/)
+    expect(artifact.properties.robot_id.description).toMatch(/robot_column_present/)
+  })
+
+  it('says what a missing and an outdated confirm do', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-import-request.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.confirm.description).toMatch(/Without it the import route answers the preview/)
+    expect(artifact.properties.confirm.description).toMatch(/409 confirmation_required/)
+    expect(artifact.properties.confirm.description).toMatch(/token: null/)
+  })
 })
 
 describe('the import preview', () => {
@@ -152,6 +169,14 @@ describe('the import preview', () => {
     expect(parsed(1000).success).toBe(true)
     expect(parsed(1001).success).toBe(false)
     expect(collectionImportPreview.safeParse(preview({ errors_total: 4_200.5 })).success).toBe(false)
+  })
+
+  it('cuts the column and the value of an error at 200 characters, an ellipsis included', () => {
+    const one = (error: Record<string, unknown>) => collectionImportPreview.safeParse(preview({ errors: [error], errors_total: 1, token: null })).success
+    expect(one({ ...failure, value: 'x'.repeat(199) + '…' })).toBe(true)
+    expect(one({ ...failure, value: 'x'.repeat(201) })).toBe(false)
+    expect(one({ ...failure, column: 'c'.repeat(201) })).toBe(false)
+    expect(COLLECTION_LIMITS.importErrorText).toBe(200)
   })
 
   it('describes each error by row, column, value and reason', () => {
@@ -265,7 +290,9 @@ describe('the details of the refusals', () => {
   it('record_referenced names collections and counts, nothing else', () => {
     const details = { references: [{ collection: 'components', count: 12 }, { collection: 'logbook', count: 1 }] }
     expect(recordReferencedDetails.safeParse(details).success).toBe(true)
-    expect(recordReferencedDetails.safeParse({ references: [] }).success).toBe(false)
+    // Only collections the caller may read are named, so every one that points here can be left out.
+    expect(recordReferencedDetails.safeParse({ references: [] }).success).toBe(true)
+    expect(recordReferencedDetails.safeParse({}).success).toBe(false)
     expect(recordReferencedDetails.safeParse({ references: [{ collection: 'components', count: 0 }] }).success).toBe(false)
     expect(recordReferencedDetails.safeParse({ references: [{ collection: 'components', count: 1.5 }] }).success).toBe(false)
     expect(recordReferencedDetails.safeParse({ references: [{ collection: 'components', count: 1, ids: [ROBOT] }] }).success).toBe(false)

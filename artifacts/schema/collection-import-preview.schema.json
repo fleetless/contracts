@@ -56,15 +56,17 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991,
-            "description": "The row the problem is in, counted from 1 over the records of the file, so the header of a CSV is not counted. 0 marks a problem with the file as a whole."
+            "description": "The row the problem is in, counted from 1 over the records of the file, so the header of a CSV is not counted. 0 marks a problem with the file as a whole, and a deletion of a `mirror` that a `prevent` reference blocks (the column is then the key column and the value the key of the record)."
           },
           "column": {
             "type": "string",
-            "description": "The column as named in the file. Empty when the problem is not about one column."
+            "maxLength": 200,
+            "description": "The column as named in the file. Empty when the problem is not about one column. Cut to 200 characters, an ellipsis included."
           },
           "value": {
             "type": "string",
-            "description": "The value as found in the file."
+            "maxLength": 200,
+            "description": "The value as found in the file, cut to 200 characters with an ellipsis (`…`) at the end when it was longer."
           },
           "reason": {
             "type": "string",
@@ -125,7 +127,7 @@
           "type": "null"
         }
       ],
-      "description": "Stands for exactly this import: send it as `confirm` to carry it out. Null while the file has errors."
+      "description": "Stands for exactly this import: send it as `confirm` to carry it out. Null while the file has errors. It is not single-use; see the note on the import routes."
     }
   },
   "required": [

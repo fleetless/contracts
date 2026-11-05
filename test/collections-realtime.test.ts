@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   collectionEvent,
@@ -77,6 +77,31 @@ describe('collection_subscribe', () => {
     expect(collectionSubscribe.safeParse(subscribe({ filter: null })).success).toBe(false)
   })
 
+  it('names the app with a uuid, for the connection that has none of its own', () => {
+    const APP = '0e0a56b6-8a38-4e53-8c30-0d3f1f3c2a10'
+    const parsed = collectionSubscribe.safeParse(subscribe({ app_id: APP }))
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.app_id).toBe(APP)
+    // Optional: the token of an app user or a server key already names the app.
+    expect(collectionSubscribe.safeParse(subscribe()).success).toBe(true)
+    for (const bad of ['', 'warehouse', 5, null]) expect(collectionSubscribe.safeParse(subscribe({ app_id: bad })).success, String(bad)).toBe(false)
+  })
+
+  it('says who needs app_id, and which answers a wrong one gets', () => {
+    const description: string = collectionSubscribe.shape.app_id.unwrap().meta()?.description ?? ''
+    expect(description).toMatch(/Required on the connection of a developer/)
+    expect(description).toMatch(/app user or a server key/)
+    expect(description).toMatch(/validation_error/)
+    expect(description).toMatch(/collection_not_found/)
+  })
+
+  it('states the real frame limit and what a larger frame does, not that every filter fits', () => {
+    const description: string = collectionSubscribe.shape.filter.unwrap().meta()?.description ?? ''
+    expect(description).toMatch(/at most 16,384 bytes/)
+    expect(description).toMatch(/1009/)
+    expect(description).not.toMatch(/fits the longest filter/)
+  })
+
   it('fits a filter of fifty conditions in sixteen kilobytes', () => {
     const filter = { and: Array.from({ length: 50 }, (_, i) => ({ [`field_${i}`]: { eq: `value ${i}` } })) }
     const frame = subscribe({ robot_id: ROBOT, filter })
@@ -147,6 +172,16 @@ describe('collection_event', () => {
     expect(collectionEvent.safeParse(event({ request_id: '' })).success).toBe(false)
     const { request_id: _gone, ...without } = event()
     expect(collectionEvent.safeParse(without).success).toBe(false)
+  })
+})
+
+describe('collection_subscribe_error ends and refusals', () => {
+  it('lists the codes a running subscription ends with, and the one for a frame before auth', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-subscribe-error.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.code.description).toMatch(/unauthorized/)
+    const source = readFileSync(new URL('../src/realtime.ts', import.meta.url), 'utf8')
+    for (const code of ['collection_removed', 'forbidden', 'robot_not_attached', 'validation_error', 'internal_error']) expect(source, code).toContain(`\`${code}\``)
+    expect(source).toMatch(/at most 5,000 of its records/)
   })
 })
 

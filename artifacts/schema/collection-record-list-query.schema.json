@@ -19,10 +19,10 @@
     "expand": {
       "type": "string",
       "minLength": 1,
-      "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+      "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
     },
     "limit": {
-      "description": "How many records to return, 1 to 500. Default 50.",
+      "description": "The most records to return, 1 to 500. Default 50. A page can hold fewer: see `next_cursor`.",
       "anyOf": [
         {
           "type": "string",

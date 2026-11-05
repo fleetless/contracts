@@ -78,7 +78,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 200,
-              "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
             }
           },
           "required": [
@@ -116,7 +116,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 200,
-              "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
             }
           },
           "required": [
@@ -150,6 +150,45 @@
           },
           "additionalProperties": {},
           "description": "The record's fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection."
+        },
+        "deleted_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+          "description": "When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+        },
+        "deleted_by": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "developer",
+                "app_user",
+                "server_key",
+                "fleetless"
+              ],
+              "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "The id of the developer, app user or server key. The nil id for the platform."
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "label"
+          ],
+          "description": "Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record."
         }
       },
       "required": [
@@ -163,7 +202,7 @@
         "display",
         "values"
       ],
-      "description": "The record: as it is now for `created`, `updated`, `entered` and `removed`, and as it was for `deleted`. Absent only on a `removed` event for a record the subscriber may no longer read, so that its values are not told."
+      "description": "The record: as it is now for `created`, `updated`, `entered` and `removed`, and as it was for `deleted`. Absent only on a `removed` event for a record the subscriber may no longer read, so that its values are not told: that is the case when the robot of the record was detached, or when the role lost the right to read the collection."
     }
   },
   "required": [

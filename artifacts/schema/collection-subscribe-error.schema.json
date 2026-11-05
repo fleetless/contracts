@@ -13,7 +13,7 @@
     "code": {
       "type": "string",
       "minLength": 1,
-      "description": "A stable error code, as in REST."
+      "description": "A stable error code, as in REST; `unauthorized` is also possible here, for a subscribe sent before `auth`."
     },
     "message": {
       "type": "string",

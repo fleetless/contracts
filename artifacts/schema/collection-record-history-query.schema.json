@@ -3,7 +3,7 @@
   "type": "object",
   "properties": {
     "limit": {
-      "description": "How many revisions to return, 1 to 500.",
+      "description": "The most revisions to return, 1 to 500. A page can hold fewer: see `next_before_seq`.",
       "anyOf": [
         {
           "type": "string",

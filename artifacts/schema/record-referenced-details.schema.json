@@ -3,7 +3,6 @@
   "type": "object",
   "properties": {
     "references": {
-      "minItems": 1,
       "type": "array",
       "items": {
         "type": "object",
@@ -26,7 +25,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "The collections whose records reference the record, each with how many."
+      "description": "The collections whose records reference the record, each with how many. Only collections the caller may read are named, so the list is empty when the records that point here are all in collections the caller cannot read; the refusal still stands."
     }
   },
   "required": [
