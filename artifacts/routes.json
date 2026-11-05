@@ -2012,7 +2012,7 @@
         "unsupported_media_type"
       ],
       "transport": "http",
-      "notes": "The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, `image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from `hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs."
+      "notes": "The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, `image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from `hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs."
     },
     {
       "method": "DELETE",
@@ -5365,7 +5365,7 @@
         "not_found"
       ],
       "transport": "http",
-      "notes": "Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses."
+      "notes": "Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses. `updated_by` names the team member who saved it last, and is `null` when nobody has, or when the cloud itself rewrote the draft."
     },
     {
       "method": "PUT",
@@ -5456,7 +5456,8 @@
         "invalid_uuid",
         "not_found"
       ],
-      "transport": "http"
+      "transport": "http",
+      "notes": "Each version carries `published_by`, the team member who published it, or `null` for a version published before the cloud recorded authors or by a member who has since been removed."
     },
     {
       "method": "GET",
