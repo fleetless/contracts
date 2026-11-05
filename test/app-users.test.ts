@@ -591,6 +591,7 @@ describe('appAuthConfig — what the developer may set, and the one field they m
     sign_in_methods: { password: true, email_code: false },
     two_factor: 'off',
     hosted_logo_url: null,
+    hosted_logo_shape: null,
     hosted_accent: null,
     hosted_pages: {
       invite_url: 'https://auth.fleetless.dev/app/shop/invite/{token}',
@@ -750,8 +751,8 @@ describe('app auth config for #98', () => {
   it('an app user carries its two-factor state', () => {
     expect(appUser.shape.two_factor).toBeDefined()
   })
-  it('the hosted logo limits are 100 KB of PNG or SVG', () => {
-    expect(HOSTED_LOGO_MAX_BYTES).toBe(102_400)
+  it('the hosted logo limits are 512 KB of PNG or SVG', () => {
+    expect(HOSTED_LOGO_MAX_BYTES).toBe(524_288)
     expect([...HOSTED_LOGO_TYPES]).toEqual(['image/png', 'image/svg+xml'])
   })
 })

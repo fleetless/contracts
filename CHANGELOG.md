@@ -126,6 +126,34 @@ release; every breaking item is named once, under Removed or Changed.
   refused with `409 target_state_conflict`, rule `stale`, and nothing is
   written. Without a `revision` the body replaces what is stored, as before.
 
+## [13.3.0] — 2026-11-05
+
+### Added
+
+- `configAuthor`: a console team member by display name (the local part of the
+  email address when the member has none), never a full email address. The
+  config draft carries `updated_by` and each published version `published_by`,
+  both `configAuthor` or `null`: `null` when nobody has saved yet, when the
+  cloud itself rewrote the draft, when the member has since been removed, or
+  for rows older than the field. Both are optional on the wire: a consumer
+  reads an absent field as unknown, and the cloud always sends it.
+- `hostedLogoShape` (`square` or `wide`) and `appAuthConfig.hosted_logo_shape`,
+  read-only and derived from the stored image: `wide` when the logo is more
+  than one and a half times as wide as it is high, otherwise `square`, and
+  `null` exactly when `hosted_logo_url` is `null`. The field is optional on the
+  wire: a consumer reads an absent field as unknown, and the cloud always sends
+  it.
+
+### Changed
+
+- `HOSTED_LOGO_MAX_BYTES` rises from 100 KB to 512 KB (`524_288`). The logo
+  route's notes state the new limit.
+
+### Removed
+
+- The internal route `GET /mcp/welcome` (audience `internal`) is no longer listed: the MCP landing page
+  moved to https://fleetless.dev/mcp/.
+
 ## [13.2.0] — 2026-11-05
 
 ### Changed

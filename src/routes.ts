@@ -803,7 +803,7 @@ export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------- client auth (portal pages) */
   {
     method: 'GET', path: '/favicon.svg', section: 'client-auth',
-    summary: 'Serves the Fleetless icon for the auth portal\'s and the MCP welcome page\'s browser tab.',
+    summary: 'Serves the Fleetless icon for the auth portal\'s browser tab.',
     audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
@@ -1584,7 +1584,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type'], transport: 'http',
     notes:
       'The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, ' +
-      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one ' +
+      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one ' +
       'that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from ' +
       '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs.',
   },
@@ -2115,18 +2115,6 @@ export const ROUTES: readonly RouteEntry[] = [
   ...HOSTED_APP_ROUTES,
 
   /* ---------------------------------------------------- mcp (the endpoint) */
-  {
-    method: 'GET', path: '/mcp/welcome', section: 'mcp',
-    summary: 'Serves the page that tells a person which URL to paste into their MCP client.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, one fixed document rendered once at startup — its inputs are process configuration, not request state. Cached for five minutes ' +
-      'rather than a day, because the URLs it names can change with a deployment. Its content security policy admits the page\'s own inline ' +
-      'style and script by SHA-256 rather than by `unsafe-inline`, and forbids every external fetch outright. A configured friendly URL that ' +
-      'is not a usable absolute http(s) URL is ignored rather than rendered: a typo in a deployment variable must not put a broken URL in ' +
-      'front of every end user.',
-  },
   {
     method: 'POST', path: '/mcp', section: 'mcp',
     summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
@@ -2977,7 +2965,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a ' +
-      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses.',
+      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses. `updated_by` ' +
+      'names the team member who saved it last, and is `null` when nobody has, or when the cloud itself rewrote the draft.',
   },
   {
     method: 'PUT', path: '/api/robots/:id/config/draft', section: 'config',
@@ -3014,6 +3003,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: configVersionsResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'Each version carries `published_by`, the team member who published it, or `null` for a version published before the cloud recorded authors or by a member who has since been removed.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/versions/:v', section: 'config',

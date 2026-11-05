@@ -49,6 +49,11 @@ describe('the route manifest', () => {
     expect(JSON.stringify(landings)).not.toMatch(/https?:\/\/|[?&](?:token|redirect|redirect_to|proof)=|Set-Cookie:/i)
   })
 
+  it('the MCP welcome page is not a route of the API any more', () => {
+    expect(ROUTES.find((r) => r.method === 'GET' && r.path === '/mcp/welcome')).toBeUndefined()
+    expect(ROUTES.find((r) => r.path === '/favicon.svg')?.summary).not.toMatch(/welcome/i)
+  })
+
   it('has no duplicate method+path', () => {
     const keys = ROUTES.map(key)
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)
@@ -772,6 +777,8 @@ describe('the app-user auth surface', () => {
     expect(put.request).toBeNull()
     expect(put.errors).toContain('unsupported_media_type')
     expect(put.notes ?? '').toContain('HOSTED_LOGO_MAX_BYTES')
+    expect(put.notes ?? '').toContain('512 KB')
+    expect(put.notes ?? '').not.toContain('100 KB')
     expect(ROUTES.find((r) => key(r) === 'DELETE /api/apps/:id/auth-config/logo')?.response).toBe(appAuthConfig)
   })
 
