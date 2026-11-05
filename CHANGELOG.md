@@ -39,6 +39,16 @@ version.
   `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
   the preview that carries the token to confirm with).
 - The journal kind `org_role.delete`, recorded like `server_key.revoke`.
+- App access and effective rights on the wire. `GET` and `PUT
+  /api/apps/:id/access` read and replace what an app locks (`locked_kinds` for
+  whole kinds of access, `locked` for single exposures of single robots) and
+  the role its users get by default; the answer carries `warnings` for what is
+  out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
+  answers, per attached robot, every capability with whether it is granted,
+  where its requirement came from and the datasheet an MCP session of that
+  role would get. Developer routes, none owner-only. Shapes: `appAccess`,
+  `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
+  `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
 
 ### Removed
 

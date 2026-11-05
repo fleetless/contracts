@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { slug } from './common.js'
+import { mcpRobotDatasheet } from './mcp.js'
+import { accessKind, roleKey } from './rights.js'
 
 /**
  * Apps, roles and rights.
@@ -224,3 +226,172 @@ export const createServerKeyResponse = z.object({
   key: serverKeyToken,
 })
 export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
+
+/**
+ * **What an app locks, and what it falls back on.** Roles decide who may use
+ * what; an app can only take rights away from them, never add any. A lock wins
+ * over every role and over the organization's defaults, and applies to the
+ * app's users and to its server keys alike.
+ *
+ * Two ways to lock: a whole kind of access on every robot the app reaches
+ * (`locked_kinds`), or single capabilities of single robots (`locked`). The
+ * robot-wide `assets` and `job_history` can only be locked as a kind.
+ */
+export const appLock = z.object({
+  robot_id: z.uuid().meta({
+    description: 'The robot whose capabilities are locked for this app.',
+  }),
+  slugs: z.array(slug).min(1).meta({
+    description: 'The slugs of that robot\'s exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing.',
+  }),
+}).strict()
+export type AppLock = z.infer<typeof appLock>
+
+/** The three fields `appAccess` and `appAccessResponse` share. */
+const appAccessFields = {
+  default_role: roleKey.nullable().meta({
+    description:
+      'The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, ' +
+      'and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing.',
+  }),
+  locked_kinds: z.array(accessKind).meta({
+    description:
+      'Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or ' +
+      '`job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole.',
+  }),
+  locked: z.array(appLock).meta({
+    description: 'Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give.',
+  }),
+}
+
+/**
+ * `PUT /api/apps/:id/access`: the whole access of one app, **replaced**. Every
+ * field is named on every write, so the body is exactly what the app has
+ * afterwards; strict, so a field this route does not take is refused rather
+ * than dropped.
+ */
+export const appAccess = z.object(appAccessFields).strict()
+export type AppAccess = z.infer<typeof appAccess>
+
+/**
+ * Something in an app's access that grants or locks nothing as written. Never
+ * a refusal: the access is stored as sent, and these say what is out of step.
+ */
+export const accessWarning = z.object({
+  code: z.enum(['unknown_default_role', 'unknown_lock_slug', 'lock_robot_not_attached']).meta({
+    description:
+      '`unknown_default_role`: the default role names no role of the organization. `unknown_lock_slug`: a lock names a slug the robot has no ' +
+      'published exposure for. `lock_robot_not_attached`: a lock names a robot that is not attached to the app.',
+  }),
+  message: z.string().min(1).meta({
+    description: 'A sentence a person can read, naming the key, robot or slug.',
+  }),
+  robot_id: z.uuid().nullable().meta({
+    description: 'The robot a lock warning is about; `null` for `unknown_default_role`.',
+  }),
+  slug: z.string().nullable().meta({
+    description: 'The slug an `unknown_lock_slug` warning is about; `null` for the other warnings.',
+  }),
+})
+export type AccessWarning = z.infer<typeof accessWarning>
+
+/** What `GET` and `PUT /api/apps/:id/access` answer: the access as it stands, and what is out of step in it. */
+export const appAccessResponse = z.object({
+  ...appAccessFields,
+  warnings: z.array(accessWarning).meta({
+    description: 'What the access names that does not exist as written. Empty when nothing is out of step.',
+  }),
+})
+export type AppAccessResponse = z.infer<typeof appAccessResponse>
+
+/**
+ * `GET /api/apps/:id/effective-rights`: look at the app as one role sees it,
+ * or as one app user does. Exactly one of the two.
+ *
+ * The cross-field rule is a `.refine()`, which JSON Schema cannot express, so
+ * `effective-rights-query.schema.json` describes two independent optional
+ * parameters; the cloud is the only place both-or-neither is refused.
+ */
+export const effectiveRightsQuery = z.object({
+  role: roleKey.optional().meta({
+    description: 'A role key to look at the app as. A key that names no role is not an error: the answer says `role_known: false` and grants nothing.',
+  }),
+  user: z.uuid().optional().meta({
+    description: 'An app user of this app, to look at the app as that user\'s role. A user of another app answers `404`.',
+  }),
+}).strict().refine((query) => (query.role === undefined) !== (query.user === undefined), {
+  message: 'Name exactly one of role and user.',
+})
+export type EffectiveRightsQuery = z.infer<typeof effectiveRightsQuery>
+
+/** One capability of one robot as a role sees it: granted or not, and why. */
+export const effectiveCapability = z.object({
+  name: slug.meta({
+    description: 'The exposure\'s slug, or `assets` or `job_history` for the capabilities that belong to the robot as a whole.',
+  }),
+  kind: accessKind.meta({
+    description: 'The kind of access the capability needs.',
+  }),
+  granted: z.boolean().meta({
+    description: 'Whether the role may use it: its requirement is met and the app has not locked it.',
+  }),
+  requirement: z.array(z.string()).meta({
+    description: 'The role keys that qualify, from the entry, the rule or the default that decided. Holding one of them, or inheriting from one, is enough. Empty when nobody qualifies.',
+  }),
+  source: z.enum(['entry', 'rule', 'robot', 'org_default']).meta({
+    description:
+      'Where the requirement came from: `entry` is the entry\'s own `role`, `rule` the first matching rule of `access.rules`, `robot` the robot\'s ' +
+      '`access.assets` or `access.job_history`, and `org_default` the organization\'s default for the kind.',
+  }),
+  rule_index: z.number().int().nonnegative().nullable().meta({
+    description: 'For `rule`, the position of the deciding rule in `access.rules`, counted from zero; `null` otherwise.',
+  }),
+  rule_match: z.string().nullable().meta({
+    description: 'For `rule`, that rule\'s `match` glob; `null` otherwise.',
+  }),
+  satisfied_by: z.string().nullable().meta({
+    description:
+      'The key from `requirement` that the role holds through inheritance. `null` when the role is named in the requirement itself, and when it ' +
+      'does not meet the requirement at all. Independent of locks.',
+  }),
+  locked: z.boolean().meta({
+    description: 'Whether the app locks this capability, as a kind or as a single lock. A lock wins over the requirement.',
+  }),
+  unknown_roles: z.array(z.string()).meta({
+    description: 'Keys in the requirement that name no role of the organization. They grant nothing.',
+  }),
+})
+export type EffectiveCapability = z.infer<typeof effectiveCapability>
+
+/** One attached robot as a role sees it. */
+export const effectiveRobotRights = z.object({
+  robot_id: z.uuid().meta({ description: 'The robot, one that is attached to the app.' }),
+  robot_name: z.string().min(1).max(200).meta({ description: 'The robot\'s name.' }),
+  published_version: z.number().int().positive().nullable().meta({
+    description: 'The version of the robot\'s published `fleetless.yaml` that the answer was computed from; `null` when nothing is published.',
+  }),
+  capabilities: z.array(effectiveCapability).meta({
+    description: 'Every capability of the published configuration, and `assets` and `job_history`, each granted or not.',
+  }),
+  datasheet: mcpRobotDatasheet.meta({
+    description: 'The datasheet an MCP session of this role would get for the robot.',
+  }),
+})
+export type EffectiveRobotRights = z.infer<typeof effectiveRobotRights>
+
+/** What `GET /api/apps/:id/effective-rights` answers. */
+export const effectiveRightsResponse = z.object({
+  role: z.string().nullable().meta({
+    description: 'The role key the answer is for: the one asked about, or the app user\'s own. `null` when the app user holds none.',
+  }),
+  role_known: z.boolean().meta({
+    description: 'Whether the key names a role of the organization. `false` means every capability below is not granted.',
+  }),
+  user_id: z.uuid().nullable().meta({
+    description: 'The app user asked about; `null` when a role was asked about.',
+  }),
+  robots: z.array(effectiveRobotRights).meta({
+    description: 'The robots attached to the app, each with what the role may use.',
+  }),
+})
+export type EffectiveRightsResponse = z.infer<typeof effectiveRightsResponse>

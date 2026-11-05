@@ -28,11 +28,15 @@
  */
 import type { ZodType } from 'zod'
 import {
+  appAccess,
+  appAccessResponse,
   appListResponse,
   appDeletionSummary,
   createAppRequest,
   createServerKeyResponse,
   app as appSchema,
+  effectiveRightsQuery,
+  effectiveRightsResponse,
   serverKeyListResponse,
   updateAppRequest,
 } from './apps.js'
@@ -1118,6 +1122,46 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes: 'The key stops working at once. Minting, rotating and revoking all decide who may speak for the whole app.',
+  },
+
+  {
+    method: 'GET', path: '/api/apps/:id/access', section: 'apps',
+    summary: "Reads what an app locks and which role its users get by default, with what is out of step in it.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appAccessResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of ' +
+      'the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that ' +
+      'is no role or a lock on a slug the robot does not have. None of it is an error.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/access', section: 'apps',
+    summary: "Replaces what an app locks and which role its users get by default.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: appAccess, response: appAccessResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no ' +
+      'role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as ' +
+      '`warnings`. A change that can narrow rights re-checks the live subscriptions of the app\'s users at once.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/effective-rights', section: 'apps',
+    summary: 'Shows what one role, or one app user, may use on each robot the app attaches.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: effectiveRightsQuery, request: null, response: effectiveRightsResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with ' +
+      'whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the ' +
+      'inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. ' +
+      'Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow ' +
+      'the organization defaults. A role that is no role is not an error; it answers `role_known: false` with nothing granted. A user of ' +
+      'another app answers `404`.',
   },
 
 

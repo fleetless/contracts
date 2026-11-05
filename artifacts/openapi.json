@@ -2096,6 +2096,179 @@
         "description": "The key stops working at once. Minting, rotating and revoking all decide who may speak for the whole app."
       }
     },
+    "/api/apps/{id}/access": {
+      "get": {
+        "operationId": "get_api_apps_id_access",
+        "summary": "Reads what an app locks and which role its users get by default, with what is out of step in it.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-access-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that is no role or a lock on a slug the robot does not have. None of it is an error."
+      },
+      "put": {
+        "operationId": "put_api_apps_id_access",
+        "summary": "Replaces what an app locks and which role its users get by default.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app-access-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as `warnings`. A change that can narrow rights re-checks the live subscriptions of the app's users at once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app-access"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{id}/effective-rights": {
+      "get": {
+        "operationId": "get_api_apps_id_effective_rights",
+        "summary": "Shows what one role, or one app user, may use on each robot the app attaches.",
+        "tags": [
+          "apps"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The app's uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "A role key to look at the app as. A key that names no role is not an error: the answer says `role_known: false` and grants nothing.",
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            }
+          },
+          {
+            "name": "user",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "An app user of this app, to look at the app as that user's role. A user of another app answers `404`.",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/effective-rights-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow the organization defaults. A role that is no role is not an error; it answers `role_known: false` with nothing granted. A user of another app answers `404`."
+      }
+    },
     "/api/apps/{id}/users": {
       "get": {
         "operationId": "get_api_apps_id_users",
@@ -11213,6 +11386,197 @@
           "robot_ids",
           "default_role_id",
           "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "app-access": {
+        "type": "object",
+        "properties": {
+          "default_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
+          },
+          "locked_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "invoke",
+                "publish",
+                "assets",
+                "job_history"
+              ]
+            },
+            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+          },
+          "locked": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "robot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot whose capabilities are locked for this app."
+                },
+                "slugs": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 63,
+                    "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  },
+                  "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+                }
+              },
+              "required": [
+                "robot_id",
+                "slugs"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+          }
+        },
+        "required": [
+          "default_role",
+          "locked_kinds",
+          "locked"
+        ],
+        "additionalProperties": false
+      },
+      "app-access-response": {
+        "type": "object",
+        "properties": {
+          "default_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
+          },
+          "locked_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "invoke",
+                "publish",
+                "assets",
+                "job_history"
+              ]
+            },
+            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+          },
+          "locked": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "robot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot whose capabilities are locked for this app."
+                },
+                "slugs": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 63,
+                    "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                  },
+                  "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+                }
+              },
+              "required": [
+                "robot_id",
+                "slugs"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "unknown_default_role",
+                    "unknown_lock_slug",
+                    "lock_robot_not_attached"
+                  ],
+                  "description": "`unknown_default_role`: the default role names no role of the organization. `unknown_lock_slug`: a lock names a slug the robot has no published exposure for. `lock_robot_not_attached`: a lock names a robot that is not attached to the app."
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "A sentence a person can read, naming the key, robot or slug."
+                },
+                "robot_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The robot a lock warning is about; `null` for `unknown_default_role`."
+                },
+                "slug": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The slug an `unknown_lock_slug` warning is about; `null` for the other warnings."
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "robot_id",
+                "slug"
+              ],
+              "additionalProperties": false
+            },
+            "description": "What the access names that does not exist as written. Empty when nothing is out of step."
+          }
+        },
+        "required": [
+          "default_role",
+          "locked_kinds",
+          "locked",
+          "warnings"
         ],
         "additionalProperties": false
       },
@@ -26468,6 +26832,310 @@
           "token_endpoint_auth_method",
           "client_id_issued_at",
           "client_secret_expires_at"
+        ],
+        "additionalProperties": false
+      },
+      "effective-rights-response": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The role key the answer is for: the one asked about, or the app user's own. `null` when the app user holds none."
+          },
+          "role_known": {
+            "type": "boolean",
+            "description": "Whether the key names a role of the organization. `false` means every capability below is not granted."
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The app user asked about; `null` when a role was asked about."
+          },
+          "robots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "robot_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The robot, one that is attached to the app."
+                },
+                "robot_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "The robot's name."
+                },
+                "published_version": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The version of the robot's published `fleetless.yaml` that the answer was computed from; `null` when nothing is published."
+                },
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 2,
+                        "maxLength": 63,
+                        "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+                        "description": "The exposure's slug, or `assets` or `job_history` for the capabilities that belong to the robot as a whole."
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "read",
+                          "invoke",
+                          "publish",
+                          "assets",
+                          "job_history"
+                        ],
+                        "description": "The kind of access the capability needs."
+                      },
+                      "granted": {
+                        "type": "boolean",
+                        "description": "Whether the role may use it: its requirement is met and the app has not locked it."
+                      },
+                      "requirement": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "The role keys that qualify, from the entry, the rule or the default that decided. Holding one of them, or inheriting from one, is enough. Empty when nobody qualifies."
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "entry",
+                          "rule",
+                          "robot",
+                          "org_default"
+                        ],
+                        "description": "Where the requirement came from: `entry` is the entry's own `role`, `rule` the first matching rule of `access.rules`, `robot` the robot's `access.assets` or `access.job_history`, and `org_default` the organization's default for the kind."
+                      },
+                      "rule_index": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "For `rule`, the position of the deciding rule in `access.rules`, counted from zero; `null` otherwise."
+                      },
+                      "rule_match": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "For `rule`, that rule's `match` glob; `null` otherwise."
+                      },
+                      "satisfied_by": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The key from `requirement` that the role holds through inheritance. `null` when the role is named in the requirement itself, and when it does not meet the requirement at all. Independent of locks."
+                      },
+                      "locked": {
+                        "type": "boolean",
+                        "description": "Whether the app locks this capability, as a kind or as a single lock. A lock wins over the requirement."
+                      },
+                      "unknown_roles": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Keys in the requirement that name no role of the organization. They grant nothing."
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "kind",
+                      "granted",
+                      "requirement",
+                      "source",
+                      "rule_index",
+                      "rule_match",
+                      "satisfied_by",
+                      "locked",
+                      "unknown_roles"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Every capability of the published configuration, and `assets` and `job_history`, each granted or not."
+                },
+                "datasheet": {
+                  "type": "object",
+                  "properties": {
+                    "robot_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "robot_name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "action_history": {
+                          "type": "boolean"
+                        },
+                        "assets": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "action_history",
+                        "assets"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "exposures": {
+                      "maxItems": 2000,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "slug": {
+                            "type": "string",
+                            "minLength": 2,
+                            "maxLength": 63,
+                            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "datapoint",
+                              "service",
+                              "action",
+                              "publisher",
+                              "camera"
+                            ]
+                          },
+                          "description": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "unit": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 32
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "decimals": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 6
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "input_schema": {
+                            "anyOf": [
+                              {},
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "slug",
+                          "kind",
+                          "description",
+                          "unit",
+                          "decimals",
+                          "input_schema"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "robot_id",
+                    "robot_name",
+                    "capabilities",
+                    "exposures"
+                  ],
+                  "additionalProperties": false,
+                  "description": "The datasheet an MCP session of this role would get for the robot."
+                }
+              },
+              "required": [
+                "robot_id",
+                "robot_name",
+                "published_version",
+                "capabilities",
+                "datasheet"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The robots attached to the app, each with what the role may use."
+          }
+        },
+        "required": [
+          "role",
+          "role_known",
+          "user_id",
+          "robots"
         ],
         "additionalProperties": false
       },

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "unknown_default_role",
+        "unknown_lock_slug",
+        "lock_robot_not_attached"
+      ],
+      "description": "`unknown_default_role`: the default role names no role of the organization. `unknown_lock_slug`: a lock names a slug the robot has no published exposure for. `lock_robot_not_attached`: a lock names a robot that is not attached to the app."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A sentence a person can read, naming the key, robot or slug."
+    },
+    "robot_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The robot a lock warning is about; `null` for `unknown_default_role`."
+    },
+    "slug": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The slug an `unknown_lock_slug` warning is about; `null` for the other warnings."
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "robot_id",
+    "slug"
+  ],
+  "additionalProperties": false
+}

@@ -642,6 +642,14 @@ export {
   serverKey,
   serverKeyListResponse,
   createServerKeyResponse,
+  appLock,
+  appAccess,
+  accessWarning,
+  appAccessResponse,
+  effectiveRightsQuery,
+  effectiveCapability,
+  effectiveRobotRights,
+  effectiveRightsResponse,
 } from './apps.js'
 export type {
   App,
@@ -652,6 +660,14 @@ export type {
   ServerKey,
   ServerKeyListResponse,
   CreateServerKeyResponse,
+  AppLock,
+  AppAccess,
+  AccessWarning,
+  AppAccessResponse,
+  EffectiveRightsQuery,
+  EffectiveCapability,
+  EffectiveRobotRights,
+  EffectiveRightsResponse,
 } from './apps.js'
 export {
   clientLoginRequest,

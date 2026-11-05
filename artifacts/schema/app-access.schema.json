@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "default_role": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,62}$",
+          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
+    },
+    "locked_kinds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "read",
+          "invoke",
+          "publish",
+          "assets",
+          "job_history"
+        ]
+      },
+      "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+    },
+    "locked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "robot_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The robot whose capabilities are locked for this app."
+          },
+          "slugs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 63,
+              "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+            },
+            "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+          }
+        },
+        "required": [
+          "robot_id",
+          "slugs"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+    }
+  },
+  "required": [
+    "default_role",
+    "locked_kinds",
+    "locked"
+  ],
+  "additionalProperties": false
+}

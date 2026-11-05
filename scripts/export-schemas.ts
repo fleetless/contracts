@@ -238,6 +238,16 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
+import {
+  appLock,
+  appAccess,
+  accessWarning,
+  appAccessResponse,
+  effectiveRightsQuery,
+  effectiveCapability,
+  effectiveRobotRights,
+  effectiveRightsResponse,
+} from '../src/apps.js'
 import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation, roleCycleDetails } from '../src/errors.js'
 import {
   referencePlace,
@@ -894,6 +904,19 @@ export const exportedSchemas = {
   'role-cycle-details': roleCycleDetails, // the details of role_cycle
   'role-defaults-response': roleDefaultsResponse, // GET and PUT /api/org/roles/defaults
   'put-role-defaults-request': putRoleDefaultsRequest, // PUT /api/org/roles/defaults
+
+  // --- App access and effective rights -------------------------------------
+  //
+  // The three `/api/apps/:id/access` and `/effective-rights` routes, with the
+  // shapes that only travel inside them so the reference can link each name.
+  'app-access': appAccess, // PUT /api/apps/:id/access
+  'app-access-response': appAccessResponse, // GET and PUT /api/apps/:id/access
+  'app-lock': appLock, // embedded in app-access and app-access-response
+  'access-warning': accessWarning, // embedded in app-access-response
+  'effective-rights-query': effectiveRightsQuery, // GET /api/apps/:id/effective-rights
+  'effective-rights-response': effectiveRightsResponse, // GET /api/apps/:id/effective-rights
+  'effective-robot-rights': effectiveRobotRights, // embedded in effective-rights-response
+  'effective-capability': effectiveCapability, // embedded in effective-robot-rights
 } as const
 
 /**
@@ -1068,6 +1091,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'create-passkey-request', 'rename-passkey-request', 'totp-confirm-request',
   'update-app-request',
   'create-org-role-request', 'patch-org-role-request', 'put-role-defaults-request',
+  'app-access', 'app-lock', 'effective-rights-query',
   'oauth-token-request', 'dynamic-client-registration-request',
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
@@ -1185,6 +1209,8 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // Organization roles: answers, the places inside them, and two error details.
   'org-role-list-response', 'org-role', 'dangling-reference', 'reference-place',
   'role-rename-preview', 'role-cycle-details', 'role-defaults-response',
+  // App access: the answers, and the shapes inside them.
+  'app-access-response', 'access-warning', 'effective-rights-response', 'effective-robot-rights', 'effective-capability',
   // Embedded in support-token-response, and in authMeSupportResponse, which
   // no route names: what the server sends, never a document it validates.
   'support-session-info',
