@@ -387,6 +387,8 @@ describe('the route artifacts', () => {
       'collections-restore-request': 'the version restore route of the collections section names it once that section is in the manifest',
       'collections-restore-preview-query': 'the restore preview route of the collections section names it once that section is in the manifest',
       'collections-purge-request': 'the purge route of the collections section names it once that section is in the manifest',
+      'collection-import-request': 'the import routes of the collections section name it once that section is in the manifest',
+      'collection-export-query': 'the export routes of the collections section name it once that section is in the manifest',
     }
 
     const referenced = () => {

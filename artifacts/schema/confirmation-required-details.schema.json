@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "preview": {
+      "description": "The current preview of the operation, with its `token`: a `collectionsSchemaPreview` for a publish, a `collectionsRestorePreview` for a restore, a `collectionsPurgePreview` for a purge and a `collectionImportPreview` for an import. Confirm it by sending that `token` as `confirm`."
+    }
+  },
+  "required": [
+    "preview"
+  ],
+  "additionalProperties": false
+}

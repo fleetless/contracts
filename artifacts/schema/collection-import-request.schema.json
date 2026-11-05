@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "json"
+      ],
+      "description": "`csv`: UTF-8 text with a header row, as in RFC 4180; a `json` field is written as JSON text in its cell. `json`: an array of objects, one per record."
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 10000000,
+      "description": "The file as text, at most 10,000,000 characters and 50,000 rows."
+    },
+    "mapping": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+          },
+          {
+            "type": "string",
+            "const": ""
+          }
+        ],
+        "description": "The key of the field the column is imported into, the literal `robot`, or an empty string to leave the column out."
+      },
+      "description": "Where each column of the file goes, by the column name in the header (for JSON, the property name). A column that is not listed is imported into the field with the same key."
+    },
+    "references": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,62}$",
+        "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,62}$",
+        "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+      },
+      "description": "For each reference field, by its key: the unique field of the target collection that the values in its column identify, for example `name`. A reference field that is not listed takes record ids."
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "A unique field that matches rows to existing records: a row whose value is found updates that record, the rest create records. Without a key every row creates a record. A collection with one record per robot is only updated, matched by robot, and needs no key."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "upsert",
+        "mirror"
+      ],
+      "description": "`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`."
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {},
+          "description": "Only records matching this filter can be deleted. The same filter object that record lists take as JSON text."
+        },
+        "robot_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "Only records of this robot can be deleted."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Limits which records `mirror` may delete: those matching a filter, or those of one robot. Name one of them. Without a scope the whole collection is mirrored."
+    },
+    "robot_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The robot every row belongs to, in a collection that belongs to robots, when the file has no `robot` column."
+    },
+    "confirm": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `token` of the preview of exactly this import. A missing or outdated token is answered with `confirmation_required` and the current preview."
+    }
+  },
+  "required": [
+    "format",
+    "content"
+  ],
+  "additionalProperties": false,
+  "description": "Imports a file of records into a collection, all or nothing."
+}

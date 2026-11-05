@@ -790,8 +790,8 @@ export type {
   AssetStoreRefusedDetails,
   AssetSyncBusyDetails,
 } from './assets.js'
-export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS } from './audit.js'
-export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse } from './audit.js'
+export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS, COLLECTION_AUDIT_ACTIONS } from './audit.js'
+export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse, CollectionAuditAction } from './audit.js'
 export {
   alertRowCondition,
   alertSeverity,
@@ -832,6 +832,12 @@ export {
   paymentProviderUnavailableDetails,
   // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
   billingDocumentsUnavailableDetails,
+  // 2026-11-04 — app collections.
+  confirmationRequiredDetails,
+  recordReferencedDetails,
+  recordChangedDetails,
+  referenceInvalidDetails,
+  requiredMissingDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -847,6 +853,11 @@ export type {
   FileTooLargeDetails,
   PaymentProviderUnavailableDetails,
   BillingDocumentsUnavailableDetails,
+  ConfirmationRequiredDetails,
+  RecordReferencedDetails,
+  RecordChangedDetails,
+  ReferenceInvalidDetails,
+  RequiredMissingDetails,
 } from './errors.js'
 export {
   oauthErrorCode,
@@ -1201,3 +1212,15 @@ export type {
   CollectionsPurgePreview,
   CollectionsPurgeResponse,
 } from './collections-schema.js'
+export {
+  collectionImportRequest,
+  collectionImportPreview,
+  collectionImportResult,
+  collectionExportQuery,
+} from './collections-transfer.js'
+export type {
+  CollectionImportRequest,
+  CollectionImportPreview,
+  CollectionImportResult,
+  CollectionExportQuery,
+} from './collections-transfer.js'

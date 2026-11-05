@@ -143,6 +143,12 @@ import {
   collectionsPurgePreview,
   collectionsPurgeResponse,
 } from '../src/collections-schema.js'
+import {
+  collectionImportRequest,
+  collectionImportPreview,
+  collectionImportResult,
+  collectionExportQuery,
+} from '../src/collections-transfer.js'
 import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
@@ -276,7 +282,17 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
-import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import {
+  cancelRejectedDetails,
+  confirmationRequiredDetails,
+  invalidCodeDetails,
+  parameterInvalidDetails,
+  parameterViolation,
+  recordChangedDetails,
+  recordReferencedDetails,
+  referenceInvalidDetails,
+  requiredMissingDetails,
+} from '../src/errors.js'
 import {
   passwordChangeRequest,
   refreshRequest,
@@ -556,6 +572,10 @@ export const exportedSchemas = {
   'collections-purge-request': collectionsPurgeRequest,
   'collections-purge-preview': collectionsPurgePreview,
   'collections-purge-response': collectionsPurgeResponse,
+  'collection-import-request': collectionImportRequest,
+  'collection-import-preview': collectionImportPreview,
+  'collection-import-result': collectionImportResult,
+  'collection-export-query': collectionExportQuery,
   'client-auth': clientAuth,
   'auth-ok': authOk,
   'auth-error': authError,
@@ -943,6 +963,12 @@ export const exportedSchemas = {
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'invalid-code-details': invalidCodeDetails, // the details of invalid_code; re-exported by @fleetless/sdk as a type
+  // The details of the app collections refusals; the SDK re-exports them as types too.
+  'confirmation-required-details': confirmationRequiredDetails,
+  'record-referenced-details': recordReferencedDetails,
+  'record-changed-details': recordChangedDetails,
+  'reference-invalid-details': referenceInvalidDetails,
+  'required-missing-details': requiredMissingDetails,
 } as const
 
 /**
@@ -1171,6 +1197,10 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // the owner's purge request.
   'put-collections-draft-request', 'collections-publish-request', 'collections-restore-preview-query',
   'collections-restore-request', 'collections-purge-request',
+
+  // Import and export: the file a caller uploads with its mapping, and the
+  // query string that shapes a download.
+  'collection-import-request', 'collection-export-query',
 ]
 
 /**
@@ -1303,6 +1333,16 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'collections-draft-response', 'collections-publish-response', 'collections-version-summary',
   'collections-versions-response', 'collections-version-response', 'collections-restore-preview',
   'collections-restore-response', 'collections-purge-preview', 'collections-purge-response',
+
+  // --- Import and export ---------------------------------------------------
+  // What the server answers to an import: the preview with its token and the
+  // result of the confirmed import.
+  'collection-import-preview', 'collection-import-result',
+
+  // --- Details of the app collections refusals -----------------------------
+  // Embedded in an error the server sends; never a document it validates.
+  'confirmation-required-details', 'record-referenced-details', 'record-changed-details',
+  'reference-invalid-details', 'required-missing-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

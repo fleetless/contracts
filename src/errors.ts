@@ -190,6 +190,72 @@ export const billingDocumentsUnavailableDetails = z.object({
 export type BillingDocumentsUnavailableDetails = z.infer<typeof billingDocumentsUnavailableDetails>
 
 /**
+ * The `details` of a `409 confirmation_required` refusal: the preview as it is
+ * now, which carries the `token` that confirms it. Sent when a publish, a
+ * restore, a purge or an import would change or remove data and the request
+ * brought no token, or one for data that has changed since.
+ */
+export const confirmationRequiredDetails = z
+  .object({
+    preview: z.unknown().meta({
+      description:
+        'The current preview of the operation, with its `token`: a `collectionsSchemaPreview` for a publish, a `collectionsRestorePreview` for a restore, a `collectionsPurgePreview` for a purge and a `collectionImportPreview` for an import. Confirm it by sending that `token` as `confirm`.',
+    }),
+  })
+  .strict()
+export type ConfirmationRequiredDetails = z.infer<typeof confirmationRequiredDetails>
+
+/**
+ * The `details` of a `409 record_referenced` refusal. Counts only: the caller
+ * may not be allowed to read the records that point here, so neither their
+ * ids nor their values are told.
+ */
+export const recordReferencedDetails = z
+  .object({
+    references: z
+      .array(
+        z
+          .object({
+            collection: z.string().min(1).meta({ description: 'The key of a collection that has records pointing at this one.' }),
+            count: z.number().int().min(1).meta({ description: 'How many records of that collection point at it.' }),
+          })
+          .strict(),
+      )
+      .min(1)
+      .meta({ description: 'The collections whose records reference the record, each with how many.' }),
+  })
+  .strict()
+export type RecordReferencedDetails = z.infer<typeof recordReferencedDetails>
+
+/** The `details` of a `409 record_changed` refusal: the revision the record is at now, for the caller to read it again. */
+export const recordChangedDetails = z
+  .object({
+    revision: z.number().int().min(1).meta({ description: 'The current revision of the record, which is not the `expected_revision` that was sent.' }),
+  })
+  .strict()
+export type RecordChangedDetails = z.infer<typeof recordChangedDetails>
+
+/** The `details` of a `400 reference_invalid` refusal: which reference field, and why its value was refused. */
+export const referenceInvalidDetails = z
+  .object({
+    field: z.string().min(1).meta({ description: 'The key of the reference field.' }),
+    reason: z.enum(['missing', 'other_robot', 'not_readable']).meta({
+      description:
+        '`missing`: no record of the target collection has that id. `other_robot`: the target belongs to another robot than the record that points at it. `not_readable`: the caller may not read the target collection.',
+    }),
+  })
+  .strict()
+export type ReferenceInvalidDetails = z.infer<typeof referenceInvalidDetails>
+
+/** The `details` of a `400 required_missing` refusal: every required field the write would leave empty. */
+export const requiredMissingDetails = z
+  .object({
+    fields: z.array(z.string().min(1)).min(1).meta({ description: 'The keys of the required fields that have no value.' }),
+  })
+  .strict()
+export type RequiredMissingDetails = z.infer<typeof requiredMissingDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -1167,5 +1233,66 @@ export const ERROR_CODES = [
    * policy guard on the developer HTTP surface.
    */
   'support_forbidden',
+
+  // 2026-11-04 — app collections.
+  /**
+   * `409`: a publish, a restore, a purge or an import would change or remove
+   * data and the request carried no token, or the token of a preview that no
+   * longer holds because the data changed since. Nothing was changed.
+   * `details` is `confirmationRequiredDetails`: the current preview, with the
+   * `token` to send back as `confirm`. The answer is not "someone else got
+   * there first" but "this is exactly what would happen now, say yes to it".
+   */
+  'confirmation_required',
+  /**
+   * `409`: the record cannot be deleted, or an import cannot delete it,
+   * because other records point at it through a reference whose `on_delete` is
+   * `prevent`. `details` is `recordReferencedDetails`: the collections that
+   * reference it and how many records each has, never their ids or values.
+   */
+  'record_referenced',
+  /**
+   * `409`: a write sent an `expected_revision` and the record is at another
+   * revision now. Nothing was changed. `details` is `recordChangedDetails`:
+   * the current revision; read the record again and decide.
+   */
+  'record_changed',
+  /**
+   * `404`: the app has no published collection with that key. A caller who has
+   * no right at all on a collection gets the same answer, so that the key of a
+   * collection they may not touch is not told; a caller with some right, but
+   * not the one this request needs, gets `403 forbidden` instead. Also the
+   * code of a refused `collection_subscribe`.
+   */
+  'collection_not_found',
+  /**
+   * Realtime only, no HTTP status: a `collection_subscribe_error` frame that
+   * ends a subscription because a publish removed its collection from the
+   * schema.
+   */
+  'collection_removed',
+  /**
+   * `400`: a reference field points at something it may not: a record that
+   * does not exist, one of another robot, or one in a collection the caller
+   * may not read. `details` is `referenceInvalidDetails`: the field and the
+   * reason.
+   */
+  'reference_invalid',
+  /**
+   * `400`: a create leaves a required field empty, or an update clears one.
+   * `details` is `requiredMissingDetails`: every such field, not only the
+   * first. A record whose required fields were emptied by a schema change can
+   * still be updated in its other fields; it is the write that breaks the
+   * rule that is refused.
+   */
+  'required_missing',
+  /**
+   * `400`: the request names a robot that the app does not have attached, or
+   * that the caller cannot reach, for example the `robot_id` of a new record, a
+   * `robot` filter or a `collection_subscribe`. Over realtime it also ends a
+   * subscription whose robot was detached. A detached robot's records are kept
+   * and stay hidden until it is attached again.
+   */
+  'robot_not_attached',
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]

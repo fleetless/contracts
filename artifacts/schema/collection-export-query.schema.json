@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "json"
+      ],
+      "description": "`csv`: UTF-8 text with a header row. `json`: an array of objects."
+    },
+    "filter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+    },
+    "search": {
+      "type": "string",
+      "description": "Words that must all occur, in any letter case, in at least one searchable field of the record. At most 10 words, separated by whitespace."
+    },
+    "sort": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+    },
+    "robot": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Only the records of this robot, in a collection that belongs to robots."
+    },
+    "fields": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The fields to export by key, separated by commas, in the order given. Default: all fields, in the order of the schema."
+    },
+    "references": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again."
+    },
+    "system": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ],
+      "description": "`true` adds the system fields `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`, and `robot_id` in a collection that belongs to robots. Default `false`."
+    }
+  },
+  "required": [
+    "format"
+  ],
+  "additionalProperties": false
+}

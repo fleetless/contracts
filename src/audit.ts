@@ -8,8 +8,9 @@ import { wireSeqCursor, wireTimestampMs } from './common.js'
  * its actor — never anonymous**. Reads are not audited.
  *
  * What is written: logins, failed logins, user management, configuration
- * publishes, bridge connect and disconnect. The log is filterable, exportable
- * as CSV, and kept for ninety days.
+ * publishes, bridge connect and disconnect, and the writes of app collections
+ * (`COLLECTION_AUDIT_ACTIONS`). The log is filterable, exportable as CSV, and
+ * kept for ninety days.
  */
 
 /**
@@ -239,3 +240,38 @@ export const AUDIT_CSV_COLUMNS = ['seq', 'at', 'actor_kind', 'actor_id', 'action
  * as `ROBOT_ASSET_STORE_BYTES`.
  */
 export const AUDIT_RETENTION_DAYS = 90
+
+/**
+ * **The audit actions of app collections.** Each write request writes exactly
+ * one entry, whatever it changed: an import of 5,000 rows is one
+ * `collection_import.completed`, not 5,000 record entries. Reads and exports
+ * are not audited, here as everywhere in this log.
+ *
+ * - `collection_schema.published`: a schema version was published; the entry
+ *   names the version and counts the effects it had on data.
+ * - `collection_schema.restored`: an earlier version was restored; the entry
+ *   names the version, says whether records were put back too and counts what
+ *   changed.
+ * - `collection_record.created`, `.updated`, `.deleted`, `.restored`: one
+ *   record write; the entry names the collection, the record and its robot.
+ * - `collection_import.completed`: an import was carried out; the entry names
+ *   the collection and the mode and counts the records created, updated and
+ *   deleted.
+ * - `collection_history.purged`: an organization owner removed history older
+ *   than a date; the entry names the date, the collection or the whole app,
+ *   and how many revisions went. The actor is the owner.
+ *
+ * The strings are stable: filter the log with `action` or with
+ * `action_prefix` (`collection_record.`).
+ */
+export const COLLECTION_AUDIT_ACTIONS = [
+  'collection_schema.published',
+  'collection_schema.restored',
+  'collection_record.created',
+  'collection_record.updated',
+  'collection_record.deleted',
+  'collection_record.restored',
+  'collection_import.completed',
+  'collection_history.purged',
+] as const
+export type CollectionAuditAction = (typeof COLLECTION_AUDIT_ACTIONS)[number]
