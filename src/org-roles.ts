@@ -133,7 +133,7 @@ export type CreateOrgRoleRequest = z.infer<typeof createOrgRoleRequest>
  *
  * At least one field is required: an empty patch is a caller mistake, not a
  * request to do nothing. `update_references` and `confirm` only mean something
- * together with `key`, and are refused or ignored by the cloud otherwise.
+ * together with `key`.
  */
 export const patchOrgRoleRequest = z.object({
   name: roleName.optional().meta({
