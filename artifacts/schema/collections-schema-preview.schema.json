@@ -487,6 +487,11 @@
         "description": "A change of the roles that may do one thing with the records of a collection. Information only; it does not need confirming."
       }
     },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "The SHA-256 of the draft text this preview is for (UTF-8, lowercase hex). Send it as `source_sha256` when publishing to publish exactly this draft, also when there are no effects and so no token."
+    },
     "token": {
       "anyOf": [
         {
@@ -496,7 +501,7 @@
           "type": "null"
         }
       ],
-      "description": "Stands for exactly this list of effects: send it as `confirm` when publishing. Null when there are no effects, since publishing then needs no confirmation."
+      "description": "Stands for exactly this list of effects, on exactly this draft text and the version in force now: send it as `confirm` when publishing. If the draft was saved again, or the data or the version changed, the token no longer holds. Null when there are no effects, since publishing then needs no confirmation."
     }
   },
   "required": [
@@ -506,6 +511,7 @@
     "issues",
     "effects",
     "access_changes",
+    "source_sha256",
     "token"
   ],
   "additionalProperties": false,

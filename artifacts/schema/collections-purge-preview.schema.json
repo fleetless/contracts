@@ -39,7 +39,7 @@
         "minimum": 1,
         "maximum": 9007199254740991
       },
-      "description": "Versions whose records can no longer be restored once the history is gone."
+      "description": "Versions whose records could be put back today and could not once the history is gone, judged the way `restore_with_data` of the version list is. For the purge of one collection only the versions whose restore touches that collection are named."
     },
     "token": {
       "type": "string",

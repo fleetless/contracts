@@ -3,6 +3,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js'
 import { describe, expect, it, vi } from 'vitest'
 import {
   COLLECTION_JSON_TEMPLATES,
+  COLLECTION_LIMITS,
   checkCollectionValue,
   collectionField,
   normalizeCollectionValue,
@@ -259,9 +260,44 @@ describe('checkCollectionValue refuses a NUL character', () => {
       let deep: unknown = `x${NUL}`
       for (let i = 0; i < 200_000; i += 1) deep = [deep]
       expect(checkCollectionValue(json, deep)?.code).toBe('type')
-      let clean: unknown = 'x'
-      for (let i = 0; i < 200_000; i += 1) clean = { a: clean }
-      expect(checkCollectionValue(json, clean)).toBeNull()
+    })
+  })
+
+  describe('in a json value that nests arrays and objects', () => {
+    const json = field({ type: 'json' })
+    const nested = (levels: number, innermost: unknown = 'x', wrap: (inner: unknown) => unknown = (inner) => [inner]): unknown => {
+      let value = innermost
+      for (let i = 0; i < levels; i += 1) value = wrap(value)
+      return value
+    }
+
+    it('accepts 32 levels and refuses the 33rd, for lists and objects alike, with a type problem', () => {
+      expect(COLLECTION_LIMITS.jsonDepth).toBe(32)
+      expect(checkCollectionValue(json, nested(32))).toBeNull()
+      expect(checkCollectionValue(json, nested(32, 'x', (inner) => ({ a: inner })))).toBeNull()
+      for (const wrap of [(inner: unknown) => [inner], (inner: unknown) => ({ a: inner })]) {
+        const problem = checkCollectionValue(json, nested(33, 'x', wrap))
+        expect(problem?.code).toBe('type')
+        expect(problem?.message).toMatch(/32 levels/)
+      }
+    })
+
+    it('counts levels of containers, not the width, and lets any number of siblings through', () => {
+      expect(checkCollectionValue(json, [nested(31), nested(31), { a: nested(30) }])).toBeNull()
+      expect(checkCollectionValue(json, Array.from({ length: 100_000 }, () => [1]))).toBeNull()
+      expect(checkCollectionValue(json, { a: [nested(31), nested(32)] })).not.toBeNull()
+    })
+
+    it('refuses a value that contains itself instead of looping', () => {
+      const cyclic: Record<string, unknown> = {}
+      cyclic.self = cyclic
+      expect(checkCollectionValue(json, cyclic)?.code).toBe('type')
+    })
+
+    it('asks for the depth before the JSON Schema, which then never meets a value it cannot read', () => {
+      const validateJsonValue = vi.fn(() => null)
+      expect(checkCollectionValue(field({ type: 'json', schema: { type: 'array' } }), nested(40), { validateJsonValue })?.code).toBe('type')
+      expect(validateJsonValue).not.toHaveBeenCalled()
     })
   })
 

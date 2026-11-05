@@ -345,10 +345,11 @@ function rolesIn(value: unknown): string[] {
 }
 
 /**
- * One warning for each role key in `access` that the app does not have, per
- * collection and action. The document stays valid: renaming or deleting a role
- * never makes a published document fail, and a key that names no role grants
- * nothing. `roleKeys` is the set of the app's role keys.
+ * One warning for each role key in `access` that the organization does not
+ * have, per collection and action. The document stays valid: renaming or
+ * deleting a role never makes a published document fail, and a key that names
+ * no role grants nothing. `roleKeys` is the set of the organization's role
+ * keys.
  */
 export function collectionsAccessWarnings(document: CollectionsDocument, roleKeys: ReadonlySet<string>): CollectionsIssue[] {
   const warnings: CollectionsIssue[] = []
@@ -360,7 +361,7 @@ export function collectionsAccessWarnings(document: CollectionsDocument, roleKey
         warnings.push({
           path: `collections.${collectionKey}.access.${action}`,
           code: 'unknown_role',
-          message: `The role "${role}" is not a role of this app, so it grants nothing.`,
+          message: `The role "${role}" is not a role of the organization, so it grants nothing.`,
           severity: 'warning',
         })
       }

@@ -91,6 +91,12 @@ export const COLLECTION_LIMITS = {
   growthMinRevisions: 10_000,
   /** The schema document as text, counted in bytes of UTF-8 and not in characters. */
   schemaSourceBytes: 1_000_000,
+  /** The longest `pattern` of a `text` field, in characters. */
+  patternMax: 1000,
+  /** Levels of arrays and objects inside one `json` value. */
+  jsonDepth: 32,
+  /** The longest column name or value an import error repeats, an ellipsis included. */
+  importErrorText: 200,
 } as const
 
 const KEY_RULE = /^[a-z][a-z0-9_]{0,62}$/
@@ -172,9 +178,10 @@ const textField = z
       .optional(),
     pattern: z
       .string()
+      .max(COLLECTION_LIMITS.patternMax)
       .meta({
         description:
-          'A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value.',
+          `A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most ${COLLECTION_LIMITS.patternMax.toLocaleString('en-US')} characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as \`{n}\` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with \`^\` and \`$\` to match the whole value.`,
       })
       .optional(),
     searchable: z.boolean().meta({ description: 'Include this field in the `search` of record lists.' }).optional(),
@@ -282,10 +289,10 @@ export const collectionField = z.discriminatedUnion('type', [
 ])
 export type CollectionField = z.infer<typeof collectionField>
 
-/** The name of an app role, as the roles of the app spell it. */
+/** The key of an organization role, as the organization spells it. A key that names no role grants nothing and is a warning. */
 export const collectionAccessValue = z
   .union([z.string().min(1).max(63), z.array(z.string().min(1).max(63))])
-  .meta({ description: 'A role key, or a list of role keys.' })
+  .meta({ description: 'The key of an organization role, or a list of keys. A key that names no role grants nothing.' })
 export type CollectionAccessValue = z.infer<typeof collectionAccessValue>
 
 const allOwn = z
@@ -298,9 +305,9 @@ const allOwn = z
 /**
  * Which roles may do what with a collection's records. A key that is missing,
  * or a collection without `access`, grants that action to nobody; developers
- * and the app's server keys always may. A role key the app does not have is a
- * warning (see `collectionsAccessWarnings`), never a reason to refuse the
- * document.
+ * and the app's server keys always may. A role key the organization does not
+ * have is a warning (see `collectionsAccessWarnings`), never a reason to
+ * refuse the document.
  */
 export const collectionAccess = z
   .object({
@@ -344,14 +351,26 @@ export type CollectionDefinition = z.infer<typeof collectionDefinition>
  * The document itself. The caps on collections and fields are validity rules of
  * `collectionsDocumentIssues` rather than zod limits, so a document one
  * collection over still parses and is told exactly which rule it breaks.
+ *
+ * `collections:` with nothing under it, which YAML reads as `null`, is the
+ * same as `collections: {}`: a document that has no collections yet, which is
+ * what a template for a new app looks like. Anything else that is not a map is
+ * still refused.
  */
-export const collectionsDocument = z
-  .object({
-    format: z.literal(COLLECTIONS_FORMAT_VERSION).meta({ description: `The document format version. Always ${COLLECTIONS_FORMAT_VERSION}.` }),
-    collections: z
-      .record(collectionKey, collectionDefinition)
-      .meta({ description: `The collections of the app by key, at most ${COLLECTION_LIMITS.collections}.` }),
-  })
-  .strict()
-  .meta({ description: 'The data model of an app: its collections, their fields, and who may use them.' })
+export const collectionsDocument = z.preprocess(
+  // Done on the whole document and not on the `collections` property, so that the JSON Schema still lists `collections` as required.
+  (input) =>
+    typeof input === 'object' && input !== null && !Array.isArray(input) && (input as { collections?: unknown }).collections === null
+      ? { ...input, collections: {} }
+      : input,
+  z
+    .object({
+      format: z.literal(COLLECTIONS_FORMAT_VERSION).meta({ description: `The document format version. Always ${COLLECTIONS_FORMAT_VERSION}.` }),
+      collections: z
+        .record(collectionKey, collectionDefinition)
+        .meta({ description: `The collections of the app by key, at most ${COLLECTION_LIMITS.collections}. Nothing under \`collections:\` (null) means none.` }),
+    })
+    .strict()
+    .meta({ description: 'The data model of an app: its collections, their fields, and who may use them.' }),
+)
 export type CollectionsDocument = z.infer<typeof collectionsDocument>

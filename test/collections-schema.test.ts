@@ -26,6 +26,7 @@ import {
 const ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const ACTOR = { kind: 'developer', id: '9b2c1d34-5e6f-4a7b-8c9d-0e1f2a3b4c5d', label: 'ada@example.com' }
 const AT = '2026-11-04T10:00:00.000Z'
+const SHA = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 
 /** One example of each kind of effect, as the cloud lists them. */
 const EFFECTS: Record<string, Record<string, unknown>> = {
@@ -63,6 +64,7 @@ const preview = (over: Record<string, unknown> = {}): Record<string, unknown> =>
   issues: [],
   effects: [EFFECTS.field_removed],
   access_changes: [accessChange],
+  source_sha256: SHA,
   token: 'v1.abc',
   ...over,
 })
@@ -82,6 +84,8 @@ const versionSummary = (over: Record<string, unknown> = {}): Record<string, unkn
   effect_counts: { field_removed: 1, records_created: 3 },
   restored_from: null,
   restore_with_data: true,
+  with_data: false,
+  reverted_totals: null,
   ...over,
 })
 
@@ -213,6 +217,15 @@ describe('collectionsSchemaPreview', () => {
     expect(collectionsSchemaPreview.safeParse(without).success).toBe(false)
   })
 
+  it('names the draft it is for by the SHA-256 of its text, also when there is no token to carry it', () => {
+    const { source_sha256: _hash, ...without } = preview({ effects: [], token: null })
+    expect(collectionsSchemaPreview.safeParse(without).success).toBe(false)
+    expect(collectionsSchemaPreview.safeParse(preview({ effects: [], token: null, source_sha256: 'abc' })).success).toBe(false)
+    // What a preview names is what a publish may send back.
+    const { source_sha256 } = collectionsSchemaPreview.parse(preview({ effects: [], token: null }))
+    expect(collectionsPublishRequest.safeParse({ source_sha256 }).success).toBe(true)
+  })
+
   it('accepts a first publish (no version yet) and an invalid draft with its issues', () => {
     expect(collectionsSchemaPreview.safeParse(preview({ from_version: null, to_version: 1, effects: [], token: null })).success).toBe(true)
     expect(
@@ -323,6 +336,15 @@ describe('collectionsPublishRequest', () => {
     expect(collectionsPublishRequest.safeParse({ confirm: 'v1.abc' }).success).toBe(true)
   })
 
+  it('accepts the hash of the draft that was looked at, with or without a token', () => {
+    expect(collectionsPublishRequest.safeParse({ source_sha256: SHA }).success).toBe(true)
+    expect(collectionsPublishRequest.safeParse({ confirm: 'v1.abc', source_sha256: SHA }).success).toBe(true)
+    // Lowercase hex of a SHA-256, nothing else.
+    for (const bad of ['', SHA.toUpperCase(), SHA.slice(1), `${SHA}0`, 'not a hash', 5]) {
+      expect(collectionsPublishRequest.safeParse({ source_sha256: bad }).success, String(bad)).toBe(false)
+    }
+  })
+
   it('refuses an empty token, a token that is not text and other keys', () => {
     expect(collectionsPublishRequest.safeParse({ confirm: '' }).success).toBe(false)
     expect(collectionsPublishRequest.safeParse({ confirm: 1 }).success).toBe(false)
@@ -362,6 +384,24 @@ describe('versions', () => {
     const { restore_with_data: _b, ...withoutData } = versionSummary()
     expect(collectionsVersionSummary.safeParse(withoutFrom).success).toBe(false)
     expect(collectionsVersionSummary.safeParse(withoutData).success).toBe(false)
+  })
+
+  it('says whether a restore put records back and what came back, so that the history can tell', () => {
+    const totals = { changes: 37, records_back: 12, records_deleted: 3, robots_gone: 1 }
+    const restored = versionSummary({ restored_from: 2, with_data: true, reverted_totals: totals })
+    expect(collectionsVersionSummary.parse(restored)).toMatchObject({ with_data: true, reverted_totals: totals })
+    // A restore of the document alone and an ordinary publish put nothing back.
+    expect(collectionsVersionSummary.safeParse(versionSummary({ restored_from: 2, with_data: false, reverted_totals: null })).success).toBe(true)
+    // Both are always stated: an absent flag would read as "no".
+    const { with_data: _a, ...withoutFlag } = versionSummary()
+    const { reverted_totals: _b, ...withoutTotals } = versionSummary()
+    expect(collectionsVersionSummary.safeParse(withoutFlag).success).toBe(false)
+    expect(collectionsVersionSummary.safeParse(withoutTotals).success).toBe(false)
+    expect(collectionsVersionSummary.safeParse(versionSummary({ with_data: 'yes' })).success).toBe(false)
+    expect(collectionsVersionSummary.safeParse(versionSummary({ reverted_totals: { ...totals, records_back: -1 } })).success).toBe(false)
+    const { robots_gone: _c, ...partial } = totals
+    expect(collectionsVersionSummary.safeParse(versionSummary({ reverted_totals: partial })).success).toBe(false)
+    expect(collectionsVersionSummary.safeParse(versionSummary({ reverted_totals: { ...totals, extra: 1 } })).success).toBe(false)
   })
 
   it('wraps the versions with the current one, null before the first publish', () => {
@@ -509,6 +549,8 @@ describe('the purge shapes', () => {
   })
 
   it('previews what goes, naming the restore points that stop working', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collections-purge-preview.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.restore_points_lost.description).toMatch(/could be put back today and could not/)
     expect(collectionsPurgePreview.safeParse(purgePreview()).success).toBe(true)
     expect(collectionsPurgePreview.safeParse(purgePreview({ collection: 'logbook', restore_points_lost: [] })).success).toBe(true)
   })

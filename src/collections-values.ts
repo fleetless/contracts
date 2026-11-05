@@ -122,31 +122,38 @@ function hasUnstorableCharacter(text: string): boolean {
 }
 
 /**
- * Does a string, or a key of an object, anywhere in `value` hold a character
- * that cannot be stored? Walked with a list of what is left to look at and not
- * by recursion, because a value nested a hundred thousand levels deep must be
- * refused, not crash the stack.
+ * What stops a JSON value from being stored: a string or a key of an object
+ * anywhere in it that holds a character that cannot be stored, or arrays and
+ * objects nested deeper than `COLLECTION_LIMITS.jsonDepth`. Walked with a list
+ * of what is left to look at and not by recursion, because a value nested a
+ * hundred thousand levels deep must be refused, not crash the stack. The depth
+ * is counted while walking, so such a value is refused after a few dozen steps
+ * (and so is a structure that contains itself).
  */
-function containsUnstorable(value: unknown): boolean {
-  const pending: unknown[] = [value]
+function jsonProblem(value: unknown): 'unstorable' | 'too_deep' | null {
+  const pending: { item: unknown; depth: number }[] = [{ item: value, depth: 0 }]
   while (pending.length > 0) {
-    const item = pending.pop()
+    const { item, depth } = pending.pop()!
     if (typeof item === 'string') {
-      if (hasUnstorableCharacter(item)) return true
-    } else if (Array.isArray(item)) {
-      for (const child of item) pending.push(child)
+      if (hasUnstorableCharacter(item)) return 'unstorable'
     } else if (typeof item === 'object' && item !== null) {
-      for (const [key, child] of Object.entries(item)) {
-        if (hasUnstorableCharacter(key)) return true
-        pending.push(child)
+      if (depth >= COLLECTION_LIMITS.jsonDepth) return 'too_deep'
+      if (Array.isArray(item)) {
+        for (const child of item) pending.push({ item: child, depth: depth + 1 })
+      } else {
+        for (const [key, child] of Object.entries(item)) {
+          if (hasUnstorableCharacter(key)) return 'unstorable'
+          pending.push({ item: child, depth: depth + 1 })
+        }
       }
     }
   }
-  return false
+  return null
 }
 
 const UNSTORABLE_TEXT = 'The text contains a character that cannot be stored: NUL (U+0000) or half of a surrogate pair.'
 const UNSTORABLE_JSON = 'The value contains a character in a string or a key that cannot be stored: NUL (U+0000) or half of a surrogate pair.'
+const TOO_DEEP_JSON = `The value nests arrays and objects more than ${COLLECTION_LIMITS.jsonDepth} levels deep.`
 
 /**
  * Whether `value` matches `pattern`, by the injected matcher or else by the
@@ -170,7 +177,10 @@ function matchesPattern(pattern: string, value: string, options: CollectionValue
  *
  * The codes are `type` (the wrong kind of value, or a line break in `text`),
  * `max_length`, `pattern`, `min`, `max`, `integer`, `option`, `multiple`,
- * `date`, `datetime`, `json_schema` and `reference_format`.
+ * `date`, `datetime`, `json_schema` and `reference_format`. A `json` value that
+ * cannot be stored, because a string in it holds a NUL or half of a surrogate
+ * pair or because it nests arrays and objects more than 32 levels deep, is a
+ * `type` problem too.
  */
 export function checkCollectionValue(
   field: CollectionField,
@@ -257,7 +267,8 @@ export function checkCollectionValue(
       if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'bigint') {
         return problem('type', 'Expected a JSON value.')
       }
-      if (containsUnstorable(value)) return problem('type', UNSTORABLE_JSON)
+      const unstorable = jsonProblem(value)
+      if (unstorable !== null) return problem('type', unstorable === 'too_deep' ? TOO_DEEP_JSON : UNSTORABLE_JSON)
       if (field.schema === undefined) return null
       let schema: unknown = field.schema
       if (typeof field.schema === 'string') {

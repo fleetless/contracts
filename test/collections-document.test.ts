@@ -104,6 +104,22 @@ describe('the collections document', () => {
     expect(collectionsDocument.safeParse({ format: COLLECTIONS_FORMAT_VERSION, collections: {} }).success).toBe(true)
   })
 
+  it('reads `collections:` with nothing under it (YAML null) as no collections, and nothing else that is not a map', () => {
+    const parsed = collectionsDocument.safeParse({ format: COLLECTIONS_FORMAT_VERSION, collections: null })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data).toEqual({ format: COLLECTIONS_FORMAT_VERSION, collections: {} })
+    // Only a missing or malformed `collections` is still an error, and the input is not changed.
+    const input = { format: COLLECTIONS_FORMAT_VERSION, collections: null }
+    collectionsDocument.safeParse(input)
+    expect(input.collections).toBeNull()
+    expect(collectionsDocument.safeParse({ format: COLLECTIONS_FORMAT_VERSION }).success).toBe(false)
+    for (const bad of [[], 'none', 0, false]) {
+      expect(collectionsDocument.safeParse({ format: COLLECTIONS_FORMAT_VERSION, collections: bad }).success, JSON.stringify(bad)).toBe(false)
+    }
+    expect(collectionsDocument.safeParse(null).success).toBe(false)
+    expect(collectionsDocument.safeParse([]).success).toBe(false)
+  })
+
   it('refuses another format version and a missing format', () => {
     expect(collectionsDocument.safeParse({ format: 2, collections: {} }).success).toBe(false)
     expect(collectionsDocument.safeParse({ collections: {} }).success).toBe(false)
@@ -219,6 +235,9 @@ describe('the published constants', () => {
       growthFactor: 10,
       growthMinRevisions: 10_000,
       schemaSourceBytes: 1_000_000,
+      patternMax: 1000,
+      jsonDepth: 32,
+      importErrorText: 200,
     })
   })
 
@@ -354,6 +373,22 @@ describe('the published JSON Schema', () => {
     expect(artifact.properties.collections.additionalProperties.properties.fields.propertyNames.pattern).toBe(
       '^[a-z][a-z0-9_]{0,62}$',
     )
+  })
+
+  it('still lists collections as required: the null is a courtesy of the parser, not part of the format', () => {
+    expect(load().required).toEqual(['format', 'collections'])
+  })
+
+  it('caps a pattern at 1,000 characters, in the parser and in the artifact', () => {
+    const pattern = (length: number) => collectionField.safeParse({ type: 'text', pattern: 'a'.repeat(length) }).success
+    expect(pattern(1000)).toBe(true)
+    expect(pattern(1001)).toBe(false)
+    const artifact = load()
+    const fields = artifact.properties.collections.additionalProperties.properties.fields.additionalProperties
+    const members: Record<string, any>[] = fields.oneOf ?? fields.anyOf
+    const text = members.find((member) => member.properties.type.const === 'text')!
+    expect(text.properties.pattern.maxLength).toBe(1000)
+    expect(text.properties.pattern.description).toMatch(/too complex/)
   })
 
   it('says in which dialect a text pattern is written and checked', () => {

@@ -35,7 +35,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200,
-          "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+          "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
         }
       },
       "required": [
@@ -74,6 +74,54 @@
     "restore_with_data": {
       "type": "boolean",
       "description": "Whether restoring this version can also put records back: its restore point is at most 90 days old, has not been purged, and it is not the current version."
+    },
+    "with_data": {
+      "type": "boolean",
+      "description": "Whether this version came from a restore that also put records back. `false` for an ordinary publish and for a restore of the document alone."
+    },
+    "reverted_totals": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "changes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Changes made since the restore point that were reverted."
+            },
+            "records_back": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Deleted records that came back."
+            },
+            "records_deleted": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Records created since the restore point that were deleted."
+            },
+            "robots_gone": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991,
+              "description": "Records of robots that were deleted since, which could not come back."
+            }
+          },
+          "required": [
+            "changes",
+            "records_back",
+            "records_deleted",
+            "robots_gone"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "What putting the records back did, in all the collections together, so that the history of versions can say what came back. Null unless `with_data`."
     },
     "source": {
       "type": "string",
@@ -175,7 +223,7 @@
                             }
                           }
                         ],
-                        "description": "A role key, or a list of role keys."
+                        "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                       },
                       {
                         "type": "object",
@@ -240,7 +288,7 @@
                             }
                           }
                         ],
-                        "description": "A role key, or a list of role keys."
+                        "description": "The key of an organization role, or a list of keys. A key that names no role grants nothing."
                       },
                       {
                         "type": "object",
@@ -344,7 +392,8 @@
                         },
                         "pattern": {
                           "type": "string",
-                          "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                          "maxLength": 1000,
+                          "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
                         },
                         "searchable": {
                           "type": "boolean",
@@ -792,7 +841,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "The collections of the app by key, at most 50."
+          "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none."
         }
       },
       "required": [
@@ -810,6 +859,8 @@
     "effect_counts",
     "restored_from",
     "restore_with_data",
+    "with_data",
+    "reverted_totals",
     "source",
     "doc"
   ],

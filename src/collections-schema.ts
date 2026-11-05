@@ -32,6 +32,9 @@ const confirm = token.meta({
   description: 'The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview.',
 })
 
+/** SHA-256 as lowercase hex: 64 characters. */
+const sha256 = z.string().regex(/^[0-9a-f]{64}$/)
+
 /** A purge is always confirmed, since removing history cannot be undone; its preview has a token whatever it finds. */
 const purgeConfirm = token.meta({
   description:
@@ -200,8 +203,13 @@ export const collectionsSchemaPreview = z
     issues: z.array(collectionsIssue).meta({ description: 'Everything found in the draft: errors that block publishing, warnings and information.' }),
     effects: z.array(collectionsEffect).meta({ description: 'What would happen to existing data, computed against the data as it is now.' }),
     access_changes: z.array(collectionsAccessChange),
+    source_sha256: sha256.meta({
+      description:
+        'The SHA-256 of the draft text this preview is for (UTF-8, lowercase hex). Send it as `source_sha256` when publishing to publish exactly this draft, also when there are no effects and so no token.',
+    }),
     token: z.string().nullable().meta({
-      description: 'Stands for exactly this list of effects: send it as `confirm` when publishing. Null when there are no effects, since publishing then needs no confirmation.',
+      description:
+        'Stands for exactly this list of effects, on exactly this draft text and the version in force now: send it as `confirm` when publishing. If the draft was saved again, or the data or the version changed, the token no longer holds. Null when there are no effects, since publishing then needs no confirmation.',
     }),
   })
   .meta({ description: 'The preview of publishing the draft: its problems, its effects on existing data and the token that confirms them.' })
@@ -241,9 +249,20 @@ export const putCollectionsDraftRequest = z
 export type PutCollectionsDraftRequest = z.infer<typeof putCollectionsDraftRequest>
 
 export const collectionsPublishRequest = z
-  .object({ confirm: confirm.optional() })
+  .object({
+    confirm: confirm.optional(),
+    source_sha256: sha256
+      .meta({
+        description:
+          'The `source_sha256` of the preview that was looked at. When it is sent and the saved draft is another text, because somebody saved it again since, nothing is published and the answer is `409 confirmation_required` with the current preview. Leave it out to publish whichever draft is saved; a token (`confirm`) already binds the draft it was made for.',
+      })
+      .optional(),
+  })
   .strict()
-  .meta({ description: 'Publishes the draft. The body may be empty when the preview lists no effects; otherwise it carries the preview\'s token as `confirm`.' })
+  .meta({
+    description:
+      'Publishes the draft. The body may be empty when the preview lists no effects; otherwise it carries the preview\'s token as `confirm`. Send `source_sha256` as well to be sure that the draft published is the one that was looked at.',
+  })
 export type CollectionsPublishRequest = z.infer<typeof collectionsPublishRequest>
 
 export const collectionsPublishResponse = z
@@ -269,6 +288,23 @@ export const collectionsVersionSummary = z
     restore_with_data: z.boolean().meta({
       description: `Whether restoring this version can also put records back: its restore point is at most ${COLLECTION_LIMITS.restoreDays} days old, has not been purged, and it is not the current version.`,
     }),
+    with_data: z.boolean().meta({
+      description:
+        'Whether this version came from a restore that also put records back. `false` for an ordinary publish and for a restore of the document alone.',
+    }),
+    reverted_totals: z
+      .object({
+        changes: count.meta({ description: 'Changes made since the restore point that were reverted.' }),
+        records_back: count.meta({ description: 'Deleted records that came back.' }),
+        records_deleted: count.meta({ description: 'Records created since the restore point that were deleted.' }),
+        robots_gone: count.meta({ description: 'Records of robots that were deleted since, which could not come back.' }),
+      })
+      .strict()
+      .nullable()
+      .meta({
+        description:
+          'What putting the records back did, in all the collections together, so that the history of versions can say what came back. Null unless `with_data`.',
+      }),
   })
   .meta({ description: 'A published version of the schema document.' })
 export type CollectionsVersionSummary = z.infer<typeof collectionsVersionSummary>
@@ -362,7 +398,10 @@ export type CollectionsRestoreResponse = z.infer<typeof collectionsRestoreRespon
 /** The owner's purge of old history. Always confirmed with a token. */
 export const collectionsPurgeRequest = z
   .object({
-    before: timestamp.meta({ description: 'Revisions older than this UTC time are removed. The current values of records stay.' }),
+    before: timestamp.meta({
+      description:
+        'Revisions older than this UTC time are removed. The current values of records stay. It must lie in the past (`400 validation_error`, field `before`, rule `not_in_past`), and a date older than every revision is refused as well (rule `nothing_to_purge`).',
+    }),
     collection: collectionKey.meta({ description: 'Purge only this collection. Default: the whole app.' }).optional(),
     confirm: purgeConfirm.optional(),
   })
@@ -376,7 +415,10 @@ export const collectionsPurgePreview = z
     collection: collectionKey.nullable().meta({ description: 'The collection the purge is limited to. Null for the whole app.' }),
     revisions: count.meta({ description: 'Revisions that would be removed.' }),
     bytes: count.meta({ description: 'Their size in bytes.' }),
-    restore_points_lost: z.array(schemaVersion).meta({ description: 'Versions whose records can no longer be restored once the history is gone.' }),
+    restore_points_lost: z.array(schemaVersion).meta({
+      description:
+        'Versions whose records could be put back today and could not once the history is gone, judged the way `restore_with_data` of the version list is. For the purge of one collection only the versions whose restore touches that collection are named.',
+    }),
     token: token.meta({ description: 'Stands for exactly this purge: send it as `confirm` to carry it out.' }),
   })
   .meta({ description: 'What a purge would remove, with the token that confirms it.' })
