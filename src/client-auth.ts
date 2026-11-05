@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { appIdentifier } from './apps.js'
 import { APP_USER_DISPLAY_NAME_MAX, appSignInMethods, appTwoFactorPolicy, providerSlug } from './app-users.js'
 import { loginCode, password, recoveryCode, recoveryCodesList, sessionTokens, totpCode } from './identity.js'
+import { roleKey } from './rights.js'
 
 /**
  * **The client auth API: the whole of what an app user's browser talks to.**
@@ -633,7 +634,7 @@ export type McpConsentGrantListResponse = z.infer<typeof mcpConsentGrantListResp
  * client API and appears in the audit as the developer, and the console's own
  * live views subscribe on `/realtime` as one. A developer is **org-scoped, not
  * app-scoped** — they own the configuration of every robot in their org — so
- * `app_id` and `role_id` are null for them, and roles do not filter what they
+ * `app_id` and `role` are null for them, and roles do not filter what they
  * see. `kind` states this explicitly rather than leaving it to be inferred from
  * which id happens to be set.
  *
@@ -666,8 +667,15 @@ export const clientIdentity = z.object({
   app_id: z.uuid().nullable().meta({
     description: 'The app this session belongs to, and `null` for a developer — a developer is organisation-scoped and owns the configuration of every robot in the organisation rather than reaching one through an app.',
   }),
-  role_id: z.uuid().nullable().meta({
-    description: 'The role that decides what this caller may reach, and `null` for a developer. Roles are the only visibility filter: what a role does not grant does not exist for that user.',
+  role: z.object({
+    key: roleKey.meta({
+      description: 'The role\'s key, the same string `fleetless.yaml` and the organization\'s role list write.',
+    }),
+    name: z.string().meta({
+      description: 'The role\'s display name, for showing the caller what they hold. Changing it changes nothing about rights.',
+    }),
+  }).nullable().meta({
+    description: 'The organization role that decides what this caller may reach: its key and display name. `null` when there is no role to name: for a developer and for a server key, which are not filtered by a role, and for an app user whose key names no role (the role was deleted), who then reaches nothing.',
   }),
   email: z.email().nullable().meta({
     description: 'The address of the Fleetless user or app user behind this session, and `null` for a server key, which is not a person.',

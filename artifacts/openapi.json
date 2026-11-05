@@ -5819,7 +5819,7 @@
             }
           }
         },
-        "description": "The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one."
+        "description": "The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one. `role` is the organization role an app user holds, as its key and display name; it is `null` for a developer and a server key, and for an app user whose key names no role (the role was deleted), who signs in and reaches nothing."
       }
     },
     "/api/client/two-factor/verify": {
@@ -22232,18 +22232,32 @@
             ],
             "description": "The app this session belongs to, and `null` for a developer — a developer is organisation-scoped and owns the configuration of every robot in the organisation rather than reaching one through an app."
           },
-          "role_id": {
+          "role": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                    "description": "The role's key, the same string `fleetless.yaml` and the organization's role list write."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "The role's display name, for showing the caller what they hold. Changing it changes nothing about rights."
+                  }
+                },
+                "required": [
+                  "key",
+                  "name"
+                ],
+                "additionalProperties": false
               },
               {
                 "type": "null"
               }
             ],
-            "description": "The role that decides what this caller may reach, and `null` for a developer. Roles are the only visibility filter: what a role does not grant does not exist for that user."
+            "description": "The organization role that decides what this caller may reach: its key and display name. `null` when there is no role to name: for a developer and for a server key, which are not filtered by a role, and for an app user whose key names no role (the role was deleted), who then reaches nothing."
           },
           "email": {
             "anyOf": [
@@ -22276,7 +22290,7 @@
           "app_user_id",
           "server_key_id",
           "app_id",
-          "role_id",
+          "role",
           "email",
           "two_factor_enabled"
         ],

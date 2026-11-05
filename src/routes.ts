@@ -2507,7 +2507,9 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
       'The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the ' +
-      'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one.',
+      'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one. `role` is the organization role an app ' +
+      'user holds, as its key and display name; it is `null` for a developer and a server key, and for an app user whose key names no role ' +
+      '(the role was deleted), who signs in and reaches nothing.',
   },
 
   /* ------------------------------------------------ app-user two-factor */

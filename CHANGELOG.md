@@ -52,6 +52,14 @@ version.
   `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
   `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
 
+### Changed
+
+- **Breaking (major):** `clientIdentity.role_id` is replaced by `role`, an
+  object with the role's `key` and display `name`, or `null` when the caller
+  has no role to name (a developer, a server key, an app user whose key is no
+  role). It is part of the `GET /api/client/me` answer and of the realtime
+  `auth_ok` frame. A consumer that read `role_id` reads `role.key` now.
+
 ### Removed
 
 - **Breaking (major):** The per-app role routes: `POST` and `GET

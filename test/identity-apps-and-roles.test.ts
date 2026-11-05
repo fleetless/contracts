@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from 'node:fs'
+import Ajv2020 from 'ajv/dist/2020.js'
+import addFormats from 'ajv-formats'
 import { describe, it, expect } from 'vitest'
 import {
   password,
@@ -150,11 +153,11 @@ describe('apps, keys and roles', () => {
 
   it('reports who the caller is without making the client decode a token', () => {
     expect(
-      clientIdentity.safeParse({ kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de', two_factor_enabled: false })
+      clientIdentity.safeParse({ kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role: { key: 'operate', name: 'Operate' }, email: 'u@e.de', two_factor_enabled: false })
         .success,
     ).toBe(true)
     expect(
-      clientIdentity.safeParse({ kind: 'server_key', developer_id: null, app_user_id: null, server_key_id: UUID, app_id: UUID2, role_id: null, email: null, two_factor_enabled: null })
+      clientIdentity.safeParse({ kind: 'server_key', developer_id: null, app_user_id: null, server_key_id: UUID, app_id: UUID2, role: null, email: null, two_factor_enabled: null })
         .success,
     ).toBe(true)
   })
@@ -164,10 +167,52 @@ describe('apps, keys and roles', () => {
     // client API. Requiring app_id would have made /realtime client-only and
     // silently killed every live badge in the console.
     expect(
-      clientIdentity.safeParse({ kind: 'developer', developer_id: UUID, app_user_id: null, server_key_id: null, app_id: null, role_id: null, email: 'dev@example.com', two_factor_enabled: null })
+      clientIdentity.safeParse({ kind: 'developer', developer_id: UUID, app_user_id: null, server_key_id: null, app_id: null, role: null, email: 'dev@example.com', two_factor_enabled: null })
         .success,
     ).toBe(true)
-    expect(clientIdentity.safeParse({ kind: 'nobody', developer_id: null, app_user_id: null, server_key_id: null, app_id: null, role_id: null, email: null }).success).toBe(false)
+    expect(clientIdentity.safeParse({ kind: 'nobody', developer_id: null, app_user_id: null, server_key_id: null, app_id: null, role: null, email: null }).success).toBe(false)
+  })
+})
+
+describe('the role on the client identity', () => {
+  const IDENTITY = { kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, email: 'u@e.de', two_factor_enabled: false }
+  const OPERATE = { key: 'operate', name: 'Operate' }
+
+  it('names the role by key and display name, and null where there is no role', () => {
+    const parsed = clientIdentity.safeParse({ ...IDENTITY, role: OPERATE })
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data.role).toEqual(OPERATE)
+    expect(clientIdentity.safeParse({ ...IDENTITY, role: null }).success).toBe(true)
+  })
+
+  it('is spelled out, never left off: a missing role is not a null one', () => {
+    expect(clientIdentity.safeParse(IDENTITY).success).toBe(false)
+  })
+
+  it('refuses a key that cannot be a role key and a role without its name', () => {
+    expect(clientIdentity.safeParse({ ...IDENTITY, role: { key: 'Not A Key', name: 'Operate' } }).success).toBe(false)
+    expect(clientIdentity.safeParse({ ...IDENTITY, role: { key: 'operate' } }).success).toBe(false)
+    expect(clientIdentity.safeParse({ ...IDENTITY, role: 'operate' }).success).toBe(false)
+  })
+
+  it('no longer carries a role id', () => {
+    // The parse is not strict, so an old `role_id` is simply dropped; what must hold is that the shape and the
+    // artifact a consumer reads no longer declare it.
+    expect('role_id' in clientIdentity.shape).toBe(false)
+    const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/client-identity.schema.json', import.meta.url), 'utf8'))
+    expect(schema.properties.role_id).toBeUndefined()
+    expect(schema.required).not.toContain('role_id')
+    expect(schema.required).toContain('role')
+  })
+
+  it('publishes the same rule in the JSON Schema artifact', () => {
+    const ajv = new (Ajv2020 as any)({ strict: false })
+    ;(addFormats as any)(ajv)
+    const validate = ajv.compile(JSON.parse(readFileSync(new URL('../artifacts/schema/client-identity.schema.json', import.meta.url), 'utf8')))
+    expect(validate({ ...IDENTITY, role: OPERATE })).toBe(true)
+    expect(validate({ ...IDENTITY, role: null })).toBe(true)
+    expect(validate(IDENTITY)).toBe(false)
+    expect(validate({ ...IDENTITY, role: { key: 'Not A Key', name: 'Operate' } })).toBe(false)
   })
 })
 
@@ -266,7 +311,7 @@ describe('realtime authentication', () => {
     expect(
       authOk.safeParse({
         type: 'auth_ok',
-        identity: { kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role_id: UUID, email: 'u@e.de', two_factor_enabled: true },
+        identity: { kind: 'app_user', developer_id: null, app_user_id: UUID, server_key_id: null, app_id: UUID2, role: { key: 'operate', name: 'Operate' }, email: 'u@e.de', two_factor_enabled: true },
       }).success,
     ).toBe(true)
     expect(authError.safeParse({ type: 'auth_error', code: 'unauthorized', message: 'bad token' }).success).toBe(true)
