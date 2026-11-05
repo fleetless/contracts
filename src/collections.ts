@@ -89,7 +89,7 @@ export const COLLECTION_LIMITS = {
   growthFactor: 10,
   /** ...and at least this many revisions. */
   growthMinRevisions: 10_000,
-  /** The schema document as text. */
+  /** The schema document as text, counted in bytes of UTF-8 and not in characters. */
   schemaSourceBytes: 1_000_000,
 } as const
 

@@ -13,7 +13,7 @@
     "filter": {
       "type": "string",
       "minLength": 1,
-      "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+      "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
     },
     "search": {
       "type": "string",
@@ -22,7 +22,7 @@
     "sort": {
       "type": "string",
       "minLength": 1,
-      "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+      "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
     },
     "robot": {
       "type": "string",

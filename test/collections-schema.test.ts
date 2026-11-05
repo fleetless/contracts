@@ -24,7 +24,7 @@ import {
 } from '../src/index.js'
 
 const ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
-const ACTOR = { kind: 'developer', id: '9b2c1d34-5e6f-4a7b-8c9d-0e1f2a3b4c5d', label: 'andre@dehne-robotik.de' }
+const ACTOR = { kind: 'developer', id: '9b2c1d34-5e6f-4a7b-8c9d-0e1f2a3b4c5d', label: 'ada@example.com' }
 const AT = '2026-11-04T10:00:00.000Z'
 
 /** One example of each kind of effect, as the cloud lists them. */
@@ -268,10 +268,43 @@ describe('collectionsDraftResponse', () => {
 })
 
 describe('putCollectionsDraftRequest', () => {
-  it('accepts a source up to 1,000,000 characters and refuses one more', () => {
+  const accepted = (source: string) => putCollectionsDraftRequest.safeParse({ source }).success
+
+  it('accepts a source of 1,000,000 bytes and refuses one more', () => {
     expect(COLLECTION_LIMITS.schemaSourceBytes).toBe(1_000_000)
-    expect(putCollectionsDraftRequest.safeParse({ source: 'x'.repeat(1_000_000) }).success).toBe(true)
-    expect(putCollectionsDraftRequest.safeParse({ source: 'x'.repeat(1_000_001) }).success).toBe(false)
+    expect(accepted('x'.repeat(1_000_000))).toBe(true)
+    expect(accepted('x'.repeat(1_000_001))).toBe(false)
+  })
+
+  it('counts bytes of UTF-8 and not characters', () => {
+    // Two bytes for the accent: 999,998 + 2 is 1,000,000 bytes; one more letter makes 1,000,001 bytes in 1,000,000 characters.
+    expect(accepted(`${'x'.repeat(999_998)}\u00e9`)).toBe(true)
+    expect(accepted(`${'x'.repeat(999_999)}\u00e9`)).toBe(false)
+    // Three bytes each: 333,333 characters are 999,999 bytes, 333,334 are 1,000,002.
+    expect(accepted('\u20ac'.repeat(333_333))).toBe(true)
+    expect(accepted('\u20ac'.repeat(333_334))).toBe(false)
+    // Four bytes each, and two UTF-16 units: 250,000 emoji are exactly 1,000,000 bytes.
+    expect(accepted('\u{1F600}'.repeat(250_000))).toBe(true)
+    expect(accepted('\u{1F600}'.repeat(250_001))).toBe(false)
+    expect(accepted(`${'\u{1F600}'.repeat(249_999)}xxxx`)).toBe(true)
+    expect(accepted(`${'\u{1F600}'.repeat(249_999)}xxxxx`)).toBe(false)
+  })
+
+  it('counts the bytes an encoder writes, for every kind of character', () => {
+    // 1,000,000 bytes of each, then one byte more in plain ASCII: each is the same size to a TextEncoder.
+    const encoder = new TextEncoder()
+    const samples = ['x', '\u00e9', '\u20ac', '\u{1F600}', '\ud800', '\udc00', 'a\ud83dz']
+    for (const sample of samples) {
+      const bytes = encoder.encode(sample).length
+      const fits = Math.floor(1_000_000 / bytes)
+      expect(accepted(sample.repeat(fits)), `${JSON.stringify(sample)} x ${fits}`).toBe(true)
+      expect(accepted(sample.repeat(fits + 1)), `${JSON.stringify(sample)} x ${fits + 1}`).toBe(false)
+    }
+  })
+
+  it('says bytes in its description', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/put-collections-draft-request.schema.json', import.meta.url), 'utf8'))
+    expect(artifact.properties.source.description).toContain('1,000,000 bytes of UTF-8')
   })
 
   it('needs a source and refuses other keys', () => {
@@ -442,6 +475,17 @@ describe('the purge shapes', () => {
     for (const before of ['2026-08-01', 'yesterday', '', 1760000000000, null]) {
       expect(collectionsPurgeRequest.safeParse({ before }).success, JSON.stringify(before)).toBe(false)
     }
+  })
+
+  it('describes its token as one a purge always needs, and not as one for effects', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collections-purge-request.schema.json', import.meta.url), 'utf8'))
+    const text: string = artifact.properties.confirm.description
+    expect(text).toContain('always confirmed')
+    expect(text).toContain('confirmation_required')
+    expect(text).not.toMatch(/effects/)
+    // A publish keeps its own wording.
+    const publish = JSON.parse(readFileSync(new URL('../artifacts/schema/collections-publish-request.schema.json', import.meta.url), 'utf8'))
+    expect(publish.properties.confirm.description).toContain('effects')
   })
 
   it('may name one collection and carry the confirming token', () => {

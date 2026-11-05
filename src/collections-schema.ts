@@ -32,6 +32,31 @@ const confirm = token.meta({
   description: 'The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview.',
 })
 
+/** A purge is always confirmed, since removing history cannot be undone; its preview has a token whatever it finds. */
+const purgeConfirm = token.meta({
+  description:
+    'The `token` of the preview of exactly this purge. A purge is always confirmed: without a token, or with one that no longer holds, the answer is `confirmation_required` with the current preview.',
+})
+
+/**
+ * The length of `text` in bytes of UTF-8, counted without building the bytes. A
+ * half of a surrogate pair counts as the three bytes of the replacement
+ * character, as an encoder writes it.
+ */
+function utf8Length(text: string): number {
+  let bytes = 0
+  for (let i = 0; i < text.length; i += 1) {
+    const unit = text.charCodeAt(i)
+    if (unit < 0x80) bytes += 1
+    else if (unit < 0x800) bytes += 2
+    else if (unit >= 0xd800 && unit <= 0xdbff && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff) {
+      bytes += 4
+      i += 1
+    } else bytes += 3
+  }
+  return bytes
+}
+
 const collection = collectionKey.meta({ description: 'The key of the collection.' })
 const field = collectionKey.meta({ description: 'The key of the field.' })
 
@@ -200,9 +225,16 @@ export type CollectionsDraftResponse = z.infer<typeof collectionsDraftResponse>
 
 export const putCollectionsDraftRequest = z
   .object({
-    source: z.string().max(COLLECTION_LIMITS.schemaSourceBytes).meta({
-      description: `The whole document as YAML or JSON text, at most ${COLLECTION_LIMITS.schemaSourceBytes.toLocaleString('en-US')} characters. It replaces the draft and is refused with the problems found if it is not valid.`,
-    }),
+    // A character is at least one byte, so the cheap bound on characters holds for every source and rules out the long ones before they are measured.
+    source: z
+      .string()
+      .max(COLLECTION_LIMITS.schemaSourceBytes)
+      .refine((text) => utf8Length(text) <= COLLECTION_LIMITS.schemaSourceBytes, {
+        message: `The source is longer than ${COLLECTION_LIMITS.schemaSourceBytes.toLocaleString('en-US')} bytes of UTF-8.`,
+      })
+      .meta({
+        description: `The whole document as YAML or JSON text, at most ${COLLECTION_LIMITS.schemaSourceBytes.toLocaleString('en-US')} bytes of UTF-8, which is fewer characters when some are not plain ASCII. It replaces the draft and is refused with the problems found if it is not valid.`,
+      }),
   })
   .strict()
   .meta({ description: 'Replaces the draft with a whole document.' })
@@ -332,7 +364,7 @@ export const collectionsPurgeRequest = z
   .object({
     before: timestamp.meta({ description: 'Revisions older than this UTC time are removed. The current values of records stay.' }),
     collection: collectionKey.meta({ description: 'Purge only this collection. Default: the whole app.' }).optional(),
-    confirm: confirm.optional(),
+    confirm: purgeConfirm.optional(),
   })
   .strict()
   .meta({ description: 'Removes the history older than a date. The preview answers with a token; send it as `confirm` to purge.' })

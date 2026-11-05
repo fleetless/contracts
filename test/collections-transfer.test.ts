@@ -318,7 +318,7 @@ describe('the audit actions of app collections', () => {
       org_id: ROBOT,
       at: '2026-11-04T10:00:00.000Z',
       seq: 1,
-      actor: { kind: 'developer', id: ROBOT, label: 'andre@dehne-robotik.de' },
+      actor: { kind: 'developer', id: ROBOT, label: 'ada@example.com' },
       target: null,
       details: null,
     }

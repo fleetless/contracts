@@ -373,7 +373,14 @@ const wireBoolean = z.enum(['true', 'false'])
  */
 export const collectionRecordListQuery = z
   .object({
-    filter: z.string().min(1).meta({ description: 'A filter as JSON text, for example `{"location.name":{"eq":"XTD1"}}`.' }).optional(),
+    filter: z
+      .string()
+      .min(1)
+      .meta({
+        description:
+          'A filter as JSON text, for example `{"location.name":{"eq":"XTD1"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record.',
+      })
+      .optional(),
     search: z
       .string()
       .meta({
@@ -384,7 +391,10 @@ export const collectionRecordListQuery = z
     sort: z
       .string()
       .min(1)
-      .meta({ description: 'Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`.' })
+      .meta({
+        description:
+          'Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`.',
+      })
       .optional(),
     expand: z
       .string()

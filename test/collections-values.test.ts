@@ -271,6 +271,97 @@ describe('checkCollectionValue refuses a NUL character', () => {
   })
 })
 
+describe('checkCollectionValue refuses half of a surrogate pair', () => {
+  // A database that keeps records as JSON refuses a code unit from U+D800 to U+DFFF that is not part of a pair.
+  const HIGH = '\ud83d'
+  const LOW = '\ude00'
+  const PAIR = HIGH + LOW
+
+  const lone: [string, string][] = [
+    ['a high half alone', HIGH],
+    ['a low half alone', LOW],
+    ['a high half at the end', `abc${HIGH}`],
+    ['a high half before a letter', `a${HIGH}b`],
+    ['a low half at the start', `${LOW}abc`],
+    ['a low half after a letter', `a${LOW}b`],
+    ['two high halves in a row', `${HIGH}${HIGH}`],
+    ['two low halves in a row', `${LOW}${LOW}`],
+    ['the halves in the wrong order', `${LOW}${HIGH}`],
+    ['a pair and then a stray half', `${PAIR}${HIGH}`],
+    ['a stray half and then a pair', `${LOW}${PAIR}`],
+  ]
+
+  it.each([
+    ['text', field({ type: 'text' })],
+    ['long_text', field({ type: 'long_text' })],
+  ])('in a %s value, as a type problem that names it', (_name, definition) => {
+    for (const [what, value] of lone) {
+      const problem = checkCollectionValue(definition, value)
+      expect(problem?.code, what).toBe('type')
+      expect(problem?.message, what).toContain('surrogate')
+    }
+  })
+
+  it.each([
+    ['text', field({ type: 'text' })],
+    ['long_text', field({ type: 'long_text' })],
+  ])('but accepts a whole pair in a %s value, wherever it is', (_name, definition) => {
+    for (const value of [PAIR, `a${PAIR}b`, `${PAIR}${PAIR}`, `${PAIR} end`, 'start \u{1F600}', '\u{10FFFF}', '\u{10000}x']) {
+      expect(checkCollectionValue(definition, value), JSON.stringify(value)).toBeNull()
+    }
+  })
+
+  it('before the pattern is asked, as for a NUL character', () => {
+    const matchPattern = vi.fn(() => true)
+    expect(checkCollectionValue(field({ type: 'text', pattern: '.' }), `a${HIGH}`, { matchPattern })?.code).toBe('type')
+    expect(matchPattern).not.toHaveBeenCalled()
+  })
+
+  describe('in a json value', () => {
+    const json = field({ type: 'json' })
+
+    it.each([
+      ['a string', `a${HIGH}b`],
+      ['a low half as a string', LOW],
+      ['a string in a list', ['ok', `a${LOW}`]],
+      ['a string in an object', { note: `a${HIGH}` }],
+      ['a key of an object', { [`a${HIGH}`]: 1 }],
+      ['a key that is a low half', { [LOW]: 1 }],
+      ['a string far down', { a: [{ b: { c: [`x${HIGH}`] } }] }],
+    ])('%s', (_name, value) => {
+      const problem = checkCollectionValue(json, value)
+      expect(problem?.code).toBe('type')
+      expect(problem?.message).toContain('surrogate')
+    })
+
+    it('but accepts whole pairs, and the escaped text of a half', () => {
+      expect(checkCollectionValue(json, { [PAIR]: PAIR, list: [PAIR, `a${PAIR}b`] })).toBeNull()
+      expect(checkCollectionValue(json, { a: '\\ud800', b: 'plain' })).toBeNull()
+    })
+
+    it('before the JSON schema is asked', () => {
+      const validateJsonValue = vi.fn(() => null)
+      const pose = field({ type: 'json', schema: 'pose2d' })
+      expect(checkCollectionValue(pose, { x: 1, y: 2, yaw: 0, frame_id: `map${HIGH}` }, { validateJsonValue })?.code).toBe('type')
+      expect(validateJsonValue).not.toHaveBeenCalled()
+    })
+
+    it('in a value nested too deep for recursion', () => {
+      let deep: unknown = `x${HIGH}`
+      for (let i = 0; i < 200_000; i += 1) deep = [deep]
+      expect(checkCollectionValue(json, deep)?.code).toBe('type')
+    })
+  })
+
+  it('reads a long text in one pass', () => {
+    const longText = field({ type: 'long_text', max_length: 100_000 })
+    const started = performance.now()
+    expect(checkCollectionValue(longText, 'a'.repeat(100_000))).toBeNull()
+    expect(checkCollectionValue(longText, `${'a'.repeat(99_999)}${HIGH}`)?.code).toBe('type')
+    expect(performance.now() - started).toBeLessThan(500)
+  })
+})
+
 describe('checkCollectionValue on json fields', () => {
   it('json with a template name calls validateJsonValue with the template schema', () => {
     const validateJsonValue = vi.fn(() => null)

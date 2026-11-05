@@ -55,6 +55,9 @@ const ACTIONS = ['read', 'create', 'update', 'delete'] as const
 
 const isRobotBound = (collection: CollectionDefinition): boolean => collection.binding !== 'global'
 
+/** The most unresolved display placeholders listed for one collection; the last issue counts the rest. */
+const MAX_UNRESOLVED_LISTED = 20
+
 /** A piece of the document for a message: a very long one is cut, so a message never repeats a megabyte back. */
 const clip = (text: string): string => (text.length > 80 ? `${text.slice(0, 80)}…` : text)
 
@@ -111,6 +114,23 @@ function patternProblem(pattern: string): string | null {
   return null
 }
 
+/**
+ * Why the engine that will match a pattern cannot use it, or `null`. `patternProblem`
+ * reads a pattern with the JavaScript engine; the server matches with another,
+ * and a pattern one compiles can be refused by the other (RE2 caps a repeat
+ * count at 1,000, for one). Asking the matcher once, with an empty value, turns
+ * that refusal into a finding at publish and not into an error on every write.
+ */
+function engineProblem(pattern: string, matchPattern: ((pattern: string, value: string) => boolean) | undefined): string | null {
+  if (matchPattern === undefined) return null
+  try {
+    matchPattern(pattern, '')
+    return null
+  } catch (error) {
+    return `The pattern is not a valid regular expression for the engine that matches it: ${clip(error instanceof Error ? error.message : String(error))}`
+  }
+}
+
 /** Does the role value name at least one role? */
 function namesARole(value: string | string[] | undefined): boolean {
   return typeof value === 'string' ? value.length > 0 : value !== undefined && value.length > 0
@@ -165,7 +185,7 @@ export function collectionsDocumentIssues(
     switch (field.type) {
       case 'text': {
         if (field.pattern !== undefined) {
-          const why = patternProblem(field.pattern)
+          const why = patternProblem(field.pattern) ?? engineProblem(field.pattern, options.matchPattern)
           if (why !== null) {
             add('error', `${path}.pattern`, 'invalid_pattern', why)
             const { pattern: _unusable, ...withoutPattern } = field
@@ -236,18 +256,29 @@ export function collectionsDocumentIssues(
       return
     }
     // A placeholder used again is the same problem again: say it once for each collection.
+    // And a template full of different wrong ones is one problem told at length: the first
+    // few are listed and the last says how many more there are.
     const reported = new Set<string>()
+    let more = 0
     for (const placeholder of parsed.placeholders) {
       if (!resolves(collection, placeholder.path)) {
         const name = placeholder.path.join('.')
         if (reported.has(name)) continue
         reported.add(name)
+        if (reported.size > MAX_UNRESOLVED_LISTED) {
+          more += 1
+          continue
+        }
         const hint =
           placeholder.path[0] === 'robot'
             ? ' robot.name is only available on collections of robots (per_robot and one_per_robot).'
             : ''
         add('error', path, 'display_placeholder_unresolved', `${clip(placeholder.raw)} does not name a field of this collection, a system field or a field reached through a reference.${hint}`)
       }
+    }
+    if (more > 0) {
+      const last = issues[issues.length - 1]!
+      last.message += ` ${more} more ${more === 1 ? 'placeholder does' : 'placeholders do'} not resolve either.`
     }
   }
 

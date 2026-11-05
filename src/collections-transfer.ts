@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { COLLECTION_LIMITS, collectionKey } from './collections.js'
-import { collectionFilter } from './collections-records.js'
+import { collectionFilter, collectionRecordListQuery } from './collections-records.js'
 
 /**
  * Getting records into and out of a collection in bulk: a CSV or JSON file in,
@@ -168,20 +168,8 @@ export type CollectionImportResult = z.infer<typeof collectionImportResult>
 export const collectionExportQuery = z
   .object({
     format: z.enum(['csv', 'json']).meta({ description: '`csv`: UTF-8 text with a header row. `json`: an array of objects.' }),
-    filter: z.string().min(1).meta({ description: 'A filter as JSON text, for example `{"location.name":{"eq":"XTD1"}}`.' }).optional(),
-    search: z
-      .string()
-      .meta({
-        description:
-          'Words that must all occur, in any letter case, in at least one searchable field of the record. At most 10 words, separated by whitespace.',
-      })
-      .optional(),
-    sort: z
-      .string()
-      .min(1)
-      .meta({ description: 'Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`.' })
-      .optional(),
-    robot: z.uuid().meta({ description: 'Only the records of this robot, in a collection that belongs to robots.' }).optional(),
+    // The same four parameters, in the same words, as the record list they narrow down.
+    ...collectionRecordListQuery.pick({ filter: true, search: true, sort: true, robot: true }).shape,
     fields: z
       .string()
       .min(1)

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   COLLECTION_FILTER_OPS,
@@ -27,7 +28,7 @@ const ROBOT = '9b2c1d34-5e6f-4a7b-8c9d-0e1f2a3b4c5d'
 const NIL = '00000000-0000-0000-0000-000000000000'
 const AT = '2026-11-04T10:00:00.000Z'
 
-const developer = { kind: 'developer', id: ROBOT, label: 'andre@dehne-robotik.de' }
+const developer = { kind: 'developer', id: ROBOT, label: 'ada@example.com' }
 const fleetless = { kind: 'fleetless', id: NIL, label: 'Fleetless' }
 
 const record = (over: Record<string, unknown> = {}) => ({
@@ -450,6 +451,34 @@ describe('collectionRecordListQuery', () => {
 
   it('refuses an empty cursor', () => {
     expect(collectionRecordListQuery.safeParse({ cursor: '' }).success).toBe(false)
+  })
+
+  describe('as published', () => {
+    const artifact = (name: string) =>
+      JSON.parse(readFileSync(new URL(`../artifacts/schema/${name}.schema.json`, import.meta.url), 'utf8')) as {
+        properties: Record<string, { description: string }>
+      }
+    const list = artifact('collection-record-list-query')
+
+    it('names the system fields a filter and a sort can use', () => {
+      for (const key of COLLECTION_FILTER_SYSTEM_KEYS) {
+        expect(list.properties.filter!.description, `filter names ${key}`).toContain(`\`${key}\``)
+        expect(list.properties.sort!.description, `sort names ${key}`).toContain(`\`${key}\``)
+      }
+      expect(list.properties.filter!.description).toContain('reference.field')
+      expect(list.properties.sort!.description).toContain('reference.field')
+    })
+
+    it('says that created_by compares the id of whoever created the record', () => {
+      expect(list.properties.filter!.description).toMatch(/`created_by` is compared with the id of the/)
+    })
+
+    it('says the same of the export, which narrows the same list', () => {
+      const exported = artifact('collection-export-query')
+      for (const key of ['filter', 'search', 'sort', 'robot']) {
+        expect(exported.properties[key]!.description, key).toBe(list.properties[key]!.description)
+      }
+    })
   })
 })
 

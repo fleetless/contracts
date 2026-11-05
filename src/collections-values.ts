@@ -36,6 +36,12 @@ export type CollectionValueOptions = {
    * author's own pattern in a browser and not matching what other people send.
    * It throws for a pattern it cannot compile; that is reported like a pattern
    * the JavaScript engine cannot compile.
+   *
+   * **A partial match, not a full one**: the pattern may match anywhere in the
+   * value, as `RegExp.prototype.test` does and as RE2's `PartialMatch` does. A
+   * pattern that must match the whole value anchors itself with `^` and `$`, as
+   * the field's description says. An engine wrapper that matched the whole value
+   * would silently change what every unanchored pattern means.
    */
   matchPattern?: (pattern: string, value: string) => boolean
 }
@@ -53,7 +59,6 @@ function characters(value: string): number {
 }
 
 const LINE_BREAK = /[\r\n\u2028\u2029]/
-const NUL = '\u0000'
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/
 /**
@@ -92,29 +97,56 @@ function compile(pattern: string): RegExp | null {
 }
 
 /**
- * Does a string, or a key of an object, anywhere in `value` hold a NUL
- * character? A database that stores records as JSON cannot hold one, so it is
- * refused here and not left to fail at the write. Walked with a list of what is
- * left to look at and not by recursion, because a value nested a hundred
- * thousand levels deep must be refused, not crash the stack.
+ * Does `text` hold a character that cannot be stored? A database that keeps
+ * records as JSON refuses a NUL character (U+0000) and half of a surrogate pair
+ * (a code unit from U+D800 to U+DFFF that does not belong to a pair: what is
+ * left of an emoji cut in the middle). Such a string is refused here and not
+ * left to fail at the write.
+ *
+ * Read by code unit with a loop, as the check for a pair needs the neighbour and
+ * a regular expression for it needs lookbehind, which older browsers lack.
  */
-function containsNul(value: unknown): boolean {
+function hasUnstorableCharacter(text: string): boolean {
+  for (let i = 0; i < text.length; i += 1) {
+    const unit = text.charCodeAt(i)
+    if (unit === 0) return true
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = text.charCodeAt(i + 1)
+      if (next >= 0xdc00 && next <= 0xdfff) i += 1
+      else return true
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Does a string, or a key of an object, anywhere in `value` hold a character
+ * that cannot be stored? Walked with a list of what is left to look at and not
+ * by recursion, because a value nested a hundred thousand levels deep must be
+ * refused, not crash the stack.
+ */
+function containsUnstorable(value: unknown): boolean {
   const pending: unknown[] = [value]
   while (pending.length > 0) {
     const item = pending.pop()
     if (typeof item === 'string') {
-      if (item.includes(NUL)) return true
+      if (hasUnstorableCharacter(item)) return true
     } else if (Array.isArray(item)) {
       for (const child of item) pending.push(child)
     } else if (typeof item === 'object' && item !== null) {
       for (const [key, child] of Object.entries(item)) {
-        if (key.includes(NUL)) return true
+        if (hasUnstorableCharacter(key)) return true
         pending.push(child)
       }
     }
   }
   return false
 }
+
+const UNSTORABLE_TEXT = 'The text contains a character that cannot be stored: NUL (U+0000) or half of a surrogate pair.'
+const UNSTORABLE_JSON = 'The value contains a character in a string or a key that cannot be stored: NUL (U+0000) or half of a surrogate pair.'
 
 /**
  * Whether `value` matches `pattern`, by the injected matcher or else by the
@@ -151,7 +183,7 @@ export function checkCollectionValue(
   switch (field.type) {
     case 'text': {
       if (typeof value !== 'string') return problem('type', 'Expected text.')
-      if (value.includes(NUL)) return problem('type', 'The text contains a NUL character (U+0000), which cannot be stored.')
+      if (hasUnstorableCharacter(value)) return problem('type', UNSTORABLE_TEXT)
       if (LINE_BREAK.test(value)) return problem('type', 'Expected one line of text. Line breaks belong in long_text fields.')
       const max = Math.min(field.max_length ?? COLLECTION_LIMITS.textDefault, COLLECTION_LIMITS.textMax)
       if (value.length > max && characters(value) > max) {
@@ -166,7 +198,7 @@ export function checkCollectionValue(
     }
     case 'long_text': {
       if (typeof value !== 'string') return problem('type', 'Expected text.')
-      if (value.includes(NUL)) return problem('type', 'The text contains a NUL character (U+0000), which cannot be stored.')
+      if (hasUnstorableCharacter(value)) return problem('type', UNSTORABLE_TEXT)
       const max = Math.min(field.max_length ?? COLLECTION_LIMITS.longTextDefault, COLLECTION_LIMITS.longTextMax)
       if (value.length > max && characters(value) > max) {
         return problem('max_length', `Too long: the text has ${characters(value)} characters and the field allows ${max}.`)
@@ -225,9 +257,7 @@ export function checkCollectionValue(
       if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'bigint') {
         return problem('type', 'Expected a JSON value.')
       }
-      if (containsNul(value)) {
-        return problem('type', 'The value contains a NUL character (U+0000) in a string or a key, which cannot be stored.')
-      }
+      if (containsUnstorable(value)) return problem('type', UNSTORABLE_JSON)
       if (field.schema === undefined) return null
       let schema: unknown = field.schema
       if (typeof field.schema === 'string') {

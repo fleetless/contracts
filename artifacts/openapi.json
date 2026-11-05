@@ -11751,7 +11751,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
             }
           },
           {
@@ -11770,7 +11770,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
             }
           },
           {
@@ -12502,7 +12502,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
             }
           },
           {
@@ -12521,7 +12521,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
             }
           },
           {
@@ -12673,7 +12673,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
             }
           },
           {
@@ -12692,7 +12692,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
             }
           },
           {
@@ -13397,7 +13397,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`."
+              "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
             }
           },
           {
@@ -13416,7 +13416,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. Ties are broken by `id`."
+              "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
             }
           },
           {
@@ -28239,7 +28239,7 @@
           "confirm": {
             "type": "string",
             "minLength": 1,
-            "description": "The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview."
+            "description": "The `token` of the preview of exactly this purge. A purge is always confirmed: without a token, or with one that no longer holds, the answer is `confirmation_required` with the current preview."
           }
         },
         "required": [
@@ -46729,7 +46729,7 @@
           "source": {
             "type": "string",
             "maxLength": 1000000,
-            "description": "The whole document as YAML or JSON text, at most 1,000,000 characters. It replaces the draft and is refused with the problems found if it is not valid."
+            "description": "The whole document as YAML or JSON text, at most 1,000,000 bytes of UTF-8, which is fewer characters when some are not plain ASCII. It replaces the draft and is refused with the problems found if it is not valid."
           }
         },
         "required": [

@@ -16,7 +16,7 @@
     "confirm": {
       "type": "string",
       "minLength": 1,
-      "description": "The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview."
+      "description": "The `token` of the preview of exactly this purge. A purge is always confirmed: without a token, or with one that no longer holds, the answer is `confirmation_required` with the current preview."
     }
   },
   "required": [

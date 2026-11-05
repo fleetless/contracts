@@ -313,6 +313,75 @@ describe('invalid_pattern', () => {
       const document = things({ code: { type: 'text', pattern: 'a(?=b)' } })
       expect(withCode(collectionsDocumentIssues(document, { matchPattern: () => true }), 'invalid_pattern')).toHaveLength(1)
     })
+
+    describe('that refuses a pattern JavaScript compiles', () => {
+      // An RE2 engine caps a repeat count at 1,000; the JavaScript engine does not.
+      const repeat = '^a{1,2000}$'
+      const refusing = (pattern: string): boolean => {
+        if (pattern.includes('{1,2000}')) throw new Error('invalid repetition size: {1,2000}')
+        return true
+      }
+
+      it('is a pattern problem at publish, found by asking the matcher once with an empty value', () => {
+        const document = things({ code: { type: 'text', pattern: repeat } })
+        // With no matcher the only engine is JavaScript, which compiles it.
+        expect(withCode(collectionsDocumentIssues(document), 'invalid_pattern')).toEqual([])
+        const matchPattern = vi.fn(refusing)
+        const found = withCode(collectionsDocumentIssues(document, { matchPattern }), 'invalid_pattern')
+        expect(found).toMatchObject([{ path: 'collections.things.fields.code.pattern', severity: 'error' }])
+        expect(found[0]!.message).toContain('invalid repetition size')
+        expect(matchPattern).toHaveBeenCalledTimes(1)
+        expect(matchPattern).toHaveBeenCalledWith(repeat, '')
+      })
+
+      it('is reported once, as itself, also for a field with a default', () => {
+        const issues = collectionsDocumentIssues(things({ code: { type: 'text', pattern: repeat, default: 'aaa' } }), { matchPattern: refusing })
+        expect(withCode(issues, 'invalid_pattern')).toHaveLength(1)
+        expect(withCode(issues, 'invalid_default')).toEqual([])
+      })
+
+      it('is not asked about a pattern JavaScript already refused', () => {
+        const matchPattern = vi.fn(() => true)
+        collectionsDocumentIssues(things({ code: { type: 'text', pattern: 'a(?=b)' } }), { matchPattern })
+        expect(matchPattern).not.toHaveBeenCalled()
+      })
+
+      it('is not asked when there is no pattern', () => {
+        const matchPattern = vi.fn(() => true)
+        collectionsDocumentIssues(things({ code: { type: 'text' }, other: { type: 'number' } }), { matchPattern })
+        expect(matchPattern).not.toHaveBeenCalled()
+      })
+
+      it('leaves a pattern the matcher accepts alone, whether or not it matches an empty value', () => {
+        const document = things({ code: { type: 'text', pattern: '^B' } })
+        expect(withCode(collectionsDocumentIssues(document, { matchPattern: () => false }), 'invalid_pattern')).toEqual([])
+        expect(withCode(collectionsDocumentIssues(document, { matchPattern: () => true }), 'invalid_pattern')).toEqual([])
+      })
+
+      it('cuts a very long message of the engine', () => {
+        const [found] = withCode(
+          collectionsDocumentIssues(things({ code: { type: 'text', pattern: repeat } }), {
+            matchPattern: () => {
+              throw new Error('x'.repeat(100_000))
+            },
+          }),
+          'invalid_pattern',
+        )
+        expect(found!.message.length).toBeLessThan(400)
+      })
+
+      it('also when the thrown value is not an Error', () => {
+        const [found] = withCode(
+          collectionsDocumentIssues(things({ code: { type: 'text', pattern: repeat } }), {
+            matchPattern: () => {
+              throw 'refused'
+            },
+          }),
+          'invalid_pattern',
+        )
+        expect(found!.message).toContain('refused')
+      })
+    })
   })
 
   it('does not look at patterns of other types', () => {
@@ -417,6 +486,59 @@ describe('display templates', () => {
     })
     const issues = withCode(collectionsDocumentIssues(document), 'display_placeholder_unresolved')
     expect(issues.map((issue) => issue.path)).toEqual(['collections.one.display', 'collections.two.display'])
+  })
+
+  describe('that has very many different unresolved placeholders', () => {
+    const many = (count: number) => Array.from({ length: count }, (_, i) => `{{nope_${i}}}`).join(' ')
+    const listed = (display: string) => withCode(collectionsDocumentIssues(place(display)), 'display_placeholder_unresolved')
+
+    it('lists twenty whole, with nothing said about more', () => {
+      const issues = listed(many(20))
+      expect(issues).toHaveLength(20)
+      for (const issue of issues) expect(issue.message).not.toMatch(/more placeholder/)
+    })
+
+    it('says in the last of twenty how many more there are', () => {
+      const issues = listed(many(25))
+      expect(issues).toHaveLength(20)
+      expect(issues[19]!.message).toContain('{{nope_19}}')
+      expect(issues[19]!.message).toContain('5 more placeholders do not resolve either.')
+      for (const issue of issues.slice(0, 19)) expect(issue.message).not.toMatch(/more placeholder/)
+    })
+
+    it('says "1 more placeholder does" for one over', () => {
+      const issues = listed(many(21))
+      expect(issues).toHaveLength(20)
+      expect(issues[19]!.message).toContain('1 more placeholder does not resolve either.')
+    })
+
+    it('counts the same placeholder used again as one, as before', () => {
+      const display = `${many(20)} ${'{{nope_0}} '.repeat(500)}{{extra}}`
+      const issues = listed(display)
+      expect(issues).toHaveLength(20)
+      expect(issues[19]!.message).toContain('1 more placeholder does not resolve either.')
+    })
+
+    it('limits each collection by itself', () => {
+      const document = doc({
+        one: { binding: 'global', display: many(30), fields: { name: { type: 'text' } } },
+        two: { binding: 'global', display: many(22), fields: { name: { type: 'text' } } },
+      })
+      const issues = withCode(collectionsDocumentIssues(document), 'display_placeholder_unresolved')
+      const of = (collection: string) => issues.filter((issue) => issue.path === `collections.${collection}.display`)
+      expect(of('one')).toHaveLength(20)
+      expect(of('two')).toHaveLength(20)
+      expect(of('one')[19]!.message).toContain('10 more placeholders do not resolve either.')
+      expect(of('two')[19]!.message).toContain('2 more placeholders do not resolve either.')
+    })
+
+    it('keeps the answer small however many there are', () => {
+      const issues = collectionsDocumentIssues(place(many(60_000)))
+      const unresolved = withCode(issues, 'display_placeholder_unresolved')
+      expect(unresolved).toHaveLength(20)
+      expect(unresolved[19]!.message).toContain('59980 more placeholders do not resolve either.')
+      expect(JSON.stringify(issues).length).toBeLessThan(10_000)
+    })
   })
 
   it('cuts a long placeholder at 80 characters in its message', () => {
@@ -542,6 +664,21 @@ describe('a default with a NUL character', () => {
     const issues = collectionsDocumentIssues(things({ note: { type: 'text', default: 'a\u0000b' } }))
     expect(withCode(issues, 'invalid_default')).toMatchObject([{ path: 'collections.things.fields.note.default', severity: 'error' }])
     expect(withCode(issues, 'invalid_default')[0]!.message).toContain('NUL')
+  })
+})
+
+describe('a default with half of a surrogate pair', () => {
+  it('is an invalid default, since no write could store it', () => {
+    for (const bad of ['a\ud800b', '\udc00', 'abc\ud83d']) {
+      const issues = collectionsDocumentIssues(things({ note: { type: 'text', default: bad } }))
+      expect(withCode(issues, 'invalid_default'), JSON.stringify(bad)).toMatchObject([
+        { path: 'collections.things.fields.note.default', severity: 'error' },
+      ])
+    }
+  })
+
+  it('but a whole pair is a fine default', () => {
+    expect(withCode(collectionsDocumentIssues(things({ note: { type: 'text', default: 'ok \u{1F600}' } })), 'invalid_default')).toEqual([])
   })
 })
 
