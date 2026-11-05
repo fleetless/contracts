@@ -159,6 +159,21 @@
       ],
       "description": "Where the hosted pages load the app's logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`."
     },
+    "hosted_logo_shape": {
+      "description": "How the hosted pages lay the logo out: `square` beside the app's name, `wide` in place of it. **Read-only** — derived from the stored image, and `null` exactly when `hosted_logo_url` is `null`. An image whose size cannot be read is `square`. Absent when the server predates this field: read an absent field as unknown, not as `square`. The cloud always sends it.",
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "square",
+            "wide"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "hosted_accent": {
       "anyOf": [
         {

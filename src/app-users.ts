@@ -559,11 +559,22 @@ export const appHomeUrl = z
 /** The accent colour of the hosted pages: `#rrggbb`, lowercase, the one spelling the renderer compares against. */
 export const hostedAccent = z.string().regex(/^#[0-9a-f]{6}$/, 'must be a lowercase hex colour, #rrggbb')
 
-/** The largest logo the hosted pages take, in bytes: 100 KB. */
-export const HOSTED_LOGO_MAX_BYTES = 102_400
+/** The largest logo the hosted pages take, in bytes: 512 KB. */
+export const HOSTED_LOGO_MAX_BYTES = 524_288
 
 /** The logo types the hosted pages take. An SVG is served sandboxed and embedded only as an image. */
 export const HOSTED_LOGO_TYPES = ['image/png', 'image/svg+xml'] as const
+
+/**
+ * **How a stored logo is laid out on the hosted pages.**
+ *
+ * `wide` is a wordmark: it replaces the app's name. `square` is a mark: it
+ * sits beside the name. The cloud reads it from the stored image (its width
+ * and height, or an SVG's `viewBox`) and calls an image `wide` when it is more
+ * than one and a half times as wide as it is high.
+ */
+export const hostedLogoShape = z.enum(['square', 'wide'])
+export type HostedLogoShape = z.infer<typeof hostedLogoShape>
 
 /**
  * **The Fleetless-hosted pages an unset URL falls back to**, one per URL
@@ -639,6 +650,9 @@ export const appAuthConfig = z.object({
   }),
   hosted_logo_url: z.url().nullable().meta({
     description: 'Where the hosted pages load the app\'s logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`.',
+  }),
+  hosted_logo_shape: hostedLogoShape.nullable().optional().meta({
+    description: 'How the hosted pages lay the logo out: `square` beside the app\'s name, `wide` in place of it. **Read-only** — derived from the stored image, and `null` exactly when `hosted_logo_url` is `null`. An image whose size cannot be read is `square`. Absent when the server predates this field: read an absent field as unknown, not as `square`. The cloud always sends it.',
   }),
   hosted_accent: hostedAccent.nullable().meta({
     description: 'The accent colour of the hosted pages, `#rrggbb` in lowercase, or `null` for the neutral shell\'s own.',

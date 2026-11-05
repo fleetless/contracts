@@ -3594,7 +3594,7 @@
             }
           }
         },
-        "description": "The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, `image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from `hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs."
+        "description": "The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, `image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from `hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs."
       },
       "delete": {
         "operationId": "delete_api_apps_id_auth_config_logo",
@@ -7214,7 +7214,7 @@
             }
           }
         },
-        "description": "Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses."
+        "description": "Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses. `updated_by` names the team member who saved it last, and is `null` when nobody has, or when the cloud itself rewrote the draft."
       },
       "put": {
         "operationId": "put_api_robots_id_config_draft",
@@ -7365,7 +7365,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Each version carries `published_by`, the team member who published it, or `null` for a version published before the cloud recorded authors or by a member who has since been removed."
       }
     },
     "/api/robots/{id}/config/versions/{v}": {
@@ -11508,6 +11509,21 @@
               }
             ],
             "description": "Where the hosted pages load the app's logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`."
+          },
+          "hosted_logo_shape": {
+            "description": "How the hosted pages lay the logo out: `square` beside the app's name, `wide` in place of it. **Read-only** — derived from the stored image, and `null` exactly when `hosted_logo_url` is `null`. An image whose size cannot be read is `square`. Absent when the server predates this field: read an absent field as unknown, not as `square`. The cloud always sends it.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "square",
+                  "wide"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hosted_accent": {
             "anyOf": [
@@ -23806,6 +23822,36 @@
               }
             ]
           },
+          "updated_by": {
+            "description": "Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The team member's id."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The member's display name, or the local part of the email address when the member has none. Never a full email address."
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "issues": {
             "type": "array",
             "items": {
@@ -23872,6 +23918,36 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "published_by": {
+            "description": "Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.",
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "The team member's id."
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "The member's display name, or the local part of the email address when the member has none. Never a full email address."
+                  }
+                },
+                "required": [
+                  "id",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "doc": {
             "type": "object",
@@ -24977,6 +25053,36 @@
                   "type": "string",
                   "format": "date-time",
                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                "published_by": {
+                  "description": "Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "description": "The team member's id."
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "The member's display name, or the local part of the email address when the member has none. Never a full email address."
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [

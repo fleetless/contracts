@@ -1724,6 +1724,36 @@
         }
       ]
     },
+    "updated_by": {
+      "description": "Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "description": "The team member's id."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "description": "The member's display name, or the local part of the email address when the member has none. Never a full email address."
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "issues": {
       "type": "array",
       "items": {
