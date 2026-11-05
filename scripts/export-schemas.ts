@@ -117,6 +117,7 @@ import {
   collectionRecord,
   collectionFilter,
   collectionRecordListQuery,
+  collectionRecordGetQuery,
   collectionRecordListResponse,
   collectionRecordWrite,
   collectionRevision,
@@ -547,6 +548,7 @@ export const exportedSchemas = {
   'collection-record': collectionRecord,
   'collection-filter': collectionFilter,
   'collection-record-list-query': collectionRecordListQuery,
+  'collection-record-get-query': collectionRecordGetQuery,
   'collection-record-list-response': collectionRecordListResponse,
   'collection-record-write': collectionRecordWrite,
   'collection-revision': collectionRevision,
@@ -1197,7 +1199,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // What a caller sends to write or read records: the write body, the history
   // and restore requests, the list and history query strings, and the filter
   // object the server validates on arrival.
-  'collection-record-write', 'collection-record-list-query', 'collection-record-history-query',
+  'collection-record-write', 'collection-record-list-query', 'collection-record-get-query', 'collection-record-history-query',
   'collection-record-restore-request', 'collection-filter',
 
   // The schema lifecycle: the draft a developer saves, the publish and restore

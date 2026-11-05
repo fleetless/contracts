@@ -51,6 +51,7 @@ import {
   collectionRecordHistoryQuery,
   collectionRecordHistoryResponse,
   collectionRecordListQuery,
+  collectionRecordGetQuery,
   collectionRecordListResponse,
   collectionRecordRestoreRequest,
   collectionRecordWrite,
@@ -4085,11 +4086,12 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/apps/:id/collections/:c/records/:rid', section: 'collections',
     summary: 'Reads one record.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: null, request: null, response: collectionRecord,
-    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found'], transport: 'http',
+    params: [COLLECTIONS_APP, COLLECTIONS_KEY, COLLECTIONS_RECORD], query: collectionRecordGetQuery, request: null, response: collectionRecord,
+    errors: [...COLLECTIONS_DEVELOPER, 'collection_not_found', 'validation_error'], transport: 'http',
     notes:
       "A record that is deleted, of another collection or of a robot the app has not attached reads exactly like one that never existed: `404 not_found`. " +
-      "Deleted records are found with `deleted=true` on the list.",
+      "Deleted records are found with `deleted=true` on the list. `expand` works as on the list: a reference field named in it holds the referenced record " +
+      "instead of its id, one hop deep; a name that is not a reference field is `400 validation_error`.",
   },
   {
     method: 'PATCH', path: '/api/apps/:id/collections/:c/records/:rid', section: 'collections',
@@ -4226,9 +4228,12 @@ export const ROUTES: readonly RouteEntry[] = [
     method: 'GET', path: '/api/client/collections/:c/records/:rid', section: 'collections',
     summary: 'Reads one record the caller may read.',
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
-    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: null, request: null, response: collectionRecord,
-    errors: [...COLLECTIONS_CLIENT], transport: 'http',
-    notes: "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`.",
+    params: [COLLECTIONS_KEY_CLIENT, COLLECTIONS_RECORD], query: collectionRecordGetQuery, request: null, response: collectionRecord,
+    errors: [...COLLECTIONS_CLIENT, 'validation_error'], transport: 'http',
+    notes:
+      "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`. `expand` works as on the list: " +
+      "a referenced record is embedded only when the caller may read its collection, otherwise the field keeps the id; a name that is not a " +
+      "reference field is `400 validation_error`.",
   },
   {
     method: 'PATCH', path: '/api/client/collections/:c/records/:rid', section: 'collections',

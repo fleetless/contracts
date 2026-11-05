@@ -11921,6 +11921,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+            }
           }
         ],
         "responses": {
@@ -11935,7 +11945,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `collection_not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -11945,7 +11955,7 @@
             }
           }
         },
-        "description": "A record that is deleted, of another collection or of a robot the app has not attached reads exactly like one that never existed: `404 not_found`. Deleted records are found with `deleted=true` on the list."
+        "description": "A record that is deleted, of another collection or of a robot the app has not attached reads exactly like one that never existed: `404 not_found`. Deleted records are found with `deleted=true` on the list. `expand` works as on the list: a reference field named in it holds the referenced record instead of its id, one hop deep; a name that is not a reference field is `400 validation_error`."
       },
       "patch": {
         "operationId": "patch_api_apps_id_collections_c_records_rid",
@@ -12837,6 +12847,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "expand",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Reference fields to embed as records, separated by commas. Only one hop is followed."
+            }
           }
         ],
         "responses": {
@@ -12851,7 +12871,7 @@
             }
           },
           "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`.",
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `forbidden`, `invalid_uuid`, `not_found`, `collection_not_found`, `validation_error`.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12861,7 +12881,7 @@
             }
           }
         },
-        "description": "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`."
+        "description": "A record of a robot the caller does not reach reads exactly like one that does not exist: `404 not_found`. `expand` works as on the list: a referenced record is embedded only when the caller may read its collection, otherwise the field keeps the id; a name that is not a reference field is `400 validation_error`."
       },
       "patch": {
         "operationId": "patch_api_client_collections_c_records_rid",

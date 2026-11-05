@@ -365,6 +365,11 @@ const pageLimit = z
 
 const wireBoolean = z.enum(['true', 'false'])
 
+const expandParam = z
+  .string()
+  .min(1)
+  .meta({ description: 'Reference fields to embed as records, separated by commas. Only one hop is followed.' })
+
 /**
  * The query string of a record list. `filter` is the JSON text of a filter,
  * `sort` and `expand` are comma-separated lists; the cloud parses all three
@@ -396,11 +401,7 @@ export const collectionRecordListQuery = z
           'Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`.',
       })
       .optional(),
-    expand: z
-      .string()
-      .min(1)
-      .meta({ description: 'Reference fields to embed as records, separated by commas. Only one hop is followed.' })
-      .optional(),
+    expand: expandParam.optional(),
     limit: pageLimit.meta({ description: `How many records to return, 1 to ${COLLECTION_LIMITS.pageMax}. Default ${COLLECTION_LIMITS.pageDefault}.` }).optional(),
     cursor: z.string().min(1).meta({ description: 'The `next_cursor` of the previous page.' }).optional(),
     count: wireBoolean.meta({ description: '`true` adds `total`, the number of records that match.' }).optional(),
@@ -411,6 +412,13 @@ export const collectionRecordListQuery = z
   })
   .strict()
 export type CollectionRecordListQuery = z.infer<typeof collectionRecordListQuery>
+
+/**
+ * The query string of a single record read. `expand` means what it does on the
+ * list, so a record read one by one and the same record in a page look alike.
+ */
+export const collectionRecordGetQuery = z.object({ expand: expandParam.optional() }).strict()
+export type CollectionRecordGetQuery = z.infer<typeof collectionRecordGetQuery>
 
 export const collectionRecordListResponse = z
   .object({

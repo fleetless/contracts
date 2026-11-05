@@ -28,7 +28,8 @@ version.
   required fields it is missing, with its own values under `values`. Writes
   send `values`, an optional robot and an optional expected revision, and a
   stale revision is answered `record_changed`. Lists take a filter, a search, a
-  sort, `expand`, a page of 1 to 500 and a cursor; every change keeps a
+  sort, `expand`, a page of 1 to 500 and a cursor, and reading one record
+  takes the same `expand` (`collectionRecordGetQuery`); every change keeps a
   revision, `collectionRevision`, which the history route lists and the restore
   route can bring back.
 - **Schema lifecycle.** Saving a draft, previewing it, publishing it, listing

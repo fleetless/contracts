@@ -12,6 +12,7 @@ import {
   collectionRecord,
   collectionRecordHistoryQuery,
   collectionRecordHistoryResponse,
+  collectionRecordGetQuery,
   collectionRecordListQuery,
   collectionRecordListResponse,
   collectionRecordRestoreRequest,
@@ -479,6 +480,26 @@ describe('collectionRecordListQuery', () => {
         expect(exported.properties[key]!.description, key).toBe(list.properties[key]!.description)
       }
     })
+  })
+})
+
+describe('collectionRecordGetQuery', () => {
+  it('takes expand and nothing else', () => {
+    expect(collectionRecordGetQuery.safeParse({}).success).toBe(true)
+    expect(collectionRecordGetQuery.safeParse({ expand: 'location,owner' }).data).toEqual({ expand: 'location,owner' })
+    expect(collectionRecordGetQuery.safeParse({ expand: '' }).success).toBe(false)
+    expect(collectionRecordGetQuery.safeParse({ limit: '5' }).success).toBe(false)
+    expect(collectionRecordGetQuery.safeParse({ filter: '{}' }).success).toBe(false)
+  })
+
+  it('describes expand exactly as the list does', () => {
+    const artifact = (name: string) =>
+      JSON.parse(readFileSync(new URL(`../artifacts/schema/${name}.schema.json`, import.meta.url), 'utf8')) as {
+        properties: Record<string, { description: string }>
+      }
+    expect(artifact('collection-record-get-query').properties.expand!.description).toBe(
+      artifact('collection-record-list-query').properties.expand!.description,
+    )
   })
 })
 
