@@ -49,6 +49,11 @@ describe('the route manifest', () => {
     expect(JSON.stringify(landings)).not.toMatch(/https?:\/\/|[?&](?:token|redirect|redirect_to|proof)=|Set-Cookie:/i)
   })
 
+  it('the MCP welcome page is not a route of the API any more', () => {
+    expect(ROUTES.find((r) => r.method === 'GET' && r.path === '/mcp/welcome')).toBeUndefined()
+    expect(ROUTES.find((r) => r.path === '/favicon.svg')?.summary).not.toMatch(/welcome/i)
+  })
+
   it('has no duplicate method+path', () => {
     const keys = ROUTES.map(key)
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)

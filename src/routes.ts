@@ -796,7 +796,7 @@ export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------- client auth (portal pages) */
   {
     method: 'GET', path: '/favicon.svg', section: 'client-auth',
-    summary: 'Serves the Fleetless icon for the auth portal\'s and the MCP welcome page\'s browser tab.',
+    summary: 'Serves the Fleetless icon for the auth portal\'s browser tab.',
     audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
@@ -2063,18 +2063,6 @@ export const ROUTES: readonly RouteEntry[] = [
   ...HOSTED_APP_ROUTES,
 
   /* ---------------------------------------------------- mcp (the endpoint) */
-  {
-    method: 'GET', path: '/mcp/welcome', section: 'mcp',
-    summary: 'Serves the page that tells a person which URL to paste into their MCP client.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, one fixed document rendered once at startup — its inputs are process configuration, not request state. Cached for five minutes ' +
-      'rather than a day, because the URLs it names can change with a deployment. Its content security policy admits the page\'s own inline ' +
-      'style and script by SHA-256 rather than by `unsafe-inline`, and forbids every external fetch outright. A configured friendly URL that ' +
-      'is not a usable absolute http(s) URL is ignored rather than rendered: a typo in a deployment variable must not put a broken URL in ' +
-      'front of every end user.',
-  },
   {
     method: 'POST', path: '/mcp', section: 'mcp',
     summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',

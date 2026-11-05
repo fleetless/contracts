@@ -9,6 +9,11 @@ version.
 
 ## [Unreleased]
 
+### Removed
+
+- The internal route `GET /mcp/welcome` (audience `internal`) is no longer listed: the MCP landing page
+  moved to https://fleetless.dev/mcp/.
+
 ## [13.2.0] — 2026-11-05
 
 ### Changed
