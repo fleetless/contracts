@@ -107,6 +107,7 @@ import {
 import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
+import { collectionsDocument } from '../src/collections.js'
 import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
@@ -488,6 +489,7 @@ export const exportedSchemas = {
   'introspection-response': introspectionResponse,
   'datapoint-list-response': datapointListResponse,
   'robot-details-doc': robotDetailsDoc,
+  'collections-document': collectionsDocument,
   'client-auth': clientAuth,
   'auth-ok': authOk,
   'auth-error': authError,
@@ -1086,6 +1088,11 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'robot-config-doc', 'datapoint-config', 'action-config', 'service-config',
   'publisher-config', 'parameter-spec', 'camera-source', 'robot-details-doc',
   'snapshot-header',
+
+  // The collections document is written by an author and validated on arrival,
+  // and it travels back inside the draft and version responses — the same
+  // two-surface document `robot-config-doc` is.
+  'collections-document',
 ]
 
 /**

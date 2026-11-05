@@ -1093,3 +1093,27 @@ export type {
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
   InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
 } from './billing.js'
+
+export {
+  COLLECTIONS_FORMAT_VERSION,
+  COLLECTION_RESERVED_KEYS,
+  COLLECTION_LIMITS,
+  collectionKey,
+  collectionBinding,
+  collectionFieldType,
+  collectionField,
+  collectionAccessValue,
+  collectionAccess,
+  collectionDefinition,
+  collectionsDocument,
+} from './collections.js'
+export type {
+  CollectionKey,
+  CollectionBinding,
+  CollectionFieldType,
+  CollectionField,
+  CollectionAccessValue,
+  CollectionAccess,
+  CollectionDefinition,
+  CollectionsDocument,
+} from './collections.js'
