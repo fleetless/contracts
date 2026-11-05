@@ -117,7 +117,8 @@ release; every breaking item is named once, under Removed or Changed.
   role would get. Developer routes, none owner-only. Shapes: `appAccess`,
   `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
   `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
-  The lists of an access name each kind, slug and robot once, and are bounded.
+  The lists of an access name each kind, slug and robot once, and are bounded;
+  `MAX_LOCK_SLUGS` is the most slugs one lock can name.
 - `revision` on the access of an app. `appAccessResponse` carries the revision
   of the stored access, and the `PUT /api/apps/:id/access` body may send back
   the one it was composed from: when the stored access has changed since (a

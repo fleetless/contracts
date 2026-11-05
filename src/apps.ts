@@ -209,8 +209,12 @@ export const createServerKeyResponse = z.object({
 })
 export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
 
-/** The most exposures one robot's datasheet lists, so the most a lock on one robot can name. */
-const MAX_LOCK_SLUGS = 2000
+/**
+ * The most exposures one robot's datasheet lists, so the most slugs a lock on
+ * one robot can name. Exported for whoever grows a lock (a slug rename adds
+ * the new name beside the old one) and must know when there is no room left.
+ */
+export const MAX_LOCK_SLUGS = 2000
 
 /** The most robots one app can lock single exposures on; whole kinds go in `locked_kinds`. */
 const MAX_APP_LOCKS = 1000

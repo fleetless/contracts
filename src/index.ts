@@ -643,6 +643,7 @@ export {
   serverKeyListResponse,
   createServerKeyResponse,
   appLock,
+  MAX_LOCK_SLUGS,
   appAccess,
   accessWarning,
   appAccessResponse,

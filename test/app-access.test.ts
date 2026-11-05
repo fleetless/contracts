@@ -5,6 +5,7 @@ import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
 import {
   ACCESS_KINDS,
+  MAX_LOCK_SLUGS,
   ROUTES,
   accessWarning,
   appAccess,
@@ -78,6 +79,13 @@ describe('appAccess', () => {
     // The artifact states the two list rules JSON Schema can state; one entry per robot is a cross-field rule only the parser holds.
     expect(artifact('app-access')({ ...access, locked_kinds: ['read', 'read'] })).toBe(false)
     expect(artifact('app-access')({ ...access, locked: [{ robot_id: robot, slugs: ['arm_home', 'arm_home'] }] })).toBe(false)
+  })
+
+  it('exports the cap of one lock, and the lock enforces exactly that cap', () => {
+    const lock = (n: number) => appLock.safeParse({ robot_id: robot, slugs: Array.from({ length: n }, (_, i) => `s${i}`) })
+    expect(MAX_LOCK_SLUGS).toBe(2000)
+    expect(lock(MAX_LOCK_SLUGS).success).toBe(true)
+    expect(lock(MAX_LOCK_SLUGS + 1).success).toBe(false)
   })
 
   it('bounds the lists: every kind once, the exposures one robot can have, a lock per robot', () => {
