@@ -52,7 +52,7 @@
                 "type": "null"
               }
             ],
-            "description": "The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+            "description": "The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot. No route creates, renames or deletes an app's roles, so the id is one the app already has."
           },
           "created_at": {
             "type": "string",

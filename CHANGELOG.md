@@ -9,6 +9,18 @@ version.
 
 ## [Unreleased]
 
+### Removed
+
+- The per-app role routes: `POST` and `GET /api/apps/:id/roles`, `PATCH` and
+  `DELETE /api/apps/:id/roles/:roleId`, `PUT` and `GET
+  /api/apps/:id/roles/:roleId/permissions`, and `GET
+  /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
+  from here on.
+- The shapes of those routes, with their types and JSON Schema artifacts:
+  `role`, `roleListResponse`, `roleRenameRequest`, `roleDeleteQuery`,
+  `roleInUseDetails`, `rolePermissions` and `mcpRolePreviewResponse`.
+- The error codes `role_name_taken`, `role_in_use` and `last_role`.
+
 ## [13.2.0] — 2026-11-05
 
 ### Changed

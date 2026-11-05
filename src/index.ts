@@ -69,7 +69,6 @@ export {
   mcpExposure,
   mcpCapabilities,
   mcpRobotDatasheet,
-  mcpRolePreviewResponse,
 } from './mcp.js'
 export type {
   McpAppPaths,
@@ -77,7 +76,6 @@ export type {
   McpExposure,
   McpCapabilities,
   McpRobotDatasheet,
-  McpRolePreviewResponse,
 } from './mcp.js'
 export {
   PROTOCOL_VERSION,
@@ -576,12 +574,6 @@ export {
   serverKey,
   serverKeyListResponse,
   createServerKeyResponse,
-  role,
-  roleListResponse,
-  rolePermissions,
-  roleRenameRequest,
-  roleDeleteQuery,
-  roleInUseDetails,
 } from './apps.js'
 export type {
   App,
@@ -592,12 +584,6 @@ export type {
   ServerKey,
   ServerKeyListResponse,
   CreateServerKeyResponse,
-  Role,
-  RoleListResponse,
-  RolePermissions,
-  RoleRenameRequest,
-  RoleDeleteQuery,
-  RoleInUseDetails,
 } from './apps.js'
 export {
   clientLoginRequest,

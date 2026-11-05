@@ -13,8 +13,6 @@ import {
   serverKeyToken,
   serverKey,
   createServerKeyResponse,
-  role,
-  rolePermissions,
   appUser,
   clientLoginRequest,
   clientIdentity,
@@ -25,10 +23,6 @@ import {
   auditActor,
   auditEvent,
   ERROR_CODES,
-  ROUTES,
-  roleRenameRequest,
-  roleDeleteQuery,
-  roleInUseDetails,
 } from '../src/index.js'
 import * as identityBarrel from '../src/index.js'
 
@@ -138,35 +132,7 @@ describe('apps, keys and roles', () => {
     expect(createServerKeyResponse.safeParse({ server_key: record, key }).success).toBe(true)
   })
 
-  it('grants rights per robot and slug, plus the two capabilities', () => {
-    expect(
-      rolePermissions.safeParse({
-        role_id: UUID,
-        grants: [{ robot_id: UUID2, slugs: ['battery_percentage', 'bridge_state'] }],
-        capabilities: { action_history: false, presence: true, assets: false },
-      }).success,
-    ).toBe(true)
-    // A role granting nothing is legal and meaningful: it is how you hide a
-    // service app-wide.
-    expect(
-      rolePermissions.safeParse({
-        role_id: UUID,
-        grants: [],
-        capabilities: { action_history: false, presence: false, assets: false },
-      }).success,
-    ).toBe(true)
-    expect(
-      rolePermissions.safeParse({
-        role_id: UUID,
-        grants: [{ robot_id: UUID2, slugs: ['Not A Slug'] }],
-        capabilities: { action_history: false, presence: false, assets: false },
-      }).success,
-    ).toBe(false)
-  })
-
-  it('marks the two starting roles and gives a user exactly one role per app', () => {
-    expect(role.safeParse({ id: UUID, app_id: UUID2, name: 'observe', builtin: true }).success).toBe(true)
-    expect(role.safeParse({ id: UUID, app_id: UUID2, name: 'night-shift', builtin: false }).success).toBe(true)
+  it('gives a user exactly one role per app', () => {
     // `appMembership.end_user_id`, then `appAssignment.user_id`, and now the
     // role is a column on the user's own row: access IS the row, and there is
     // no join table left to hold a second one. The property those three shapes
@@ -276,15 +242,16 @@ describe('error vocabulary', () => {
    * noun. `invite_expired` and `invite_used` had no producer either — the
    * route they were written for answers `410 token_spent` to every invitation
    * token that fails, so branching on them answered nothing a caller can
-   * receive. Re-adding any of the three re-adds a refusal nothing can answer.
-   * See the tombstones in `errors.ts`.
+   * receive. `role_name_taken`, `role_in_use` and `last_role` answered the
+   * per-app role routes, which are gone. Re-adding any of them re-adds a
+   * refusal nothing can answer. See the tombstones in `errors.ts`.
    *
    * Asserted as a set: this list records what was retired, and a code dropped
    * from it quietly stops being guarded.
    */
   it('has dropped the refusals nothing can answer with', () => {
     const codes: readonly string[] = ERROR_CODES
-    for (const gone of ['not_a_member', 'invite_expired', 'invite_used']) {
+    for (const gone of ['not_a_member', 'invite_expired', 'invite_used', 'role_name_taken', 'role_in_use', 'last_role']) {
       expect(codes, `${gone} is back in the catalogue`).not.toContain(gone)
     }
   })
@@ -310,48 +277,5 @@ describe('realtime authentication', () => {
     // server or a token stolen before logout keeps working.
     expect(clientLogoutRequest.safeParse({ refresh_token: 'r' }).success).toBe(true)
     expect(clientLogoutRequest.safeParse({}).success).toBe(false)
-  })
-})
-
-describe('role rename and delete', () => {
-  it('renames to 1–60 trimmed characters', () => {
-    expect(roleRenameRequest.parse({ name: '  operator ' }).name).toBe('operator')
-    expect(roleRenameRequest.safeParse({ name: '' }).success).toBe(false)
-    expect(roleRenameRequest.safeParse({ name: '   ' }).success).toBe(false)
-    expect(roleRenameRequest.safeParse({ name: 'x'.repeat(60) }).success).toBe(true)
-    expect(roleRenameRequest.safeParse({ name: 'x'.repeat(61) }).success).toBe(false)
-    expect(roleRenameRequest.safeParse({ name: 'a', builtin: false }).success).toBe(false)
-  })
-  it('deletes with an optional uuid move_to', () => {
-    expect(roleDeleteQuery.parse({})).toEqual({})
-    expect(roleDeleteQuery.parse({ move_to: UUID })).toEqual({ move_to: UUID })
-    expect(roleDeleteQuery.safeParse({ move_to: 'observe' }).success).toBe(false)
-    expect(roleDeleteQuery.safeParse({ force: 'true' }).success).toBe(false)
-  })
-  it('describes what holds a role in use', () => {
-    expect(roleInUseDetails.parse({ users: 3, invitations: 1, is_default: true })).toEqual({ users: 3, invitations: 1, is_default: true })
-    expect(roleInUseDetails.safeParse({ users: -1, invitations: 0, is_default: false }).success).toBe(false)
-    expect(roleInUseDetails.safeParse({ users: 0, invitations: 0 }).success).toBe(false)
-  })
-  it('catalogues the three new codes', () => {
-    for (const code of ['role_name_taken', 'role_in_use', 'last_role']) expect(ERROR_CODES).toContain(code)
-  })
-  it('declares the two routes', () => {
-    const patch = ROUTES.find((r) => r.method === 'PATCH' && r.path === '/api/apps/:id/roles/:roleId')
-    const del = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/apps/:id/roles/:roleId')
-    expect(patch).toMatchObject({ status: 200, auth: 'developer', section: 'apps', request: roleRenameRequest, response: role })
-    expect(patch?.errors).toContain('role_name_taken')
-    expect(del).toMatchObject({ status: 204, auth: 'developer', section: 'apps', query: roleDeleteQuery, request: null, response: null })
-    expect(del?.errors).toEqual(expect.arrayContaining(['role_in_use', 'last_role', 'validation_error']))
-  })
-  it('no longer tells anyone a built-in role cannot be renamed or deleted', () => {
-    const description = role.shape.builtin.meta()?.description ?? ''
-    expect(description).not.toContain('no route does that')
-    expect(description).toContain('can be renamed and deleted like any other')
-  })
-  it('states the same 60-character limit on create as the role itself', () => {
-    const create = ROUTES.find((r) => r.method === 'POST' && r.path === '/api/apps/:id/roles')
-    expect(create?.notes).toContain('at most 60 characters')
-    expect(create?.notes).not.toContain('120')
   })
 })

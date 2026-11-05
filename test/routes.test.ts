@@ -923,6 +923,29 @@ describe('app deletion', () => {
   })
 })
 
+describe('the per-app role routes', () => {
+  // Roles belong to the organization; a revert would put a second place to manage them back.
+  const GONE = [
+    'POST /api/apps/:id/roles',
+    'GET /api/apps/:id/roles',
+    'PATCH /api/apps/:id/roles/:roleId',
+    'DELETE /api/apps/:id/roles/:roleId',
+    'PUT /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/mcp-tools',
+  ] as const
+
+  it('are not in the manifest', () => {
+    const keys = new Set(ROUTES.map(key))
+    for (const k of GONE) expect(keys.has(k), `${k} is back in ROUTES`).toBe(false)
+  })
+
+  it('are not in the OpenAPI document either', () => {
+    const paths = Object.keys(openApiDocument().paths)
+    expect(paths.filter((p) => p.includes('/roles'))).toEqual([])
+  })
+})
+
 describe('what a developer may run without the Owner tier', () => {
   it('robot deletion, token rotation, app deletion, server keys and the asset store need no Owner tier', () => {
     for (const [k, status] of [

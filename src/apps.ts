@@ -61,15 +61,16 @@ export const app = z.object({
    *
    * `null` — and nullable rather than absent — means *this app has not chosen
    * one*. That is a normal state, not an unset field: every app is created
-   * before its roles are configured. A create or invite that omits `role_id`
+   * before anyone picks a default. A create or invite that omits `role_id`
    * against an app in that state is a `validation_error`, not a user with no
    * role.
    *
    * The role must belong to **this** app; the schema sees a uuid and cannot
-   * check that, so `PATCH /api/apps/:id` does.
+   * check that, so `PATCH /api/apps/:id` does. No route creates, renames or
+   * deletes an app's roles any more, so the id is one the app already has.
    */
   default_role_id: z.uuid().nullable().meta({
-    description: 'The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
+    description: 'The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot. No route creates, renames or deletes an app\'s roles, so the id is one the app already has.',
   }),
   created_at: z.iso.datetime().meta({
     description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
@@ -223,144 +224,3 @@ export const createServerKeyResponse = z.object({
   key: serverKeyToken,
 })
 export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
-
-/**
- * Every app starts with `observe` and `operate`; custom roles are allowed
- * too. `builtin` marks the two starting roles — editable, renamable and
- * deletable like any other; the flag only tells the console where they came
- * from.
- */
-export const role = z.object({
-  id: z.uuid().meta({
-    description: 'The role, and what an app user\'s `role_id` and an app\'s `default_role_id` refer to.',
-  }),
-  app_id: z.uuid().meta({
-    description: 'The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`.',
-  }),
-  name: z.string().min(1).max(60).meta({
-    description: 'The role\'s name, shown wherever a user\'s access is chosen. The two roles every app starts with are named `observe` and `operate`.',
-  }),
-  builtin: z.boolean().meta({
-    description: '`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role\'s, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them.',
-  }),
-})
-export type Role = z.infer<typeof role>
-
-/** What `GET /api/apps/:id/roles` answers: the app's roles, builtin and custom alike. */
-export const roleListResponse = z.object({
-  roles: z.array(role).meta({
-    description: 'The app\'s roles, built-in and custom alike, ordered by `created_at` and then by `name`. The tie-break is not cosmetic — the two built-in roles are inserted in one statement and share a creation time to the microsecond, so never read a role by position.',
-  }),
-})
-export type RoleListResponse = z.infer<typeof roleListResponse>
-
-/**
- * The body of `PATCH /api/apps/:id/roles/:roleId`: the role's new name.
- *
- * The same bounds as `role.name`, trimmed. Names are unique per app, compared
- * exactly as stored after trimming; a clash answers `409 role_name_taken`.
- */
-export const roleRenameRequest = z.object({
-  name: z.string().trim().min(1).max(60).meta({
-    description: 'The new name, trimmed, 1 to 60 characters. Unique per app: another role of this app with the same name answers `409 role_name_taken`. The role\'s users keep it under its new name.',
-  }),
-}).strict()
-export type RoleRenameRequest = z.infer<typeof roleRenameRequest>
-
-/**
- * The query of `DELETE /api/apps/:id/roles/:roleId`.
- *
- * `move_to` is what makes a held role deletable: every app user and pending
- * invitation holding the role moves to it, and so does the app's default when
- * it pointed at the role, in the same transaction as the delete. Without it a
- * held role answers `409 role_in_use` with `roleInUseDetails`, so a client
- * can ask where they should go instead of guessing.
- */
-export const roleDeleteQuery = z.object({
-  move_to: z.uuid().optional().meta({
-    description: 'Another role of the same app that takes over the deleted role\'s app users, pending invitations and, when it applies, the app\'s default. The role itself or a role of another app answers `400 validation_error`.',
-  }),
-}).strict()
-export type RoleDeleteQuery = z.infer<typeof roleDeleteQuery>
-
-/**
- * `details` of `409 role_in_use`: what still holds the role.
- *
- * All three are reported, zeros included, so a client renders one sentence
- * from one shape rather than inferring a missing key.
- */
-export const roleInUseDetails = z.object({
-  users: z.number().int().nonnegative().meta({
-    description: 'App users whose role this is.',
-  }),
-  invitations: z.number().int().nonnegative().meta({
-    description: 'Pending invitations that would grant this role when accepted.',
-  }),
-  is_default: z.boolean().meta({
-    description: '`true` when this is the app\'s `default_role_id`; the default then moves with the users to `move_to`.',
-  }),
-}).strict()
-export type RoleInUseDetails = z.infer<typeof roleInUseDetails>
-
-/**
- * The rights matrix of one role: which slugs of which robot it may use, plus
- * the capabilities roles also govern. `capabilities`' own doc comment
- * below says which of them are enforced today and which is still a switch
- * that changes nothing.
- */
-export const rolePermissions = z.object({
-  role_id: z.uuid(),
-  /**
-   * **A slug is unique per robot across ALL exposure kinds** — one namespace,
-   * not one per kind — and the cloud's configuration validation enforces that
-   * with a kind-agnostic collection pass. That is why this list carries slugs
-   * and not (kind, slug) pairs: a grant means the same thing whichever kind the
-   * slug turns out to name. `GET /api/robots/:id/exposures` is the companion
-   * read that lists every grantable slug of a robot **with** its kind, so a
-   * rights matrix can offer them.
-   */
-  grants: z.array(
-    z.object({
-      robot_id: z.uuid(),
-      slugs: z.array(slug),
-    }),
-  ),
-  /**
-   * App-wide abilities a role grants, as opposed to per-slug grants above.
-   *
-   * **A capability here is a promise, and one of them is still not kept.** A
-   * capability with no route, no SDK method and no realtime frame behind it can
-   * be switched on while nothing changes, which is worse than its absence: the
-   * developer believes they granted something. **This paragraph stays**
-   * whatever the current tally is: it is the only place that says a switch may
-   * change nothing, and it is how the next unkept capability gets caught.
-   *
-   * `assets` gates the asset store, which is not covered by `grants` because
-   * **assets are not slugs** — and it is its own decision rather than a side
-   * effect of reaching the robot, because a mesh set gives away the machine's
-   * build.
-   *
-   * **`action_history` is kept.** It gates
-   * `GET /api/robots/:id/jobs/history` — an end user whose role lacks it is
-   * refused `403 capability_required`, naming the capability so the developer
-   * knows which switch is off.
-   *
-   * **What granting it discloses.** A `jobRun` names the actor who invoked
-   * it, and `jobActor.label` is an email — so an end user holding this
-   * capability learns which *other* people have been driving that robot.
-   * That is inherent in "may read the history" rather than an oversight, and
-   * it is written down here because the switch lives in the console while its
-   * consequence does not.
-   *
-   * **`presence` is still not implemented.** Nothing in the cloud, the SDK or
-   * the realtime protocol consults it. It remains exactly what the first
-   * paragraph describes.
-   */
-  capabilities: z.object({
-    action_history: z.boolean(),
-    presence: z.boolean(),
-    assets: z.boolean(),
-  }),
-})
-export type RolePermissions = z.infer<typeof rolePermissions>
-

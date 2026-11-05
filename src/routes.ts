@@ -33,11 +33,6 @@ import {
   createAppRequest,
   createServerKeyResponse,
   app as appSchema,
-  role,
-  roleListResponse,
-  roleDeleteQuery,
-  rolePermissions,
-  roleRenameRequest,
   serverKeyListResponse,
   updateAppRequest,
 } from './apps.js'
@@ -136,7 +131,7 @@ import {
   legalOfferListQuery, legalOfferListResponse, legalOfferDisplayRequest, legalOfferDisplayResponse,
   legalOfferDecisionRequest, legalOfferDecisionLookupQuery, legalOfferDecisionResult,
 } from './legal-offers.js'
-import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
+import { MCP_APP_PATHS, mcpRobotDatasheet } from './mcp.js'
 import {
   authorizationServerMetadata,
   dynamicClientRegistrationRequest,
@@ -990,97 +985,6 @@ export const ROUTES: readonly RouteEntry[] = [
       '`GET /api/apps/:id/deletion-preview`.',
   },
   {
-    method: 'POST', path: '/api/apps/:id/roles', section: 'apps',
-    summary: 'Creates a custom role on the app.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: role,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'The body is `{ "name": string }` — non-empty, trimmed, at most 60 characters as on `role.name` — and is deliberately not a contract shape: contracts ' +
-      'define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the ' +
-      'listing beside it.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles', section: 'apps',
-    summary: "Lists the app's roles, builtin and custom.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: roleListResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Answers `{ "roles": [role, …] }`, builtin roles included — a role a developer never created is still one a user can hold.',
-  },
-  {
-    method: 'PUT', path: '/api/apps/:id/roles/:roleId/permissions', section: 'apps',
-    summary: "Replaces a role's grants and capabilities in one write.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: rolePermissions, response: rolePermissions,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      '`role_id` in the body must name the role in the path, compared case-insensitively — a uuid is a value, not a string, and a client that ' +
-      'uppercases them consistently must not be refused for repeating what the path says. A grant naming a robot the app does not have is ' +
-      'refused rather than stored: a permission for something the role cannot reach reads as authoritative to whoever writes the next consumer. ' +
-      'Every user holding this role has their live subscriptions re-authorized.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles/:roleId/permissions', section: 'apps',
-    summary: "Reads a role's grants and capabilities.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: null, response: rolePermissions,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles/:roleId/mcp-tools', section: 'apps',
-    summary: 'Previews the robot datasheets an MCP caller holding this role would be offered.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: null, response: mcpRolePreviewResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      'Built by the same builder the MCP server\'s own `robots.describe` uses, so the two cannot drift. It answers what the role *would* be ' +
-      'offered and consults nothing about any user\'s actual MCP entitlement. A robot the role grants nothing on still appears, with an empty ' +
-      '`exposures` — dropping it would read as "not attached", which is a different fact.',
-  },
-  {
-    method: 'PATCH', path: '/api/apps/:id/roles/:roleId', section: 'apps',
-    summary: 'Renames a role; its users keep it.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: roleRenameRequest, response: role,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_name_taken'], transport: 'http',
-    notes: 'Names are unique per app, compared exactly as stored after trimming. Built-in roles can be renamed.',
-  },
-  {
-    method: 'DELETE', path: '/api/apps/:id/roles/:roleId', section: 'apps',
-    summary: 'Deletes a role, moving its users, pending invitations and default-role status to another role.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: roleDeleteQuery, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_in_use', 'last_role'], transport: 'http',
-    notes:
-      'Without `move_to`, a role that app users or pending invitations hold, or that is the app\'s default, answers ' +
-      '`409 role_in_use` with `{ users, invitations, is_default }`. With `move_to` — another role of the same app, else ' +
-      '`400 validation_error` — one transaction moves `app_users.role_id`, pending invitations and `default_role_id`, then deletes ' +
-      'the role and its permissions. The app\'s only role answers `409 last_role`. Built-in roles can be deleted like any other.',
-  },
-  {
     method: 'POST', path: '/api/apps/:id/server-keys', section: 'apps',
     summary: 'Mints a server key for the app and returns the raw secret once.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
@@ -1088,8 +992,8 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: createServerKeyResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'A server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, the same ' +
-      'trivial shape role creation takes. `key` is the only moment the raw secret exists outside the caller\'s hands — it is never in a ' +
+      'A server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, too ' +
+      'trivial to be a contract shape. `key` is the only moment the raw secret exists outside the caller\'s hands — it is never in a ' +
       'listing, never in an audit event, and cannot be read back.',
   },
   {
@@ -2108,8 +2012,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes — exactly as `POST /mcp` ' +
       'is, and stateless for the same reason: a fresh transport per request, no session id, nothing surviving the call. **App users only.** ' +
-      'The tools are this app\'s robots filtered by the caller\'s role, built by the same builder `GET /api/apps/:id/roles/:roleId/mcp-tools` ' +
-      'previews, so the console\'s preview and the live catalog cannot drift. The console tool family belongs to the central endpoint and is ' +
+      'The tools are this app\'s robots filtered by the caller\'s role, built by the same builder `GET /api/robots/:id/datasheet` ' +
+      'answers, so the datasheet and the live catalog cannot drift. The console tool family belongs to the central endpoint and is ' +
       'offered here to nobody. \n\n**The bearer is verified inside the handler**, not by a route guard, for the two reasons the central ' +
       'endpoint gives — the identity comes from the token and the path names none of it, and the refusal has to carry a `WWW-Authenticate` ' +
       'challenge a guard shared with the REST surface does not send. The challenge names **this app\'s** protected-resource document (RFC ' +

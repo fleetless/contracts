@@ -7,7 +7,6 @@ import {
   assetStoreRefusedDetails,
   assetsClearResponse,
   urdfCompleteness,
-  rolePermissions,
   bridgeAssetsAvailable,
   bridgeAssetProgress,
   ERROR_CODES,
@@ -17,40 +16,6 @@ import {
 const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const SHA = 'a'.repeat(64)
 const NOW = '2026-08-12T20:00:00.000Z'
-
-/**
- * The asset store. These tests are about **absence** — what a shape refuses
- * to leave unsaid. Three defects shipped just before this, all one thing: an
- * omittable value guessed at downstream. The assertions target omissions,
- * not happy shapes.
- */
-describe('the assets capability cannot be left unsaid', () => {
-  const base = {
-    role_id: UUID,
-    grants: [{ robot_id: UUID, slugs: ['arm'] }],
-  }
-
-  it('refuses a role that does not state whether it grants assets', () => {
-    // Required, not `.default(false)`. A pre-assets role needs deliberate
-    // migration to deny-by-default — the cloud's decision to make once, not
-    // the shape's to make silently on every omitted field.
-    expect(
-      rolePermissions.safeParse({
-        ...base,
-        capabilities: { action_history: false, presence: false },
-      }).success,
-    ).toBe(false)
-  })
-
-  it('accepts a role that states it', () => {
-    expect(
-      rolePermissions.safeParse({
-        ...base,
-        capabilities: { action_history: false, presence: false, assets: true },
-      }).success,
-    ).toBe(true)
-  })
-})
 
 describe('an asset says what it is and where it came from', () => {
   const good = {
