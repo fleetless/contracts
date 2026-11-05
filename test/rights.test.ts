@@ -27,7 +27,7 @@ import {
   rosNameOf,
   validationIssue,
 } from '../src/index.js'
-import type { RoleDefaults, RoleGraph } from '../src/index.js'
+import type { RobotConfigDoc, RoleDefaults, RoleGraph } from '../src/index.js'
 
 /** A role graph from `{ key: [parents] }`; the display name is not under test. */
 const graphOf = (edges: Record<string, string[]>): RoleGraph =>
@@ -479,6 +479,22 @@ describe('requirementOf an entry', () => {
     expect(req('nope')).toBeNull()
     expect(req('bridge_state')).toBeNull()
     expect(req('constructor')).toBeNull()
+    expect(req('__proto__')).toBeNull()
+    expect(req('hasOwnProperty')).toBeNull()
+  })
+
+  it('looks an entry up by its key and does not list the section to find it', () => {
+    // Asked once per exposure of a robot, a scan makes a document with thousands of entries quadratic in them.
+    let listed = 0
+    const datapoints = new Proxy(
+      { slot_1: { topic: '/slot/1', type: 'std_msgs/msg/Float32', role: 'operate' }, slot_2: { topic: '/slot/2', type: 'std_msgs/msg/Float32' } },
+      { ownKeys(target) { listed += 1; return Reflect.ownKeys(target) } },
+    )
+    const doc = { fleetless: 1, datapoints } as unknown as RobotConfigDoc
+    expect(requirementOf(doc, DEFAULTS, { slug: 'slot_1' })).toEqual({ roles: ['operate'], source: { kind: 'entry' } })
+    expect(requirementOf(doc, DEFAULTS, { slug: 'slot_2' })).toEqual({ roles: ['observe'], source: { kind: 'org_default' } })
+    expect(requirementOf(doc, DEFAULTS, { slug: 'slot_3' })).toBeNull()
+    expect(listed).toBe(0)
   })
 
   it('answers null for every slug when there is no document', () => {

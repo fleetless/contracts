@@ -383,9 +383,10 @@ export function requirementOf(
   }
   if (doc === null) return null
   for (const section of SECTIONS) {
-    const found = entriesOf(doc, section).find(([slug]) => slug === target.slug)
-    if (found === undefined) continue
-    const [, entry] = found
+    // By key, not by scanning the section: asked once per exposure of a robot, a scan makes a document quadratic in its entries.
+    const table = asRecord(doc[section])
+    if (table === null || !Object.hasOwn(table, target.slug)) continue
+    const entry = (asRecord(table[target.slug]) ?? {}) as EntryLike
     if (entry.role !== undefined) return { roles: keysOf(entry.role), source: { kind: 'entry' } }
     const kind = ENTRY_KIND_OF[section]
     const rosName = rosNameOf(section, entry)
