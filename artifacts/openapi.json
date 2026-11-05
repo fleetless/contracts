@@ -27268,6 +27268,7 @@
                     "description": "The document format version. Always 1."
                   },
                   "collections": {
+                    "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none.",
                     "type": "object",
                     "propertyNames": {
                       "type": "string",
@@ -27972,8 +27973,7 @@
                         "fields"
                       ],
                       "additionalProperties": false
-                    },
-                    "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none."
+                    }
                   }
                 },
                 "required": [
@@ -30389,6 +30389,7 @@
                 "description": "The document format version. Always 1."
               },
               "collections": {
+                "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none.",
                 "type": "object",
                 "propertyNames": {
                   "type": "string",
@@ -31093,8 +31094,7 @@
                     "fields"
                   ],
                   "additionalProperties": false
-                },
-                "description": "The collections of the app by key, at most 50. Nothing under `collections:` (null) means none."
+                }
               }
             },
             "required": [

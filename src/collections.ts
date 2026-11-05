@@ -347,6 +347,8 @@ export const collectionDefinition = z
   .strict()
 export type CollectionDefinition = z.infer<typeof collectionDefinition>
 
+const collectionsMap = z.record(collectionKey, collectionDefinition)
+
 /**
  * The document itself. The caps on collections and fields are validity rules of
  * `collectionsDocumentIssues` rather than zod limits, so a document one
@@ -357,20 +359,15 @@ export type CollectionDefinition = z.infer<typeof collectionDefinition>
  * what a template for a new app looks like. Anything else that is not a map is
  * still refused.
  */
-export const collectionsDocument = z.preprocess(
-  // Done on the whole document and not on the `collections` property, so that the JSON Schema still lists `collections` as required.
-  (input) =>
-    typeof input === 'object' && input !== null && !Array.isArray(input) && (input as { collections?: unknown }).collections === null
-      ? { ...input, collections: {} }
-      : input,
-  z
-    .object({
-      format: z.literal(COLLECTIONS_FORMAT_VERSION).meta({ description: `The document format version. Always ${COLLECTIONS_FORMAT_VERSION}.` }),
-      collections: z
-        .record(collectionKey, collectionDefinition)
-        .meta({ description: `The collections of the app by key, at most ${COLLECTION_LIMITS.collections}. Nothing under \`collections:\` (null) means none.` }),
-    })
-    .strict()
-    .meta({ description: 'The data model of an app: its collections, their fields, and who may use them.' }),
-)
+export const collectionsDocument = z
+  .object({
+    format: z.literal(COLLECTIONS_FORMAT_VERSION).meta({ description: `The document format version. Always ${COLLECTIONS_FORMAT_VERSION}.` }),
+    // A codec on the property and not a preprocess on the document: the published JSON Schema then says `object | null` and still lists
+    // `collections` as required, and the parsed value (and the output schema) is the plain map.
+    collections: z
+      .codec(collectionsMap.nullable(), collectionsMap, { decode: (value) => value ?? {}, encode: (value) => value })
+      .meta({ description: `The collections of the app by key, at most ${COLLECTION_LIMITS.collections}. Nothing under \`collections:\` (null) means none.` }),
+  })
+  .strict()
+  .meta({ description: 'The data model of an app: its collections, their fields, and who may use them.' })
 export type CollectionsDocument = z.infer<typeof collectionsDocument>

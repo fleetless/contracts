@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFileSync } from 'node:fs'
+import { Ajv2020 } from 'ajv/dist/2020.js'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import {
   COLLECTIONS_FORMAT_VERSION,
   COLLECTION_LIMITS,
@@ -353,9 +355,13 @@ describe('the published JSON Schema', () => {
       readFileSync(new URL('../artifacts/schema/collections-document.schema.json', import.meta.url), 'utf8'),
     ) as Record<string, any>
 
+  /** The map of collections in the artifact: the object member of the `object | null` the property accepts. */
+  const collectionsMap = (artifact: Record<string, any>): Record<string, any> =>
+    (artifact.properties.collections.anyOf as Record<string, any>[]).find((member) => member.type === 'object')!
+
   it('forbids additional properties on collection definitions and lists all nine field types', () => {
     const artifact = load()
-    const definition = artifact.properties.collections.additionalProperties
+    const definition = collectionsMap(artifact).additionalProperties
     expect(definition.additionalProperties).toBe(false)
     expect(artifact.additionalProperties).toBe(false)
 
@@ -369,14 +375,27 @@ describe('the published JSON Schema', () => {
   it('restricts keys to the key grammar and fixes the format to 1', () => {
     const artifact = load()
     expect(artifact.properties.format.const).toBe(1)
-    expect(artifact.properties.collections.propertyNames.pattern).toBe('^[a-z][a-z0-9_]{0,62}$')
-    expect(artifact.properties.collections.additionalProperties.properties.fields.propertyNames.pattern).toBe(
-      '^[a-z][a-z0-9_]{0,62}$',
-    )
+    expect(collectionsMap(artifact).propertyNames.pattern).toBe('^[a-z][a-z0-9_]{0,62}$')
+    expect(collectionsMap(artifact).additionalProperties.properties.fields.propertyNames.pattern).toBe('^[a-z][a-z0-9_]{0,62}$')
   })
 
-  it('still lists collections as required: the null is a courtesy of the parser, not part of the format', () => {
-    expect(load().required).toEqual(['format', 'collections'])
+  it('allows null for collections in the artifact, as the parser does, and still requires the key', () => {
+    const artifact = load()
+    expect(artifact.required).toEqual(['format', 'collections'])
+    expect(artifact.properties.collections.anyOf.map((member: { type: string }) => member.type).sort()).toEqual(['null', 'object'])
+
+    const validate = new Ajv2020({ strict: false }).compile(artifact)
+    expect(validate({ format: 1, collections: null }), 'null').toBe(true)
+    expect(validate({ format: 1, collections: {} }), 'empty map').toBe(true)
+    expect(validate({ format: 1 }), 'missing key').toBe(false)
+    for (const bad of [5, 'none', [], false]) expect(validate({ format: 1, collections: bad }), JSON.stringify(bad)).toBe(false)
+  })
+
+  it('describes the document the same way for a reader of the parsed value: the output side is the map', () => {
+    const output = z.toJSONSchema(collectionsDocument, { io: 'output' }) as Record<string, any>
+    expect(output.required).toEqual(['format', 'collections'])
+    expect(output.properties.collections.type).toBe('object')
+    expect(output.properties.collections.anyOf).toBeUndefined()
   })
 
   it('caps a pattern at 1,000 characters, in the parser and in the artifact', () => {
@@ -384,7 +403,7 @@ describe('the published JSON Schema', () => {
     expect(pattern(1000)).toBe(true)
     expect(pattern(1001)).toBe(false)
     const artifact = load()
-    const fields = artifact.properties.collections.additionalProperties.properties.fields.additionalProperties
+    const fields = collectionsMap(artifact).additionalProperties.properties.fields.additionalProperties
     const members: Record<string, any>[] = fields.oneOf ?? fields.anyOf
     const text = members.find((member) => member.properties.type.const === 'text')!
     expect(text.properties.pattern.maxLength).toBe(1000)
@@ -393,7 +412,7 @@ describe('the published JSON Schema', () => {
 
   it('says in which dialect a text pattern is written and checked', () => {
     const artifact = load()
-    const fields = artifact.properties.collections.additionalProperties.properties.fields.additionalProperties
+    const fields = collectionsMap(artifact).additionalProperties.properties.fields.additionalProperties
     const members: Record<string, any>[] = fields.oneOf ?? fields.anyOf
     const text = members.find((member) => member.properties.type.const === 'text')!
     const description: string = text.properties.pattern.description
@@ -406,7 +425,7 @@ describe('the published JSON Schema', () => {
 
   it('describes the keys it asks an author to write', () => {
     const artifact = load()
-    const definition = artifact.properties.collections.additionalProperties
+    const definition = collectionsMap(artifact).additionalProperties
     expect(typeof definition.properties.binding.description).toBe('string')
     expect(typeof definition.properties.display.description).toBe('string')
     expect(typeof definition.properties.access.description).toBe('string')
