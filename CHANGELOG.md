@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [13.2.0] — 2026-11-05
+
 ### Changed
 
 - Robot and app deletion, bridge-token rotation, server-key minting, rotation
