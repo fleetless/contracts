@@ -1171,8 +1171,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the ' +
       'inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. ' +
       'Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow ' +
-      'the organization defaults. A role that is no role is not an error; it answers `role_known: false` with nothing granted. A user of ' +
-      'another app answers `404`.',
+      'the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is ' +
+      'still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with ' +
+      'nothing granted, and so does a user who is not `active`. A user of another app answers `404`.',
   },
 
 

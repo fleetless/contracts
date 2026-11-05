@@ -2266,7 +2266,7 @@
             }
           }
         },
-        "description": "Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow the organization defaults. A role that is no role is not an error; it answers `role_known: false` with nothing granted. A user of another app answers `404`."
+        "description": "Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with nothing granted, and so does a user who is not `active`. A user of another app answers `404`."
       }
     },
     "/api/apps/{id}/users": {
@@ -27011,7 +27011,7 @@
                 "type": "null"
               }
             ],
-            "description": "The app user asked about; `null` when a role was asked about."
+            "description": "The app user asked about; `null` when a role was asked about. A user who is not `active` reaches nothing, whatever role they hold: every capability below is not granted."
           },
           "robots": {
             "type": "array",
@@ -27042,6 +27042,10 @@
                     }
                   ],
                   "description": "The version of the robot's published `fleetless.yaml` that the answer was computed from; `null` when nothing is published."
+                },
+                "reachable": {
+                  "type": "boolean",
+                  "description": "Whether a session of this role reaches the robot at all: at least one slug or one capability is granted once the locks are applied. When `false`, `robots.describe` answers `not_found` for the robot and `robots.list` leaves it out; `capabilities` says why, and `datasheet` is the empty one."
                 },
                 "capabilities": {
                   "type": "array",
@@ -27270,6 +27274,7 @@
                 "robot_id",
                 "robot_name",
                 "published_version",
+                "reachable",
                 "capabilities",
                 "datasheet"
               ],

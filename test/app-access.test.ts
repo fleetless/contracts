@@ -45,7 +45,7 @@ const datasheet = {
   capabilities: Object.fromEntries(Object.keys(mcpCapabilities.shape).map((name) => [name, true])),
   exposures: [],
 }
-const rights = { robot_id: robot, robot_name: 'Arm', published_version: 3, capabilities: [capability], datasheet }
+const rights = { robot_id: robot, robot_name: 'Arm', published_version: 3, reachable: true, capabilities: [capability], datasheet }
 
 describe('appAccess', () => {
   it('takes a default role, the kinds to lock and the single locks', () => {
@@ -200,6 +200,15 @@ describe('effective rights', () => {
     const { datasheet: _datasheet, ...withoutSheet } = rights
     expect(effectiveRobotRights.safeParse(withoutSheet).success).toBe(false)
     expect(effectiveRobotRights.safeParse({ ...rights, published_version: 0 }).success).toBe(false)
+  })
+
+  it('say whether a session of the role reaches the robot at all, and never leave it out', () => {
+    expect(effectiveRobotRights.safeParse({ ...rights, reachable: false }).success).toBe(true)
+    const { reachable: _reachable, ...withoutReach } = rights
+    expect(effectiveRobotRights.safeParse(withoutReach).success).toBe(false)
+    expect(effectiveRobotRights.safeParse({ ...rights, reachable: 'no' }).success).toBe(false)
+    expect(artifact('effective-robot-rights')(rights)).toBe(true)
+    expect(artifact('effective-robot-rights')(withoutReach)).toBe(false)
   })
 
   it('answer for a role that exists and for one that does not', () => {

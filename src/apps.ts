@@ -403,6 +403,11 @@ export const effectiveRobotRights = z.object({
   published_version: z.number().int().positive().nullable().meta({
     description: 'The version of the robot\'s published `fleetless.yaml` that the answer was computed from; `null` when nothing is published.',
   }),
+  reachable: z.boolean().meta({
+    description:
+      'Whether a session of this role reaches the robot at all: at least one slug or one capability is granted once the locks are applied. When `false`, ' +
+      '`robots.describe` answers `not_found` for the robot and `robots.list` leaves it out; `capabilities` says why, and `datasheet` is the empty one.',
+  }),
   capabilities: z.array(effectiveCapability).meta({
     description: 'Every capability of the published configuration, and `assets` and `job_history`, each granted or not.',
   }),
@@ -421,7 +426,7 @@ export const effectiveRightsResponse = z.object({
     description: 'Whether the key names a role of the organization. `false` means every capability below is not granted.',
   }),
   user_id: z.uuid().nullable().meta({
-    description: 'The app user asked about; `null` when a role was asked about.',
+    description: 'The app user asked about; `null` when a role was asked about. A user who is not `active` reaches nothing, whatever role they hold: every capability below is not granted.',
   }),
   robots: z.array(effectiveRobotRights).meta({
     description: 'The robots attached to the app, each with what the role may use.',

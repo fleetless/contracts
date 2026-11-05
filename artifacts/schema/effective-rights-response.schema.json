@@ -28,7 +28,7 @@
           "type": "null"
         }
       ],
-      "description": "The app user asked about; `null` when a role was asked about."
+      "description": "The app user asked about; `null` when a role was asked about. A user who is not `active` reaches nothing, whatever role they hold: every capability below is not granted."
     },
     "robots": {
       "type": "array",
@@ -59,6 +59,10 @@
               }
             ],
             "description": "The version of the robot's published `fleetless.yaml` that the answer was computed from; `null` when nothing is published."
+          },
+          "reachable": {
+            "type": "boolean",
+            "description": "Whether a session of this role reaches the robot at all: at least one slug or one capability is granted once the locks are applied. When `false`, `robots.describe` answers `not_found` for the robot and `robots.list` leaves it out; `capabilities` says why, and `datasheet` is the empty one."
           },
           "capabilities": {
             "type": "array",
@@ -287,6 +291,7 @@
           "robot_id",
           "robot_name",
           "published_version",
+          "reachable",
           "capabilities",
           "datasheet"
         ],

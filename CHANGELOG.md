@@ -113,8 +113,8 @@ release; every breaking item is named once, under Removed or Changed.
   the role its users get by default; the answer carries `warnings` for what is
   out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
   answers, per attached robot, every capability with whether it is granted,
-  where its requirement came from and the datasheet an MCP session of that
-  role would get. Developer routes, none owner-only. Shapes: `appAccess`,
+  where its requirement came from, whether the robot is `reachable` at all and
+  the datasheet an MCP session of that role would get. Developer routes, none owner-only. Shapes: `appAccess`,
   `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
   `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
   The lists of an access name each kind, slug and robot once, and are bounded;
