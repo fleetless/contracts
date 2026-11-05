@@ -1031,6 +1031,271 @@
         }
       }
     },
+    "/api/org/roles": {
+      "get": {
+        "operationId": "get_api_org_roles",
+        "summary": "Lists the organization's roles with how much depends on each, and the keys that are written somewhere but are no role.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/org-role-list-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Roles belong to the organization and are shared by all its apps; console members hold none and are never filtered by them. Each role carries the number of app users that hold it, of invitations that carry it, of apps that use it as their default and of places in documents that name it. `dangling` lists the keys that are written somewhere and are no role, each with every place that writes it, so a deleted or misspelled key can be found. None of this is an error: a key that names no role grants nothing and is reported here."
+      },
+      "post": {
+        "operationId": "post_api_org_roles",
+        "summary": "Creates an organization role.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/org-role"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `role_cycle`, `role_key_taken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "An organization holds at most 50 roles; the next one is `400 validation_error`. A key in `inherits` that names no role is accepted and warns: inheritance through it grants nothing until a role with that key exists. A role that would inherit from itself, as `inherits` naming its own key does, is `400 role_cycle`. A key that another role has is `409 role_key_taken`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/create-org-role-request"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/org/roles/{key}": {
+      "patch": {
+        "operationId": "patch_api_org_roles_key",
+        "summary": "Changes a role's name, its parents or its key.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/org-role"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `not_found`, `role_cycle`, `role_key_taken`, `confirmation_required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is `400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is accepted at once; everything that still names the old key, in documents, assignments, invitations, default roles, other roles and organization defaults, keeps it and turns into a warning. With `update_references: true` and no `confirm`, nothing is changed and the call answers `409 confirmation_required` whose `details` is a `roleRenamePreview`: every place that would be rewritten, the document it is in, the version a published document would get, and a `confirm` token. The second call repeats the same body with `confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key that another role has is `409 role_key_taken`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/patch-org-role-request"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "delete_api_org_roles_key",
+        "summary": "Deletes a role at once.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success."
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`, `not_found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Nothing is moved and nothing is refused for what depends on the role. App users that hold it keep their account and can sign in, with no rights from the role; everything that names the key turns into a warning and is listed under `dangling` of `GET /api/org/roles`. Live subscriptions that relied on the role are re-checked at once. Creating a role with the same key later makes the places that name it count again."
+      }
+    },
+    "/api/org/roles/defaults": {
+      "get": {
+        "operationId": "get_api_org_roles_defaults",
+        "summary": "Reads the organization's default roles for each kind of access.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/role-defaults-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Every kind of access is present; an empty list means nobody holds it, not even the most senior role. A default applies where a robot's published `fleetless.yaml` names no role for the thing asked about. A new organization starts with `observe` for `read` and `assets`, and `operate` for `invoke`, `publish` and `job_history`."
+      },
+      "put": {
+        "operationId": "put_api_org_roles_defaults",
+        "summary": "Changes the organization's default roles for the named kinds of access.",
+        "tags": [
+          "org"
+        ],
+        "security": [
+          {
+            "developerSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/role-defaults-response"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `validation_error`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/api-error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Despite the verb, kinds that are not named keep their default; `null` or `[]` sets a kind to nobody. A key that names no role is accepted and warns, and grants nothing. Answers all the defaults as they stand afterwards. A default that narrows who holds a kind re-checks the live subscriptions it affects.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/put-role-defaults-request"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/audit": {
       "get": {
         "operationId": "get_api_audit",
@@ -25535,6 +25800,36 @@
         ],
         "additionalProperties": false
       },
+      "create-org-role-request": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "The new role's key, unique in the organization. Documents and assignments name the role by it."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "The display name, 1 to 60 characters; surrounding spaces are removed."
+          },
+          "inherits": {
+            "description": "Keys of the roles to inherit from. A key that names no role is accepted and warns. Left out, the role inherits from nobody; a key that would lead back to this role is refused with `role_cycle`.",
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "create-passkey-request": {
         "type": "object",
         "properties": {
@@ -30497,6 +30792,266 @@
         ],
         "additionalProperties": false
       },
+      "org-role": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "The role's key, as `fleetless.yaml` and every assignment write it. Unique in the organization."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60,
+            "description": "The display name, 1 to 60 characters and trimmed. Changing it changes nothing about rights."
+          },
+          "inherits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The keys of the roles this one inherits from. A role holds whatever its parents hold, and theirs in turn. A key that names no role is kept as written; inheritance through it grants nothing, and the key appears under `dangling`."
+          },
+          "users": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "App users, in every app of the organization, who hold this role."
+          },
+          "invitations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Invitations that carry this role."
+          },
+          "app_defaults": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Apps that use this role as their default role."
+          },
+          "references": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Places in documents that name this role, such as a `role` in a robot's `fleetless.yaml`. A rename with `update_references` rewrites them."
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "inherits",
+          "users",
+          "invitations",
+          "app_defaults",
+          "references"
+        ],
+        "additionalProperties": false
+      },
+      "org-role-list-response": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                  "description": "The role's key, as `fleetless.yaml` and every assignment write it. Unique in the organization."
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60,
+                  "description": "The display name, 1 to 60 characters and trimmed. Changing it changes nothing about rights."
+                },
+                "inherits": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The keys of the roles this one inherits from. A role holds whatever its parents hold, and theirs in turn. A key that names no role is kept as written; inheritance through it grants nothing, and the key appears under `dangling`."
+                },
+                "users": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "App users, in every app of the organization, who hold this role."
+                },
+                "invitations": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Invitations that carry this role."
+                },
+                "app_defaults": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Apps that use this role as their default role."
+                },
+                "references": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Places in documents that name this role, such as a `role` in a robot's `fleetless.yaml`. A rename with `update_references` rewrites them."
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "inherits",
+                "users",
+                "invitations",
+                "app_defaults",
+                "references"
+              ],
+              "additionalProperties": false
+            },
+            "description": "The organization's roles with their counts, in key order."
+          },
+          "dangling": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "description": "A key that names no role of the organization, because the role was deleted or renamed or never existed."
+                },
+                "places": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "config",
+                          "app_user",
+                          "invitation",
+                          "app_default",
+                          "role_inherits",
+                          "org_default"
+                        ],
+                        "description": "What writes the key: `config` is a `role` or `access` value in a robot's `fleetless.yaml`, `app_user` an app user who holds it, `invitation` an invitation that carries it, `app_default` an app's default role, `role_inherits` another role that inherits from it, and `org_default` one of the organization's defaults."
+                      },
+                      "label": {
+                        "type": "string",
+                        "description": "What a person reads to find the place: the robot, app or role name, or the access kind of an organization default."
+                      },
+                      "path": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "For `config`, where in the YAML the key is written, such as `services.arm_home.role` or `access.rules[1].role`; `null` for every other kind."
+                      },
+                      "robot_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The robot whose document holds the key (`config`); `null` for every other kind."
+                      },
+                      "app_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The app the user, invitation or default role belongs to (`app_user`, `invitation`, `app_default`); `null` for every other kind."
+                      },
+                      "user_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "The app user who holds the key (`app_user`); `null` for every other kind."
+                      },
+                      "document": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "published",
+                              "draft"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Which version of the robot's document holds the key (`config`): the published one or the draft; `null` for every other kind."
+                      },
+                      "new_version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "For a published document, the version number a rename with `update_references` would give it, a copy that differs only in the key; `null` for a draft and for every place that is no document."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "label",
+                      "path",
+                      "robot_id",
+                      "app_id",
+                      "user_id",
+                      "document",
+                      "new_version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "description": "Every place that writes the key. It grants nothing wherever it is written; creating a role with this key makes the places count again."
+                }
+              },
+              "required": [
+                "key",
+                "places"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Keys written somewhere that are no role, each with its places. Empty when nothing is out of step."
+          }
+        },
+        "required": [
+          "roles",
+          "dangling"
+        ],
+        "additionalProperties": false
+      },
       "org-usage-response": {
         "type": "object",
         "properties": {
@@ -30773,6 +31328,41 @@
         "required": [
           "org"
         ],
+        "additionalProperties": false
+      },
+      "patch-org-role-request": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "A new display name, 1 to 60 characters; surrounding spaces are removed.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "inherits": {
+            "description": "The role's parents from now on. It replaces the whole list; `[]` removes every parent. A list that would lead back to this role is refused with `role_cycle`.",
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            }
+          },
+          "key": {
+            "description": "A new key. On its own, the rename is accepted at once and everything that still names the old key turns into a warning. To rewrite those places as well, add `update_references`.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+          },
+          "update_references": {
+            "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, the call changes nothing and answers `409 confirmation_required` with the preview.",
+            "type": "boolean"
+          },
+          "confirm": {
+            "description": "The `confirm` token of the preview the caller was shown. It confirms that preview only; if the places to rewrite have changed since, the call answers a new preview.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "additionalProperties": false
       },
       "patch-robot-request": {
@@ -38629,6 +39219,122 @@
         ],
         "additionalProperties": false
       },
+      "put-role-defaults-request": {
+        "type": "object",
+        "properties": {
+          "defaults": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "description": "Reading datapoints and cameras. One role key, a list of keys, or `null` or `[]` for nobody. Left out, the kind keeps what it has. A key that names no role is accepted and warns.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                  },
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "invoke": {
+                "description": "Calling services and starting actions. One role key, a list of keys, or `null` or `[]` for nobody. Left out, the kind keeps what it has. A key that names no role is accepted and warns.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                  },
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "publish": {
+                "description": "Driving a robot through its publishers. One role key, a list of keys, or `null` or `[]` for nobody. Left out, the kind keeps what it has. A key that names no role is accepted and warns.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                  },
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "assets": {
+                "description": "A robot's asset files, such as its URDF and meshes. One role key, a list of keys, or `null` or `[]` for nobody. Left out, the kind keeps what it has. A key that names no role is accepted and warns.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                  },
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "job_history": {
+                "description": "The history of a robot's jobs. One role key, a list of keys, or `null` or `[]` for nobody. Left out, the kind keeps what it has. A key that names no role is accepted and warns.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                  },
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false,
+            "description": "The kinds to change. A kind that is not named keeps its current default, so this is a patch of the defaults and not a replacement."
+          }
+        },
+        "required": [
+          "defaults"
+        ],
+        "additionalProperties": false
+      },
       "recover-held-job-request": {
         "type": "object",
         "properties": {
@@ -39622,6 +40328,64 @@
         },
         "required": [
           "token"
+        ],
+        "additionalProperties": false
+      },
+      "role-defaults-response": {
+        "type": "object",
+        "properties": {
+          "defaults": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Reading datapoints and cameras. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+              },
+              "invoke": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Calling services and starting actions. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+              },
+              "publish": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Driving a robot through its publishers. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+              },
+              "assets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "A robot's asset files, such as its URDF and meshes. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+              },
+              "job_history": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The history of a robot's jobs. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+              }
+            },
+            "required": [
+              "read",
+              "invoke",
+              "publish",
+              "assets",
+              "job_history"
+            ],
+            "additionalProperties": false,
+            "description": "Every kind of access, each with the keys of the roles that hold it when a robot's published configuration names nobody."
+          }
+        },
+        "required": [
+          "defaults"
         ],
         "additionalProperties": false
       },

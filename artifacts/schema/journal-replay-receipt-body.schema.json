@@ -130,6 +130,7 @@
               "app_user.remove",
               "app_role.delete",
               "server_key.revoke",
+              "org_role.delete",
               "billing_document_link.remove",
               "app_oidc_provider.delete",
               "team_invitation.revoke",

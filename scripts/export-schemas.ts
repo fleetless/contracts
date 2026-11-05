@@ -238,7 +238,18 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
-import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation, roleCycleDetails } from '../src/errors.js'
+import {
+  referencePlace,
+  orgRole,
+  danglingReference,
+  orgRoleListResponse,
+  createOrgRoleRequest,
+  patchOrgRoleRequest,
+  roleRenamePreview,
+  roleDefaultsResponse,
+  putRoleDefaultsRequest,
+} from '../src/org-roles.js'
 import {
   passwordChangeRequest,
   refreshRequest,
@@ -865,6 +876,24 @@ export const exportedSchemas = {
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'invalid-code-details': invalidCodeDetails, // the details of invalid_code; re-exported by @fleetless/sdk as a type
+
+  // --- Organization roles --------------------------------------------------
+  //
+  // Each shape the six `/api/org/roles` routes name, plus the ones that only
+  // travel inside them (`reference-place`, `dangling-reference`) and the two
+  // that ride an error's `details` (`role-rename-preview` on
+  // `confirmation_required`, `role-cycle-details` on `role_cycle`), so the
+  // reference can link every name to a field table.
+  'org-role-list-response': orgRoleListResponse, // GET /api/org/roles
+  'org-role': orgRole, // POST and PATCH /api/org/roles; embedded in org-role-list-response
+  'dangling-reference': danglingReference, // embedded in org-role-list-response
+  'reference-place': referencePlace, // embedded in dangling-reference and role-rename-preview
+  'create-org-role-request': createOrgRoleRequest, // POST /api/org/roles
+  'patch-org-role-request': patchOrgRoleRequest, // PATCH /api/org/roles/:key
+  'role-rename-preview': roleRenamePreview, // the details of confirmation_required
+  'role-cycle-details': roleCycleDetails, // the details of role_cycle
+  'role-defaults-response': roleDefaultsResponse, // GET and PUT /api/org/roles/defaults
+  'put-role-defaults-request': putRoleDefaultsRequest, // PUT /api/org/roles/defaults
 } as const
 
 /**
@@ -1038,6 +1067,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'refresh-request', 'password-change-request',
   'create-passkey-request', 'rename-passkey-request', 'totp-confirm-request',
   'update-app-request',
+  'create-org-role-request', 'patch-org-role-request', 'put-role-defaults-request',
   'oauth-token-request', 'dynamic-client-registration-request',
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
@@ -1152,6 +1182,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
   'cancel-rejected-details', 'invalid-code-details',
+  // Organization roles: answers, the places inside them, and two error details.
+  'org-role-list-response', 'org-role', 'dangling-reference', 'reference-place',
+  'role-rename-preview', 'role-cycle-details', 'role-defaults-response',
   // Embedded in support-token-response, and in authMeSupportResponse, which
   // no route names: what the server sends, never a document it validates.
   'support-session-info',

@@ -190,6 +190,18 @@ export const billingDocumentsUnavailableDetails = z.object({
 export type BillingDocumentsUnavailableDetails = z.infer<typeof billingDocumentsUnavailableDetails>
 
 /**
+ * The `details` of a `400 role_cycle` refusal: the loop the change would have
+ * made, along the `inherits` edges, as `[a, b, a]` — the first key again at
+ * the end. A role that inherits from itself is `[a, a]`.
+ */
+export const roleCycleDetails = z.object({
+  cycle: z.array(z.string()).min(2).meta({
+    description: 'The keys along the loop, in order, ending with the key the loop started from: `["a", "b", "a"]`.',
+  }),
+})
+export type RoleCycleDetails = z.infer<typeof roleCycleDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -714,6 +726,36 @@ export const ERROR_CODES = [
   'last_owner',
   /* `role_name_taken`, `role_in_use` and `last_role` are gone with the per-app
    * role routes they answered; organization roles bring their own refusals. */
+  // Organization roles.
+  /**
+   * `400`: the change would make a role inherit from itself, directly or
+   * through other roles. Nothing was written. `details` is `roleCycleDetails`,
+   * the loop as `[a, b, a]`.
+   *
+   * Raised when a role is created or its `inherits` changes. Renaming and
+   * deleting a role are never refused for the roles that depend on it: what is
+   * left dangling turns into a warning.
+   */
+  'role_cycle',
+  /**
+   * `409`: the organization already has a role with that key, on a create or on
+   * a rename to a key that is in use. Nothing was written; pick another key.
+   */
+  'role_key_taken',
+  /**
+   * `409`: the call changes many places at once and has to be confirmed with
+   * the token of its current preview. `details` is that preview, with the
+   * token in its `confirm` field; repeat the same request with `confirm` set
+   * to it and the call applies. The shape of the preview belongs to the call
+   * that answers it: for renaming an organization role with
+   * `update_references` it is `roleRenamePreview`.
+   *
+   * A token fits the effects its preview lists and nothing else. When
+   * anything those effects cover has changed since, the call answers a new
+   * preview instead of applying on a stale token, so what is applied is always
+   * what the caller was shown.
+   */
+  'confirmation_required',
   // OIDC federation.
   /**
    * **The target is in a state that refuses the operation** — not the caller's

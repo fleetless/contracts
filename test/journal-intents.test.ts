@@ -28,6 +28,7 @@ const examples: [string, Record<string, unknown>, boolean][] = [
   ['app_role.delete', { ...app, role_id: id, move_mode: 'none' }, true],
   ['app_role.delete', { ...app, role_id: id, move_mode: 'reassign', move_to_role_id: id }, true],
   ['server_key.revoke', { ...app, key_id: id }, false],
+  ['org_role.delete', { ...org, role_id: id }, false],
   ['billing_document_link.remove', { ...org, link_id: id }, false],
   ['app_oidc_provider.delete', { ...app, provider_id: id }, true],
   ['team_invitation.revoke', { ...org, invitation_id: id }, false],

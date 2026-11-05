@@ -311,6 +311,29 @@ export type {
   ExposureRef,
   RightsTarget,
 } from './rights.js'
+/** Organization roles on the wire: the role list, create and change, the rename preview and the organization's defaults. See `org-roles.ts`. */
+export {
+  referencePlace,
+  orgRole,
+  danglingReference,
+  orgRoleListResponse,
+  createOrgRoleRequest,
+  patchOrgRoleRequest,
+  roleRenamePreview,
+  roleDefaultsResponse,
+  putRoleDefaultsRequest,
+} from './org-roles.js'
+export type {
+  ReferencePlace,
+  OrgRole,
+  DanglingReference,
+  OrgRoleListResponse,
+  CreateOrgRoleRequest,
+  PatchOrgRoleRequest,
+  RoleRenamePreview,
+  RoleDefaultsResponse,
+  PutRoleDefaultsRequest,
+} from './org-roles.js'
 export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf } from './introspection.js'
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {
@@ -863,6 +886,8 @@ export {
   paymentProviderUnavailableDetails,
   // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
   billingDocumentsUnavailableDetails,
+  // Organization roles.
+  roleCycleDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -878,6 +903,7 @@ export type {
   FileTooLargeDetails,
   PaymentProviderUnavailableDetails,
   BillingDocumentsUnavailableDetails,
+  RoleCycleDetails,
 } from './errors.js'
 export {
   oauthErrorCode,

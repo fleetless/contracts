@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "description": "A new display name, 1 to 60 characters; surrounding spaces are removed.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "inherits": {
+      "description": "The role's parents from now on. It replaces the whole list; `[]` removes every parent. A list that would lead back to this role is refused with `role_cycle`.",
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,62}$",
+        "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+      }
+    },
+    "key": {
+      "description": "A new key. On its own, the rename is accepted at once and everything that still names the old key turns into a warning. To rewrite those places as well, add `update_references`.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+    },
+    "update_references": {
+      "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, the call changes nothing and answers `409 confirmation_required` with the preview.",
+      "type": "boolean"
+    },
+    "confirm": {
+      "description": "The `confirm` token of the preview the caller was shown. It confirms that preview only; if the places to rewrite have changed since, the call answers a new preview.",
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

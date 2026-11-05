@@ -26,6 +26,19 @@ version.
   warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
 - `warnings` on `publishConfigResponse`: every warning of the published
   document, `[]` when it has none.
+- Organization roles on the wire. Six developer routes, none owner-only:
+  `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
+  and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
+  its counts and the keys that are written somewhere but are no role; a rename
+  with `update_references` is two calls, the first answered with a preview and
+  a `confirm` token. Shapes: `orgRole`, `orgRoleListResponse`,
+  `danglingReference`, `referencePlace`, `createOrgRoleRequest`,
+  `patchOrgRoleRequest`, `roleRenamePreview`, `roleDefaultsResponse` and
+  `putRoleDefaultsRequest`, each with its type and JSON Schema artifact.
+- The error codes `role_cycle` (`400`, `details` is `roleCycleDetails`),
+  `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
+  the preview that carries the token to confirm with).
+- The journal kind `org_role.delete`, recorded like `server_key.revoke`.
 
 ### Removed
 

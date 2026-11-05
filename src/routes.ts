@@ -96,6 +96,14 @@ import {
   putAppMailTemplateRequest,
 } from './app-users.js'
 import type { ErrorCode } from './errors.js'
+import {
+  createOrgRoleRequest,
+  orgRole,
+  orgRoleListResponse,
+  patchOrgRoleRequest,
+  putRoleDefaultsRequest,
+  roleDefaultsResponse,
+} from './org-roles.js'
 import { controllerRegisterOrgResponse, controllerRegisterWrite } from './controller-register.js'
 import {
   acceptTeamInviteRequest,
@@ -894,6 +902,83 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error'], transport: 'http',
     notes: 'The authenticated org is the only target. Null contacts explicitly clear earlier values. ' +
       'The write is atomic and audited; billing data is never an implicit source. Support sessions cannot write.',
+  },
+  {
+    method: 'GET', path: '/api/org/roles', section: 'org',
+    summary: "Lists the organization's roles with how much depends on each, and the keys that are written somewhere but are no role.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: orgRoleListResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      'Roles belong to the organization and are shared by all its apps; console members hold none and are never filtered by them. Each role ' +
+      'carries the number of app users that hold it, of invitations that carry it, of apps that use it as their default and of places in ' +
+      'documents that name it. `dangling` lists the keys that are written somewhere and are no role, each with every place that writes it, ' +
+      'so a deleted or misspelled key can be found. None of this is an error: a key that names no role grants nothing and is reported here.',
+  },
+  {
+    method: 'POST', path: '/api/org/roles', section: 'org',
+    summary: 'Creates an organization role.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [], query: null, request: createOrgRoleRequest, response: orgRole,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'role_cycle', 'role_key_taken'], transport: 'http',
+    notes:
+      'An organization holds at most 50 roles; the next one is `400 validation_error`. A key in `inherits` that names no role is accepted and ' +
+      'warns: inheritance through it grants nothing until a role with that key exists. A role that would inherit from itself, as `inherits` ' +
+      'naming its own key does, is `400 role_cycle`. A key that another role has is `409 role_key_taken`.',
+  },
+  {
+    method: 'PATCH', path: '/api/org/roles/:key', section: 'org',
+    summary: "Changes a role's name, its parents or its key.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'key', description: "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`." }],
+    query: null, request: patchOrgRoleRequest, response: orgRole,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found', 'role_cycle', 'role_key_taken', 'confirmation_required'], transport: 'http',
+    notes:
+      'A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is ' +
+      '`400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is ' +
+      'accepted at once; everything that still names the old key, in documents, assignments, invitations, default roles, other roles and ' +
+      'organization defaults, keeps it and turns into a warning. With `update_references: true` and no `confirm`, nothing is changed and the ' +
+      'call answers `409 confirmation_required` whose `details` is a `roleRenamePreview`: every place that would be rewritten, the document ' +
+      'it is in, the version a published document would get, and a `confirm` token. The second call repeats the same body with ' +
+      '`confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected ' +
+      'published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the ' +
+      'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key ' +
+      'that another role has is `409 role_key_taken`.',
+  },
+  {
+    method: 'DELETE', path: '/api/org/roles/:key', section: 'org',
+    summary: 'Deletes a role at once.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'key', description: "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`." }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'Nothing is moved and nothing is refused for what depends on the role. App users that hold it keep their account and can sign in, with ' +
+      'no rights from the role; everything that names the key turns into a warning and is listed under `dangling` of `GET /api/org/roles`. ' +
+      'Live subscriptions that relied on the role are re-checked at once. Creating a role with the same key later makes the places that ' +
+      'name it count again.',
+  },
+  {
+    method: 'GET', path: '/api/org/roles/defaults', section: 'org',
+    summary: "Reads the organization's default roles for each kind of access.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: roleDefaultsResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      'Every kind of access is present; an empty list means nobody holds it, not even the most senior role. A default applies where a robot\'s ' +
+      'published `fleetless.yaml` names no role for the thing asked about. A new organization starts with `observe` for `read` and `assets`, ' +
+      'and `operate` for `invoke`, `publish` and `job_history`.',
+  },
+  {
+    method: 'PUT', path: '/api/org/roles/defaults', section: 'org',
+    summary: "Changes the organization's default roles for the named kinds of access.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: putRoleDefaultsRequest, response: roleDefaultsResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
+    notes:
+      'Despite the verb, kinds that are not named keep their default; `null` or `[]` sets a kind to nobody. A key that names no role is ' +
+      'accepted and warns, and grants nothing. Answers all the defaults as they stand afterwards. A default that narrows who holds a kind ' +
+      're-checks the live subscriptions it affects.',
   },
   {
     method: 'GET', path: '/api/audit', section: 'org',
