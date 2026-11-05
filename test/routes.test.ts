@@ -942,7 +942,8 @@ describe('the per-app role routes', () => {
 
   it('are not in the OpenAPI document either', () => {
     const paths = Object.keys(openApiDocument().paths)
-    expect(paths.filter((p) => p.includes('/roles'))).toEqual([])
+    // The organization's own `/api/org/roles` routes replace them; only the per-app paths are forbidden.
+    expect(paths.filter((p) => p.startsWith('/api/apps/{id}/roles'))).toEqual([])
   })
 })
 
