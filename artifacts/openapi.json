@@ -1160,7 +1160,7 @@
             }
           }
         },
-        "description": "A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is `400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is accepted at once; everything that still names the old key, in documents, assignments, invitations, default roles, other roles and organization defaults, keeps it and turns into a warning. With `update_references: true` and no `confirm`, nothing is changed and the call answers `409 confirmation_required` whose `details` is a `roleRenamePreview`: every place that would be rewritten, the document it is in, the version a published document would get, and a `confirm` token. The second call repeats the same body with `confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key that another role has is `409 role_key_taken`.",
+        "description": "A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is `400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is accepted at once; everything that still names the old key, in documents, assignments, invitations, default roles, other roles and organization defaults, keeps it and turns into a warning. With `update_references: true` and no `confirm`, a rename that has places to rewrite changes nothing and answers `409 confirmation_required` whose `details` is a `roleRenamePreview`: every place that would be rewritten, the document it is in, the version a published document would get, and a `confirm` token. A rename with no place to rewrite applies at once and needs no token. The second call repeats the same body with `confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key that another role has is `409 role_key_taken`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2229,7 +2229,7 @@
             "schema": {
               "description": "A role key to look at the app as. A key that names no role is not an error: the answer says `role_known: false` and grants nothing.",
               "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
             }
           },
           {
@@ -11396,7 +11396,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
               },
               {
                 "type": "null"
@@ -11405,6 +11405,7 @@
             "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
           },
           "locked_kinds": {
+            "maxItems": 5,
             "type": "array",
             "items": {
               "type": "string",
@@ -11416,9 +11417,11 @@
                 "job_history"
               ]
             },
-            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+            "uniqueItems": true,
+            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`, each at most once. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
           },
           "locked": {
+            "maxItems": 1000,
             "type": "array",
             "items": {
               "type": "object",
@@ -11431,6 +11434,7 @@
                 },
                 "slugs": {
                   "minItems": 1,
+                  "maxItems": 2000,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -11438,7 +11442,8 @@
                     "maxLength": 63,
                     "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
                   },
-                  "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+                  "uniqueItems": true,
+                  "description": "The slugs of that robot's exposures to lock, at least one and each named once, at most 2000. A slug the robot has no exposure for is accepted and warns, and locks nothing."
                 }
               },
               "required": [
@@ -11447,7 +11452,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+            "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
           }
         },
         "required": [
@@ -11464,7 +11469,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
               },
               {
                 "type": "null"
@@ -11473,6 +11478,7 @@
             "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
           },
           "locked_kinds": {
+            "maxItems": 5,
             "type": "array",
             "items": {
               "type": "string",
@@ -11484,9 +11490,11 @@
                 "job_history"
               ]
             },
-            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+            "uniqueItems": true,
+            "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`, each at most once. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
           },
           "locked": {
+            "maxItems": 1000,
             "type": "array",
             "items": {
               "type": "object",
@@ -11499,6 +11507,7 @@
                 },
                 "slugs": {
                   "minItems": 1,
+                  "maxItems": 2000,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -11506,7 +11515,8 @@
                     "maxLength": 63,
                     "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
                   },
-                  "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+                  "uniqueItems": true,
+                  "description": "The slugs of that robot's exposures to lock, at least one and each named once, at most 2000. A slug the robot has no exposure for is accepted and warns, and locks nothing."
                 }
               },
               "required": [
@@ -11515,7 +11525,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+            "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
           },
           "warnings": {
             "type": "array",
@@ -22239,7 +22249,7 @@
                 "properties": {
                   "key": {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
                     "description": "The role's key, the same string `fleetless.yaml` and the organization's role list write."
                   },
                   "name": {
@@ -23226,7 +23236,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -23234,7 +23244,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -23394,7 +23404,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -23402,7 +23412,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -23562,7 +23572,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -23570,7 +23580,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -23763,7 +23773,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -23771,7 +23781,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -24028,7 +24038,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -24036,7 +24046,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -24088,7 +24098,7 @@
                               "anyOf": [
                                 {
                                   "type": "string",
-                                  "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                                 },
                                 {
                                   "minItems": 1,
@@ -24096,7 +24106,7 @@
                                   "type": "array",
                                   "items": {
                                     "type": "string",
-                                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                                   }
                                 }
                               ],
@@ -24115,7 +24125,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           },
                           {
                             "minItems": 1,
@@ -24123,7 +24133,7 @@
                             "type": "array",
                             "items": {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             }
                           }
                         ],
@@ -24133,7 +24143,7 @@
                         "anyOf": [
                           {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           },
                           {
                             "minItems": 1,
@@ -24141,7 +24151,7 @@
                             "type": "array",
                             "items": {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             }
                           }
                         ],
@@ -24574,7 +24584,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         },
                         {
                           "minItems": 1,
@@ -24582,7 +24592,7 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           }
                         }
                       ],
@@ -24742,7 +24752,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         },
                         {
                           "minItems": 1,
@@ -24750,7 +24760,7 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           }
                         }
                       ],
@@ -24910,7 +24920,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         },
                         {
                           "minItems": 1,
@@ -24918,7 +24928,7 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           }
                         }
                       ],
@@ -25111,7 +25121,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         },
                         {
                           "minItems": 1,
@@ -25119,7 +25129,7 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           }
                         }
                       ],
@@ -25376,7 +25386,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         },
                         {
                           "minItems": 1,
@@ -25384,7 +25394,7 @@
                           "type": "array",
                           "items": {
                             "type": "string",
-                            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                           }
                         }
                       ],
@@ -25436,7 +25446,7 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                             },
                             {
                               "minItems": 1,
@@ -25444,7 +25454,7 @@
                               "type": "array",
                               "items": {
                                 "type": "string",
-                                "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                               }
                             }
                           ],
@@ -25463,7 +25473,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                       },
                       {
                         "minItems": 1,
@@ -25471,7 +25481,7 @@
                         "type": "array",
                         "items": {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         }
                       }
                     ],
@@ -25481,7 +25491,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                        "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                       },
                       {
                         "minItems": 1,
@@ -25489,7 +25499,7 @@
                         "type": "array",
                         "items": {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                         }
                       }
                     ],
@@ -26183,7 +26193,7 @@
         "properties": {
           "key": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
             "description": "The new role's key, unique in the organization. Documents and assignments name the role by it."
           },
           "name": {
@@ -26198,7 +26208,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
             }
           }
         },
@@ -31479,7 +31489,7 @@
         "properties": {
           "key": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
             "description": "The role's key, as `fleetless.yaml` and every assignment write it. Unique in the organization."
           },
           "name": {
@@ -31541,7 +31551,7 @@
               "properties": {
                 "key": {
                   "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
                   "description": "The role's key, as `fleetless.yaml` and every assignment write it. Unique in the organization."
                 },
                 "name": {
@@ -31634,7 +31644,7 @@
                             "type": "null"
                           }
                         ],
-                        "description": "For `config`, where in the YAML the key is written, such as `services.arm_home.role` or `access.rules[1].role`; `null` for every other kind."
+                        "description": "Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for `role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind."
                       },
                       "robot_id": {
                         "anyOf": [
@@ -32027,16 +32037,16 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9_]{0,62}$"
+              "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
             }
           },
           "key": {
             "description": "A new key. On its own, the rename is accepted at once and everything that still names the old key turns into a warning. To rewrite those places as well, add `update_references`.",
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{0,62}$"
+            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
           },
           "update_references": {
-            "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, the call changes nothing and answers `409 confirmation_required` with the preview.",
+            "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, when there are places to rewrite the call changes nothing and answers `409 confirmation_required` with the preview; a rename with none applies at once and needs no token.",
             "type": "boolean"
           },
           "confirm": {
@@ -39912,14 +39922,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                   },
                   {
                     "maxItems": 50,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     }
                   },
                   {
@@ -39932,14 +39942,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                   },
                   {
                     "maxItems": 50,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     }
                   },
                   {
@@ -39952,14 +39962,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                   },
                   {
                     "maxItems": 50,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     }
                   },
                   {
@@ -39972,14 +39982,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                   },
                   {
                     "maxItems": 50,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     }
                   },
                   {
@@ -39992,14 +40002,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                   },
                   {
                     "maxItems": 50,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     }
                   },
                   {

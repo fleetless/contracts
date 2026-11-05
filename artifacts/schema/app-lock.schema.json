@@ -10,6 +10,7 @@
     },
     "slugs": {
       "minItems": 1,
+      "maxItems": 2000,
       "type": "array",
       "items": {
         "type": "string",
@@ -17,7 +18,8 @@
         "maxLength": 63,
         "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
       },
-      "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+      "uniqueItems": true,
+      "description": "The slugs of that robot's exposures to lock, at least one and each named once, at most 2000. A slug the robot has no exposure for is accepted and warns, and locks nothing."
     }
   },
   "required": [

@@ -40,7 +40,9 @@ export const referencePlace = z.object({
     description: 'What a person reads to find the place: the robot, app or role name, or the access kind of an organization default.',
   }),
   path: z.string().nullable().meta({
-    description: 'For `config`, where in the YAML the key is written, such as `services.arm_home.role` or `access.rules[1].role`; `null` for every other kind.',
+    description:
+      'Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for ' +
+      '`role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind.',
   }),
   robot_id: z.uuid().nullable().meta({
     description: 'The robot whose document holds the key (`config`); `null` for every other kind.',
@@ -134,6 +136,10 @@ export type CreateOrgRoleRequest = z.infer<typeof createOrgRoleRequest>
  * At least one field is required: an empty patch is a caller mistake, not a
  * request to do nothing. `update_references` and `confirm` only mean something
  * together with `key`.
+ *
+ * The one-field rule is a `.refine()`, which JSON Schema cannot express, so
+ * `patch-org-role-request.schema.json` describes five independent optional
+ * fields; the cloud is the only place an empty patch is refused.
  */
 export const patchOrgRoleRequest = z.object({
   name: roleName.optional().meta({
@@ -149,8 +155,9 @@ export const patchOrgRoleRequest = z.object({
   }),
   update_references: z.boolean().optional().meta({
     description:
-      'With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, the call changes nothing ' +
-      'and answers `409 confirmation_required` with the preview.',
+      'With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, when there are places ' +
+      'to rewrite the call changes nothing and answers `409 confirmation_required` with the preview; a rename with none applies at once and ' +
+      'needs no token.',
   }),
   confirm: z.string().min(1).optional().meta({
     description: 'The `confirm` token of the preview the caller was shown. It confirms that preview only; if the places to rewrite have changed since, the call answers a new preview.',

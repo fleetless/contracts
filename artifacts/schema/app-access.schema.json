@@ -6,8 +6,8 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_]{0,62}$",
-          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
         },
         {
           "type": "null"
@@ -16,6 +16,7 @@
       "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing."
     },
     "locked_kinds": {
+      "maxItems": 5,
       "type": "array",
       "items": {
         "type": "string",
@@ -27,9 +28,11 @@
           "job_history"
         ]
       },
-      "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
+      "uniqueItems": true,
+      "description": "Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or `job_history`, each at most once. The only way to lock `assets` or `job_history`, which belong to the robot as a whole."
     },
     "locked": {
+      "maxItems": 1000,
       "type": "array",
       "items": {
         "type": "object",
@@ -42,6 +45,7 @@
           },
           "slugs": {
             "minItems": 1,
+            "maxItems": 2000,
             "type": "array",
             "items": {
               "type": "string",
@@ -49,7 +53,8 @@
               "maxLength": 63,
               "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
             },
-            "description": "The slugs of that robot's exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing."
+            "uniqueItems": true,
+            "description": "The slugs of that robot's exposures to lock, at least one and each named once, at most 2000. A slug the robot has no exposure for is accepted and warns, and locks nothing."
           }
         },
         "required": [
@@ -58,7 +63,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give."
+      "description": "Single exposures locked on single robots, one entry per robot and at most 1000. A lock never grants anything: it only takes away what a role would give."
     }
   },
   "required": [

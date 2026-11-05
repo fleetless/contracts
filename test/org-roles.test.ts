@@ -50,6 +50,15 @@ describe('createOrgRoleRequest', () => {
     expect(createOrgRoleRequest.safeParse({ key: 'a'.repeat(63), name: 'Maintenance' }).success).toBe(true)
   })
 
+  it('refuses the key `defaults`, which is the path of the organization\'s defaults', () => {
+    expect(createOrgRoleRequest.safeParse({ key: 'defaults', name: 'Defaults' }).success).toBe(false)
+    expect(createOrgRoleRequest.safeParse({ key: 'default', name: 'Default' }).success).toBe(true)
+    expect(createOrgRoleRequest.safeParse({ key: 'defaults_2', name: 'Defaults' }).success).toBe(true)
+    expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: 'Maintenance', inherits: ['defaults'] }).success).toBe(false)
+    expect(artifact('create-org-role-request')({ key: 'defaults', name: 'Defaults' })).toBe(false)
+    expect(artifact('create-org-role-request')({ key: 'defaults_2', name: 'Defaults' })).toBe(true)
+  })
+
   it('bounds the name at 1 to 60 characters, after trimming', () => {
     expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: '' }).success).toBe(false)
     expect(createOrgRoleRequest.safeParse({ key: 'wartung', name: '   ' }).success).toBe(false)
@@ -97,6 +106,21 @@ describe('patchOrgRoleRequest', () => {
     const validate = artifact('patch-org-role-request')
     expect(validate({ key: 'service', update_references: true })).toBe(true)
     expect(validate({ key: 'Service' })).toBe(false)
+  })
+
+  it('cannot be renamed to the key `defaults`', () => {
+    expect(patchOrgRoleRequest.safeParse({ key: 'defaults' }).success).toBe(false)
+    expect(artifact('patch-org-role-request')({ key: 'defaults' })).toBe(false)
+  })
+
+  it('says in its artifact that the one-field rule is the cloud\'s to refuse', () => {
+    // A `.refine()` has no JSON Schema form: the artifact lets an empty patch through, and the comment on the shape says why.
+    expect(artifact('patch-org-role-request')({})).toBe(true)
+  })
+
+  it('says that a rename with nothing to rewrite needs no token', () => {
+    const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/patch-org-role-request.schema.json', import.meta.url), 'utf8'))
+    expect(schema.properties.update_references.description).toContain('needs no token')
   })
 })
 
@@ -164,6 +188,15 @@ describe('what the role list answers', () => {
     expect(referencePlace.safeParse({ ...place, new_version: 0 }).success).toBe(false)
     const { path: _path, ...withoutPath } = place
     expect(referencePlace.safeParse(withoutPath).success, 'a null is spelled out, never left off').toBe(false)
+  })
+
+  it('names the inheriting role by its key, since display names are not unique', () => {
+    const inherits = {
+      kind: 'role_inherits', label: 'Maintenance', path: 'wartung', robot_id: null, app_id: null, user_id: null, document: null, new_version: null,
+    }
+    expect(referencePlace.safeParse(inherits).success).toBe(true)
+    const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/reference-place.schema.json', import.meta.url), 'utf8'))
+    expect(schema.properties.path.description).toContain('key of the role that inherits')
   })
 
   it('lists the roles together with the keys that are named but are no role', () => {
@@ -254,6 +287,12 @@ describe('the organization role routes', () => {
     expect(notes).toContain('confirm')
     expect(notes).toContain('409')
     expect(notes).toContain('confirmation_required')
+  })
+
+  it('answer a preview only when the rename has places to rewrite', () => {
+    const notes = route('PATCH /api/org/roles/:key')!.notes ?? ''
+    expect(notes).toContain('needs no token')
+    expect(notes).not.toContain('With `update_references: true` and no `confirm`, nothing is changed')
   })
 
   it('reach the OpenAPI document under their own paths', async () => {

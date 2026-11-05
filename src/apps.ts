@@ -2,16 +2,19 @@
 import { z } from 'zod'
 import { slug } from './common.js'
 import { mcpRobotDatasheet } from './mcp.js'
-import { accessKind, roleKey } from './rights.js'
+import { ACCESS_KINDS, accessKind, roleKey } from './rights.js'
 
 /**
  * Apps, roles and rights.
  *
- * The rule that shapes all of this: **roles are the only filter**. A robot
- * assigned to an app exposes every one of its services to that app; what a
- * role does not grant does not exist for that user. There is no second
- * visibility mechanism, and adding one later would create two places to look
- * when someone cannot see something.
+ * The rule that shapes all of this: **a role is the only thing that grants**.
+ * A robot assigned to an app is reachable through it, and what a user may use
+ * on that robot is decided by the user's role against what the robot's
+ * `fleetless.yaml` and the organization's defaults require; what the role does
+ * not grant does not exist for that user. An app can only take rights away: its
+ * locks win over every role and never grant anything. So there are two places
+ * to look when someone cannot see something, the requirement and the lock, and
+ * no third.
  */
 
 /**
@@ -227,6 +230,15 @@ export const createServerKeyResponse = z.object({
 })
 export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
 
+/** The most exposures one robot's datasheet lists, so the most a lock on one robot can name. */
+const MAX_LOCK_SLUGS = 2000
+
+/** The most robots one app can lock single exposures on; whole kinds go in `locked_kinds`. */
+const MAX_APP_LOCKS = 1000
+
+/** A list names nothing twice. */
+const namedOnce = (items: readonly string[]) => new Set(items).size === items.length
+
 /**
  * **What an app locks, and what it falls back on.** Roles decide who may use
  * what; an app can only take rights away from them, never add any. A lock wins
@@ -241,8 +253,9 @@ export const appLock = z.object({
   robot_id: z.uuid().meta({
     description: 'The robot whose capabilities are locked for this app.',
   }),
-  slugs: z.array(slug).min(1).meta({
-    description: 'The slugs of that robot\'s exposures to lock, at least one. A slug the robot has no exposure for is accepted and warns, and locks nothing.',
+  slugs: z.array(slug).min(1).max(MAX_LOCK_SLUGS).refine(namedOnce, { message: 'Name each slug once.' }).meta({
+    uniqueItems: true,
+    description: `The slugs of that robot\'s exposures to lock, at least one and each named once, at most ${MAX_LOCK_SLUGS}. A slug the robot has no exposure for is accepted and warns, and locks nothing.`,
   }),
 }).strict()
 export type AppLock = z.infer<typeof appLock>
@@ -254,14 +267,19 @@ const appAccessFields = {
       'The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, ' +
       'and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing.',
   }),
-  locked_kinds: z.array(accessKind).meta({
+  locked_kinds: z.array(accessKind).max(ACCESS_KINDS.length).refine(namedOnce, { message: 'Name each kind once.' }).meta({
+    uniqueItems: true,
     description:
       'Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or ' +
-      '`job_history`. The only way to lock `assets` or `job_history`, which belong to the robot as a whole.',
+      '`job_history`, each at most once. The only way to lock `assets` or `job_history`, which belong to the robot as a whole.',
   }),
-  locked: z.array(appLock).meta({
-    description: 'Single exposures locked on single robots. A lock never grants anything: it only takes away what a role would give.',
-  }),
+  locked: z.array(appLock).max(MAX_APP_LOCKS)
+    .refine((locks) => namedOnce(locks.map((lock) => lock.robot_id)), { message: 'Give each robot one entry; list all of its slugs in it.' })
+    .meta({
+      description:
+        `Single exposures locked on single robots, one entry per robot and at most ${MAX_APP_LOCKS}. A lock never grants anything: it only takes ` +
+        'away what a role would give.',
+    }),
 }
 
 /**

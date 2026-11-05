@@ -32,8 +32,9 @@ version.
   `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
   and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
   its counts and the keys that are written somewhere but are no role; a rename
-  with `update_references` is two calls, the first answered with a preview and
-  a `confirm` token. Shapes: `orgRole`, `orgRoleListResponse`,
+  with `update_references` that has places to rewrite is two calls, the first
+  answered with a preview and a `confirm` token, and one with none applies at
+  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`, `orgRoleListResponse`,
   `danglingReference`, `referencePlace`, `createOrgRoleRequest`,
   `patchOrgRoleRequest`, `roleRenamePreview`, `roleDefaultsResponse` and
   `putRoleDefaultsRequest`, each with its type and JSON Schema artifact.
@@ -51,6 +52,7 @@ version.
   role would get. Developer routes, none owner-only. Shapes: `appAccess`,
   `appLock`, `accessWarning`, `appAccessResponse`, `effectiveRightsQuery`,
   `effectiveCapability`, `effectiveRobotRights` and `effectiveRightsResponse`.
+  The lists of an access name each kind, slug and robot once, and are bounded.
 
 ### Changed
 

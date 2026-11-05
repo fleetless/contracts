@@ -69,6 +69,28 @@ describe('appAccess', () => {
     expect(artifact('app-access')({ ...access, locked: [{ robot_id: robot, slugs: [] }] })).toBe(false)
   })
 
+  it('names a kind, a slug and a robot once', () => {
+    expect(appAccess.safeParse({ ...access, locked_kinds: ['read', 'read'] }).success).toBe(false)
+    expect(appAccess.safeParse({ ...access, locked: [{ robot_id: robot, slugs: ['arm_home', 'arm_home'] }] }).success).toBe(false)
+    expect(appAccess.safeParse({ ...access, locked: [{ robot_id: robot, slugs: ['arm_home'] }, { robot_id: robot, slugs: ['arm_park'] }] }).success).toBe(false)
+    expect(appAccess.safeParse({ ...access, locked_kinds: ['read', 'invoke'], locked: [{ robot_id: robot, slugs: ['arm_home'] }, { robot_id: user, slugs: ['arm_home'] }] }).success).toBe(true)
+    // The artifact states the two list rules JSON Schema can state; one entry per robot is a cross-field rule only the parser holds.
+    expect(artifact('app-access')({ ...access, locked_kinds: ['read', 'read'] })).toBe(false)
+    expect(artifact('app-access')({ ...access, locked: [{ robot_id: robot, slugs: ['arm_home', 'arm_home'] }] })).toBe(false)
+  })
+
+  it('bounds the lists: every kind once, the exposures one robot can have, a lock per robot', () => {
+    const slugs = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`)
+    const robots = (n: number) => Array.from({ length: n }, (_, i) => `00000000-0000-4000-8000-${i.toString(16).padStart(12, '0')}`)
+    expect(appAccess.safeParse({ ...access, locked_kinds: [...ACCESS_KINDS] }).success).toBe(true)
+    expect(appAccess.safeParse({ ...access, locked: [{ robot_id: robot, slugs: slugs(2000) }] }).success).toBe(true)
+    expect(appAccess.safeParse({ ...access, locked: [{ robot_id: robot, slugs: slugs(2001) }] }).success).toBe(false)
+    expect(artifact('app-access')({ ...access, locked: [{ robot_id: robot, slugs: slugs(2001) }] })).toBe(false)
+    expect(appAccess.safeParse({ ...access, locked: robots(1000).map((robot_id) => ({ robot_id, slugs: ['arm_home'] })) }).success).toBe(true)
+    expect(appAccess.safeParse({ ...access, locked: robots(1001).map((robot_id) => ({ robot_id, slugs: ['arm_home'] })) }).success).toBe(false)
+    expect(artifact('app-access')({ ...access, locked: robots(1001).map((robot_id) => ({ robot_id, slugs: ['arm_home'] })) })).toBe(false)
+  })
+
   it('is a full replacement: every field is named, and no other', () => {
     for (const field of ['default_role', 'locked_kinds', 'locked']) {
       const { [field]: _left, ...rest } = access as Record<string, unknown>

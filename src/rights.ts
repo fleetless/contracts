@@ -29,10 +29,16 @@ import type { ExposureSection } from './config-issues.js'
 
 /* ------------------------------------------------------------- role keys */
 
-/** A role key: lower-case, letter-initial, letters, digits and underscores, at most 63 characters. */
-export const ROLE_KEY_PATTERN = /^[a-z][a-z0-9_]{0,62}$/
+/**
+ * A role key: lower-case, letter-initial, letters, digits and underscores, at
+ * most 63 characters. `defaults` is reserved: it is the path segment of the
+ * organization's defaults (`/api/org/roles/defaults`), and a role with that
+ * key would sit next to it. The rule is in the pattern, so the JSON Schema
+ * artifacts state it too.
+ */
+export const ROLE_KEY_PATTERN = /^(?!defaults$)[a-z][a-z0-9_]{0,62}$/
 
-export const ROLE_KEY_RULE = 'A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused.'
+export const ROLE_KEY_RULE = 'A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved.'
 
 /** The most roles one organization holds, and the most keys a single `role` list names. */
 export const MAX_ORG_ROLES = 50

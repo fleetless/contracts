@@ -46,6 +46,12 @@ describe('role keys', () => {
     ['night-shift', false],
     ['night shift', false],
     ['', false],
+    // `defaults` is the path of the organization's defaults, so no role may have it as its key.
+    ['defaults', false],
+    ['default', true],
+    ['defaultsx', true],
+    ['defaults_2', true],
+    ['my_defaults', true],
   ])('%j is %s', (key, ok) => {
     expect(ROLE_KEY_PATTERN.test(key)).toBe(ok)
     expect(roleKey.safeParse(key).success).toBe(ok)
@@ -57,6 +63,15 @@ describe('role keys', () => {
     if (refused.success) return
     expect(refused.error.issues[0]!.message).toContain('lower-case')
     expect(refused.error.issues[0]!.message).not.toContain('^[a-z]')
+  })
+
+  it('says that `defaults` is reserved when it refuses it', () => {
+    const refused = roleKey.safeParse('defaults')
+    expect(refused.success).toBe(false)
+    if (refused.success) return
+    expect(refused.error.issues[0]!.message).toContain('`defaults` is reserved')
+    expect(roleRef.safeParse('defaults').success).toBe(false)
+    expect(roleRef.safeParse(['operate', 'defaults']).success).toBe(false)
   })
 
   it('takes one key or a non-empty list of at most fifty', () => {

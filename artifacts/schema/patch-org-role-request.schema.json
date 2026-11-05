@@ -14,18 +14,18 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9_]{0,62}$",
-        "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+        "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+        "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
       }
     },
     "key": {
       "description": "A new key. On its own, the rename is accepted at once and everything that still names the old key turns into a warning. To rewrite those places as well, add `update_references`.",
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
     },
     "update_references": {
-      "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, the call changes nothing and answers `409 confirmation_required` with the preview.",
+      "description": "With `key`: rewrite every place that names the old key to the new one, in one transaction. Without `confirm`, when there are places to rewrite the call changes nothing and answers `409 confirmation_required` with the preview; a rename with none applies at once and needs no token.",
       "type": "boolean"
     },
     "confirm": {

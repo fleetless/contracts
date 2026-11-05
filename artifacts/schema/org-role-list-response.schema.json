@@ -9,8 +9,8 @@
         "properties": {
           "key": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{0,62}$",
-            "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused.",
+            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+            "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved.",
             "description": "The role's key, as `fleetless.yaml` and every assignment write it. Unique in the organization."
           },
           "name": {
@@ -103,7 +103,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "For `config`, where in the YAML the key is written, such as `services.arm_home.role` or `access.rules[1].role`; `null` for every other kind."
+                  "description": "Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for `role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind."
                 },
                 "robot_id": {
                   "anyOf": [

@@ -403,8 +403,8 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   },
                   {
                     "minItems": 1,
@@ -412,8 +412,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                     }
                   }
                 ],
@@ -711,8 +711,8 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   },
                   {
                     "minItems": 1,
@@ -720,8 +720,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                     }
                   }
                 ],
@@ -967,8 +967,8 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   },
                   {
                     "minItems": 1,
@@ -976,8 +976,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                     }
                   }
                 ],
@@ -1273,8 +1273,8 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   },
                   {
                     "minItems": 1,
@@ -1282,8 +1282,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                     }
                   }
                 ],
@@ -1718,8 +1718,8 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   },
                   {
                     "minItems": 1,
@@ -1727,8 +1727,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                     }
                   }
                 ],
@@ -1839,8 +1839,8 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                        "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                        "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                        "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                       },
                       {
                         "minItems": 1,
@@ -1848,8 +1848,8 @@
                         "type": "array",
                         "items": {
                           "type": "string",
-                          "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                         }
                       }
                     ],
@@ -1895,8 +1895,8 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                  "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                  "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                 },
                 {
                   "minItems": 1,
@@ -1904,8 +1904,8 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   }
                 }
               ],
@@ -1930,8 +1930,8 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                  "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                  "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                  "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                 },
                 {
                   "minItems": 1,
@@ -1939,8 +1939,8 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{0,62}$",
-                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused."
+                    "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                    "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
                   }
                 }
               ],

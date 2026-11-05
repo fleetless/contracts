@@ -27,7 +27,7 @@
           "type": "null"
         }
       ],
-      "description": "For `config`, where in the YAML the key is written, such as `services.arm_home.role` or `access.rules[1].role`; `null` for every other kind."
+      "description": "Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for `role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind."
     },
     "robot_id": {
       "anyOf": [
