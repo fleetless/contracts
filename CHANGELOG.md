@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [14.0.0] — 2026-11-05
+
 Per-app roles are replaced by organization roles. What follows is one major
 release; every breaking item is named once, under Removed or Changed.
 
