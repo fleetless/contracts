@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { idpIssuer, mailStatus, password } from './identity.js'
 import { httpsLegalUrl } from './legal.js'
+import { roleKey } from './rights.js'
 
 /**
  * **App users: the per-app identity space.**
@@ -92,8 +93,8 @@ export const appUser = z.object({
   display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().meta({
     description: 'Optional human name, shown by the developer\'s own UI instead of the address where present. `null` when the user never supplied one; never used for authentication.',
   }),
-  role_id: z.uuid().meta({
-    description: 'The role that decides what this user may reach. Roles are the only visibility filter: what a role does not grant does not exist for that user.',
+  role: roleKey.meta({
+    description: 'The key of the organization role this user holds. The role, the robots\' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in.',
   }),
   status: appUserStatus.meta({
     description: 'Where the account is in its lifecycle. Only `active` may log in; `pending_verification` and `blocked` are both refused with the same `invalid_credentials` a wrong password gets, so a failed login is not an account-enumeration oracle.',
@@ -161,8 +162,8 @@ export const createAppUserRequest = z
     display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
       description: 'Optional human name. Absent leaves it unset; an explicit `null` is the same end state.',
     }),
-    role_id: z.uuid().optional().meta({
-      description: 'The role the new user holds. Absent means the app\'s `default_role_id`, and `409 target_state_conflict` when the app has none or its default no longer resolves; a role belonging to another app is `404 not_found`, the same refusal a role that never existed gets.',
+    role: roleKey.optional().meta({
+      description: 'The role the new user holds, by key. Absent means the app\'s `default_role`, and `409 target_state_conflict` naming `default_role` when the app has none. A key that names no role is accepted and grants nothing; `GET /api/org/roles` lists it under `dangling`.',
     }),
   })
   .strict()
@@ -189,8 +190,8 @@ export const patchAppUserRequest = z
     display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
       description: 'The user\'s display name. Absent leaves it alone; an explicit `null` clears it.',
     }),
-    role_id: z.uuid().optional().meta({
-      description: 'The role the user holds from now on. A role belonging to another app is `404 not_found`, the same refusal a role that never existed gets; re-roling closes the user\'s live subscriptions.',
+    role: roleKey.optional().meta({
+      description: 'The role the user holds from now on, by key. A key that names no role is accepted and grants nothing. The change applies at once: the user\'s live subscriptions are re-checked against the new role, and those it no longer allows end.',
     }),
     status: z.enum(['active', 'blocked']).meta({
       description: 'Block the account or let it back in. **`pending_verification` cannot be set here**: it is reached only by self-registration and left only by spending the mailed verification token, so a developer setting it would strand the account in a state nothing re-mails them out of.',
@@ -209,8 +210,8 @@ export const createAppInvitationRequest = z
     email: z.email().meta({
       description: 'The address to invite. An invitation always bypasses the domain whitelist — a developer inviting somebody by hand has already made the decision the whitelist automates.',
     }),
-    role_id: z.uuid().optional().meta({
-      description: 'The role the invitee gets on acceptance. Absent means the app\'s `default_role_id`.',
+    role: roleKey.optional().meta({
+      description: 'The role the invitee gets on acceptance, by key. Absent means the app\'s `default_role`, and `409 target_state_conflict` naming `default_role` when the app has none. A key that names no role is accepted and grants nothing.',
     }),
     display_name: z.string().min(1).max(APP_USER_DISPLAY_NAME_MAX).nullable().optional().meta({
       description: 'An optional name to pre-fill the account with; the invitee can change it afterwards.',
@@ -234,7 +235,7 @@ export const appInvitation = z.object({
   id: z.uuid().meta({ description: 'The invitation, as listed and revoked by the developer.' }),
   app_id: z.uuid().meta({ description: 'The app the invitee will belong to.' }),
   email: z.email().meta({ description: 'The address the invitation was addressed to.' }),
-  role_id: z.uuid().meta({ description: 'The role the invitee holds once they accept. Resolved at creation, so a later change to the app\'s default role does not silently re-aim an outstanding invitation.' }),
+  role: roleKey.meta({ description: 'The key of the role the invitee holds once they accept. Resolved at creation, so a later change to the app\'s default role does not silently re-aim an outstanding invitation. A role deleted in the meantime leaves the key behind, and it grants nothing.' }),
   expires_at: z.iso.datetime().meta({ description: 'When the token stops working. Seven days from issue; an expired token answers exactly as an unknown one does.' }),
   accept_url: z.url().max(500).meta({
     description: 'The link to give the invitee: the app\'s `invite_url` with the token substituted for `{token}`, or the Fleetless-hosted invitation page when the app has configured none. Bounded like every other URL that gets mailed, logged and rendered.',
@@ -723,6 +724,9 @@ export type MailTemplateKind = z.infer<typeof mailTemplateKind>
  * received. That is only worth anything if the permitted set is written down
  * where the renderer, the console's completion and the docs all read the same
  * one.
+ *
+ * `role.name` is the display name of the organization role the invitee will
+ * hold, not its key.
  */
 export const MAIL_TEMPLATE_VARIABLES = [
   'app.name',

@@ -1195,13 +1195,14 @@ export const ROUTES: readonly RouteEntry[] = [
       'The developer-authenticated door into the app\'s user table, and the one place `409 email_taken` is an honest answer about an app user: ' +
       'the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the ' +
       'listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` ' +
-      'is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one ' +
-      'would carry rights nothing in this app can resolve. **The password policy answers `400 validation_error`**, not a code of its own: the ' +
+      'is the app. The `role` is a key of the organization\'s roles: a malformed one is `400 validation_error`, and a well-formed one is stored ' +
+      'as given even when it names no role, which grants nothing and shows up under `dangling` of `GET /api/org/roles`. **The password policy ' +
+      'answers `400 validation_error`**, not a code of its own: the ' +
       'twelve-character minimum is the `password` field\'s schema rule, and every route that takes a password refuses a ' +
       'short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering ' +
       'somebody by hand has made the decision the verification mail automates, and its address counts as proven. `409 target_state_conflict` ' +
-      'names `default_role_id` when `role_id` is absent and the app has no default role, or its default names a role that no longer resolves ' +
-      '— a user with no role holds rights nothing in this app can read, so nothing is created. \n\n**`409 quota_exceeded` when the org holds as ' +
+      'names `default_role` with rule `not_set` when `role` is absent and the app has no default role — there would be no role to give the ' +
+      'user, so nothing is created. \n\n**`409 quota_exceeded` when the org holds as ' +
       'many app users as `max_end_users` allows**, counted across every app of the org — the same number `GET /api/org/quotas` reports as ' +
       '`usage.max_end_users`, since the same address in two apps is two accounts. `details` carries `{ quota, limit }`, as every count quota\'s ' +
       'refusal does. The check is at **creation** only: an existing user signs in, is patched and is deleted at the quota exactly as under it, ' +
@@ -1232,7 +1233,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'who typed an address they do not own log in without ever spending the mailed token. Unblocking restores the status the account had — ' +
       '`active` for one whose address was proven, `pending_verification` for one blocked before it ever verified. A write that names the ' +
       'status the account already holds changes nothing and mints no event, so it does not end the sessions a re-sent form would otherwise ' +
-      'have killed. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.',
+      'have killed. A `role` is stored as given, as creation does: a malformed key is `400 validation_error`, one that names no role grants ' +
+      'nothing, and the same key the user already holds changes nothing. A changed role is applied to the user\'s open subscriptions at once, ' +
+      'and those the new role no longer allows end.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/users/:userId', section: 'apps',
@@ -1350,12 +1353,13 @@ export const ROUTES: readonly RouteEntry[] = [
     transport: 'http',
     notes:
       '**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the ' +
-      'developer\'s own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. ' +
+      'developer\'s own app. The role is resolved and stored now, so a later change to `default_role` does not re-aim a link already sent. ' +
       'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`: the app\'s `invite_url` with the token in it, ' +
       'or the Fleetless-hosted invitation page when the app has configured none — so mailing it is never refused for a missing URL. ' +
-      '`409 target_state_conflict` names `default_role_id` when `role_id` is absent and the app has no default role, or its default no longer resolves: an invitation ' +
-      'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. `409 ' +
-      'email_taken` is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles. ' +
+      '`409 target_state_conflict` names `default_role` with rule `not_set` when `role` is absent and the app has no default role: an invitation ' +
+      'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. A `role` that ' +
+      'names no role is accepted and grants nothing; a malformed key is `400 validation_error`. `409 ' +
+      'email_taken` is an address the app already has as a user; `404 not_found` is the app. ' +
       '\n\nCreating shares the reissue route\'s ceiling of **five invitation mails a minute per app**, answering `429 rate_limited` with ' +
       '`retry_after_ms`: re-creating an invitation for one address replaces it and mails again, so a limit that bound only reissue would be ' +
       'a limit on the wrong door.',
@@ -1371,7 +1375,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to ' +
       'one invitation would reopen the door the listing\'s missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row ' +
       'is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read ' +
-      'the listing after this call rather than keeping the id you sent. The seven days start again. \n\nLimited server-side to **five ' +
+      'the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start ' +
+      'again. \n\nLimited server-side to **five ' +
       'reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 ' +
       'rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is ' +
       'not pending and answers `404`.',
@@ -2365,8 +2370,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'or sent while it is off: an email-code-only app registers people without one. `404 not_found` names an ' +
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
-      'configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give ' +
-      'the person. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
+      'configuration bug that was not there. `409 target_state_conflict` naming `default_role` when the app has no default role — there would ' +
+      'be no role to give the person — with rule `not_set`, or with rule `unknown_role` when its default names no role of the organization. ' +
+      'An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
       '\n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal ' +
       'here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a ' +
       'quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which ' +
@@ -2457,9 +2463,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still ' +
       '`pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the ' +
       'invitation\'s role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 ' +
-      'target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the ' +
-      'app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse ' +
-      'than saying so. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted ' +
+      'target_state_conflict` names `default_role` with rule `not_set` when the invitation carries no role and the app has no default role ' +
+      'to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse than saying so. A role ' +
+      'deleted since the invitation was issued is no obstacle: the account is created holding the key and reaches nothing. ' +
+      '\n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted ' +
       'across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an ' +
       'unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account ' +
       'larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link ' +

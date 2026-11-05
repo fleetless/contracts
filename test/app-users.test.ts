@@ -33,7 +33,9 @@ import {
   appUrlTemplate,
   appUser,
   appUserStatus,
+  createAppInvitationRequest,
   createAppOidcProviderRequest,
+  createAppUserRequest,
   emailDomain,
   mailTemplateKind,
   patchAppOidcProviderRequest,
@@ -320,7 +322,7 @@ describe('appUser and the requests that write one', () => {
     app_id: UUID2,
     email: 'a@example.com',
     display_name: 'Ada',
-    role_id: UUID,
+    role: 'operate',
     status: 'active',
     has_password: true,
     providers: ['azure-ad'],
@@ -355,9 +357,37 @@ describe('appUser and the requests that write one', () => {
   })
 
   it('requires a role: an app user with no role could reach nothing and would still be listed', () => {
-    const { role_id, ...withoutRole } = ROW
-    void role_id
+    const { role, ...withoutRole } = ROW
+    void role
     expect(appUser.safeParse(withoutRole).success).toBe(false)
+    // The old per-app role id is not a role any more, and a row that still carries only it is incomplete.
+    expect(appUser.safeParse({ ...withoutRole, role_id: UUID }).success).toBe(false)
+  })
+
+  it('holds the role as a key, shown as stored: a key that names no role still parses, a malformed one does not', () => {
+    expect(appUser.safeParse({ ...ROW, role: 'night_shift' }).success).toBe(true)
+    expect(appUser.safeParse({ ...ROW, role: 'Bad Key' }).success).toBe(false)
+    expect(appUser.safeParse({ ...ROW, role: UUID }).success).toBe(false)
+    expect(appUser.safeParse({ ...ROW, role: null }).success).toBe(false)
+  })
+
+  it('createAppUserRequest takes an optional role key: absent means the default role of the app', () => {
+    const base = { email: 'a@example.com', password: 'twelve-chars-ok' }
+    expect(createAppUserRequest.safeParse({ ...base, role: 'operate' }).success).toBe(true)
+    expect(createAppUserRequest.safeParse(base).success).toBe(true)
+    // A key that names no role is accepted by the schema; the cloud stores it and it grants nothing.
+    expect(createAppUserRequest.safeParse({ ...base, role: 'night_shift' }).success).toBe(true)
+    expect(createAppUserRequest.safeParse({ ...base, role: 'Bad Key' }).success).toBe(false)
+    expect(createAppUserRequest.safeParse({ ...base, role: 'defaults' }).success).toBe(false)
+    expect(createAppUserRequest.safeParse({ ...base, role_id: UUID }).success).toBe(false)
+  })
+
+  it('patchAppUserRequest changes the role by key', () => {
+    expect(patchAppUserRequest.safeParse({ role: 'observe' }).success).toBe(true)
+    expect(patchAppUserRequest.safeParse({ role: 'observe', status: 'blocked' }).success).toBe(true)
+    expect(patchAppUserRequest.safeParse({ role: 'Bad Key' }).success).toBe(false)
+    expect(patchAppUserRequest.safeParse({ role: null }).success).toBe(false)
+    expect(patchAppUserRequest.safeParse({ role_id: UUID }).success).toBe(false)
   })
 
   /**
@@ -390,7 +420,7 @@ describe('appInvitation — the accept link is nullable, and that is a policy', 
     id: UUID,
     app_id: UUID2,
     email: 'a@example.com',
-    role_id: UUID,
+    role: 'operate',
     expires_at: '2026-09-12T09:00:00.000Z',
     accept_url: 'https://app.example.com/invite/abc',
     mail: 'sent',
@@ -398,6 +428,23 @@ describe('appInvitation — the accept link is nullable, and that is a policy', 
 
   it('accepts a complete invitation', () => {
     expect(appInvitation.safeParse(ROW).success).toBe(true)
+  })
+
+  it('names the role by key, required: the role is resolved when the invitation is issued', () => {
+    const { role, ...withoutRole } = ROW
+    void role
+    expect(appInvitation.safeParse(withoutRole).success).toBe(false)
+    expect(appInvitation.safeParse({ ...withoutRole, role_id: UUID }).success).toBe(false)
+    expect(appInvitation.safeParse({ ...ROW, role: 'night_shift' }).success).toBe(true)
+    expect(appInvitation.safeParse({ ...ROW, role: 'Bad Key' }).success).toBe(false)
+  })
+
+  it('createAppInvitationRequest takes an optional role key', () => {
+    const base = { email: 'a@example.com', send_mail: true }
+    expect(createAppInvitationRequest.safeParse({ ...base, role: 'operate' }).success).toBe(true)
+    expect(createAppInvitationRequest.safeParse(base).success).toBe(true)
+    expect(createAppInvitationRequest.safeParse({ ...base, role: 'Bad Key' }).success).toBe(false)
+    expect(createAppInvitationRequest.safeParse({ ...base, role_id: UUID }).success).toBe(false)
   })
 
   /**
@@ -417,7 +464,8 @@ describe('appInvitation — the accept link is nullable, and that is a policy', 
     expect('accept_url' in pendingAppInvitation.shape).toBe(false)
     expect('mail' in pendingAppInvitation.shape).toBe(false)
     expect('email' in pendingAppInvitation.shape).toBe(true)
-    expect('role_id' in pendingAppInvitation.shape).toBe(true)
+    expect('role' in pendingAppInvitation.shape).toBe(true)
+    expect('role_id' in pendingAppInvitation.shape).toBe(false)
   })
 })
 

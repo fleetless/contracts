@@ -142,13 +142,13 @@ describe('apps, keys and roles', () => {
     // no join table left to hold a second one. The property those three shapes
     // pinned — exactly one role per app — is unchanged.
     const user = {
-      id: UUID, app_id: UUID2, email: 'u@e.de', display_name: null, role_id: UUID,
+      id: UUID, app_id: UUID2, email: 'u@e.de', display_name: null, role: 'operate',
       status: 'active', has_password: true, providers: [], last_login_at: null,
       two_factor: { enabled: false, enabled_at: null, recovery_codes_left: 0 }, created_at: NOW,
     }
     expect(appUser.safeParse(user).success).toBe(true)
-    const { role_id, ...withoutRole } = user
-    void role_id
+    const { role, ...withoutRole } = user
+    void role
     expect(appUser.safeParse(withoutRole).success).toBe(false)
   })
 

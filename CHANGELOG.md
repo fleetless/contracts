@@ -79,6 +79,16 @@ version.
   description no longer says a role decides what an attached robot allows: that
   follows the robot's `fleetless.yaml` and the organization's defaults, less
   what the app locks.
+- **Breaking (major):** app users and app invitations hold a role key.
+  `role_id` is replaced by `role`, a role key, in `appUser`,
+  `createAppUserRequest`, `patchAppUserRequest`, `createAppInvitationRequest`
+  and `appInvitation` (so also `pendingAppInvitation`). `appUser.role` and
+  `appInvitation.role` are required; `role` is optional in the three requests,
+  and absent means the app's `default_role`. A malformed key is refused; a key
+  that names no role is accepted and grants nothing. `409 target_state_conflict`
+  now names `default_role` (rule `not_set`) where it named `default_role_id`,
+  and a role of another app is no longer a `404`. A consumer that sent or read
+  `role_id` sends and reads the role's key now.
 
 ### Removed
 
