@@ -2370,9 +2370,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'or sent while it is off: an email-code-only app registers people without one. `404 not_found` names an ' +
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
-      'configuration bug that was not there. `409 target_state_conflict` naming `default_role` when the app has no default role — there would ' +
-      'be no role to give the person — with rule `not_set`, or with rule `unknown_role` when its default names no role of the organization. ' +
-      'An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
+      'configuration bug that was not there. `409 target_state_conflict` naming `default_role` with rule `not_set` when the app has no default ' +
+      'role — there would be no role to give the person. A default that names no role is not a refusal: the account holds the key and ' +
+      'reaches nothing. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
       '\n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal ' +
       'here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a ' +
       'quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which ' +
