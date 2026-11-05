@@ -37,7 +37,7 @@ export const referencePlace = z.object({
       'and `org_default` one of the organization\'s defaults.',
   }),
   label: z.string().meta({
-    description: 'What a person reads to find the place: the robot, app or role name, or the access kind of an organization default.',
+    description: 'What a person reads to find the place: the robot name (`config`), the e-mail address of the app user or of the invitee (`app_user`, `invitation`), the app name (`app_default`), the name of the inheriting role (`role_inherits`), or the access kind of an organization default (`org_default`).',
   }),
   path: z.string().nullable().meta({
     description:
@@ -106,7 +106,7 @@ export type DanglingReference = z.infer<typeof danglingReference>
 /** What `GET /api/org/roles` answers. */
 export const orgRoleListResponse = z.object({
   roles: z.array(orgRole).meta({
-    description: 'The organization\'s roles with their counts, in key order.',
+    description: 'The organization\'s roles with their counts, in the order they were created: the roles every organization starts with (`observe`, `operate` and `admin`) come first.',
   }),
   dangling: z.array(danglingReference).meta({
     description: 'Keys written somewhere that are no role, each with its places. Empty when nothing is out of step.',

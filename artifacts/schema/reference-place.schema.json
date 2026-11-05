@@ -16,7 +16,7 @@
     },
     "label": {
       "type": "string",
-      "description": "What a person reads to find the place: the robot, app or role name, or the access kind of an organization default."
+      "description": "What a person reads to find the place: the robot name (`config`), the e-mail address of the app user or of the invitee (`app_user`, `invitation`), the app name (`app_default`), the name of the inheriting role (`role_inherits`), or the access kind of an organization default (`org_default`)."
     },
     "path": {
       "anyOf": [

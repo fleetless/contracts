@@ -68,9 +68,9 @@ version.
   the `job_history` of the `fleetless.yaml` `access` section and of the
   organization defaults. It travels in the `capabilities` of
   `mcpRobotDatasheet` (`robots.describe` and `GET /api/robots/:id/datasheet`)
-  and is what `capability_required` names beside `assets`. A producer that
-  sends `action_history` no longer satisfies the schema, and a consumer that
-  read it reads `job_history` now.
+  and is what `capability_required` names beside `assets`. A datasheet
+  without `job_history` no longer satisfies the schema, and a consumer that
+  read `action_history` reads `job_history` now.
 - **Breaking (major):** `app.default_role_id` is replaced by `default_role`,
   the role's key or `null` when the app has none, and `updateAppRequest` no
   longer takes `default_role_id`: a patch that names it is refused. The default
