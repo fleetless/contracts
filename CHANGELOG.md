@@ -67,11 +67,180 @@ version.
   `robotDetailsDoc`, `putRobotDetailsRequest` and `putRobotDetailsResponse`
   (with their types and the three JSON Schema artifacts), the route `PUT
   /api/robots/:id/details`, and the reserved slug: `RESERVED_SLUGS` is now
-  `bridge_state` and `history`, so `robot_details` is an ordinary slug that a
-  configuration may use. The descriptions of `datapointDescriptor`,
+  `bridge_state`, `history`, `assets` and `job_history`, so `robot_details` is
+  an ordinary slug that a configuration may use. The descriptions of `datapointDescriptor`,
   `datapointListResponse` and the configuration sections name `bridge_state` as
   the only built-in datapoint. Nothing replaces the document, and nothing was
   deprecated first.
+
+## [14.0.0] — 2026-11-05
+
+Per-app roles are replaced by organization roles. What follows is one major
+release; every breaking item is named once, under Removed or Changed.
+
+### Removed
+
+- **Breaking (major):** The per-app role routes: `POST` and `GET
+  /api/apps/:id/roles`, `PATCH` and `DELETE /api/apps/:id/roles/:roleId`,
+  `PUT` and `GET /api/apps/:id/roles/:roleId/permissions`, and `GET
+  /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
+  from here on. What a role may use is no longer a matrix kept per app: it is
+  written in each robot's `fleetless.yaml` (`role` on an entry, `access.rules`,
+  `access.assets` and `access.job_history`) and in the organization's defaults
+  (`PUT /api/org/roles/defaults`), and what an app takes away is its locks
+  (`PUT /api/apps/:id/access`). To carry a per-app role over, create an
+  organization role with the role's key, name the key where the matrix granted
+  access, and give the app's users and invitations that key.
+- **Breaking (major):** The shapes of those routes, with their types and JSON
+  Schema artifacts: `role`, `roleListResponse`, `roleRenameRequest`,
+  `roleDeleteQuery`, `roleInUseDetails`, `rolePermissions` and
+  `mcpRolePreviewResponse`.
+- **Breaking (major):** The error codes `role_name_taken`, `role_in_use` and
+  `last_role`.
+- **Breaking (major):** `appDeletionSummary.role_count`. Deleting an app
+  deletes no role, so the preview counts five things, not six.
+
+### Changed
+
+- **Breaking (major):** `clientIdentity.role_id` is replaced by `role`, an
+  object with the role's `key` and display `name`, or `null` when the caller
+  has no role to name (a developer, a server key, an app user whose key is no
+  role). It is part of the `GET /api/client/me` answer and of the realtime
+  `auth_ok` frame. A consumer that read `role_id` reads `role.key` now.
+- **Breaking (major):** `mcpCapabilities.action_history` is renamed
+  `job_history`, without an alias. The capability names the same thing, the
+  past jobs of a robot (`GET /api/robots/:id/jobs/history`), and now matches
+  the `job_history` of the `fleetless.yaml` `access` section and of the
+  organization defaults. It travels in the `capabilities` of
+  `mcpRobotDatasheet` (`robots.describe` and `GET /api/robots/:id/datasheet`)
+  and is what `capability_required` names beside `assets`. A datasheet
+  without `job_history` no longer satisfies the schema, and a consumer that
+  read `action_history` reads `job_history` now.
+- **Breaking (major):** `app.default_role_id` is replaced by `default_role`,
+  the role's key or `null` when the app has none, and `updateAppRequest` no
+  longer takes `default_role_id`: a patch that names it is refused. The default
+  role is set with `PUT /api/apps/:id/access`, together with the locks. A key
+  that names no role is shown as stored and warns. The `robot_ids`
+  description no longer says a role decides what an attached robot allows: that
+  follows the robot's `fleetless.yaml` and the organization's defaults, less
+  what the app locks.
+- **Breaking (major):** app users and app invitations hold a role key.
+  `role_id` is replaced by `role`, a role key, in `appUser`,
+  `createAppUserRequest`, `patchAppUserRequest`, `createAppInvitationRequest`
+  and `appInvitation` (so also `pendingAppInvitation`). `role` is optional in
+  the three requests, and absent means the app's `default_role`; `appInvitation`
+  requires it. `appUser.role` and `pendingAppInvitation.role` are nullable: an
+  account, or a pending invitation whose app has no default role, left without a
+  key lists with `role: null` and reaches nothing. A malformed key is refused; a
+  key that names no role is accepted and grants nothing. `409
+  target_state_conflict` now names `default_role` (rule `not_set`) where it
+  named `default_role_id`, and a role of another app is no longer a `404`. A
+  consumer that sent or read `role_id` sends and reads the role's key now.
+- **Breaking (major):** locks follow a slug rename where role grants used to.
+  `renameSlugResponse.rewritten_grants` is `rewritten_locks` and
+  `slugUsageResponse.grant_count` is `lock_count`: the app locks that list the
+  renamed slug now list the new name as well, in every app of the
+  organization. A rename that would push a lock past the most slugs it can hold
+  is refused with `409 target_state_conflict`, rule `lock_full`.
+- **Breaking (major):** `publishConfigResponse` requires `warnings`: every
+  warning of the published document, `[]` when it has none. An answer from a
+  cloud that does not send it yet no longer satisfies the contract.
+- **Breaking (major):** the slugs `assets` and `job_history` are reserved, like
+  `bridge_state`, `robot_details` and `history`: `RESERVED_SLUGS` lists them,
+  and a configured entry of either name is refused when the document is
+  validated. They name the robot-level capabilities, so an exposure of the same
+  name would have left the `name` of an `effectiveCapability` ambiguous.
+- `POST /api/apps/:id/invitations/:invId/reissue` lists `target_state_conflict`:
+  an invitation that holds no role key, in an app with no default role, is
+  refused with it (rule `not_set`, field `default_role`) before the old link is
+  revoked.
+- The mail template variable `role.name` is the display name of the
+  organization role the invitee is given.
+- The journal kind `app_role.delete` is retired: no producer writes it any more,
+  and it stays in the contract so that journals written before still parse and
+  replay.
+
+### Added
+
+- Roles in `fleetless.yaml`. `role` — one role key, or a list of keys — is an
+  optional field of every entry of `datapoints`, `actions`, `services`,
+  `publishers` and `cameras`, and the new optional `access` section holds
+  `rules` (each with a `match` glob over the entry's ROS name, optional
+  `kinds` and a `role`) and the robot-level `assets` and `job_history`.
+  `accessRule` and `accessSection` are exported. The bridge ignores both
+  fields.
+- The helpers that resolve them, from the package root: `roleKey`, `roleRef`,
+  `accessKind`, `matchRosGlob`, `roleClosure`, `roleSatisfies`, `findCycle`,
+  `listExposures`, `requirementOf`, `collectRoleRefs` and `roleIssues`, with
+  `ROLE_KEY_PATTERN` and `ROLE_KEY_RULE` (the pattern a role key must match
+  and the sentence that says so), `ACCESS_KINDS`, `ENTRY_KINDS`,
+  `MAX_ORG_ROLES`, `ROLE_NAME_MAX`, `SEED_ROLES`, `SEED_DEFAULTS` and their
+  types. `RoleRef` is the type of a `role` field, one key or a list of keys;
+  `RoleRefUse`, the result of `collectRoleRefs`, is one place a document names
+  a key. `roleIssues` yields the two warnings a document can earn,
+  `unknown_role` and `rule_matches_nothing`.
+- Organization roles on the wire. Six developer routes, none owner-only:
+  `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
+  and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
+  its counts and the keys that are written somewhere but are no role; a rename
+  with `update_references` that has places to rewrite is two calls, the first
+  answered with a preview and a `confirm` token, and one with none applies at
+  once. The key `defaults` is reserved and is no role key. Shapes: `orgRole`,
+  `orgRoleListResponse`, `danglingReference`, `referencePlace`,
+  `createOrgRoleRequest`, `patchOrgRoleRequest`, `roleRenamePreview`,
+  `roleDefaultsResponse` and `putRoleDefaultsRequest`, each with its type and
+  JSON Schema artifact.
+- The error codes `role_cycle` (`400`, `details` is `roleCycleDetails`),
+  `role_key_taken` (`409`) and `confirmation_required` (`409`, `details` is
+  the preview that carries the token to confirm with).
+- The journal kind `org_role.delete`, recorded like `server_key.revoke`.
+- App access and effective rights on the wire. `GET` and `PUT
+  /api/apps/:id/access` read and replace what an app locks (`locked_kinds` for
+  whole kinds of access, `locked` for single exposures of single robots) and
+  the role its users get by default; the answer carries `warnings` for what is
+  out of step. `GET /api/apps/:id/effective-rights` takes `role` or `user` and
+  answers, per attached robot, every capability with whether it is granted,
+  where its requirement came from, whether the robot is `reachable` at all and
+  the datasheet an MCP session of that role would get. Developer routes, none
+  owner-only. Shapes: `appAccess`, `appLock`, `accessWarning`,
+  `appAccessResponse`, `effectiveRightsQuery`, `effectiveCapability`,
+  `effectiveRobotRights` and `effectiveRightsResponse`.
+  The lists of an access name each kind, slug and robot once, and are bounded;
+  `MAX_LOCK_SLUGS` is the most slugs one lock can name.
+- `revision` on the access of an app. `appAccessResponse` carries the revision
+  of the stored access, and the `PUT /api/apps/:id/access` body may send back
+  the one it was composed from: when the stored access has changed since (a
+  write, a slug rename that extended a lock, a robot detached), the write is
+  refused with `409 target_state_conflict`, rule `stale`, and nothing is
+  written. Without a `revision` the body replaces what is stored, as before.
+
+## [13.3.0] — 2026-11-05
+
+### Added
+
+- `configAuthor`: a console team member by display name (the local part of the
+  email address when the member has none), never a full email address. The
+  config draft carries `updated_by` and each published version `published_by`,
+  both `configAuthor` or `null`: `null` when nobody has saved yet, when the
+  cloud itself rewrote the draft, when the member has since been removed, or
+  for rows older than the field. Both are optional on the wire: a consumer
+  reads an absent field as unknown, and the cloud always sends it.
+- `hostedLogoShape` (`square` or `wide`) and `appAuthConfig.hosted_logo_shape`,
+  read-only and derived from the stored image: `wide` when the logo is more
+  than one and a half times as wide as it is high, otherwise `square`, and
+  `null` exactly when `hosted_logo_url` is `null`. The field is optional on the
+  wire: a consumer reads an absent field as unknown, and the cloud always sends
+  it.
+
+### Changed
+
+- `HOSTED_LOGO_MAX_BYTES` rises from 100 KB to 512 KB (`524_288`). The logo
+  route's notes state the new limit.
+
+### Removed
+
+- The internal route `GET /mcp/welcome` (audience `internal`) is no longer listed: the MCP landing page
+  moved to https://fleetless.dev/mcp/.
 
 ## [13.2.0] — 2026-11-05
 

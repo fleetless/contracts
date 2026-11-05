@@ -325,6 +325,41 @@
           }
         }
       ]
+    },
+    "role": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
+        },
+        {
+          "minItems": 1,
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+            "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
+          }
+        }
+      ],
+      "defaultSnippets": [
+        {
+          "label": "one role",
+          "description": "The role that may use this; a role that inherits from it may too.",
+          "body": "${1:operate}"
+        },
+        {
+          "label": "any of several roles",
+          "description": "A list of roles; holding one of them, or inheriting from one, is enough.",
+          "body": [
+            "${1:operate}",
+            "${2:admin}"
+          ]
+        }
+      ],
+      "description": "Which role may read this datapoint: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of `access.rules` that fits the entry decides, and without a fitting rule the organization's default for `read` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it."
     }
   },
   "required": [

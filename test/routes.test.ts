@@ -49,6 +49,11 @@ describe('the route manifest', () => {
     expect(JSON.stringify(landings)).not.toMatch(/https?:\/\/|[?&](?:token|redirect|redirect_to|proof)=|Set-Cookie:/i)
   })
 
+  it('the MCP welcome page is not a route of the API any more', () => {
+    expect(ROUTES.find((r) => r.method === 'GET' && r.path === '/mcp/welcome')).toBeUndefined()
+    expect(ROUTES.find((r) => r.path === '/favicon.svg')?.summary).not.toMatch(/welcome/i)
+  })
+
   it('has no duplicate method+path', () => {
     const keys = ROUTES.map(key)
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)
@@ -779,6 +784,8 @@ describe('the app-user auth surface', () => {
     expect(put.request).toBeNull()
     expect(put.errors).toContain('unsupported_media_type')
     expect(put.notes ?? '').toContain('HOSTED_LOGO_MAX_BYTES')
+    expect(put.notes ?? '').toContain('512 KB')
+    expect(put.notes ?? '').not.toContain('100 KB')
     expect(ROUTES.find((r) => key(r) === 'DELETE /api/apps/:id/auth-config/logo')?.response).toBe(appAuthConfig)
   })
 
@@ -927,6 +934,30 @@ describe('app deletion', () => {
     const del = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/apps/:id')
     expect(del?.status).toBe(204)
     expect(del?.ownerTier).toBe(false)
+  })
+})
+
+describe('the per-app role routes', () => {
+  // Roles belong to the organization; a revert would put a second place to manage them back.
+  const GONE = [
+    'POST /api/apps/:id/roles',
+    'GET /api/apps/:id/roles',
+    'PATCH /api/apps/:id/roles/:roleId',
+    'DELETE /api/apps/:id/roles/:roleId',
+    'PUT /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/mcp-tools',
+  ] as const
+
+  it('are not in the manifest', () => {
+    const keys = new Set(ROUTES.map(key))
+    for (const k of GONE) expect(keys.has(k), `${k} is back in ROUTES`).toBe(false)
+  })
+
+  it('are not in the OpenAPI document either', () => {
+    const paths = Object.keys(openApiDocument().paths)
+    // The organization's own `/api/org/roles` routes replace them; only the per-app paths are forbidden.
+    expect(paths.filter((p) => p.startsWith('/api/apps/{id}/roles'))).toEqual([])
   })
 })
 
@@ -2388,6 +2419,20 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
   })
 })
 
+describe('the slug rename and the app locks', () => {
+  it('moves the locks with the name, counts them, and can refuse when a lock has no room left', () => {
+    const rename = ROUTES.find((r) => key(r) === 'POST /api/robots/:id/config/rename-slug')!
+    expect(rename.summary).not.toMatch(/grant/i)
+    expect(rename.notes ?? '').not.toMatch(/grant/i)
+    expect(rename.notes ?? '').toMatch(/Locks follow the rename/)
+    expect(rename.notes ?? '').toMatch(/rewritten_locks/)
+    expect(rename.notes ?? '').toMatch(/lock_full/)
+    expect(rename.errors).toContain('target_state_conflict')
+    const usage = ROUTES.find((r) => key(r) === 'GET /api/robots/:id/config/slug-usage/:slug')!
+    expect(usage.notes ?? '').toMatch(/lock_count/)
+    expect(usage.notes ?? '').not.toMatch(/grant/i)
+  })
+})
 
 describe('owner purchase intents', () => {
   it('requires operation keys on both hosted payment entries and supports unpaid responses', () => {

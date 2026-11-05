@@ -27,8 +27,8 @@ describe('name grammar', () => {
     }
   })
 
-  it('reserves the built-in slug, spelled with an underscore, and `history`', () => {
-    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'history'])
+  it('reserves the built-in slug, spelled with an underscore, `history` and the two capability names', () => {
+    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'history', 'assets', 'job_history'])
   })
 })
 

@@ -25,11 +25,18 @@
             "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
             "description": "The address the invitation was addressed to."
           },
-          "role_id": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-            "description": "The role the invitee holds once they accept. Resolved at creation, so a later change to the app's default role does not silently re-aim an outstanding invitation."
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The key of the role the invitee holds once they accept, or `null` for an invitation that holds none and whose app has no default role to stand in for it. Such an invitation is answered `409 target_state_conflict` naming `default_role` when it is accepted or reissued: set the app's default role, or revoke it and invite again. A role deleted in the meantime leaves the key behind, and it grants nothing."
           },
           "expires_at": {
             "type": "string",
@@ -42,7 +49,7 @@
           "id",
           "app_id",
           "email",
-          "role_id",
+          "role",
           "expires_at"
         ],
         "additionalProperties": false

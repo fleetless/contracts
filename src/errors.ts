@@ -256,6 +256,18 @@ export const requiredMissingDetails = z
 export type RequiredMissingDetails = z.infer<typeof requiredMissingDetails>
 
 /**
+ * The `details` of a `400 role_cycle` refusal: the loop the change would have
+ * made, along the `inherits` edges, as `[a, b, a]` — the first key again at
+ * the end. A role that inherits from itself is `[a, a]`.
+ */
+export const roleCycleDetails = z.object({
+  cycle: z.array(z.string()).min(2).meta({
+    description: 'The keys along the loop, in order, ending with the key the loop started from: `["a", "b", "a"]`.',
+  }),
+})
+export type RoleCycleDetails = z.infer<typeof roleCycleDetails>
+
+/**
  * The codes in use today. The wire deliberately allows any string — this
  * list is the shared vocabulary, not a closed set, so a new refusal never
  * needs a contracts release before it can be reported honestly.
@@ -309,7 +321,7 @@ export const ERROR_CODES = [
   'bridge_timeout',
   // Identity and rights. `forbidden` is deliberately the answer both
   // for "your role does not grant this" and for "there is no such slug":
-  // roles are the only filter, and a caller must not be able to map
+  // rights are the only filter, and a caller must not be able to map
   // the configuration of an app they have no rights in.
   'unauthorized',
   'forbidden',
@@ -738,14 +750,14 @@ export const ERROR_CODES = [
    * the role's datasheet (`mcpRobotDatasheet`) already lists every exposure
    * the role does grant, so a second code would split an outcome nobody acts
    * on differently. To anyone else the two must be indistinguishable anyway,
-   * because roles are the only filter.
+   * because rights are the only filter.
    */
   'tool_not_available',
   // Capabilities.
   /**
    * An app-wide **capability** the caller's role does not grant — today
    * `assets` (`GET /api/robots/:id/assets` and the URDF/by-id byte routes)
-   * and `action_history` (`GET /api/robots/:id/jobs/history`). The message
+   * and `job_history` (`GET /api/robots/:id/jobs/history`). The message
    * names which one.
    *
    * **Distinct from `forbidden`, and the distinction is the point.**
@@ -778,35 +790,45 @@ export const ERROR_CODES = [
    * caller could infer from a silence about existence.
    */
   'last_owner',
-  // App roles.
+  /* `role_name_taken`, `role_in_use` and `last_role` are gone with the per-app
+   * role routes they answered; organization roles bring their own refusals. */
+  // Organization roles.
   /**
-   * **Another role of this app already has that name.** 409, on
-   * `PATCH /api/apps/:id/roles/:roleId`. Names are unique per app, compared
-   * exactly as stored after trimming.
+   * `400`: the change would make a role inherit from itself, directly or
+   * through other roles. Nothing was written. `details` is `roleCycleDetails`,
+   * the loop as `[a, b, a]`.
    *
-   * Not `validation_error`: the name is well-formed, and the remedy — pick
-   * another — depends on the app's other roles, not on the body.
+   * Raised when a role is created or its `inherits` changes. Renaming and
+   * deleting a role are never refused for the roles that depend on it: what is
+   * left dangling turns into a warning.
    */
-  'role_name_taken',
+  'role_cycle',
   /**
-   * **The role is still held**, by app users, by pending invitations, or as
-   * the app's default role. 409, on `DELETE /api/apps/:id/roles/:roleId`
-   * without `move_to`. `details` is `roleInUseDetails`:
-   * `{ users, invitations, is_default }`.
-   *
-   * Not `conflict`: the details tell the console what to offer — a role to
-   * move them to — and a generic code would leave it guessing.
+   * `409`: the organization already has a role with that key, on a create or on
+   * a rename to a key that is in use. Nothing was written; pick another key.
    */
-  'role_in_use',
+  'role_key_taken',
   /**
-   * **An app must keep at least one role.** 409, on
-   * `DELETE /api/apps/:id/roles/:roleId` for the app's only role: every app
-   * user holds exactly one role, so an app without roles could hold no users.
+   * `409`: the call changes many places at once and has to be confirmed with
+   * the token of its current preview. `details` is that preview, with the
+   * token in its `confirm` field; repeat the same request with `confirm` set
+   * to it and the call applies. The shape of the preview belongs to the call
+   * that answers it: for renaming an organization role with
+   * `update_references` it is `roleRenamePreview`.
    *
-   * The same shape of refusal as `last_owner`: the caller may delete roles;
-   * the app's remaining state is what refuses this one.
+   * App collections use the code for a publish, a restore, a purge and an
+   * import that would change or remove data and brought no token. There
+   * `details` is `confirmationRequiredDetails`: `{ preview }`, the current
+   * preview of the operation, whose `token` is sent back as `confirm`. The
+   * answer is not "someone else got there first" but "this is exactly what
+   * would happen now, say yes to it".
+   *
+   * A token fits the effects its preview lists and nothing else. When
+   * anything those effects cover has changed since, the call answers a new
+   * preview instead of applying on a stale token, so what is applied is always
+   * what the caller was shown.
    */
-  'last_role',
+  'confirmation_required',
   // OIDC federation.
   /**
    * **The target is in a state that refuses the operation** — not the caller's
@@ -1235,15 +1257,6 @@ export const ERROR_CODES = [
   'support_forbidden',
 
   // 2026-11-04 — app collections.
-  /**
-   * `409`: a publish, a restore, a purge or an import would change or remove
-   * data and the request carried no token, or the token of a preview that no
-   * longer holds because the data changed since. Nothing was changed.
-   * `details` is `confirmationRequiredDetails`: the current preview, with the
-   * `token` to send back as `confirm`. The answer is not "someone else got
-   * there first" but "this is exactly what would happen now, say yes to it".
-   */
-  'confirmation_required',
   /**
    * `409`: the record cannot be deleted, or an import cannot delete it,
    * because other records point at it through a reference whose `on_delete` is

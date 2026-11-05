@@ -15,11 +15,11 @@
         }
       ]
     },
-    "role_id": {
-      "description": "The role the user holds from now on. A role belonging to another app is `404 not_found`, the same refusal a role that never existed gets; re-roling closes the user's live subscriptions.",
+    "role": {
+      "description": "The role the user holds from now on, by key. A key that names no role is accepted and grants nothing. The change applies at once: the user's live subscriptions are re-checked against the new role, and those it no longer allows end.",
       "type": "string",
-      "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+      "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
     },
     "status": {
       "type": "string",

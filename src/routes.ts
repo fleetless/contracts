@@ -28,16 +28,15 @@
  */
 import type { ZodType } from 'zod'
 import {
+  appAccess,
+  appAccessResponse,
   appListResponse,
   appDeletionSummary,
   createAppRequest,
   createServerKeyResponse,
   app as appSchema,
-  role,
-  roleListResponse,
-  roleDeleteQuery,
-  rolePermissions,
-  roleRenameRequest,
+  effectiveRightsQuery,
+  effectiveRightsResponse,
   serverKeyListResponse,
   updateAppRequest,
 } from './apps.js'
@@ -130,6 +129,14 @@ import {
   putAppMailTemplateRequest,
 } from './app-users.js'
 import type { ErrorCode } from './errors.js'
+import {
+  createOrgRoleRequest,
+  orgRole,
+  orgRoleListResponse,
+  patchOrgRoleRequest,
+  putRoleDefaultsRequest,
+  roleDefaultsResponse,
+} from './org-roles.js'
 import { controllerRegisterOrgResponse, controllerRegisterWrite } from './controller-register.js'
 import {
   acceptTeamInviteRequest,
@@ -165,7 +172,7 @@ import {
   legalOfferListQuery, legalOfferListResponse, legalOfferDisplayRequest, legalOfferDisplayResponse,
   legalOfferDecisionRequest, legalOfferDecisionLookupQuery, legalOfferDecisionResult,
 } from './legal-offers.js'
-import { MCP_APP_PATHS, mcpRobotDatasheet, mcpRolePreviewResponse } from './mcp.js'
+import { MCP_APP_PATHS, mcpRobotDatasheet } from './mcp.js'
 import {
   authorizationServerMetadata,
   dynamicClientRegistrationRequest,
@@ -441,9 +448,9 @@ const MOLLIE = ['payment_provider_unavailable'] as const satisfies readonly Erro
  * code in `ERROR_CODES` satisfies every one of them.
  *
  * It keeps `forbidden`, which `DEVELOPER_GUARD` no longer carries: this guard's
- * routes have live 403 producers — a slug the role does not grant
+ * routes have live 403 producers — a slug the caller's rights do not cover
  * (`routes/history.ts`), a capability the role does not carry
- * (`routes/commands.ts`), a camera or datapoint outside the grant
+ * (`routes/commands.ts`), a camera or datapoint outside the caller's rights
  * (`routes/cameras.ts`, `routes/robots.ts`). That divergence is the reason the
  * two lists were kept as separate constants while they still read alike.
  */
@@ -866,7 +873,7 @@ export const ROUTES: readonly RouteEntry[] = [
   /* ------------------------------------------- client auth (portal pages) */
   {
     method: 'GET', path: '/favicon.svg', section: 'client-auth',
-    summary: 'Serves the Fleetless icon for the auth portal\'s and the MCP welcome page\'s browser tab.',
+    summary: 'Serves the Fleetless icon for the auth portal\'s browser tab.',
     audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
     params: [], query: null, request: null, response: null, errors: [], transport: 'http',
     notes:
@@ -971,6 +978,84 @@ export const ROUTES: readonly RouteEntry[] = [
       'The write is atomic and audited; billing data is never an implicit source. Support sessions cannot write.',
   },
   {
+    method: 'GET', path: '/api/org/roles', section: 'org',
+    summary: "Lists the organization's roles with how much depends on each, and the keys that are written somewhere but are no role.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: orgRoleListResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      'Roles belong to the organization and are shared by all its apps; console members hold none and are never filtered by them. Each role ' +
+      'carries the number of app users that hold it, of invitations that carry it, of apps that use it as their default and of places in ' +
+      'documents that name it. `dangling` lists the keys that are written somewhere and are no role, each with every place that writes it, ' +
+      'so a deleted or misspelled key can be found. None of this is an error: a key that names no role grants nothing and is reported here.',
+  },
+  {
+    method: 'POST', path: '/api/org/roles', section: 'org',
+    summary: 'Creates an organization role.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
+    params: [], query: null, request: createOrgRoleRequest, response: orgRole,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'role_cycle', 'role_key_taken'], transport: 'http',
+    notes:
+      'An organization holds at most 50 roles; the next one is `400 validation_error`. A key in `inherits` that names no role is accepted and ' +
+      'warns: inheritance through it grants nothing until a role with that key exists. A role that would inherit from itself, as `inherits` ' +
+      'naming its own key does, is `400 role_cycle`. A key that another role has is `409 role_key_taken`.',
+  },
+  {
+    method: 'PATCH', path: '/api/org/roles/:key', section: 'org',
+    summary: "Changes a role's name, its parents or its key.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'key', description: "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`." }],
+    query: null, request: patchOrgRoleRequest, response: orgRole,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found', 'role_cycle', 'role_key_taken', 'confirmation_required'], transport: 'http',
+    notes:
+      'A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is ' +
+      '`400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is ' +
+      'accepted at once; everything that still names the old key, in documents, assignments, invitations, default roles, other roles and ' +
+      'organization defaults, keeps it and turns into a warning. With `update_references: true` and no `confirm`, a rename that has places to ' +
+      'rewrite changes nothing and answers `409 confirmation_required` whose `details` is a `roleRenamePreview`: every place that would be ' +
+      'rewritten, the document it is in, the version a published document would get, and a `confirm` token. A rename with no place to ' +
+      'rewrite applies at once and needs no token. The second call repeats the same body with ' +
+      '`confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected ' +
+      'published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the ' +
+      'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key ' +
+      'that another role has is `409 role_key_taken`.',
+  },
+  {
+    method: 'DELETE', path: '/api/org/roles/:key', section: 'org',
+    summary: 'Deletes a role at once.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
+    params: [{ name: 'key', description: "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`." }],
+    query: null, request: null, response: null,
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'Nothing is moved and nothing is refused for what depends on the role. App users that hold it keep their account and can sign in, with ' +
+      'no rights from the role; everything that names the key turns into a warning and is listed under `dangling` of `GET /api/org/roles`. ' +
+      'Live subscriptions that relied on the role are re-checked at once. Creating a role with the same key later makes the places that ' +
+      'name it count again.',
+  },
+  {
+    method: 'GET', path: '/api/org/roles/defaults', section: 'org',
+    summary: "Reads the organization's default roles for each kind of access.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: null, response: roleDefaultsResponse,
+    errors: [...DEVELOPER_GUARD], transport: 'http',
+    notes:
+      'Every kind of access is present; an empty list means nobody holds it, not even the most senior role. A default applies where a robot\'s ' +
+      'published `fleetless.yaml` names no role for the thing asked about. A new organization starts with `observe` for `read` and `assets`, ' +
+      'and `operate` for `invoke`, `publish` and `job_history`.',
+  },
+  {
+    method: 'PUT', path: '/api/org/roles/defaults', section: 'org',
+    summary: "Changes the organization's default roles for the named kinds of access.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [], query: null, request: putRoleDefaultsRequest, response: roleDefaultsResponse,
+    errors: [...DEVELOPER_GUARD, 'validation_error'], transport: 'http',
+    notes:
+      'Despite the verb, kinds that are not named keep their default; `null` or `[]` sets a kind to nobody. A key that names no role is ' +
+      'accepted and warns, and grants nothing. Answers all the defaults as they stand afterwards. A default that narrows who holds a kind ' +
+      're-checks the live subscriptions it affects.',
+  },
+  {
     method: 'GET', path: '/api/audit', section: 'org',
     summary: "Reads the org's audit log, newest first, cursor-paged over the durable sequence number.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
@@ -1002,7 +1087,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is ' +
       'reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group ' +
-      'an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model.',
+      'an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model. ' +
+      'A new app has no default role: `default_role` is `null` until `PUT /api/apps/:id/access` sets one.',
   },
   {
     method: 'GET', path: '/api/apps', section: 'apps',
@@ -1019,18 +1105,21 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: appSchema,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`.',
+    notes:
+      'An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`. `default_role` is the key as stored, ' +
+      'or `null` when the app has none; a key that names no role is shown as it is, and `GET /api/apps/:id/access` warns about it.',
   },
   {
     method: 'PATCH', path: '/api/apps/:id', section: 'apps',
-    summary: "Changes an app's name, its attached robots or its default role.",
+    summary: "Changes an app's name or its attached robots.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: updateAppRequest, response: appSchema,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      'A `default_role_id` naming a role of another app is refused: it is the one cross-app authorization check this shape can carry. ' +
-      'Changing the robot set closes every live subscription the app\'s users hold, since a grant may no longer name a reachable robot.',
+      'The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names ' +
+      'a default role, by id or by key, is `400 validation_error`. ' +
+      'Changing the robot set closes every live subscription the app\'s users hold, since a robot they were using may no longer be reachable.',
   },
   {
     method: 'GET', path: '/api/apps/:id/deletion-preview', section: 'apps',
@@ -1054,101 +1143,10 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: null,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, roles, server keys, ' +
+      'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, server keys, ' +
       'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
-      'Its robots are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
+      'Its robots and the organization\'s roles are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
       '`GET /api/apps/:id/deletion-preview`.',
-  },
-  {
-    method: 'POST', path: '/api/apps/:id/roles', section: 'apps',
-    summary: 'Creates a custom role on the app.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 201,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: role,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'The body is `{ "name": string }` — non-empty, trimmed, at most 60 characters as on `role.name` — and is deliberately not a contract shape: contracts ' +
-      'define the `role` this answers with, not this one trivial request. **The answer is a bare `role`, not an envelope**, unlike the ' +
-      'listing beside it.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles', section: 'apps',
-    summary: "Lists the app's roles, builtin and custom.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
-    query: null, request: null, response: roleListResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Answers `{ "roles": [role, …] }`, builtin roles included — a role a developer never created is still one a user can hold.',
-  },
-  {
-    method: 'PUT', path: '/api/apps/:id/roles/:roleId/permissions', section: 'apps',
-    summary: "Replaces a role's grants and capabilities in one write.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: rolePermissions, response: rolePermissions,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      '`role_id` in the body must name the role in the path, compared case-insensitively — a uuid is a value, not a string, and a client that ' +
-      'uppercases them consistently must not be refused for repeating what the path says. A grant naming a robot the app does not have is ' +
-      'refused rather than stored: a permission for something the role cannot reach reads as authoritative to whoever writes the next consumer. ' +
-      'Every user holding this role has their live subscriptions re-authorized.',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles/:roleId/permissions', section: 'apps',
-    summary: "Reads a role's grants and capabilities.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: null, response: rolePermissions,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-  },
-  {
-    method: 'GET', path: '/api/apps/:id/roles/:roleId/mcp-tools', section: 'apps',
-    summary: 'Previews the robot datasheets an MCP caller holding this role would be offered.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: null, response: mcpRolePreviewResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes:
-      'Built by the same builder the MCP server\'s own `robots.describe` uses, so the two cannot drift. It answers what the role *would* be ' +
-      'offered and consults nothing about any user\'s actual MCP entitlement. A robot the role grants nothing on still appears, with an empty ' +
-      '`exposures` — dropping it would read as "not attached", which is a different fact.',
-  },
-  {
-    method: 'PATCH', path: '/api/apps/:id/roles/:roleId', section: 'apps',
-    summary: 'Renames a role; its users keep it.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: null, request: roleRenameRequest, response: role,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_name_taken'], transport: 'http',
-    notes: 'Names are unique per app, compared exactly as stored after trimming. Built-in roles can be renamed.',
-  },
-  {
-    method: 'DELETE', path: '/api/apps/:id/roles/:roleId', section: 'apps',
-    summary: 'Deletes a role, moving its users, pending invitations and default-role status to another role.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 204,
-    params: [
-      { name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' },
-      { name: 'roleId', description: 'The role\'s uuid, from `GET /api/apps/:id/roles`; a role of another app answers `404`.' },
-    ],
-    query: roleDeleteQuery, request: null, response: null,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'role_in_use', 'last_role'], transport: 'http',
-    notes:
-      'Without `move_to`, a role that app users or pending invitations hold, or that is the app\'s default, answers ' +
-      '`409 role_in_use` with `{ users, invitations, is_default }`. With `move_to` — another role of the same app, else ' +
-      '`400 validation_error` — one transaction moves `app_users.role_id`, pending invitations and `default_role_id`, then deletes ' +
-      'the role and its permissions. The app\'s only role answers `409 last_role`. Built-in roles can be deleted like any other.',
   },
   {
     method: 'POST', path: '/api/apps/:id/server-keys', section: 'apps',
@@ -1158,8 +1156,8 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: createServerKeyResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
     notes:
-      'A server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, the same ' +
-      'trivial shape role creation takes. `key` is the only moment the raw secret exists outside the caller\'s hands — it is never in a ' +
+      'A server key carries full app rights and outlives its creator\'s removal. The body is `{ "name": string }`, too ' +
+      'trivial to be a contract shape. `key` is the only moment the raw secret exists outside the caller\'s hands — it is never in a ' +
       'listing, never in an audit event, and cannot be read back.',
   },
   {
@@ -1201,6 +1199,53 @@ export const ROUTES: readonly RouteEntry[] = [
     notes: 'The key stops working at once. Minting, rotating and revoking all decide who may speak for the whole app.',
   },
 
+  {
+    method: 'GET', path: '/api/apps/:id/access', section: 'apps',
+    summary: "Reads what an app locks and which role its users get by default, with what is out of step in it.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: null, response: appAccessResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes:
+      'An app can only lock, never extend: roles decide who may use what, and a lock takes capabilities away from every user and server key of ' +
+      'the app, whatever their role. `warnings` lists what the access names that does not exist as written, such as a default role that ' +
+      'is no role or a lock on a slug the robot does not have. None of it is an error. `revision` identifies the access as it stands: ' +
+      'send it back with the next `PUT` and a write composed from a stale read is refused.',
+  },
+  {
+    method: 'PUT', path: '/api/apps/:id/access', section: 'apps',
+    summary: "Replaces what an app locks and which role its users get by default.",
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: null, request: appAccess, response: appAccessResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'target_state_conflict'], transport: 'http',
+    notes:
+      'A full replacement: the body is exactly what the app has afterwards, so a lock that is not in it is lifted. A default role that is no ' +
+      'role, a lock on a slug the robot does not have and a lock on a robot the app does not attach are accepted and come back as ' +
+      '`warnings`. A change that can narrow rights re-checks the live subscriptions of the app\'s users at once. \n\n**Send the `revision` you ' +
+      'read.** The access can change under a caller without a write of its own: a slug rename adds the new name to every lock that lists the ' +
+      'old one, and detaching a robot drops its lock. A body composed before such a change would lift the lock it added, so a `revision` that ' +
+      'is no longer the stored one is `409 target_state_conflict` naming `revision` (rule `stale`), and nothing is written, audited or ' +
+      'announced; read the access again and compose the body anew. Left out, the body replaces whatever is stored, as before: the last ' +
+      'writer wins. A `revision` that is not a revision is `400 validation_error`.',
+  },
+  {
+    method: 'GET', path: '/api/apps/:id/effective-rights', section: 'apps',
+    summary: 'Shows what one role, or one app user, may use on each robot the app attaches.',
+    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
+    query: effectiveRightsQuery, request: null, response: effectiveRightsResponse,
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
+    notes:
+      'Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with ' +
+      'whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the ' +
+      'inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. ' +
+      'Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow ' +
+      'the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is ' +
+      'still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with ' +
+      'nothing granted, and so does a user who is not `active`. A user of another app answers `404`.',
+  },
+
 
   /* -------------------------------------- the app's users and invitations */
   {
@@ -1214,7 +1259,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'Answers `{ "users": [appUser, …] }`. **A different identity space from `GET /api/org/users`**, and nothing joins the two: an app user ' +
       'belongs to exactly one app, their address is unique per app rather than globally, and the same address may exist as unrelated accounts ' +
       'in several apps of one org. No password hash, no token and no provider secret appears here — `appUser` names the fields it carries ' +
-      'rather than spreading the stored row.',
+      'rather than spreading the stored row. An account that holds no role key lists with `role: null`; it reaches nothing until ' +
+      '`PATCH /api/apps/:id/users/:userId` gives it one.',
   },
   {
     method: 'POST', path: '/api/apps/:id/users', section: 'apps',
@@ -1227,13 +1273,14 @@ export const ROUTES: readonly RouteEntry[] = [
       'The developer-authenticated door into the app\'s user table, and the one place `409 email_taken` is an honest answer about an app user: ' +
       'the caller is authenticated into this app already, so telling them the address is taken discloses nothing they could not read from the ' +
       'listing beside it. `POST /api/client/register` answers `202` to the same fact, because there the caller is a stranger. `404 not_found` ' +
-      'is the app, or a `role_id` that is not a role of it — a role of another app is refused rather than stored, since a user holding one ' +
-      'would carry rights nothing in this app can resolve. **The password policy answers `400 validation_error`**, not a code of its own: the ' +
+      'is the app. The `role` is a key of the organization\'s roles: a malformed one is `400 validation_error`, and a well-formed one is stored ' +
+      'as given even when it names no role, which grants nothing and shows up under `dangling` of `GET /api/org/roles`. **The password policy ' +
+      'answers `400 validation_error`**, not a code of its own: the ' +
       'twelve-character minimum is the `password` field\'s schema rule, and every route that takes a password refuses a ' +
       'short one exactly the way it refuses any other malformed field. An account created here is `active` immediately: a developer entering ' +
       'somebody by hand has made the decision the verification mail automates, and its address counts as proven. `409 target_state_conflict` ' +
-      'names `default_role_id` when `role_id` is absent and the app has no default role, or its default names a role that no longer resolves ' +
-      '— a user with no role holds rights nothing in this app can read, so nothing is created. \n\n**`409 quota_exceeded` when the org holds as ' +
+      'names `default_role` with rule `not_set` when `role` is absent and the app has no default role — there would be no role to give the ' +
+      'user, so nothing is created. \n\n**`409 quota_exceeded` when the org holds as ' +
       'many app users as `max_end_users` allows**, counted across every app of the org — the same number `GET /api/org/quotas` reports as ' +
       '`usage.max_end_users`, since the same address in two apps is two accounts. `details` carries `{ quota, limit }`, as every count quota\'s ' +
       'refusal does. The check is at **creation** only: an existing user signs in, is patched and is deleted at the quota exactly as under it, ' +
@@ -1264,7 +1311,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'who typed an address they do not own log in without ever spending the mailed token. Unblocking restores the status the account had — ' +
       '`active` for one whose address was proven, `pending_verification` for one blocked before it ever verified. A write that names the ' +
       'status the account already holds changes nothing and mints no event, so it does not end the sessions a re-sent form would otherwise ' +
-      'have killed. A `role_id` naming a role of another app is `404 not_found`, the same refusal creation makes.',
+      'have killed. A `role` is stored as given, as creation does: a malformed key is `400 validation_error`, one that names no role grants ' +
+      'nothing, and the same key the user already holds changes nothing. A changed role is applied to the user\'s open subscriptions at once, ' +
+      'and those the new role no longer allows end.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/users/:userId', section: 'apps',
@@ -1370,7 +1419,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'revoke. **No `accept_url`**, the rule the team listing already keeps: this list exists so a developer can see what is outstanding and ' +
       'withdraw it, and neither needs the token, while a list that carried it would turn every screenshot and browser-history entry of that ' +
       'page into a live credential for somebody else\'s account. `mail` is omitted too — it described what happened at creation time, and ' +
-      're-serving it invites a reader to take it as current.',
+      're-serving it invites a reader to take it as current. An invitation that holds no role key and whose app has no default role lists ' +
+      'with `role: null`; accepting or reissuing it is `409 target_state_conflict` naming `default_role`.',
   },
   {
     method: 'POST', path: '/api/apps/:id/invitations', section: 'apps',
@@ -1382,12 +1432,13 @@ export const ROUTES: readonly RouteEntry[] = [
     transport: 'http',
     notes:
       '**An app user, not a team member.** `POST /api/org/invitations` is the other space and leads to the console; this link leads into the ' +
-      'developer\'s own app. The role is resolved and stored now, so a later change to `default_role_id` does not re-aim a link already sent. ' +
+      'developer\'s own app. The role is resolved and stored now, so a later change to `default_role` does not re-aim a link already sent. ' +
       'An invitation **always bypasses `allowed_domains`**. \n\nThe answer carries `accept_url`: the app\'s `invite_url` with the token in it, ' +
       'or the Fleetless-hosted invitation page when the app has configured none — so mailing it is never refused for a missing URL. ' +
-      '`409 target_state_conflict` names `default_role_id` when `role_id` is absent and the app has no default role, or its default no longer resolves: an invitation ' +
-      'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. `409 ' +
-      'email_taken` is an address the app already has as a user; `404 not_found` is the app or a `role_id` that is not one of its roles. ' +
+      '`409 target_state_conflict` names `default_role` with rule `not_set` when `role` is absent and the app has no default role: an invitation ' +
+      'that names no role has nothing to hand its acceptor, so it is refused here rather than at the acceptance a week later. A `role` that ' +
+      'names no role is accepted and grants nothing; a malformed key is `400 validation_error`. `409 ' +
+      'email_taken` is an address the app already has as a user; `404 not_found` is the app. ' +
       '\n\nCreating shares the reissue route\'s ceiling of **five invitation mails a minute per app**, answering `429 rate_limited` with ' +
       '`retry_after_ms`: re-creating an invitation for one address replaces it and mails again, so a limit that bound only reissue would be ' +
       'a limit on the wrong door.',
@@ -1398,12 +1449,14 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }, { name: 'invId', description: 'The invitation\'s uuid, from `GET /api/apps/:id/invitations`; an invitation of another app answers `404`.' }],
     query: null, request: null, response: appInvitation,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'rate_limited'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'target_state_conflict', 'rate_limited'], transport: 'http',
     notes:
       'The old link stops resolving the instant this returns: the row is found by token hash and the previous hash is gone. Two live links to ' +
       'one invitation would reopen the door the listing\'s missing `accept_url` closes. \n\n**The answer carries a new `id`.** The old row ' +
       'is revoked and a fresh one takes its place, so a caller holding the previous `id` gets `404` from its next revoke or reissue: re-read ' +
-      'the listing after this call rather than keeping the id you sent. The seven days start again. \n\nLimited server-side to **five ' +
+      'the listing after this call rather than keeping the id you sent. The new invitation holds the same role, and the seven days start ' +
+      'again. An invitation that holds no role key and whose app has no default role is refused with `409 target_state_conflict` naming ' +
+      '`default_role` (rule `not_set`) before the old link is revoked: set the default role, or revoke it and invite again. \n\nLimited server-side to **five ' +
       'reissues a minute per app** — shared with `POST /api/apps/:id/invitations`, since both mint a link and mail it — answering `429 ' +
       'rate_limited` with `retry_after_ms`. A disabled button is a hint, this is the limit. An invitation that has already been accepted is ' +
       'not pending and answers `404`.',
@@ -1602,7 +1655,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type'], transport: 'http',
     notes:
       'The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, ' +
-      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one ' +
+      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one ' +
       'that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from ' +
       '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs.',
   },
@@ -2134,18 +2187,6 @@ export const ROUTES: readonly RouteEntry[] = [
 
   /* ---------------------------------------------------- mcp (the endpoint) */
   {
-    method: 'GET', path: '/mcp/welcome', section: 'mcp',
-    summary: 'Serves the page that tells a person which URL to paste into their MCP client.',
-    audience: 'internal', auth: 'none', rateLimited: false, ownerTier: false, status: 200,
-    params: [], query: null, request: null, response: null, errors: [], transport: 'http',
-    notes:
-      'HTML, one fixed document rendered once at startup — its inputs are process configuration, not request state. Cached for five minutes ' +
-      'rather than a day, because the URLs it names can change with a deployment. Its content security policy admits the page\'s own inline ' +
-      'style and script by SHA-256 rather than by `unsafe-inline`, and forbids every external fetch outright. A configured friendly URL that ' +
-      'is not a usable absolute http(s) URL is ignored rather than rendered: a typo in a deployment variable must not put a broken URL in ' +
-      'front of every end user.',
-  },
-  {
     method: 'POST', path: '/mcp', section: 'mcp',
     summary: 'The central MCP endpoint: a stateless Streamable HTTP transport carrying the robot and console tool catalogs.',
     audience: 'client', auth: 'in_handler', rateLimited: false, ownerTier: false, status: 200,
@@ -2178,8 +2219,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'JSON-RPC over MCP\'s Streamable HTTP, so neither the request nor the response is a shape contracts describes — exactly as `POST /mcp` ' +
       'is, and stateless for the same reason: a fresh transport per request, no session id, nothing surviving the call. **App users only.** ' +
-      'The tools are this app\'s robots filtered by the caller\'s role, built by the same builder `GET /api/apps/:id/roles/:roleId/mcp-tools` ' +
-      'previews, so the console\'s preview and the live catalog cannot drift. The console tool family belongs to the central endpoint and is ' +
+      'The tools are this app\'s robots filtered by the caller\'s role, built by the same builder `GET /api/robots/:id/datasheet` ' +
+      'answers, so the datasheet and the live catalog cannot drift. The console tool family belongs to the central endpoint and is ' +
       'offered here to nobody. \n\n**The bearer is verified inside the handler**, not by a route guard, for the two reasons the central ' +
       'endpoint gives — the identity comes from the token and the path names none of it, and the refusal has to carry a `WWW-Authenticate` ' +
       'challenge a guard shared with the REST surface does not send. The challenge names **this app\'s** protected-resource document (RFC ' +
@@ -2397,8 +2438,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'or sent while it is off: an email-code-only app registers people without one. `404 not_found` names an ' +
       '**app identifier no app carries**, and never an address: an app identifier is already public (it is in the MCP metadata path and in the ' +
       'developer\'s own URLs), while collapsing it into `registration_closed` sent a developer who mistyped their own identifier hunting a ' +
-      'configuration bug that was not there. `409 target_state_conflict` when the app has no default role — there would be no role to give ' +
-      'the person. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
+      'configuration bug that was not there. `409 target_state_conflict` naming `default_role` with rule `not_set` when the app has no default ' +
+      'role — there would be no role to give the person. A default that names no role is not a refusal: the account holds the key and ' +
+      'reaches nothing. An app with no `verify_url` is not refused: the mailed link points at the hosted confirmation page instead. ' +
       '\n\n**`409 quota_exceeded` when the org is at its `max_end_users` limit**, counted across every app of the org. It is the one refusal ' +
       'here that is answered **before the address is looked at** — and that ordering is the point rather than an implementation detail: a ' +
       'quota checked after the existence branch would answer `202` for an address the app already knows and `409` for one it does not, which ' +
@@ -2489,9 +2531,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'than being spent, so the developer can revoke it or point the person at the login. An address that registered itself and is still ' +
       '`pending_verification` is not that state: accepting sets the password the invitee just chose, activates the account and gives it the ' +
       'invitation\'s role, because reading the invitation mail proves the address the verification link was waiting on. \n\n`409 ' +
-      'target_state_conflict` names `role_id` with rule `not_set` when the role the invitation was fixed to has since been deleted and the ' +
-      'app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would be worse ' +
-      'than saying so. \n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted ' +
+      'target_state_conflict` names `default_role` with rule `not_set` when the invitation holds no role key (it lists with `role: null`) ' +
+      'and the app has no default role to fall back on: there is no access to hand the acceptor, and creating an account with none would ' +
+      'be worse than saying so. A role deleted since the invitation was issued is no obstacle: the account is created holding the key and ' +
+      'reaches nothing. ' +
+      '\n\n**`409 quota_exceeded` when accepting would CREATE an account and the org is at its `max_end_users` limit**, counted ' +
       'across every app of the org. An invitation that names a row the developer already created, and one whose address is held by an ' +
       'unfinished self-registration, both finish an account that already counts — those are not refused, because the org is not one account ' +
       'larger afterwards. The token is not spent by the refusal: the developer can raise the limit, or delete somebody, and the same link ' +
@@ -2544,7 +2588,9 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...CLIENT_GUARD], transport: 'http',
     notes:
       'The one route that answers for all three caller kinds — a developer bearer, an app-user bearer and a server key — which is why the ' +
-      'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one.',
+      'shape names each of `developer_id`, `app_user_id` and `server_key_id` and fills exactly one. `role` is the organization role an app ' +
+      'user holds, as its key and display name; it is `null` for a developer and a server key, and for an app user whose key names no role ' +
+      '(the role was deleted), who signs in and reaches nothing.',
   },
 
   /* ------------------------------------------------ app-user two-factor */
@@ -2910,17 +2956,17 @@ export const ROUTES: readonly RouteEntry[] = [
     query: null, request: null, response: datapointListResponse,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
-      'A developer bearer sees the robot\'s whole list unfiltered; an end user or a server key sees only the slugs their role grants, and a ' +
+      'A developer bearer sees the robot\'s whole list unfiltered; an end user sees only the slugs their role grants, a server key every slug its app does not lock, and a ' +
       'robot their app does not attach answers `404` exactly as one that does not exist.',
   },
   {
     method: 'GET', path: '/api/robots/:id/exposures', section: 'robots',
-    summary: 'Lists every grantable slug of a robot with its kind — the material the roles matrix is built from.',
+    summary: 'Lists every exposed slug of a robot with its kind — the material an app picks its locks from.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: exposureListResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'Developer-only: this is what a role *could* be granted, which is a configuration fact rather than something an end user is entitled to enumerate.',
+    notes: 'Developer-only: this is what a role could be required to use and an app could lock, which is a configuration fact rather than something an end user is entitled to enumerate.',
   },
   {
     method: 'GET', path: '/api/robots/:id/datapoints/:slug', section: 'robots',
@@ -2963,7 +3009,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       '**The REST twin of the MCP action `robots.describe`**: one answer per robot — every datapoint, action, service, publisher and camera the ' +
       'role grants, each with its `input_schema` where it takes parameters, plus the two capabilities that gate whole features, ' +
-      '`action_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller ' +
+      '`job_history` and `assets`. A robot with nothing published answers an empty `exposures` list, never a refusal. A robot the caller ' +
       'does not reach — not attached to their app, or attached with a role that grants nothing on it — answers `404` exactly as one that ' +
       'does not exist. The app-user datapoint and camera listings under this prefix stay; this is the one read that also names actions, ' +
       'services, publishers and capabilities, which is what an app needs before it can draw a screen.',
@@ -2979,7 +3025,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a ' +
-      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses.',
+      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses. `updated_by` ' +
+      'names the team member who saved it last, and is `null` when nobody has, or when the cloud itself rewrote the draft.',
   },
   {
     method: 'PUT', path: '/api/robots/:id/config/draft', section: 'config',
@@ -3005,7 +3052,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'A draft that is valid YAML but not a Fleetless configuration is `422 draft_not_a_document`, carrying every issue rather than the ' +
       'blocking subset — nothing about that text is publishable, so there is no subset to pick, and the warning naming the checks that could ' +
       'not run is part of reading the list correctly. A document with `severity: "error"` issues is `422 validation_error` with just those. ' +
-      'The draft\'s own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it.',
+      'The draft\'s own text travels into the version, so a restore later returns what the author wrote rather than a re-rendering of it. ' +
+      'The answer carries `warnings`: every `warning` of the published document, role keys that name no role of the organization included. ' +
+      'A warning never blocks a publish.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/versions', section: 'config',
@@ -3014,6 +3063,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: configVersionsResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'Each version carries `published_by`, the team member who published it, or `null` for a version published before the cloud recorded authors or by a member who has since been removed.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/versions/:v', section: 'config',
@@ -3044,17 +3094,21 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'POST', path: '/api/robots/:id/config/rename-slug', section: 'config',
-    summary: 'Renames a slug in the draft and moves every role grant and the recorded history with the name.',
+    summary: 'Renames a slug in the draft and moves the app locks and the recorded history with the name.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: renameSlugRequest, response: renameSlugResponse,
     errors: [
       ...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error', 'draft_not_a_document',
-      'unknown_slug', 'reserved_slug', 'duplicate_slug', 'history_migrating', 'internal_error',
+      'unknown_slug', 'reserved_slug', 'duplicate_slug', 'history_migrating', 'target_state_conflict', 'internal_error',
     ], transport: 'http',
     notes:
-      'One transaction: the draft document and every app-role grant carrying the slug are rewritten, and the recorded history moves with ' +
-      'the name without rewriting any stored sample, so a rename takes the same time however much history there is. Samples the robot ' +
+      'One transaction: the draft document and every app lock that lists the slug are rewritten, and the recorded history moves with ' +
+      'the name without rewriting any stored sample, so a rename takes the same time however much history there is. Locks follow the ' +
+      'rename: a lock that listed the old slug lists the new one as well, in every app of the organization, so a locked capability stays ' +
+      'locked; the old name stays in the lock until the next `PUT /api/apps/:id/access`, and `rewritten_locks` counts the locks touched. A ' +
+      'lock that would grow past the most slugs it can hold refuses the whole rename with `409 target_state_conflict` naming `to` (rule ' +
+      '`lock_full`); nothing is written. Samples the robot ' +
       'still sends under the old slug until the next publish join the renamed history. The published configuration is immutable, so ' +
       '`requires_publish` says the rename is not live on the robot yet. A draft that is not a document is `409 draft_not_a_document` — the ' +
       'same word the usage preview uses for the same state. While the recorded history is being migrated the rename is refused with ' +
@@ -3074,7 +3128,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'A draft that is valid YAML but not a Fleetless document is refused rather than answered with `alert_count: 0`: the two states are ' +
       '*this slug has no alerts* and *there is no document to ask*, and a zero cannot tell them apart — it would show a smaller blast radius ' +
       'than the rename actually has. The other three counts are real whatever the draft holds, and a partial answer to a preview whose whole ' +
-      'purpose is to be complete is not worth the ambiguity.',
+      'purpose is to be complete is not worth the ambiguity. `lock_count` counts the app locks the rename would extend with the new name.',
   },
 
   /* -------------------------------------------------------------- alerts */
@@ -3171,7 +3225,7 @@ export const ROUTES: readonly RouteEntry[] = [
     query: jobRunQuery, request: null, response: jobRunListResponse,
     errors: [...CLIENT_GUARD, 'invalid_uuid', 'not_found', 'capability_required', 'validation_error'], transport: 'http',
     notes:
-      'Needs the `action_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing ' +
+      'Needs the `job_history` capability, and **this route is what makes that switch mean something** — it was unkeepable while nothing ' +
       'durable recorded what had run. Two residuals worth stating rather than implying away. `history` is a syntactically valid slug, and ' +
       'a static segment matches before a parameter, so a robot with a service literally slugged `history` can no longer be **read** through ' +
       '`GET /api/robots/:id/jobs/:slug`; invoking, cancelling and the listing are unaffected. And a run row names its actor by email address, ' +
@@ -3192,7 +3246,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'robot_offline', 'busy', 'bridge_timeout', 'internal_error',
     ], transport: 'http',
     notes:
-      '**One route for both kinds**, because a path segment naming the kind would demand a fact a role grant does not carry. An action answers ' +
+      '**One route for both kinds**, because a path segment naming the kind would demand a fact the rights model does not carry. An action answers ' +
       '`202` with an `invokeResponse` the moment the job exists; a service answers `200` with a `serviceCallResponse` once the result is in — ' +
       'two shapes, carried by one union (`invokeOrServiceResponse`) and told apart by whether `kind` or a bare `result` arrives. Parameters are checked **before** anything about the world (offline, busy): ' +
       'the same request must get the same verdict whether or not the robot happens to be reachable, or a developer testing against an offline ' +
@@ -4317,7 +4371,7 @@ export const ROUTES: readonly RouteEntry[] = [
   },
   {
     method: 'GET', path: '/realtime', section: 'transports',
-    summary: 'The client WebSocket: subscriptions on datapoints, jobs, bridge state and presence, plus full command parity with REST.',
+    summary: 'The client WebSocket: subscriptions on datapoints (the built-in bridge state included), jobs and cameras, plus full command parity with REST.',
     audience: 'client', auth: 'none', rateLimited: false, ownerTier: false, status: 101,
     params: [], query: null, request: null, response: null, errors: ['invalid_token', 'rate_limited'], transport: 'websocket',
     notes: 'Authentication happens in the first frame, not on the upgrade. The frame types are the `realtime` schemas.',

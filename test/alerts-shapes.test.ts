@@ -9,6 +9,7 @@ import {
   putDatapointDisplayRequest,
   orgEvent,
   slugUsageResponse,
+  renameSlugResponse,
 } from '../src/index.js'
 
 // zod 4's z.uuid() enforces version/variant nibbles, so
@@ -118,7 +119,7 @@ describe('datapointAlert — the entity, definition + runtime state together', (
 
 describe('slugUsageResponse — alert_count: the rename dialog counts alerts too', () => {
   const USAGE = {
-    grant_count: 2,
+    lock_count: 2,
     app_identifiers: ['nav-app'],
     has_recorded_history: true,
     alert_count: 3,
@@ -131,6 +132,27 @@ describe('slugUsageResponse — alert_count: the rename dialog counts alerts too
   it('requires alert_count — a rename-usage preview silent about alerts undercounts the blast radius', () => {
     const { alert_count: _omit, ...withoutAlertCount } = USAGE
     expect(slugUsageResponse.safeParse(withoutAlertCount).success).toBe(false)
+  })
+
+  it('counts locks, not grants: the preview says how many app locks the rename extends', () => {
+    const { lock_count: _omit, ...withoutLockCount } = USAGE
+    expect(slugUsageResponse.safeParse(withoutLockCount).success).toBe(false)
+    expect(slugUsageResponse.safeParse({ ...withoutLockCount, grant_count: 2 }).success).toBe(false)
+    expect(slugUsageResponse.parse(USAGE).lock_count).toBe(2)
+  })
+})
+
+describe('renameSlugResponse — locks follow a rename', () => {
+  const RENAMED = { rewritten_locks: 2, history_moved: true, requires_publish: true as const }
+
+  it('counts the rewritten locks', () => {
+    expect(renameSlugResponse.parse(RENAMED).rewritten_locks).toBe(2)
+  })
+
+  it('no longer carries a grant count: a response that still has only the old field is incomplete', () => {
+    const { rewritten_locks: _omit, ...withoutLocks } = RENAMED
+    expect(renameSlugResponse.safeParse(withoutLocks).success).toBe(false)
+    expect(renameSlugResponse.safeParse({ ...withoutLocks, rewritten_grants: 2 }).success).toBe(false)
   })
 })
 

@@ -207,6 +207,25 @@ export const robotDetailResponse = z.object({
 export type RobotDetailResponse = z.infer<typeof robotDetailResponse>
 
 /**
+ * **Who did it**: a console team member, by the name the team sees.
+ *
+ * `name` is the member's display name, or the local part of the member's email
+ * address when the member has set none. It is never an email address, so
+ * a response that carries authors can be shown to everyone who can read
+ * the configuration. `id` is the member's id, stable across renames.
+ *
+ * A member who has since been removed has no name to show, so the author is
+ * `null` wherever this shape is nullable.
+ */
+export const configAuthor = z.object({
+  id: z.uuid().meta({ description: 'The team member\'s id.' }),
+  name: z.string().min(1).max(200).meta({
+    description: 'The member\'s display name, or the local part of the email address when the member has none. Never a full email address.',
+  }),
+})
+export type ConfigAuthor = z.infer<typeof configAuthor>
+
+/**
  * The editable configuration. `issues` is recomputed on every read and
  * write, so the editor never has to guess whether it may publish.
  *
@@ -241,6 +260,9 @@ export const configDraftResponse = z.object({
   doc: robotConfigDoc.nullable(),
   source: z.string(),
   updated_at: z.iso.datetime().nullable(),
+  updated_by: configAuthor.nullable().optional().meta({
+    description: 'Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
+  }),
   issues: z.array(validationIssue),
 })
 export type ConfigDraftResponse = z.infer<typeof configDraftResponse>
@@ -271,6 +293,9 @@ export type PutConfigDraftRequest = z.infer<typeof putConfigDraftRequest>
 export const publishConfigResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
+  warnings: z.array(validationIssue).meta({
+    description: 'Every `warning` of the published document — an unknown topic, a role key that names no role of the organization, a rule that fits nothing. A warning never blocks a publish; it is here so the author does not have to go looking for it. `[]` for a document with none.',
+  }),
 })
 export type PublishConfigResponse = z.infer<typeof publishConfigResponse>
 
@@ -279,6 +304,9 @@ export const configVersionsResponse = z.object({
     z.object({
       version: z.number().int().positive(),
       published_at: z.iso.datetime(),
+      published_by: configAuthor.nullable().optional().meta({
+        description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
+      }),
     }),
   ),
 })
@@ -295,6 +323,9 @@ export type ConfigVersionsResponse = z.infer<typeof configVersionsResponse>
 export const configVersionResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
+  published_by: configAuthor.nullable().optional().meta({
+    description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
+  }),
   doc: robotConfigDoc,
   source: z.string(),
 })
@@ -361,14 +392,14 @@ export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 
 export const datapointListResponse = z.object({
   datapoints: z.array(datapointDescriptor).meta({
-    description: 'Everything a client may read on this robot: the built-in `bridge_state`, plus every datapoint the published configuration exposes and the caller\'s role grants.',
+    description: 'Everything a client may read on this robot: the built-in `bridge_state`, plus every datapoint the published configuration exposes and the caller\'s role may read.',
   }),
 })
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
 
 
 /* ------------------------------------------------------------------------
- * The command surface, and what a role may be granted.
+ * The command surface, and what a role may be required to use.
  *
  * The routes, written down because cloud, console and SDK each need them and
  * a body schema does not imply a path:
@@ -383,9 +414,9 @@ export type DatapointListResponse = z.infer<typeof datapointListResponse>
  * | `GET /api/robots/:id/exposures`          | —               | `exposureListResponse` |
  *
  * **Commands are addressed by slug, never by kind.** Slugs are one namespace
- * across all kinds and a role grant is `{robot, slug}` with no kind in
- * it — so a path segment naming the kind would demand a fact the permission
- * model deliberately does not carry. The cloud already knows from the
+ * across all kinds, and a requirement, a rule and a lock all name a slug
+ * with no kind in it — so a path segment naming the kind would demand a fact
+ * the rights model deliberately does not carry. The cloud already knows from the
  * published configuration whether a slug is an action or a service; a caller
  * who wants to know asks `/exposures`.
  *
@@ -518,7 +549,7 @@ export const invokeResponse = z.object({
   }),
   /** The slug's kind — see `commandResult.kind` for why the caller needs it. */
   kind: z.enum(['action', 'service']).meta({
-    description: 'Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from a role grant which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape.',
+    description: 'Always `action` in this shape. A caller sends the same request for both kinds and cannot tell from the slug alone which it invoked, so the answer says which it was rather than leaving it to be inferred from the shape.',
   }),
 })
 export type InvokeResponse = z.infer<typeof invokeResponse>
@@ -536,7 +567,7 @@ export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
  * shapes.**
  *
  * One route serves both kinds, because a path segment naming the kind would
- * demand a fact a role grant does not carry. **The slug's kind decides, and
+ * demand a fact the rights model does not carry. **The slug's kind decides, and
  * nothing in the request does**: an *action* answers `202` with an
  * `invokeResponse` the moment the job exists, a *service* answers `200` with
  * a `serviceCallResponse` once the result is in. They differ only in what the
@@ -721,7 +752,7 @@ export type JobResponse = z.infer<typeof jobResponse>
  * audience the asset store exists for.
  *
  * So: a developer reaches the robot because it belongs to their org; an end
- * user reaches it when their role grants `assets`.
+ * user reaches it when their role satisfies the robot's `assets` requirement.
  *
  * **The rewritten mesh URIs in a served URDF are absolute, not
  * root-relative.** A relative URL resolves against *the consumer's* origin,
@@ -834,11 +865,12 @@ export const robotJobsResponse = z.object({
 export type RobotJobsResponse = z.infer<typeof robotJobsResponse>
 
 /**
- * Every slug of a robot that a role can be granted, **with its kind**.
+ * Every slug of a robot that a role can be required to use or an app can lock,
+ * **with its kind**.
  *
- * A roles matrix built against the datapoint list alone cannot grant an
- * action, a service or a publisher. One list that names every kind, with its
- * kind, is what a matrix needs.
+ * A rights view built against the datapoint list alone cannot show an action,
+ * a service or a publisher. One list that names every kind, with its kind, is
+ * what such a view needs.
  */
 export const exposure = z.object({
   slug,
@@ -984,7 +1016,7 @@ export type CameraDescriptor = z.infer<typeof cameraDescriptor>
 
 export const cameraListResponse = z.object({
   cameras: z.array(cameraDescriptor).meta({
-    description: 'Every camera the published configuration exposes on this robot **and** the caller\'s role grants. A developer sees all of them; an end user sees what their role allows.',
+    description: 'Every camera the published configuration exposes on this robot **and** the caller\'s role may use. A developer sees all of them; an end user sees what their role allows.',
   }),
 })
 export type CameraListResponse = z.infer<typeof cameraListResponse>
@@ -1711,11 +1743,12 @@ export const BRIDGE_LATENCY_RETENTION_DAYS = 7
  * `GET /api/robots/:id/jobs/history`** — robot-scoped, one route for
  * developers and clients like every other robot-scoped read (`.../jobs`,
  * `.../assets`, `.../datapoints`), never a parallel `/api/client/…` twin. An
- * end user reaches it only when their role's `capabilities.action_history`
- * says so — otherwise `403 capability_required`, naming the capability — and
- * sees only runs on slugs their role grants. On this route `?robot_id=` is
- * not a filter: the path already names the robot, and a query naming a
- * different one is refused rather than quietly answered about the path's.
+ * end user reaches it only when their role satisfies the robot's
+ * `job_history` requirement — otherwise `403 capability_required`, naming the
+ * capability — and sees only runs on slugs their role may use. On this route
+ * `?robot_id=` is not a filter: the path already names the robot, and a query
+ * naming a different one is refused rather than quietly answered about the
+ * path's.
  *
  * **It discloses the actor, and that is what a developer weighs before
  * granting the capability.** A `jobRun` names who invoked it — `jobActor`
@@ -2010,20 +2043,21 @@ export type PatchRobotRequest = z.infer<typeof patchRobotRequest>
 
 /**
  * `POST /api/robots/:id/config/rename-slug` — atomic server-side rename:
- * rewrites the **draft** config and every app-role grant carrying
+ * rewrites the **draft** config and every app lock naming
  * `{robot_id, from}`, and moves the recorded history with the name, in one
  * transaction, without rewriting stored samples. Job runs and audit events
  * keep the old slug as historical fact. The published config is immutable,
  * so the caller must publish afterwards (`requires_publish`); samples the
  * robot sends under the old slug between the rename and the publish join the
  * renamed history.
- * One residual remains in that same window: grants and the draft already name
- * `to`, but the still-published config exposes only `from` until the
- * publish lands — an end user's app has no working name for the datapoint
- * at all for however long that gap lasts, since `to` isn't published yet
- * and `from` no longer has a grant behind it. The console must publish
- * immediately after a rename to keep this window short; nothing server-side
- * closes it.
+ *
+ * **Locks follow the rename, and keep the old name.** A lock that lists
+ * `from` lists `to` as well afterwards: until the publish lands, the
+ * published config still exposes only `from`, and dropping it from the lock
+ * would open the capability in that gap. Once the publish has landed, the old
+ * name is an `unknown_lock_slug` warning in the app's access and is removed
+ * with its next `PUT`. A rename that would push a lock past the most slugs
+ * one lock can hold is refused and writes nothing.
  * This schema only enforces slug *shape*; whether `to` is reserved or
  * already in use on this robot is checked once, behind the cloud's
  * `validation.ts` door — one door, not a second copy of that rule here.
@@ -2032,7 +2066,9 @@ export const renameSlugRequest = z.object({ from: slug, to: slug }).strict()
 export type RenameSlugRequest = z.infer<typeof renameSlugRequest>
 
 export const renameSlugResponse = z.object({
-  rewritten_grants: z.number().int().nonnegative(),
+  rewritten_locks: z.number().int().nonnegative().meta({
+    description: 'The app locks that listed the old slug and now list the new one as well. Locks follow a rename, in every app of the organization, so a renamed capability stays locked.',
+  }),
   history_moved: z.boolean(),
   requires_publish: z.literal(true)
 })
@@ -2042,13 +2078,17 @@ export type RenameSlugResponse = z.infer<typeof renameSlugResponse>
  * `GET /api/robots/:id/config/slug-usage/:slug` — what a rename would touch;
  * feeds the console's confirm dialog.
  *
- * `alert_count` is part of the atomic rename transaction alongside grants and
+ * `alert_count` is part of the atomic rename transaction alongside locks and
  * history: alerts are keyed by `(robot_id, slug)` too, and a rename that
  * silently moved the alert row while the usage preview stayed silent about it
  * would show a developer a smaller blast radius than the rename actually has.
+ * `lock_count` is the same promise for the locks: it counts every lock the
+ * rename would rewrite.
  */
 export const slugUsageResponse = z.object({
-  grant_count: z.number().int().nonnegative(),
+  lock_count: z.number().int().nonnegative().meta({
+    description: 'The app locks that list this slug, which a rename would extend with the new name. The count is what the rename rewrites, in every app of the organization.',
+  }),
   app_identifiers: z.array(z.string()),
   has_recorded_history: z.boolean(),
   alert_count: z.number().int().nonnegative(),

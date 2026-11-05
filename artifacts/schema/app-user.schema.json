@@ -33,11 +33,18 @@
       ],
       "description": "Optional human name, shown by the developer's own UI instead of the address where present. `null` when the user never supplied one; never used for authentication."
     },
-    "role_id": {
-      "type": "string",
-      "format": "uuid",
-      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-      "description": "The role that decides what this user may reach. Roles are the only visibility filter: what a role does not grant does not exist for that user."
+    "role": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+          "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The key of the organization role this user holds, or `null` for an account that holds none (one the move to organization roles could not map to a key). The role, the robots' `fleetless.yaml` and what the app locks decide what the user may reach: what none of them grants does not exist for that user. The key is shown as stored, and it may name no role (the role was deleted since): that grants nothing, and the user can still sign in. Without a key the user reaches nothing and can still sign in; `PATCH /api/apps/:id/users/:userId` sets one."
     },
     "status": {
       "type": "string",
@@ -122,7 +129,7 @@
     "app_id",
     "email",
     "display_name",
-    "role_id",
+    "role",
     "status",
     "has_password",
     "providers",

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "from": {
+      "type": "string",
+      "description": "The key being renamed."
+    },
+    "to": {
+      "type": "string",
+      "description": "The key it would become."
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "config",
+              "app_user",
+              "invitation",
+              "app_default",
+              "role_inherits",
+              "org_default"
+            ],
+            "description": "What writes the key: `config` is a `role` or `access` value in a robot's `fleetless.yaml`, `app_user` an app user who holds it, `invitation` an invitation that carries it, `app_default` an app's default role, `role_inherits` another role that inherits from it, and `org_default` one of the organization's defaults."
+          },
+          "label": {
+            "type": "string",
+            "description": "What a person reads to find the place: the robot name (`config`), the e-mail address of the app user or of the invitee (`app_user`, `invitation`), the app name (`app_default`), the name of the inheriting role (`role_inherits`), or the access kind of an organization default (`org_default`)."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for `role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind."
+          },
+          "robot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The robot whose document holds the key (`config`); `null` for every other kind."
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The app the user, invitation or default role belongs to (`app_user`, `invitation`, `app_default`); `null` for every other kind."
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The app user who holds the key (`app_user`); `null` for every other kind."
+          },
+          "document": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "published",
+                  "draft"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which version of the robot's document holds the key (`config`): the published one or the draft; `null` for every other kind."
+          },
+          "new_version": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a published document, the version number a rename with `update_references` would give it, a copy that differs only in the key; `null` for a draft and for every place that is no document."
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "path",
+          "robot_id",
+          "app_id",
+          "user_id",
+          "document",
+          "new_version"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every place that would be rewritten, each with the document it is in and, for a published document, the version the rewrite would create."
+    },
+    "reference_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "How many places the rename would rewrite."
+    },
+    "confirm": {
+      "type": "string",
+      "description": "The token that confirms this preview. It only fits the effects listed here: when anything they cover changes, the token is stale and the call answers a new preview."
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "references",
+    "reference_count",
+    "confirm"
+  ],
+  "additionalProperties": false
+}

@@ -227,8 +227,9 @@ describe('the export query', () => {
 })
 
 describe('the error codes of app collections', () => {
+  // `confirmation_required` is shared with the organization role rename (it
+  // sits with the role codes), so it is not among the codes listed last.
   const CODES = [
-    'confirmation_required',
     'record_referenced',
     'record_changed',
     'collection_not_found',
@@ -238,7 +239,7 @@ describe('the error codes of app collections', () => {
     'robot_not_attached',
   ]
 
-  it.each(CODES)('lists %s', (code) => {
+  it.each(['confirmation_required', ...CODES])('lists %s', (code) => {
     expect(ERROR_CODES).toContain(code)
   })
 

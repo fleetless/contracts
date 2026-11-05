@@ -71,9 +71,11 @@ describe('exposure model', () => {
     // `history` is not a built-in — nothing publishes it, no plane serves it.
     // Reserved because `GET /api/robots/:id/jobs/history` (see `routes.test.ts`)
     // is a literal sibling of `/jobs/:slug`, so an action of that name would be
-    // unreachable. Order matters too: the console's built-in slug list
+    // unreachable. `assets` and `job_history` name the robot-level capabilities,
+    // so an exposure of the same name would make a capability's `name` ambiguous.
+    // Order matters too: the console's built-in slug list
     // annotates against this union, so a reorder must not pass unremarked.
-    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'history'])
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'history', 'assets', 'job_history'])
   })
 
   it('a document with a datapoint slug robot_details validates', () => {
@@ -293,12 +295,18 @@ describe('REST shapes', () => {
         doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } },
         source: 'fleetless: 1\n# the author wrote this\n',
         updated_at: '2026-08-10T12:02:00.000Z',
+        updated_by: { id: '3f1c1a52-1c0e-4c4e-9a4e-6a1a3c0f9d11', name: 'Ada Lovelace' },
         issues: [],
       }).success,
     ).toBe(true)
     expect(
-      configDraftResponse.safeParse({ doc: { fleetless: 1 }, source: 'fleetless: 1\n', updated_at: null, issues: [] })
-        .success,
+      configDraftResponse.safeParse({
+        doc: { fleetless: 1 },
+        source: 'fleetless: 1\n',
+        updated_at: null,
+        updated_by: null,
+        issues: [],
+      }).success,
     ).toBe(true)
   })
 
@@ -311,6 +319,7 @@ describe('REST shapes', () => {
         doc: null,
         source: 'just: a: mapping\n',
         updated_at: '2026-09-03T09:00:00.000Z',
+        updated_by: null,
         issues: [],
       }).success,
     ).toBe(true)
@@ -342,8 +351,8 @@ describe('REST shapes', () => {
   })
 
   it('numbers published versions from one', () => {
-    expect(publishConfigResponse.safeParse({ version: 1, published_at: '2026-08-10T12:01:00.000Z' }).success).toBe(true)
-    expect(publishConfigResponse.safeParse({ version: 0, published_at: '2026-08-10T12:01:00.000Z' }).success).toBe(false)
+    expect(publishConfigResponse.safeParse({ version: 1, published_at: '2026-08-10T12:01:00.000Z', warnings: [] }).success).toBe(true)
+    expect(publishConfigResponse.safeParse({ version: 0, published_at: '2026-08-10T12:01:00.000Z', warnings: [] }).success).toBe(false)
   })
 
   it('marks a cached graph as stale while the bridge is away', () => {
