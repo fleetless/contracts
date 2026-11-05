@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "limit": {
+      "description": "How many revisions to return, 1 to 500.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,4}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    },
+    "before_seq": {
+      "description": "Only revisions older than this `seq`: the next page, since the history is read newest first.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,19}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

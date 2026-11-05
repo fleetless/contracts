@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "developer",
+        "app_user",
+        "server_key",
+        "fleetless"
+      ],
+      "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The id of the developer, app user or server key. The nil id for the platform."
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "A name to show: an email address, a key name, `Fleetless`, or `Deleted user` when the user no longer exists."
+    }
+  },
+  "required": [
+    "kind",
+    "id",
+    "label"
+  ],
+  "additionalProperties": false,
+  "description": "Who or what made a change to a record."
+}

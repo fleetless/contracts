@@ -108,6 +108,21 @@ import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
 import { collectionsDocument } from '../src/collections.js'
+import {
+  collectionActor,
+  collectionRecord,
+  collectionFilter,
+  collectionRecordListQuery,
+  collectionRecordListResponse,
+  collectionRecordWrite,
+  collectionRevision,
+  collectionRecordHistoryQuery,
+  collectionRecordHistoryResponse,
+  collectionRecordRestoreRequest,
+  collectionSummary,
+  collectionListResponse,
+  collectionDefinitionsResponse,
+} from '../src/collections-records.js'
 import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
@@ -490,6 +505,19 @@ export const exportedSchemas = {
   'datapoint-list-response': datapointListResponse,
   'robot-details-doc': robotDetailsDoc,
   'collections-document': collectionsDocument,
+  'collection-actor': collectionActor,
+  'collection-record': collectionRecord,
+  'collection-filter': collectionFilter,
+  'collection-record-list-query': collectionRecordListQuery,
+  'collection-record-list-response': collectionRecordListResponse,
+  'collection-record-write': collectionRecordWrite,
+  'collection-revision': collectionRevision,
+  'collection-record-history-query': collectionRecordHistoryQuery,
+  'collection-record-history-response': collectionRecordHistoryResponse,
+  'collection-record-restore-request': collectionRecordRestoreRequest,
+  'collection-summary': collectionSummary,
+  'collection-list-response': collectionListResponse,
+  'collection-definitions-response': collectionDefinitionsResponse,
   'client-auth': clientAuth,
   'auth-ok': authOk,
   'auth-error': authError,
@@ -1093,6 +1121,12 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // and it travels back inside the draft and version responses — the same
   // two-surface document `robot-config-doc` is.
   'collections-document',
+
+  // What a caller sends to write or read records: the write body, the history
+  // and restore requests, the list and history query strings, and the filter
+  // object the server validates on arrival.
+  'collection-record-write', 'collection-record-list-query', 'collection-record-history-query',
+  'collection-record-restore-request', 'collection-filter',
 ]
 
 /**
@@ -1209,6 +1243,13 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // Embedded in `billing-view`, which the server sends; never validated on
   // arrival.
   'billing-issuer', 'billing-charge-invoice', 'billing-charge',
+
+  // --- Collection records --------------------------------------------------
+  // Documents the server sends: a record and the actor inside it, a page of
+  // records, a record's history, the collection overview and the definitions.
+  'collection-actor', 'collection-record', 'collection-record-list-response', 'collection-revision',
+  'collection-record-history-response', 'collection-summary', 'collection-list-response',
+  'collection-definitions-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

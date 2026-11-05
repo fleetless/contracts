@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "propertyNames": {
+    "type": "string"
+  },
+  "additionalProperties": {},
+  "description": "A filter is a JSON object. A condition names a field and one operator: `{ \"location.name\": { \"eq\": \"XTD1\" } }`. The operators are `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `contains` (case-insensitive text search), `in` (a list of at most 100 values) and `empty` (`true` or `false`). Conditions are combined with `{ \"and\": [ ... ] }` and `{ \"or\": [ ... ] }`, nested at most 3 levels deep, 50 conditions in all. A field is a field key, `reference.field` to go one hop through a reference field, or one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`."
+}

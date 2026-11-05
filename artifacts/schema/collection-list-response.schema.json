@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The published schema version. Null before anything was published."
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+          },
+          "label": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "string",
+            "enum": [
+              "global",
+              "per_robot",
+              "one_per_robot"
+            ],
+            "description": "`global`: records belong to the app and no robot. `per_robot`: every record belongs to one robot (system field `robot_id`, fixed when the record is created). `one_per_robot`: every robot of the app has exactly one record, which Fleetless creates itself."
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Records the collection holds now."
+          },
+          "fields": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "read_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The roles that may read the records."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "no_role_access",
+                "history_growing",
+                "unknown_role"
+              ]
+            },
+            "description": "`no_role_access`: no role may read these records. `unknown_role`: `access` names a role the app does not have. `history_growing`: the history is far larger than the records, which often means a client writing in a loop."
+          },
+          "revisions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Entries in the history of all the collection's records."
+          },
+          "history_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "The size of that history in bytes."
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When a record of the collection last changed. Null if it never held one."
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "binding",
+          "records",
+          "fields",
+          "read_roles",
+          "warnings",
+          "revisions",
+          "history_bytes",
+          "updated_at"
+        ],
+        "additionalProperties": false,
+        "description": "A collection as the developer's overview shows it."
+      }
+    }
+  },
+  "required": [
+    "version",
+    "collections"
+  ],
+  "additionalProperties": false,
+  "description": "The collections of an app."
+}

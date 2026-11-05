@@ -377,6 +377,11 @@ describe('the route artifacts', () => {
       'cloud-type-request': 'a bridge protocol frame, as above',
       'put-datapoint-display-request':
         'PUT /api/robots/:id/datapoints/:slug/display is designed and not implemented: no cloud route serves it, so there is no manifest entry to name the shape from',
+      // The collection routes are added to the manifest after the shapes they carry. Each entry goes
+      // when its route is added: this list is checked below for entries a route has since named.
+      'collection-record-list-query': 'the records route of the collections section names it once that section is in the manifest',
+      'collection-record-history-query': 'the history route of the collections section names it once that section is in the manifest',
+      'collection-record-restore-request': 'the restore route of the collections section names it once that section is in the manifest',
     }
 
     const referenced = () => {

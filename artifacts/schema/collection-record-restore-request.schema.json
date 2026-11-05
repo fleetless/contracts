@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Put the record back to its state after this revision. Leave it out to restore a deleted record."
+    }
+  },
+  "additionalProperties": false,
+  "description": "The body of a record restore."
+}

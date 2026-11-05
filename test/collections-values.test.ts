@@ -131,7 +131,9 @@ const rows: Row[] = [
   ['reference: the nil uuid', field({ type: 'reference', to: 'locations' }), '00000000-0000-0000-0000-000000000000', null],
   ['reference: a non-uuid', field({ type: 'reference', to: 'locations' }), 'not-a-uuid', 'reference_format'],
   ['reference: an empty string', field({ type: 'reference', to: 'locations' }), '', 'reference_format'],
-  ['reference: an uppercase uuid is not the canonical spelling', field({ type: 'reference', to: 'locations' }), UUID.toUpperCase(), 'reference_format'],
+  ['reference: an uppercase uuid', field({ type: 'reference', to: 'locations' }), UUID.toUpperCase(), null],
+  ['reference: a mixed-case uuid', field({ type: 'reference', to: 'locations' }), '3F2504e0-4f89-41D3-9a0c-0305E82C3301', null],
+  ['reference: a uuid with a non-hex digit', field({ type: 'reference', to: 'locations' }), UUID.replace('3f25', 'zf25'), 'reference_format'],
   ['reference: a uuid with braces', field({ type: 'reference', to: 'locations' }), `{${UUID}}`, 'reference_format'],
   ['reference: a number', field({ type: 'reference', to: 'locations' }), 5, 'type'],
 ]
@@ -220,6 +222,32 @@ describe('normalizeCollectionValue', () => {
     expect(normalizeCollectionValue(datetime, 'tomorrow')).toBe('tomorrow')
     expect(normalizeCollectionValue(datetime, '2026-11-04T10:00:00+01:00')).toBe('2026-11-04T10:00:00+01:00')
     expect(normalizeCollectionValue(datetime, 5)).toBe(5)
+  })
+
+  describe('reference ids', () => {
+    const reference = field({ type: 'reference', to: 'locations' })
+
+    it('are stored in lowercase, whatever case they arrive in', () => {
+      expect(normalizeCollectionValue(reference, UUID.toUpperCase())).toBe(UUID)
+      expect(normalizeCollectionValue(reference, '3F2504e0-4f89-41D3-9a0c-0305E82C3301')).toBe(UUID)
+      expect(normalizeCollectionValue(reference, UUID)).toBe(UUID)
+    })
+
+    it('make an uppercase and a lowercase spelling one value', () => {
+      expect(normalizeCollectionValue(reference, UUID.toUpperCase())).toBe(normalizeCollectionValue(reference, UUID))
+      // What it produces is always acceptable.
+      expect(checkCollectionValue(reference, normalizeCollectionValue(reference, UUID.toUpperCase()))).toBeNull()
+    })
+
+    it('leave something that is not an id alone', () => {
+      expect(normalizeCollectionValue(reference, 'NOT-A-UUID')).toBe('NOT-A-UUID')
+      expect(normalizeCollectionValue(reference, `{${UUID.toUpperCase()}}`)).toBe(`{${UUID.toUpperCase()}}`)
+      expect(normalizeCollectionValue(reference, 5)).toBe(5)
+    })
+
+    it('are the only text that changes case: a text field keeps its capitals', () => {
+      expect(normalizeCollectionValue(field({ type: 'text' }), UUID.toUpperCase())).toBe(UUID.toUpperCase())
+    })
   })
 
   it('leaves every other type unchanged', () => {

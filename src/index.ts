@@ -1123,3 +1123,43 @@ export { checkCollectionValue, normalizeCollectionValue } from './collections-va
 export type { CollectionValueProblem, CollectionValueOptions } from './collections-values.js'
 export { collectionsIssue, collectionsDocumentIssues, collectionsAccessWarnings } from './collections-issues.js'
 export type { CollectionsIssue, CollectionsDocumentIssuesOptions } from './collections-issues.js'
+export {
+  COLLECTION_FILTER_OPS,
+  COLLECTION_FILTER_SYSTEM_KEYS,
+  collectionActor,
+  collectionRecord,
+  collectionFilter,
+  parseCollectionFilter,
+  parseCollectionSort,
+  collectionRecordListQuery,
+  collectionRecordListResponse,
+  collectionRecordWrite,
+  collectionRevision,
+  collectionRecordHistoryQuery,
+  collectionRecordHistoryResponse,
+  collectionRecordRestoreRequest,
+  collectionSummary,
+  collectionListResponse,
+  collectionDefinitionsResponse,
+} from './collections-records.js'
+export type {
+  CollectionActor,
+  CollectionRecord,
+  CollectionFilter,
+  CollectionFilterOp,
+  CollectionFilterNode,
+  CollectionFilterIssue,
+  CollectionFilterParse,
+  CollectionSortField,
+  CollectionSortParse,
+  CollectionRecordListQuery,
+  CollectionRecordListResponse,
+  CollectionRecordWrite,
+  CollectionRevision,
+  CollectionRecordHistoryQuery,
+  CollectionRecordHistoryResponse,
+  CollectionRecordRestoreRequest,
+  CollectionSummary,
+  CollectionListResponse,
+  CollectionDefinitionsResponse,
+} from './collections-records.js'

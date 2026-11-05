@@ -43,8 +43,12 @@ function characters(value: string): number {
 const LINE_BREAK = /[\r\n\u2028\u2029]/
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/
-/** Record ids are written in lowercase; one spelling per id keeps `unique`, filters and joins comparing like with like. */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+/**
+ * A record id in either letter case. RFC 4122 treats the two as one id and
+ * clients differ in what they print (Swift writes uppercase), so both are
+ * accepted; `normalizeCollectionValue` then stores the one lowercase spelling.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isCalendarDay(year: number, month: number, day: number): boolean {
   if (year < 1 || month < 1 || month > 12 || day < 1) return false
@@ -178,7 +182,7 @@ export function checkCollectionValue(
     }
     case 'reference': {
       if (typeof value !== 'string') return problem('type', 'Expected the id of a record, as text.')
-      return UUID.test(value) ? null : problem('reference_format', `${quote(value)} is not a record id. An id is a lowercase UUID.`)
+      return UUID.test(value) ? null : problem('reference_format', `${quote(value)} is not a record id. An id is a UUID.`)
     }
   }
 }
@@ -186,11 +190,15 @@ export function checkCollectionValue(
 /**
  * The one spelling a value is stored and compared in. A datetime always has
  * three fractional digits, so `…:00Z`, `…:00.5Z` and `…:00.500Z` are one value
- * for `unique`, filters and sorting. Every other value is returned unchanged,
- * and so is anything that is not a datetime this module understands.
+ * for `unique`, filters and sorting; a reference is always a lowercase UUID, so
+ * `3F25…` and `3f25…` are one record for `unique`, filters and joins. Every
+ * other value is returned unchanged, and so is anything that is not a datetime
+ * or an id this module understands.
  */
 export function normalizeCollectionValue(field: CollectionField, value: unknown): unknown {
-  if (field.type !== 'datetime' || typeof value !== 'string') return value
+  if (typeof value !== 'string') return value
+  if (field.type === 'reference') return UUID.test(value) ? value.toLowerCase() : value
+  if (field.type !== 'datetime') return value
   const match = DATETIME.exec(value)
   if (match === null) return value
   return `${value.slice(0, 19)}.${(match[7] ?? '').padEnd(3, '0')}Z`
