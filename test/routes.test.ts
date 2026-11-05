@@ -772,6 +772,8 @@ describe('the app-user auth surface', () => {
     expect(put.request).toBeNull()
     expect(put.errors).toContain('unsupported_media_type')
     expect(put.notes ?? '').toContain('HOSTED_LOGO_MAX_BYTES')
+    expect(put.notes ?? '').toContain('512 KB')
+    expect(put.notes ?? '').not.toContain('100 KB')
     expect(ROUTES.find((r) => key(r) === 'DELETE /api/apps/:id/auth-config/logo')?.response).toBe(appAuthConfig)
   })
 

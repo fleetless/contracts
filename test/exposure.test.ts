@@ -279,12 +279,18 @@ describe('REST shapes', () => {
         doc: { fleetless: 1, datapoints: { battery_percentage: DATAPOINT } },
         source: 'fleetless: 1\n# the author wrote this\n',
         updated_at: '2026-08-10T12:02:00.000Z',
+        updated_by: { id: '3f1c1a52-1c0e-4c4e-9a4e-6a1a3c0f9d11', name: 'Ada Lovelace' },
         issues: [],
       }).success,
     ).toBe(true)
     expect(
-      configDraftResponse.safeParse({ doc: { fleetless: 1 }, source: 'fleetless: 1\n', updated_at: null, issues: [] })
-        .success,
+      configDraftResponse.safeParse({
+        doc: { fleetless: 1 },
+        source: 'fleetless: 1\n',
+        updated_at: null,
+        updated_by: null,
+        issues: [],
+      }).success,
     ).toBe(true)
   })
 
@@ -297,6 +303,7 @@ describe('REST shapes', () => {
         doc: null,
         source: 'just: a: mapping\n',
         updated_at: '2026-09-03T09:00:00.000Z',
+        updated_by: null,
         issues: [],
       }).success,
     ).toBe(true)

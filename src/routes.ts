@@ -1532,7 +1532,7 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type'], transport: 'http',
     notes:
       'The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, ' +
-      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (100 KB); a larger body, or one ' +
+      '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one ' +
       'that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from ' +
       '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs.',
   },
@@ -2920,7 +2920,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'Issues are recomputed on every read and every write, so an editor never has to guess whether it may publish. `doc` is `null` for a ' +
-      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses.',
+      'draft that is valid YAML but not a Fleetless configuration — a state the format admits and the publish route refuses. `updated_by` ' +
+      'names the team member who saved it last, and is `null` when nobody has, or when the cloud itself rewrote the draft.',
   },
   {
     method: 'PUT', path: '/api/robots/:id/config/draft', section: 'config',
@@ -2955,6 +2956,7 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
     query: null, request: null, response: configVersionsResponse,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
+    notes: 'Each version carries `published_by`, the team member who published it, or `null` for a version published before the cloud recorded authors or by a member who has since been removed.',
   },
   {
     method: 'GET', path: '/api/robots/:id/config/versions/:v', section: 'config',

@@ -207,6 +207,25 @@ export const robotDetailResponse = z.object({
 export type RobotDetailResponse = z.infer<typeof robotDetailResponse>
 
 /**
+ * **Who did it**: a console team member, by the name the team sees.
+ *
+ * `name` is the member's display name, or the local part of the member's email
+ * address when the member has set none. It is never an email address, so
+ * a response that carries authors can be shown to everyone who can read
+ * the configuration. `id` is the member's id, stable across renames.
+ *
+ * A member who has since been removed has no name to show, so the author is
+ * `null` wherever this shape is nullable.
+ */
+export const configAuthor = z.object({
+  id: z.uuid().meta({ description: 'The team member\'s id.' }),
+  name: z.string().min(1).max(200).meta({
+    description: 'The member\'s display name, or the local part of the email address when the member has none. Never a full email address.',
+  }),
+})
+export type ConfigAuthor = z.infer<typeof configAuthor>
+
+/**
  * The editable configuration. `issues` is recomputed on every read and
  * write, so the editor never has to guess whether it may publish.
  *
@@ -241,6 +260,9 @@ export const configDraftResponse = z.object({
   doc: robotConfigDoc.nullable(),
   source: z.string(),
   updated_at: z.iso.datetime().nullable(),
+  updated_by: configAuthor.nullable().meta({
+    description: 'Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field.',
+  }),
   issues: z.array(validationIssue),
 })
 export type ConfigDraftResponse = z.infer<typeof configDraftResponse>
@@ -279,6 +301,9 @@ export const configVersionsResponse = z.object({
     z.object({
       version: z.number().int().positive(),
       published_at: z.iso.datetime(),
+      published_by: configAuthor.nullable().meta({
+        description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field.',
+      }),
     }),
   ),
 })
@@ -295,6 +320,9 @@ export type ConfigVersionsResponse = z.infer<typeof configVersionsResponse>
 export const configVersionResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
+  published_by: configAuthor.nullable().meta({
+    description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field.',
+  }),
   doc: robotConfigDoc,
   source: z.string(),
 })

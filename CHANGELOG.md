@@ -9,6 +9,24 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- `configAuthor`: a console team member by display name (the local part of the
+  email address when the member has none), never a full email address. The
+  config draft carries `updated_by` and each published version `published_by`,
+  both `configAuthor` or `null`: `null` when nobody has saved yet, when the
+  cloud itself rewrote the draft, when the member has since been removed, or
+  for rows older than the field.
+- `hostedLogoShape` (`square` or `wide`) and `appAuthConfig.hosted_logo_shape`,
+  read-only and derived from the stored image: `wide` when the logo is more
+  than one and a half times as wide as it is high, otherwise `square`, and
+  `null` exactly when `hosted_logo_url` is `null`.
+
+### Changed
+
+- `HOSTED_LOGO_MAX_BYTES` rises from 100 KB to 512 KB (`524_288`). The logo
+  route's notes state the new limit.
+
 ## [13.2.0] — 2026-11-05
 
 ### Changed
