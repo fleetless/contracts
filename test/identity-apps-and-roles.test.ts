@@ -119,10 +119,11 @@ describe('apps, keys and roles', () => {
   it('identifies an app by a slug, like a service', () => {
     expect(appIdentifier.safeParse('fleet_ops').success).toBe(true)
     expect(appIdentifier.safeParse('Fleet Ops').success).toBe(false)
-    expect(
-      app.safeParse({ id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet_ops', robot_ids: [UUID], default_role_id: null, created_at: NOW })
-        .success,
-    ).toBe(true)
+    const row = { id: UUID, org_id: UUID2, name: 'Fleet Ops', identifier: 'fleet_ops', robot_ids: [UUID], created_at: NOW }
+    expect(app.safeParse({ ...row, default_role: null }).success).toBe(true)
+    expect(app.safeParse({ ...row, default_role: 'observe' }).success).toBe(true)
+    expect(app.safeParse({ ...row, default_role: 'Not A Key' }).success).toBe(false)
+    expect(app.safeParse(row).success).toBe(false)
   })
 
   it('formats server keys like robot tokens and returns them once', () => {

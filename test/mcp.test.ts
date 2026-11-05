@@ -149,7 +149,7 @@ describe('the app-level MCP switch, gone and back', () => {
     name: 'Ops',
     identifier: 'ops',
     robot_ids: [],
-    default_role_id: null,
+    default_role: null,
     created_at: '2026-08-18T10:00:00.000Z',
   }
 

@@ -1655,7 +1655,7 @@
             }
           }
         },
-        "description": "Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model.",
+        "description": "Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model. A new app has no default role: `default_role` is `null` until `PUT /api/apps/:id/access` sets one.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1749,11 +1749,11 @@
             }
           }
         },
-        "description": "An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`."
+        "description": "An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`. `default_role` is the key as stored, or `null` when the app has none; a key that names no role is shown as it is, and `GET /api/apps/:id/access` warns about it."
       },
       "patch": {
         "operationId": "patch_api_apps_id",
-        "summary": "Changes an app's name, its attached robots or its default role.",
+        "summary": "Changes an app's name or its attached robots.",
         "tags": [
           "apps"
         ],
@@ -1795,7 +1795,7 @@
             }
           }
         },
-        "description": "A `default_role_id` naming a role of another app is refused: it is the one cross-app authorization check this shape can carry. Changing the robot set closes every live subscription the app's users hold, since a grant may no longer name a reachable robot.",
+        "description": "The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names `default_role_id` or `default_role` is `400 validation_error`. Changing the robot set closes every live subscription the app's users hold, since a robot they were using may no longer be reachable.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11356,20 +11356,19 @@
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
             },
-            "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants."
+            "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app. What a user of the app may use on an attached robot follows that robot's `fleetless.yaml` and the organization's defaults, less what the app locks."
           },
-          "default_role_id": {
+          "default_role": {
             "anyOf": [
               {
                 "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot. No route creates, renames or deletes an app's roles, so the id is one the app already has."
+            "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one, and then a create or invite that names no role is refused. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The key is shown as stored and may name no role, which grants nothing; `GET /api/apps/:id/access` warns about it. It is set by `PUT /api/apps/:id/access`, not by `PATCH /api/apps/:id`."
           },
           "created_at": {
             "type": "string",
@@ -11384,7 +11383,7 @@
           "name",
           "identifier",
           "robot_ids",
-          "default_role_id",
+          "default_role",
           "created_at"
         ],
         "additionalProperties": false
@@ -12036,20 +12035,19 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
-                  "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants."
+                  "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app. What a user of the app may use on an attached robot follows that robot's `fleetless.yaml` and the organization's defaults, less what the app locks."
                 },
-                "default_role_id": {
+                "default_role": {
                   "anyOf": [
                     {
                       "type": "string",
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$"
                     },
                     {
                       "type": "null"
                     }
                   ],
-                  "description": "The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot. No route creates, renames or deletes an app's roles, so the id is one the app already has."
+                  "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one, and then a create or invite that names no role is refused. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The key is shown as stored and may name no role, which grants nothing; `GET /api/apps/:id/access` warns about it. It is set by `PUT /api/apps/:id/access`, not by `PATCH /api/apps/:id`."
                 },
                 "created_at": {
                   "type": "string",
@@ -12064,7 +12062,7 @@
                 "name",
                 "identifier",
                 "robot_ids",
-                "default_role_id",
+                "default_role",
                 "created_at"
               ],
               "additionalProperties": false
@@ -41586,18 +41584,6 @@
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
             }
-          },
-          "default_role_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "additionalProperties": false

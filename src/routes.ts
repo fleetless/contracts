@@ -1017,7 +1017,8 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'Every robot id is checked before anything is created, so a bad one never leaves a robotless app to clean up. The identifier `mcp` is ' +
       'reserved by the central MCP server and refused as a `validation_error`. An app belongs to the org and to nothing inside it: the group ' +
-      'an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model.',
+      'an app used to be created in, and the `409 target_state_conflict` that refused the Org Admins one, are both gone with the group model. ' +
+      'A new app has no default role: `default_role` is `null` until `PUT /api/apps/:id/access` sets one.',
   },
   {
     method: 'GET', path: '/api/apps', section: 'apps',
@@ -1034,18 +1035,21 @@ export const ROUTES: readonly RouteEntry[] = [
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: appSchema,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
-    notes: 'An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`.',
+    notes:
+      'An app belonging to another org reads exactly like one that does not exist — `404`, never a `403`. `default_role` is the key as stored, ' +
+      'or `null` when the app has none; a key that names no role is shown as it is, and `GET /api/apps/:id/access` warns about it.',
   },
   {
     method: 'PATCH', path: '/api/apps/:id', section: 'apps',
-    summary: "Changes an app's name, its attached robots or its default role.",
+    summary: "Changes an app's name or its attached robots.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: updateAppRequest, response: appSchema,
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found'], transport: 'http',
     notes:
-      'A `default_role_id` naming a role of another app is refused: it is the one cross-app authorization check this shape can carry. ' +
-      'Changing the robot set closes every live subscription the app\'s users hold, since a grant may no longer name a reachable robot.',
+      'The default role is not set here: `PUT /api/apps/:id/access` replaces it together with the locks, and a body that names ' +
+      '`default_role_id` or `default_role` is `400 validation_error`. ' +
+      'Changing the robot set closes every live subscription the app\'s users hold, since a robot they were using may no longer be reachable.',
   },
   {
     method: 'GET', path: '/api/apps/:id/deletion-preview', section: 'apps',

@@ -43,39 +43,26 @@ export const app = z.object({
   }),
   /** Robots are referenced individually; tags never grant rights. */
   robot_ids: z.array(z.uuid()).meta({
-    description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants.',
+    description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app. What a user of the app may use on an attached robot follows that robot\'s `fleetless.yaml` and the organization\'s defaults, less what the app locks.',
   }),
   /**
-   * **The app's default role — and the two-space cut gave it a server-side
-   * reader it did not have.**
-   *
-   * Through the assignment model this was a console prefill and nothing more:
-   * `putAssignmentRequest` always carried the role explicitly, so no part of
-   * the cloud authorized anybody with it. Assignments are gone. An app user is
-   * created or invited **with** a role, and when the request omits one this is
-   * the role they get — so the field now decides access on two write paths
-   * (`createAppUserRequest`, `createAppInvitationRequest`) rather than
-   * pre-filling a form.
-   *
-   * Worth saying: it changes what a wrong value costs.
-   * A prefill somebody can see and correct became a default applied on the
-   * server, and the obvious next question — should it be required instead? —
-   * has a deliberate answer: no, because an invitation resolves the role at
-   * *creation* time and stores it, so an outstanding invitation is never
-   * re-aimed by a later change here.
+   * **The app's default role, by key.** An app user created, invited or
+   * self-registered without an explicit role gets this one, so the field decides
+   * access on those paths rather than pre-filling a form.
    *
    * `null` — and nullable rather than absent — means *this app has not chosen
-   * one*. That is a normal state, not an unset field: every app is created
-   * before anyone picks a default. A create or invite that omits `role_id`
-   * against an app in that state is a `validation_error`, not a user with no
-   * role.
+   * one*, the normal state of an app until somebody picks a default. A create or
+   * invite that names no role against such an app is refused rather than
+   * producing a user with no role. An invitation resolves the role when it is
+   * issued, so a later change here never re-aims one already sent.
    *
-   * The role must belong to **this** app; the schema sees a uuid and cannot
-   * check that, so `PATCH /api/apps/:id` does. No route creates, renames or
-   * deletes an app's roles any more, so the id is one the app already has.
+   * The key is read as it is stored. It need not name a role: a role deleted
+   * since leaves the key behind, which grants nothing and shows up as a warning
+   * of the app's access. The field is written by `PUT /api/apps/:id/access`,
+   * together with the locks, and by no other route.
    */
-  default_role_id: z.uuid().nullable().meta({
-    description: 'The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot. No route creates, renames or deletes an app\'s roles, so the id is one the app already has.',
+  default_role: roleKey.nullable().meta({
+    description: 'The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one, and then a create or invite that names no role is refused. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The key is shown as stored and may name no role, which grants nothing; `GET /api/apps/:id/access` warns about it. It is set by `PUT /api/apps/:id/access`, not by `PATCH /api/apps/:id`.',
   }),
   created_at: z.iso.datetime().meta({
     description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
@@ -166,6 +153,11 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
  * remains only for MCP. `group_id` named a group that owned the app; who may
  * log into an app is the app's own user list.
  *
+ * `default_role_id` is absent too, and it does have a successor: the default
+ * role is part of the app's access, replaced together with its locks by
+ * `PUT /api/apps/:id/access` and read as `app.default_role`. A patch that still
+ * names `default_role_id` is refused rather than dropped.
+ *
  * The route keeps its own check as belt-and-braces; a schema and a handler
  * agreeing is not two policies, it is one policy stated where each half can
  * enforce it.
@@ -173,19 +165,6 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
-  /**
-   * `app.default_role_id`'s write half — an app *setting*, which is where the
- * two-identity-space model
-   * put the default role, so it belongs on the app's own PATCH and not on a
-   * route of its own.
-   *
-   * **`.nullable().optional()`, and the two mean different things.** Absent
-   * leaves the current default alone; an explicit `null` clears it. A field
-   * that could only be set and never unset would make "we changed our mind"
-   * unreachable through the API — the same silence `.strict()` above exists to
-   * avoid, from the other direction.
-   */
-  default_role_id: z.uuid().nullable().optional(),
 }).strict()
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 

@@ -37,7 +37,6 @@ import {
 const ORG = '11111111-4111-8111-9111-111111111111'
 const USER = '22222222-4222-8222-9222-222222222222'
 const APP = '44444444-4444-8444-9444-444444444444'
-const ROLE = '55555555-4555-8555-9555-555555555555'
 const NOW = '2026-09-05T10:00:00.000Z'
 
 const VALID_USER = {
@@ -362,7 +361,7 @@ describe('an app no longer belongs to a group', () => {
     name: 'Warehouse ops',
     identifier: 'warehouse_ops',
     robot_ids: [],
-    default_role_id: ROLE,
+    default_role: 'observe',
     created_at: NOW,
   }
 
@@ -389,17 +388,27 @@ describe('an app no longer belongs to a group', () => {
   })
 
   /**
-   * `default_role_id` gained a server-side reader with this cut: it is the role
-   * an app user gets when a create or invite omits one. Still nullable, because
-   * an app is created before its roles are.
+   * The default role is named by key, like every other role reference, and is
+   * read on the app and written through the app's access, so the app's own
+   * patch no longer carries it.
    */
-  it('default_role_id is required-and-nullable on the app row, and settable and clearable on the patch', () => {
-    expect(app.safeParse({ ...APP_ROW, default_role_id: null }).success).toBe(true)
-    const { default_role_id, ...withoutIt } = APP_ROW
-    void default_role_id
+  it('default_role is required-and-nullable on the app row, a key rather than an id', () => {
+    expect(app.safeParse({ ...APP_ROW, default_role: null }).success).toBe(true)
+    expect(app.safeParse({ ...APP_ROW, default_role: 'observe' }).success).toBe(true)
+    const { default_role, ...withoutIt } = APP_ROW
+    void default_role
     expect(app.safeParse(withoutIt).success).toBe(false)
-    expect(updateAppRequest.safeParse({ default_role_id: ROLE }).success).toBe(true)
-    expect(updateAppRequest.safeParse({ default_role_id: null }).success).toBe(true)
+    for (const bad of ['Observe', '', '1st', 'two words', 'a'.repeat(64), '3f1e9a2c-6d4b-4f0a-9c8e-1b2a3c4d5e6f']) {
+      expect(app.safeParse({ ...APP_ROW, default_role: bad }).success, bad).toBe(false)
+    }
+    expect('default_role_id' in app.shape).toBe(false)
+  })
+
+  it('updateAppRequest refuses default_role_id and default_role: the default is set through the access', () => {
+    expect(updateAppRequest.safeParse({ default_role_id: null }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ default_role_id: '55555555-4555-8555-9555-555555555555' }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ default_role: 'observe' }).success).toBe(false)
+    expect(updateAppRequest.safeParse({ name: 'Ops 2' }).success).toBe(true)
   })
 })
 

@@ -71,6 +71,14 @@ version.
   and is what `capability_required` names beside `assets`. A producer that
   sends `action_history` no longer satisfies the schema, and a consumer that
   read it reads `job_history` now.
+- **Breaking (major):** `app.default_role_id` is replaced by `default_role`,
+  the role's key or `null` when the app has none, and `updateAppRequest` no
+  longer takes `default_role_id`: a patch that names it is refused. The default
+  role is set with `PUT /api/apps/:id/access`, together with the locks. A key
+  that names no role is shown as stored and warns. The `robot_ids`
+  description no longer says a role decides what an attached robot allows: that
+  follows the robot's `fleetless.yaml` and the organization's defaults, less
+  what the app locks.
 
 ### Removed
 
