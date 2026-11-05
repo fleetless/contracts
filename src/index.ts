@@ -1117,3 +1117,9 @@ export type {
   CollectionDefinition,
   CollectionsDocument,
 } from './collections.js'
+export { collectionJsonTemplateName, COLLECTION_JSON_TEMPLATES, parseDisplayTemplate } from './collections-templates.js'
+export type { CollectionJsonTemplateName, DisplayPlaceholder, DisplayTemplateParse } from './collections-templates.js'
+export { checkCollectionValue, normalizeCollectionValue } from './collections-values.js'
+export type { CollectionValueProblem, CollectionValueOptions } from './collections-values.js'
+export { collectionsIssue, collectionsDocumentIssues, collectionsAccessWarnings } from './collections-issues.js'
+export type { CollectionsIssue, CollectionsDocumentIssuesOptions } from './collections-issues.js'
