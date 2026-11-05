@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "maxLength": 1000000,
+      "description": "The whole document as YAML or JSON text, at most 1,000,000 characters. It replaces the draft and is refused with the problems found if it is not valid."
+    }
+  },
+  "required": [
+    "source"
+  ],
+  "additionalProperties": false,
+  "description": "Replaces the draft with a whole document."
+}

@@ -382,6 +382,11 @@ describe('the route artifacts', () => {
       'collection-record-list-query': 'the records route of the collections section names it once that section is in the manifest',
       'collection-record-history-query': 'the history route of the collections section names it once that section is in the manifest',
       'collection-record-restore-request': 'the restore route of the collections section names it once that section is in the manifest',
+      'put-collections-draft-request': 'the draft route of the collections section names it once that section is in the manifest',
+      'collections-publish-request': 'the publish route of the collections section names it once that section is in the manifest',
+      'collections-restore-request': 'the version restore route of the collections section names it once that section is in the manifest',
+      'collections-restore-preview-query': 'the restore preview route of the collections section names it once that section is in the manifest',
+      'collections-purge-request': 'the purge route of the collections section names it once that section is in the manifest',
     }
 
     const referenced = () => {

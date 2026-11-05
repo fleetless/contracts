@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where in the document, with dots between the keys: `collections.chargers.fields.location.to`."
+    },
+    "code": {
+      "type": "string",
+      "description": "A stable name for the kind of finding, for code to branch on."
+    },
+    "message": {
+      "type": "string",
+      "description": "What is wrong, in a sentence for a person."
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "description": "An error makes the document invalid and it cannot be saved or published. A warning and information leave it valid."
+    }
+  },
+  "required": [
+    "path",
+    "code",
+    "message",
+    "severity"
+  ],
+  "additionalProperties": false,
+  "description": "One finding about a collections document."
+}

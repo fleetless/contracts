@@ -123,6 +123,26 @@ import {
   collectionListResponse,
   collectionDefinitionsResponse,
 } from '../src/collections-records.js'
+import { collectionsIssue } from '../src/collections-issues.js'
+import {
+  collectionsEffect,
+  collectionsAccessChange,
+  collectionsSchemaPreview,
+  collectionsDraftResponse,
+  putCollectionsDraftRequest,
+  collectionsPublishRequest,
+  collectionsPublishResponse,
+  collectionsVersionSummary,
+  collectionsVersionsResponse,
+  collectionsVersionResponse,
+  collectionsRestorePreview,
+  collectionsRestorePreviewQuery,
+  collectionsRestoreRequest,
+  collectionsRestoreResponse,
+  collectionsPurgeRequest,
+  collectionsPurgePreview,
+  collectionsPurgeResponse,
+} from '../src/collections-schema.js'
 import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
@@ -518,6 +538,24 @@ export const exportedSchemas = {
   'collection-summary': collectionSummary,
   'collection-list-response': collectionListResponse,
   'collection-definitions-response': collectionDefinitionsResponse,
+  'collections-issue': collectionsIssue,
+  'collections-effect': collectionsEffect,
+  'collections-access-change': collectionsAccessChange,
+  'collections-schema-preview': collectionsSchemaPreview,
+  'collections-draft-response': collectionsDraftResponse,
+  'put-collections-draft-request': putCollectionsDraftRequest,
+  'collections-publish-request': collectionsPublishRequest,
+  'collections-publish-response': collectionsPublishResponse,
+  'collections-version-summary': collectionsVersionSummary,
+  'collections-versions-response': collectionsVersionsResponse,
+  'collections-version-response': collectionsVersionResponse,
+  'collections-restore-preview': collectionsRestorePreview,
+  'collections-restore-preview-query': collectionsRestorePreviewQuery,
+  'collections-restore-request': collectionsRestoreRequest,
+  'collections-restore-response': collectionsRestoreResponse,
+  'collections-purge-request': collectionsPurgeRequest,
+  'collections-purge-preview': collectionsPurgePreview,
+  'collections-purge-response': collectionsPurgeResponse,
   'client-auth': clientAuth,
   'auth-ok': authOk,
   'auth-error': authError,
@@ -1127,6 +1165,12 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // object the server validates on arrival.
   'collection-record-write', 'collection-record-list-query', 'collection-record-history-query',
   'collection-record-restore-request', 'collection-filter',
+
+  // The schema lifecycle: the draft a developer saves, the publish and restore
+  // bodies that carry a preview's token, the restore preview's query string and
+  // the owner's purge request.
+  'put-collections-draft-request', 'collections-publish-request', 'collections-restore-preview-query',
+  'collections-restore-request', 'collections-purge-request',
 ]
 
 /**
@@ -1250,6 +1294,15 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'collection-actor', 'collection-record', 'collection-record-list-response', 'collection-revision',
   'collection-record-history-response', 'collection-summary', 'collection-list-response',
   'collection-definitions-response',
+
+  // --- The collections schema lifecycle ------------------------------------
+  // Documents the server sends: findings about a document, the effects of a
+  // change on data, the previews (each with the token that confirms it), the
+  // draft, the versions and what a publish, restore or purge did.
+  'collections-issue', 'collections-effect', 'collections-access-change', 'collections-schema-preview',
+  'collections-draft-response', 'collections-publish-response', 'collections-version-summary',
+  'collections-versions-response', 'collections-version-response', 'collections-restore-preview',
+  'collections-restore-response', 'collections-purge-preview', 'collections-purge-response',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)

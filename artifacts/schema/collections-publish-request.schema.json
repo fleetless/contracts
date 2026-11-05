@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "confirm": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview."
+    }
+  },
+  "additionalProperties": false,
+  "description": "Publishes the draft. The body may be empty when the preview lists no effects; otherwise it carries the preview's token as `confirm`."
+}

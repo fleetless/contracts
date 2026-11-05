@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "boolean",
+      "description": "Also put records back to their state at the restore point, in the touched collections. Default `false`."
+    },
+    "collections": {
+      "maxItems": 50,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,62}$",
+        "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+      },
+      "description": "Limits putting records back to these touched collections. Default: all of them."
+    },
+    "confirm": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `token` of the preview of exactly this request. Needed when the preview lists effects; a missing or outdated token is answered with `confirmation_required` and the current preview."
+    }
+  },
+  "additionalProperties": false,
+  "description": "Restores a version. Send the `data` and `collections` of the preview together with its token as `confirm`."
+}
