@@ -54,6 +54,13 @@ describe('the route manifest', () => {
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)
   })
 
+  it('ROUTES has no /api/robots/:id/details', () => {
+    // The robot details document went with the `robot_details` built-in; a
+    // manifest that kept the route would make the cloud's set-equality test
+    // demand a handler for a door that must not exist.
+    expect(ROUTES.filter((r) => r.path.startsWith('/api/robots/:id/details')).map(key)).toEqual([])
+  })
+
   it('declares every :param of its path, in order, and nothing else', () => {
     for (const r of ROUTES) {
       const inPath = [...r.path.matchAll(/:([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])

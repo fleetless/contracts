@@ -9,6 +9,69 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **App collections: structured records an app stores in the cloud.** A
+  developer describes them in one document, `collectionsDocument`
+  (`COLLECTIONS_FORMAT_VERSION` 1): up to 50 collections of up to 100 fields,
+  each field a `collectionFieldType` with its own bounds, a `display` template,
+  and an `access` rule per collection saying who may read and write.
+  `collectionsDocumentIssues` judges a document and `collectionsAccessWarnings`
+  names what its access rules allow; `checkCollectionValue` and
+  `normalizeCollectionValue` judge and normalise one value the same way on
+  every side, and `parseCollectionFilter` and `parseCollectionSort` read the
+  filter and sort of a list request and report every problem with a JSON
+  Pointer path. Four JSON templates (`pose2d`, `point2d`, `polygon2d`,
+  `range1d`) are built in, and a field may carry an inline JSON Schema.
+- **Records.** A record travels as an envelope, `collectionRecord`: its system
+  fields (id, robot, who and when, revision), the rendered display text and the
+  required fields it is missing, with its own values under `values`. Writes
+  send `values`, an optional robot and an optional expected revision, and a
+  stale revision is answered `record_changed`. Lists take a filter, a search, a
+  sort, `expand`, a page of 1 to 500 and a cursor; every change keeps a
+  revision, `collectionRevision`, which the history route lists and the restore
+  route can bring back.
+- **Schema lifecycle.** Saving a draft, previewing it, publishing it, listing
+  and restoring versions, and purging old history are separate steps. A change
+  that would alter or remove data is previewed first: the preview lists its
+  effects (ten kinds) and a token that stands for exactly that list, and the
+  confirming request sends the token back as `confirm`. A version can be
+  restored together with its data for 90 days.
+- **Import and export.** An import is all or nothing and takes two requests, a
+  preview that lists at most 1,000 errors with row, column, value and reason,
+  and a confirmation with the preview's token. Modes are `upsert` and `mirror`.
+  The export query takes the filter, search and sort of a record list.
+- **Realtime.** `collection_subscribe` and `collection_unsubscribe` open and
+  close a subscription on the client socket, `collection_event` carries
+  `created`, `updated`, `deleted`, `removed` and `entered` with the whole
+  record, and `collection_subscribe_error` and `collections_schema_published`
+  tell a client its subscription failed or its definitions changed. An
+  accepted subscription is silent: subscribe first, then list.
+- **Limits.** `COLLECTION_LIMITS` names every bound in one place: record size
+  (1 MiB), text lengths, select options, filter depth and conditions, page
+  sizes, import size (10 MB, 50,000 rows) and the write rates (600 a minute for
+  an app, 120 for one acting user or key).
+- **Routes and codes.** A new route section, App collections, with the
+  developer routes under `/api/apps/:id/collections` and the same records,
+  import and export for app users and server keys under
+  `/api/client/collections`; only the two history purge routes need the Owner
+  tier. New error codes `confirmation_required`, `record_referenced`,
+  `record_changed`, `collection_not_found`, `collection_removed`,
+  `reference_invalid`, `required_missing` and `robot_not_attached`, with their
+  details, and the audit actions listed as `COLLECTION_AUDIT_ACTIONS`.
+
+### Removed
+
+- **The `robot_details` built-in; this is why the release is a major.**
+  `robotDetailsDoc`, `putRobotDetailsRequest` and `putRobotDetailsResponse`
+  (with their types and the three JSON Schema artifacts), the route `PUT
+  /api/robots/:id/details`, and the reserved slug: `RESERVED_SLUGS` is now
+  `bridge_state` and `history`, so `robot_details` is an ordinary slug that a
+  configuration may use. The descriptions of `datapointDescriptor`,
+  `datapointListResponse` and the configuration sections name `bridge_state` as
+  the only built-in datapoint. Nothing replaces the document, and nothing was
+  deprecated first.
+
 ## [13.2.0] — 2026-11-05
 
 ### Changed

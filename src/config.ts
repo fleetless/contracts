@@ -682,9 +682,8 @@ export const parameterMap = slugKeyed(parameterSpec)
  * sections at once** — slugs are one namespace, so a name reserved here is
  * reserved everywhere.
  *
- * The first three are built-ins: the cloud or the bridge already publishes
- * something under them, so a configured entry would be a second producer for
- * one name. `history` is reserved for a different reason and is not a built-in
+ * The first is a built-in: the cloud already publishes something under it,
+ * so a configured entry would be a second producer for one name. `history` is reserved for a different reason and is not a built-in
  * — nothing publishes it. `GET /api/robots/:id/jobs/history` is a **literal
  * sibling** of `GET /api/robots/:id/jobs/:slug`, so an action or service named
  * `history` would have a job route no caller could ever reach. Reserving the
@@ -706,7 +705,7 @@ export const parameterMap = slugKeyed(parameterSpec)
  * ships those sentences to readers who have only the JSON Schema, and
  * "here" would have promised them a refusal this parse does not make.
  */
-export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'history'] as const
+export const RESERVED_SLUGS = ['bridge_state', 'history'] as const
 
 /**
  * When an alert fires and when it is ok again. There is no discriminator:
@@ -2027,26 +2026,26 @@ export const robotConfigDoc = strictObject({
     defaultSnippets: [underSlug('${1:drive}', SHARED_MESSAGE_SNIPPET)],
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
-    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated.',
     defaultSnippets: [
       underSlug('${1:battery_voltage}', DATAPOINT_SNIPPET),
       underSlug('${1:battery}', NUMERIC_DATAPOINT_SNIPPET),
     ],
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
-    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:navigate}', ACTION_SNIPPET)],
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
-    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:reset_odometry}', SERVICE_SNIPPET)],
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
-    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:drive}', PUBLISHER_SNIPPET)],
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
-    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:front}', CAMERA_SNIPPET)],
   }).optional(),
   low_bandwidth: lowBandwidthSection.optional().meta({

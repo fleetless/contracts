@@ -6852,64 +6852,6 @@
         "description": "The same shape the delete's own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual receipt agree by construction, and any difference between them is real drift — a robot that kept recording in between — rather than two estimates that quietly disagree."
       }
     },
-    "/api/robots/{id}/details": {
-      "put": {
-        "operationId": "put_api_robots_id_details",
-        "summary": "Replaces the developer-maintained details document shown alongside the robot.",
-        "tags": [
-          "robots"
-        ],
-        "security": [
-          {
-            "developerSession": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "The robot's uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/put-robot-details-response"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "An error envelope. Codes this route is known to answer: `unauthorized`, `token_expired`, `token_revoked`, `invalid_uuid`, `not_found`, `validation_error`.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/api-error"
-                }
-              }
-            }
-          }
-        },
-        "description": "Answers `{ \"details\": robotDetailsDoc }` — the stored document, which is the one that was sent. The update is fanned out to every `/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/put-robot-details-request"
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/robots/{id}/datapoints": {
       "get": {
         "operationId": "get_api_robots_id_datapoints",
@@ -7072,7 +7014,7 @@
             }
           }
         },
-        "description": "For a client caller the grant check runs **before** any existence lookup, with no extra query on either path to time: a denied slug and a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is `404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs told apart. The plane built-ins (`bridge_state`, `robot_details`) answer here too, without appearing in any document."
+        "description": "For a client caller the grant check runs **before** any existence lookup, with no extra query on either path to time: a denied slug and a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is `404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs told apart. The plane built-in `bridge_state` answers here too, without appearing in any document."
       }
     },
     "/api/client/robots": {
@@ -31060,7 +31002,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
                   },
                   "actions": {
                     "type": "object",
@@ -31210,7 +31152,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
                   },
                   "services": {
                     "type": "object",
@@ -31360,7 +31302,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
                   },
                   "publishers": {
                     "type": "object",
@@ -31546,7 +31488,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
                   },
                   "cameras": {
                     "type": "object",
@@ -31794,7 +31736,7 @@
                       ],
                       "additionalProperties": false
                     },
-                    "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                    "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
                   },
                   "low_bandwidth": {
                     "description": "Overrides for the bridge's low-bandwidth mode; see the section schema.",
@@ -32222,7 +32164,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
               },
               "actions": {
                 "type": "object",
@@ -32372,7 +32314,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
               },
               "services": {
                 "type": "object",
@@ -32522,7 +32464,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
               },
               "publishers": {
                 "type": "object",
@@ -32708,7 +32650,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Topics clients may send to, and where the format's whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
               },
               "cameras": {
                 "type": "object",
@@ -32956,7 +32898,7 @@
                   ],
                   "additionalProperties": false
                 },
-                "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated."
+                "description": "Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer's request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` is built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; both are refused when the document is validated."
               },
               "low_bandwidth": {
                 "description": "Overrides for the bridge's low-bandwidth mode; see the section schema.",
@@ -33923,7 +33865,7 @@
                 },
                 "builtin": {
                   "type": "boolean",
-                  "description": "`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds."
+                  "description": "`true` for the datapoint every robot has, `bridge_state`, and `false` for everything the published configuration adds."
                 },
                 "unit": {
                   "anyOf": [
@@ -33958,7 +33900,7 @@
               ],
               "additionalProperties": false
             },
-            "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role grants."
+            "description": "Everything a client may read on this robot: the built-in `bridge_state`, plus every datapoint the published configuration exposes and the caller's role grants."
           }
         },
         "required": [
@@ -46749,88 +46691,6 @@
         "required": [
           "source"
         ]
-      },
-      "put-robot-details-request": {
-        "type": "object",
-        "properties": {
-          "details": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
-            },
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 4096
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "array",
-                  "items": {}
-                },
-                {
-                  "type": "object",
-                  "propertyNames": {
-                    "type": "string"
-                  },
-                  "additionalProperties": {}
-                }
-              ]
-            }
-          }
-        },
-        "required": [
-          "details"
-        ]
-      },
-      "put-robot-details-response": {
-        "type": "object",
-        "properties": {
-          "details": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string",
-              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
-            },
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 4096
-                },
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "array",
-                  "items": {}
-                },
-                {
-                  "type": "object",
-                  "propertyNames": {
-                    "type": "string"
-                  },
-                  "additionalProperties": {}
-                }
-              ]
-            },
-            "description": "The stored `robot_details` document, which is the one that was just sent — this route **replaces** the document rather than merging into it. Keys are the developer's own, lowercase and at most 64 characters; a value is a string of at most 4096 characters, a number, a boolean, an array or an object."
-          }
-        },
-        "required": [
-          "details"
-        ],
-        "additionalProperties": false
       },
       "recover-held-job-request": {
         "type": "object",

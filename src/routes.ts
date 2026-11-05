@@ -235,8 +235,6 @@ import {
   publishConfigResponse,
   publishRequest,
   putConfigDraftRequest,
-  putRobotDetailsRequest,
-  putRobotDetailsResponse,
   robotTokenRotateResponse,
   jointStatePutRequest,
   jointStatePutResponse,
@@ -2904,17 +2902,6 @@ export const ROUTES: readonly RouteEntry[] = [
       'fails partway is `500 robot_deletion_partial` with the progress, never a bare `internal_error` that would read as "nothing happened".',
   },
   {
-    method: 'PUT', path: '/api/robots/:id/details', section: 'robots',
-    summary: 'Replaces the developer-maintained details document shown alongside the robot.',
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
-    params: [{ name: 'id', description: 'The robot\'s uuid, as returned by `POST /api/robots` or listed by `GET /api/robots`.' }],
-    query: null, request: putRobotDetailsRequest, response: putRobotDetailsResponse,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found', 'validation_error'], transport: 'http',
-    notes:
-      'Answers `{ "details": robotDetailsDoc }` — the stored document, which is the one that was sent. The update is fanned out to every ' +
-      '`/realtime` subscriber of the `robot_details` built-in, so a client watching the robot sees the new document without polling.',
-  },
-  {
     method: 'GET', path: '/api/robots/:id/datapoints', section: 'robots',
     summary: 'Lists the datapoints of a robot, filtered to what the caller\'s role grants.',
     audience: 'client', auth: 'developer_or_client', rateLimited: false, ownerTier: false, status: 200,
@@ -2948,7 +2935,7 @@ export const ROUTES: readonly RouteEntry[] = [
       'For a client caller the grant check runs **before** any existence lookup, with no extra query on either path to time: a denied slug and ' +
       'a nonexistent one must be one answer. That is why an ungranted slug is `403 forbidden` while a granted-but-unconfigured one is ' +
       '`404 unknown_datapoint` and a configured one with no sample yet is `404 no_data` — three facts a caller who is entitled to them needs ' +
-      'told apart. The plane built-ins (`bridge_state`, `robot_details`) answer here too, without appearing in any document.',
+      'told apart. The plane built-in `bridge_state` answers here too, without appearing in any document.',
   },
 
   /* ------------------------------------------ discovery: the REST twins of the two MCP tools a session starts from */

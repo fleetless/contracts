@@ -87,7 +87,6 @@ import {
   publishConfigResponse,
   introspectionResponse,
   datapointListResponse,
-  robotDetailsDoc,
 } from '../src/rest.js'
 import {
   clientAuth,
@@ -283,7 +282,7 @@ import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureLis
 import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
-import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
+import { orgHealthQuery, patchRobotResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
@@ -336,7 +335,6 @@ import {
   jointStatePutRequest,
   jointStatePutResponse,
   putConfigDraftRequest,
-  putRobotDetailsRequest,
   rateLimitDetails,
   robotTokenRotateResponse,
   releaseLiveQuery,
@@ -544,7 +542,6 @@ export const exportedSchemas = {
   'publish-config-response': publishConfigResponse,
   'introspection-response': introspectionResponse,
   'datapoint-list-response': datapointListResponse,
-  'robot-details-doc': robotDetailsDoc,
   'collections-document': collectionsDocument,
   'collection-actor': collectionActor,
   'collection-record': collectionRecord,
@@ -905,7 +902,6 @@ export const exportedSchemas = {
   'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
   'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
   'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource/mcp
-  'put-robot-details-request': putRobotDetailsRequest, // PUT /api/robots/:id/details
   'joint-state-put-request': jointStatePutRequest, // PUT /api/robots/:id/urdf/joint-state
   'put-config-draft-request': putConfigDraftRequest, // PUT /api/robots/:id/config/draft
   'config-versions-response': configVersionsResponse, // GET /api/robots/:id/config/versions
@@ -947,7 +943,6 @@ export const exportedSchemas = {
   'server-key-list-response': serverKeyListResponse, // GET /api/apps/:id/server-keys
   'patch-org-response': patchOrgResponse, // PATCH /api/org
   'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
-  'put-robot-details-response': putRobotDetailsResponse, // PUT /api/robots/:id/details
   'joint-state-put-response': jointStatePutResponse, // PUT /api/robots/:id/urdf/joint-state
   'robot-token-rotate-response': robotTokenRotateResponse, // POST /api/robots/:id/token/rotate
   // The other half of `invoke-or-service-response`. `invokeResponse` was
@@ -1159,7 +1154,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
   'support-token-request', 'support-renew-fail-request',
-  'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
+  'joint-state-put-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'recover-held-job-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
@@ -1191,7 +1186,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // frame, so it is an accepted document on two surfaces and never a response
   // shape of its own.
   'robot-config-doc', 'datapoint-config', 'action-config', 'service-config',
-  'publisher-config', 'parameter-spec', 'camera-source', 'robot-details-doc',
+  'publisher-config', 'parameter-spec', 'camera-source',
   'snapshot-header',
 
   // The collections document is written by an author and validated on arrival,
@@ -1281,7 +1276,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'invoke-or-service-response', 'history-response',
   'app-list-response', 'role-list-response', 'server-key-list-response',
   'patch-org-response', 'patch-robot-response',
-  'put-robot-details-response', 'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
+  'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
   // Every one of these appears only inside a response, which is what makes
