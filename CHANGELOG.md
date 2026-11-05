@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [13.3.0] — 2026-11-05
+
 ### Added
 
 - `configAuthor`: a console team member by display name (the local part of the
