@@ -78,7 +78,10 @@ export const collectionsEffect = z
         records: count.meta({ description: 'Records deleted with the collection.' }),
       })
       .strict()
-      .meta({ description: 'The collection is gone from the document, so its records are deleted.' }),
+      .meta({
+        description:
+          'The collection is gone from the document, so its records are deleted. Their history is deleted 90 days after the publish or restore that removed the collection, also when it held no records any more by then; until then a restore of an earlier version with its data can bring the records back.',
+      }),
     z
       .object({
         kind: z.literal('collection_recreated'),
@@ -88,7 +91,10 @@ export const collectionsEffect = z
         to: collectionBinding,
       })
       .strict()
-      .meta({ description: 'The binding of the collection changed, which deletes its records and starts the collection again.' }),
+      .meta({
+        description:
+          'The binding of the collection changed, which deletes its records and starts the collection again. The history of the deleted records is kept 90 days after the publish or restore, as for a removed collection.',
+      }),
     z
       .object({
         kind: z.literal('records_created'),

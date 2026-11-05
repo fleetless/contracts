@@ -112,6 +112,14 @@ describe('collectionsEffect', () => {
     expect(shape.options.map((o) => o.shape.kind.value).sort()).toEqual(Object.keys(EFFECTS).sort())
   })
 
+  it('says how long the history of a removed or re-created collection stays', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../artifacts/schema/collections-effect.schema.json', import.meta.url), 'utf8'))
+    const members: { properties: { kind: { const: string } }; description?: string }[] = artifact.oneOf ?? artifact.anyOf
+    for (const kind of ['collection_removed', 'collection_recreated']) {
+      expect(members.find((m) => m.properties.kind.const === kind)!.description, kind).toMatch(/90 days after the publish or restore/)
+    }
+  })
+
   it.each(Object.entries(EFFECTS))('%s parses its example', (_kind, example) => {
     expect(collectionsEffect.safeParse(example).success).toBe(true)
   })

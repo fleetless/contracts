@@ -112,7 +112,7 @@ export const collectionImportRequest = z
     }).optional(),
     mode: z.enum(['upsert', 'mirror']).meta({
       description:
-        '`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`. A mirror deletes at most 50,000 records, a file without rows is refused, and a deletion that a `prevent` reference blocks fails the whole import.',
+        '`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`. A mirror deletes at most 50,000 records, a file without rows is refused, and a deletion that a `prevent` reference blocks fails the whole import. A collection with one record per robot takes neither a `key` nor a `mirror` (`400 validation_error`, rule `one_per_robot_is_automatic`).',
     }).optional(),
     scope: importScope.optional(),
     robot_id: z.uuid().meta({

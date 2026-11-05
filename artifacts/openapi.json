@@ -26232,7 +26232,7 @@
               "upsert",
               "mirror"
             ],
-            "description": "`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`. A mirror deletes at most 50,000 records, a file without rows is refused, and a deletion that a `prevent` reference blocks fails the whole import."
+            "description": "`upsert` (the default) creates and updates records. `mirror` also deletes the records of `scope` that are not in the file, and needs `key`. A mirror deletes at most 50,000 records, a file without rows is refused, and a deletion that a `prevent` reference blocks fails the whole import. A collection with one record per robot takes neither a `key` nor a `mirror` (`400 validation_error`, rule `one_per_robot_is_automatic`)."
           },
           "scope": {
             "type": "object",
@@ -28153,7 +28153,7 @@
                     "records"
                   ],
                   "additionalProperties": false,
-                  "description": "The collection is gone from the document, so its records are deleted."
+                  "description": "The collection is gone from the document, so its records are deleted. Their history is deleted 90 days after the publish or restore that removed the collection, also when it held no records any more by then; until then a restore of an earlier version with its data can bring the records back."
                 },
                 {
                   "type": "object",
@@ -28200,7 +28200,7 @@
                     "to"
                   ],
                   "additionalProperties": false,
-                  "description": "The binding of the collection changed, which deletes its records and starts the collection again."
+                  "description": "The binding of the collection changed, which deletes its records and starts the collection again. The history of the deleted records is kept 90 days after the publish or restore, as for a removed collection."
                 },
                 {
                   "type": "object",
@@ -28793,7 +28793,7 @@
                     "records"
                   ],
                   "additionalProperties": false,
-                  "description": "The collection is gone from the document, so its records are deleted."
+                  "description": "The collection is gone from the document, so its records are deleted. Their history is deleted 90 days after the publish or restore that removed the collection, also when it held no records any more by then; until then a restore of an earlier version with its data can bring the records back."
                 },
                 {
                   "type": "object",
@@ -28840,7 +28840,7 @@
                     "to"
                   ],
                   "additionalProperties": false,
-                  "description": "The binding of the collection changed, which deletes its records and starts the collection again."
+                  "description": "The binding of the collection changed, which deletes its records and starts the collection again. The history of the deleted records is kept 90 days after the publish or restore, as for a removed collection."
                 },
                 {
                   "type": "object",
@@ -29322,7 +29322,7 @@
                     "records"
                   ],
                   "additionalProperties": false,
-                  "description": "The collection is gone from the document, so its records are deleted."
+                  "description": "The collection is gone from the document, so its records are deleted. Their history is deleted 90 days after the publish or restore that removed the collection, also when it held no records any more by then; until then a restore of an earlier version with its data can bring the records back."
                 },
                 {
                   "type": "object",
@@ -29369,7 +29369,7 @@
                     "to"
                   ],
                   "additionalProperties": false,
-                  "description": "The binding of the collection changed, which deletes its records and starts the collection again."
+                  "description": "The binding of the collection changed, which deletes its records and starts the collection again. The history of the deleted records is kept 90 days after the publish or restore, as for a removed collection."
                 },
                 {
                   "type": "object",
@@ -29828,7 +29828,7 @@
                     "records"
                   ],
                   "additionalProperties": false,
-                  "description": "The collection is gone from the document, so its records are deleted."
+                  "description": "The collection is gone from the document, so its records are deleted. Their history is deleted 90 days after the publish or restore that removed the collection, also when it held no records any more by then; until then a restore of an earlier version with its data can bring the records back."
                 },
                 {
                   "type": "object",
@@ -29875,7 +29875,7 @@
                     "to"
                   ],
                   "additionalProperties": false,
-                  "description": "The binding of the collection changed, which deletes its records and starts the collection again."
+                  "description": "The binding of the collection changed, which deletes its records and starts the collection again. The history of the deleted records is kept 90 days after the publish or restore, as for a removed collection."
                 },
                 {
                   "type": "object",
