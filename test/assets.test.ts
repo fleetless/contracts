@@ -204,16 +204,17 @@ describe('a full store is never a dead end', () => {
     expect(assetsClearResponse.safeParse({ deleted: 0 }).success).toBe(false)
   })
 
-  it('registers the escape hatch as an owner-tier developer route', () => {
+  it('registers the escape hatch as a developer route without an Owner tier', () => {
     const route = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/robots/:id/assets')
     expect(route).toBeDefined()
     expect(route?.section).toBe('assets')
     expect(route?.audience).toBe('client')
     expect(route?.auth).toBe('developer_or_client')
-    expect(route?.ownerTier).toBe(true)
+    expect(route?.ownerTier).toBe(false)
     expect(route?.status).toBe(200)
     expect(route?.response).toBe(assetsClearResponse)
-    expect(route?.errors).toEqual(expect.arrayContaining(['unauthorized', 'tier_required', 'not_found']))
+    expect(route?.errors).toEqual(expect.arrayContaining(['unauthorized', 'not_found']))
+    expect(route?.errors).not.toContain('tier_required')
   })
 })
 

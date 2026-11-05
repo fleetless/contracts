@@ -9,6 +9,19 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- Robot and app deletion, bridge-token rotation, server-key minting, rotation
+  and revocation, and asset sync and clear no longer need the Owner tier. The
+  eight routes (`DELETE /api/robots/:id`, `POST /api/robots/:id/token/rotate`,
+  `DELETE /api/apps/:id`, `POST /api/apps/:id/server-keys`,
+  `POST /api/apps/:id/server-keys/:keyId/rotate`,
+  `DELETE /api/apps/:id/server-keys/:keyId`,
+  `POST /api/robots/:id/assets/sync`, `DELETE /api/robots/:id/assets`) carry
+  `ownerTier: false` and no longer list `tier_required`, so a developer is
+  never answered with it. Statuses, schemas and the remaining errors are
+  unchanged.
+
 ## [13.1.0] — 2026-11-03
 
 ### Added

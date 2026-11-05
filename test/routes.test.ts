@@ -912,14 +912,37 @@ describe('the app-user auth surface', () => {
 })
 
 describe('app deletion', () => {
-  it('offers a preview beside the delete, and the delete is Owner tier', () => {
+  it('offers a preview beside the delete, and the delete needs no Owner tier', () => {
     const preview = ROUTES.find((r) => r.method === 'GET' && r.path === '/api/apps/:id/deletion-preview')
     expect(preview?.response).toBe(appDeletionSummary)
     expect(preview?.status).toBe(200)
     expect(preview?.ownerTier).toBe(false)
     const del = ROUTES.find((r) => r.method === 'DELETE' && r.path === '/api/apps/:id')
     expect(del?.status).toBe(204)
-    expect(del?.ownerTier).toBe(true)
+    expect(del?.ownerTier).toBe(false)
+  })
+})
+
+describe('what a developer may run without the Owner tier', () => {
+  it('robot deletion, token rotation, app deletion, server keys and the asset store need no Owner tier', () => {
+    for (const [k, status] of [
+      ['DELETE /api/robots/:id', 204],
+      ['POST /api/robots/:id/token/rotate', 201],
+      ['DELETE /api/apps/:id', 204],
+      ['POST /api/apps/:id/server-keys', 201],
+      ['POST /api/apps/:id/server-keys/:keyId/rotate', 200],
+      ['DELETE /api/apps/:id/server-keys/:keyId', 204],
+      ['POST /api/robots/:id/assets/sync', 202],
+      ['DELETE /api/robots/:id/assets', 200],
+    ] as const) {
+      const r = ROUTES.find((x) => key(x) === k)
+      expect(r, `${k} is not in the manifest`).toBeDefined()
+      expect(r!.ownerTier, k).toBe(false)
+      expect(r!.errors, `${k} still answers a developer tier_required`).not.toContain('tier_required')
+      expect(r!.errors, `${k} lost its not_found`).toContain('not_found')
+      expect(r!.notes ?? '', `${k} still describes an Owner gate`).not.toMatch(/owner/i)
+      expect(r!.status, k).toBe(status)
+    }
   })
 })
 
@@ -2073,16 +2096,16 @@ describe('openapi hygiene', () => {
 describe('the robot-detail routes phase 4 adds', () => {
   const find = (method: string, path: string) => ROUTES.find((r) => r.method === method && r.path === path)
 
-  it('rotates a bridge token behind the Owner tier, answering 201 once', () => {
-    // A credential that speaks for the org from anywhere is minted here, so
-    // it sits behind the same gate as robot deletion and the asset sync.
+  it('rotates a bridge token for any developer, answering 201 once', () => {
+    // A credential that speaks for the org from anywhere is minted here; the
+    // audit event and the secret shown once are its guard, not a tier.
     const r = find('POST', '/api/robots/:id/token/rotate')
     expect(r, 'the rotate route is not in the manifest').toBeDefined()
-    expect(r!.ownerTier).toBe(true)
+    expect(r!.ownerTier).toBe(false)
     expect(r!.auth).toBe('developer')
     expect(r!.status).toBe(201)
     expect(r!.response).toBe(robotTokenRotateResponse)
-    expect(r!.errors).toContain('tier_required')
+    expect(r!.errors).not.toContain('tier_required')
     expect(r!.errors).toContain('not_found')
     expect(r!.notes?.length ?? 0, 'a route that stops a running bridge says so').toBeGreaterThan(80)
   })
