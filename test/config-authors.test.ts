@@ -61,8 +61,10 @@ describe('configDraftResponse.updated_by', () => {
     expect(configDraftResponse.safeParse({ ...DRAFT, updated_by: { id: 'x', name: '' } }).success).toBe(false)
   })
 
-  it('requires the field, so a cloud that forgets it is caught at the wire and not by a page printing "by undefined"', () => {
-    expect(configDraftResponse.safeParse(DRAFT).success).toBe(false)
+  it('accepts a draft without the field (a server that predates it) and leaves it undefined, so a reader treats it as unknown and not as a named author', () => {
+    const parsed = configDraftResponse.safeParse(DRAFT)
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.updated_by).toBeUndefined()
   })
 })
 
@@ -87,8 +89,13 @@ describe('published_by on versions', () => {
     expect(configVersionResponse.safeParse({ ...base, published_by: { id: 'x', name: '' } }).success).toBe(false)
   })
 
-  it('a single version requires the field', () => {
-    expect(configVersionResponse.safeParse({ ...VERSION, doc: { fleetless: 1 }, source: 'fleetless: 1\n' }).success).toBe(false)
+  it('a version in the list and a single version parse without the field (a server that predates it) and leave it undefined', () => {
+    const list = configVersionsResponse.safeParse({ versions: [VERSION] })
+    expect(list.success).toBe(true)
+    expect(list.data?.versions[0]?.published_by).toBeUndefined()
+    const one = configVersionResponse.safeParse({ ...VERSION, doc: { fleetless: 1 }, source: 'fleetless: 1\n' })
+    expect(one.success).toBe(true)
+    expect(one.data?.published_by).toBeUndefined()
   })
 })
 
@@ -139,9 +146,11 @@ describe('hosted_logo_shape on appAuthConfig', () => {
     expect(appAuthConfig.safeParse({ ...ROW, hosted_logo_url: LOGO, hosted_logo_shape: 'round' }).success).toBe(false)
   })
 
-  it('requires the field, so the pages never have to guess a missing shape', () => {
+  it('accepts a row without the field (a server that predates it) and leaves it undefined, which a page must not read as square', () => {
     const { hosted_logo_shape: _omitted, ...without } = ROW
-    expect(appAuthConfig.safeParse({ ...without, hosted_logo_url: LOGO }).success).toBe(false)
+    const parsed = appAuthConfig.safeParse({ ...without, hosted_logo_url: LOGO })
+    expect(parsed.success).toBe(true)
+    expect(parsed.data?.hosted_logo_shape).toBeUndefined()
   })
 
   it('is read-only: no slice that writes the look takes it', async () => {

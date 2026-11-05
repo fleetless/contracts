@@ -651,8 +651,8 @@ export const appAuthConfig = z.object({
   hosted_logo_url: z.url().nullable().meta({
     description: 'Where the hosted pages load the app\'s logo from, `<portal>/app/<identifier>/logo`, or `null` when no logo is stored. **Read-only** — the logo is written through `PUT /api/apps/:id/auth-config/logo`.',
   }),
-  hosted_logo_shape: hostedLogoShape.nullable().meta({
-    description: 'How the hosted pages lay the logo out: `square` beside the app\'s name, `wide` in place of it. **Read-only** — derived from the stored image, and `null` exactly when `hosted_logo_url` is `null`. An image whose size cannot be read is `square`.',
+  hosted_logo_shape: hostedLogoShape.nullable().optional().meta({
+    description: 'How the hosted pages lay the logo out: `square` beside the app\'s name, `wide` in place of it. **Read-only** — derived from the stored image, and `null` exactly when `hosted_logo_url` is `null`. An image whose size cannot be read is `square`. Absent when the server predates this field: read an absent field as unknown, not as `square`. The cloud always sends it.',
   }),
   hosted_accent: hostedAccent.nullable().meta({
     description: 'The accent colour of the hosted pages, `#rrggbb` in lowercase, or `null` for the neutral shell\'s own.',

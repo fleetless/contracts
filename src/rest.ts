@@ -260,8 +260,8 @@ export const configDraftResponse = z.object({
   doc: robotConfigDoc.nullable(),
   source: z.string(),
   updated_at: z.iso.datetime().nullable(),
-  updated_by: configAuthor.nullable().meta({
-    description: 'Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field.',
+  updated_by: configAuthor.nullable().optional().meta({
+    description: 'Who saved the draft last. `null` when nobody has saved it yet, when the cloud itself rewrote it (a slug rename), when the member has since been removed, or when the draft is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
   }),
   issues: z.array(validationIssue),
 })
@@ -301,8 +301,8 @@ export const configVersionsResponse = z.object({
     z.object({
       version: z.number().int().positive(),
       published_at: z.iso.datetime(),
-      published_by: configAuthor.nullable().meta({
-        description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field.',
+      published_by: configAuthor.nullable().optional().meta({
+        description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
       }),
     }),
   ),
@@ -320,8 +320,8 @@ export type ConfigVersionsResponse = z.infer<typeof configVersionsResponse>
 export const configVersionResponse = z.object({
   version: z.number().int().positive(),
   published_at: z.iso.datetime(),
-  published_by: configAuthor.nullable().meta({
-    description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field.',
+  published_by: configAuthor.nullable().optional().meta({
+    description: 'Who published the version. `null` when the member has since been removed, or when the version is older than this field. Absent when the server predates this field: read an absent field as unknown, the same as `null`. The cloud always sends it.',
   }),
   doc: robotConfigDoc,
   source: z.string(),
