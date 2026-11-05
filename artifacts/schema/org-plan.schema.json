@@ -176,6 +176,32 @@
             }
           ],
           "description": "Days the org's audit log is kept."
+        },
+        "collection_records": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Records in the app collections of all the org's apps, together. Only current records count, deleted ones and the history do not. A write or an import that would add records past it is refused `409 plan_limit` naming this key; reads continue."
+        },
+        "collection_bytes": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bytes the current records of all the org's app collections occupy, as stored JSON (decimal: 1 GB = 1,000,000,000). The history is shown beside it and not limited. A write or an import that would add data past it is refused `409 plan_limit` naming this key; reads continue."
         }
       },
       "required": [
@@ -186,7 +212,9 @@
         "live_video_ms_per_month",
         "asset_bytes_per_robot",
         "history_days",
-        "audit_days"
+        "audit_days",
+        "collection_records",
+        "collection_bytes"
       ],
       "additionalProperties": false,
       "description": "The org's effective limits: the plan's, raised by its add-ons, or an operator's override in their place. `null` means unlimited for a count, and 90 days for `history_days` and `audit_days`."

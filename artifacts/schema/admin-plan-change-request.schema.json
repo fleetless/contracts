@@ -156,6 +156,32 @@
               "type": "null"
             }
           ]
+        },
+        "collection_records": {
+          "description": "Replaces the plan's `collection_records`. `null` clears the override.",
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collection_bytes": {
+          "description": "Replaces the plan's `collection_bytes`. `null` clears the override.",
+          "anyOf": [
+            {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false

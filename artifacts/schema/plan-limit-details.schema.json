@@ -10,7 +10,9 @@
         "apps",
         "app_users",
         "live_video_ms_per_month",
-        "asset_bytes_per_robot"
+        "asset_bytes_per_robot",
+        "collection_records",
+        "collection_bytes"
       ],
       "description": "The limit the action would exceed."
     },

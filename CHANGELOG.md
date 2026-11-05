@@ -60,6 +60,27 @@ version.
   `record_changed`, `collection_not_found`, `collection_removed`,
   `reference_invalid`, `required_missing` and `robot_not_attached`, with their
   details, and the audit actions listed as `COLLECTION_AUDIT_ACTIONS`.
+- **Plan limits for collections.** `planLimitKey` gains `collection_records`
+  and `collection_bytes`, counted per organization across its apps over
+  current records only: 25,000 records and 1 GB on Basic, 250,000 and 10 GB on
+  Plus, 1,000,000 and 50 GB on Pro, by contract on Enterprise. No add-on
+  raises them. `GET /api/org/quotas` carries both as limits (`orgQuotas`,
+  `null` when by contract) and as usage, with `collection_history_bytes`
+  beside them for information (`orgQuotaUsageCounts`); a write or an import
+  that adds data past a limit is `409 plan_limit` naming the key.
+- **Collection rights of a role.** `roleCollectionRights` says per collection
+  what a role may do: read, create, and update and delete on every record, on
+  the role's own only (`own`), or not at all. The effective-rights answer
+  (`GET /api/apps/:id/effective-rights`) lists one row per collection of the
+  published schema in `collections`, an empty list without one.
+
+### Changed
+
+- **Deletion summaries count collections.** `appDeletionSummary` gains
+  `collection_count` and `record_count`, and `robotDeletionSummary` gains
+  `collection_records`, the records that go with the robot per app. All three
+  are required fields of responses the server sends, like the other counts.
+  A consumer that builds these objects itself (a test double, say) adds them.
 
 ### Removed
 

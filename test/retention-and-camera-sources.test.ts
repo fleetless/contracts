@@ -6,7 +6,9 @@ import {
   historyBucketsResponse,
   historyQuery,
   historySamplesResponse,
+  orgQuotas,
   orgQuotaUsage,
+  orgQuotaUsageCounts,
   ERROR_CODES,
 } from '../src/index.js'
 
@@ -136,9 +138,32 @@ describe('quotas', () => {
       max_robots: 50, max_apps: 10, max_end_users: 1000,
       max_retention_bytes: 10_000_000_000, max_retention_writes_per_minute: 60_000,
       max_realtime_connections: 500,
+      collection_records: 250_000, collection_bytes: 10_000_000_000,
     }
     const parsed = orgQuotaUsage.parse({ quotas, usage: { max_robots: 3, max_retention_bytes: 12_345 } })
     expect(parsed.usage.max_robots).toBe(3)
     expect(parsed.quotas.max_robots).toBe(50)
+  })
+
+  it('carries the collection limits, null when the contract sets them, and their usage with the history size beside it', () => {
+    const quotas = {
+      max_robots: 50, max_apps: 10, max_end_users: 1000,
+      max_retention_bytes: 10_000_000_000, max_retention_writes_per_minute: 60_000,
+      max_realtime_connections: 500,
+      collection_records: null, collection_bytes: null,
+    }
+    const usage = { collection_records: 1_204, collection_bytes: 3_400_000, collection_history_bytes: 91_000_000 }
+    expect(orgQuotaUsage.parse({ quotas, usage })).toEqual({ quotas, usage })
+    // Not measured is absent, never zero: a usage without the three keys is still a usage.
+    expect(orgQuotaUsageCounts.parse({})).toEqual({})
+    // A limit of zero would forbid everything, so it is no limit; a usage of zero is the day-one answer.
+    expect(orgQuotas.safeParse({ ...quotas, collection_records: 0 }).success).toBe(false)
+    expect(orgQuotas.safeParse({ ...quotas, collection_bytes: 0 }).success).toBe(false)
+    expect(orgQuotaUsageCounts.safeParse({ collection_history_bytes: 0 }).success).toBe(true)
+    expect(orgQuotaUsageCounts.safeParse({ collection_records: -1 }).success).toBe(false)
+    expect(orgQuotaUsageCounts.safeParse({ collection_bytes: 1.5 }).success).toBe(false)
+    // The limits are always stated (null = by contract), so an answer that leaves them out is a bug of the sender.
+    const { collection_records: _r, ...withoutRecords } = quotas
+    expect(orgQuotas.safeParse(withoutRecords).success).toBe(false)
   })
 })

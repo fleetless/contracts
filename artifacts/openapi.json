@@ -1848,7 +1848,7 @@
             }
           }
         },
-        "description": "An app outside the caller's org answers `404`, as an unknown id does. A full cascade — its users, server keys, invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. Its robots and the organization's roles are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see `GET /api/apps/:id/deletion-preview`."
+        "description": "An app outside the caller's org answers `404`, as an unknown id does. A full cascade — its users, server keys, invitations, OIDC provider configuration, mail templates, and collections with their records and history all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. Its robots and the organization's roles are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see `GET /api/apps/:id/deletion-preview`."
       }
     },
     "/api/apps/{id}/deletion-preview": {
@@ -2270,7 +2270,7 @@
             }
           }
         },
-        "description": "Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with nothing granted, and so does a user who is not `active`. A user of another app answers `404`."
+        "description": "Name exactly one of `role` and `user`; both or neither is `400 validation_error`. Per attached robot, every capability is listed with whether it is granted, the requirement, where that came from (the entry, rule n of `access.rules`, or the organization default), the inherited role that satisfied it and whether the app locks it; the datasheet is the one an MCP session of that role would get. Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with nothing granted, and so does a user who is not `active`. A user of another app answers `404`. `collections` says what the role may do with the records of each collection of the latest published schema: read, create, and update and delete for every record, only the role's own, or none; it is empty when the app has no published schema."
       }
     },
     "/api/apps/{id}/users": {
@@ -6889,7 +6889,7 @@
             }
           }
         },
-        "description": "The same shape the delete's own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual receipt agree by construction, and any difference between them is real drift — a robot that kept recording in between — rather than two estimates that quietly disagree."
+        "description": "The same shape the delete's own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual receipt agree by construction, and any difference between them is real drift — a robot that kept recording in between — rather than two estimates that quietly disagree. `collection_records` counts, per app, the app collection records that go with the robot."
       }
     },
     "/api/robots/{id}/datapoints": {
@@ -9425,7 +9425,7 @@
             }
           }
         },
-        "description": "Every dial is read at the moment of the call and nothing is cached, so an exhausted quota is self-evident from this one answer rather than something a developer needs audit access to discover. `max_end_users` counts app users only — an org admin is not an app user, and counting the whole pool would report the Owner an org has by construction as consumption. It is summed **across the org's apps**, because the same address in two apps is two accounts, and that sum is the number the four routes that create an app user refuse `409 quota_exceeded` against: `POST /api/apps/:id/users`, `POST /api/client/register`, `POST /api/client/invitations/accept`, and a federated sign-in that would create an account, which carries `quota_exceeded` back to the app as its error redirect. A gauge nothing enforces is a number that reads as a limit and is not one."
+        "description": "Every dial is read at the moment of the call and nothing is cached, so an exhausted quota is self-evident from this one answer rather than something a developer needs audit access to discover. `max_end_users` counts app users only — an org admin is not an app user, and counting the whole pool would report the Owner an org has by construction as consumption. It is summed **across the org's apps**, because the same address in two apps is two accounts, and that sum is the number the four routes that create an app user refuse `409 quota_exceeded` against: `POST /api/apps/:id/users`, `POST /api/client/register`, `POST /api/client/invitations/accept`, and a federated sign-in that would create an account, which carries `quota_exceeded` back to the app as its error redirect. A gauge nothing enforces is a number that reads as a limit and is not one. \n\n`collection_records` and `collection_bytes` are the plan limits of the same names, `null` when the plan leaves them to the contract, and their usage counts the **current** records of all the org's apps; a write or an import that would add data past either is refused `409 plan_limit` naming the key, and reads continue. `collection_history_bytes` is the size of the history and only informs: nothing is refused against it. A usage figure the cloud does not measure is absent, never `0`."
       }
     },
     "/api/org/health": {
@@ -14294,6 +14294,18 @@
             "minimum": 0,
             "maximum": 9007199254740991,
             "description": "Custom mail templates, of at most three. A kind using the Fleetless default text is not counted — there is no row to lose."
+          },
+          "collection_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Collections of the app's latest published schema. They go with the app, together with their records and history."
+          },
+          "record_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Records of the app's collections, deleted with the app."
           }
         },
         "required": [
@@ -14301,7 +14313,9 @@
           "server_key_count",
           "invitation_count",
           "oidc_provider_count",
-          "mail_template_count"
+          "mail_template_count",
+          "collection_count",
+          "record_count"
         ],
         "additionalProperties": false
       },
@@ -35319,13 +35333,99 @@
               "additionalProperties": false
             },
             "description": "The robots attached to the app, each with what the role may use."
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "collection": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                  "description": "The collection's key."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "The collection's label for people to read; its key when the schema gives none."
+                },
+                "binding": {
+                  "type": "string",
+                  "enum": [
+                    "global",
+                    "per_robot",
+                    "one_per_robot"
+                  ],
+                  "description": "`global`: records belong to the app and no robot. `per_robot`: every record belongs to one robot (system field `robot_id`, fixed when the record is created). `one_per_robot`: every robot of the app has exactly one record, which Fleetless creates itself."
+                },
+                "read": {
+                  "type": "boolean",
+                  "description": "Whether the role may read the records."
+                },
+                "create": {
+                  "type": "boolean",
+                  "description": "Whether the role may create records."
+                },
+                "update": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "all"
+                    },
+                    {
+                      "type": "string",
+                      "const": "own"
+                    },
+                    {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  ],
+                  "description": "`all`: the role may change every record. `own`: only records its user created. `false`: none."
+                },
+                "delete": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "all"
+                    },
+                    {
+                      "type": "string",
+                      "const": "own"
+                    },
+                    {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  ],
+                  "description": "`all`: the role may delete every record. `own`: only records its user created. `false`: none."
+                },
+                "robot_filter": {
+                  "type": "boolean",
+                  "description": "`true` on a collection that belongs to robots (`per_robot`, `one_per_robot`): the role sees and writes only the records of robots a session of the role reaches, whatever the rights above say. `false` on a `global` collection."
+                }
+              },
+              "required": [
+                "collection",
+                "label",
+                "binding",
+                "read",
+                "create",
+                "update",
+                "delete",
+                "robot_filter"
+              ],
+              "additionalProperties": false,
+              "description": "What one role may do with the records of one collection."
+            },
+            "description": "What the role may do with the records of each collection of the app's latest published schema, in the schema's order. Empty when the app has no published schema. A role that is no role, and a user who is not `active`, are granted nothing in any row."
           }
         },
         "required": [
           "role",
           "role_known",
           "user_id",
-          "robots"
+          "robots",
+          "collections"
         ],
         "additionalProperties": false
       },
@@ -39238,6 +39338,32 @@
                   }
                 ],
                 "description": "Days the org's audit log is kept."
+              },
+              "collection_records": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Records in the app collections of all the org's apps, together. Only current records count, deleted ones and the history do not. A write or an import that would add records past it is refused `409 plan_limit` naming this key; reads continue."
+              },
+              "collection_bytes": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Bytes the current records of all the org's app collections occupy, as stored JSON (decimal: 1 GB = 1,000,000,000). The history is shown beside it and not limited. A write or an import that would add data past it is refused `409 plan_limit` naming this key; reads continue."
               }
             },
             "required": [
@@ -39248,7 +39374,9 @@
               "live_video_ms_per_month",
               "asset_bytes_per_robot",
               "history_days",
-              "audit_days"
+              "audit_days",
+              "collection_records",
+              "collection_bytes"
             ],
             "additionalProperties": false,
             "description": "The org's effective limits: the plan's, raised by its add-ons, or an operator's override in their place. `null` means unlimited for a count, and 90 days for `history_days` and `audit_days`."
@@ -39595,6 +39723,32 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "collection_records": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The most records the app collections of all the org's apps may hold together: the plan limit `collection_records`, or the operator's override of it. `null` is by contract (Enterprise)."
+              },
+              "collection_bytes": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The most bytes the current records of the org's app collections may occupy together: the plan limit `collection_bytes`, or the operator's override of it. `null` is by contract (Enterprise)."
               }
             },
             "required": [
@@ -39603,7 +39757,9 @@
               "max_end_users",
               "max_retention_bytes",
               "max_retention_writes_per_minute",
-              "max_realtime_connections"
+              "max_realtime_connections",
+              "collection_records",
+              "collection_bytes"
             ],
             "additionalProperties": false
           },
@@ -39639,6 +39795,24 @@
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 9007199254740991
+              },
+              "collection_records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Current records in the app collections of all the org's apps. Deleted records do not count."
+              },
+              "collection_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Bytes the current records of the org's app collections occupy, as stored JSON."
+              },
+              "collection_history_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Bytes the history of the org's app collections occupies: revisions of current and deleted records. Information only; no limit applies to it."
               }
             },
             "additionalProperties": false
@@ -40561,6 +40735,32 @@
                           }
                         ],
                         "description": "Days the org's audit log is kept."
+                      },
+                      "collection_records": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Records in the app collections of all the org's apps, together. Only current records count, deleted ones and the history do not. A write or an import that would add records past it is refused `409 plan_limit` naming this key; reads continue."
+                      },
+                      "collection_bytes": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Bytes the current records of all the org's app collections occupy, as stored JSON (decimal: 1 GB = 1,000,000,000). The history is shown beside it and not limited. A write or an import that would add data past it is refused `409 plan_limit` naming this key; reads continue."
                       }
                     },
                     "required": [
@@ -40571,7 +40771,9 @@
                       "live_video_ms_per_month",
                       "asset_bytes_per_robot",
                       "history_days",
-                      "audit_days"
+                      "audit_days",
+                      "collection_records",
+                      "collection_bytes"
                     ],
                     "additionalProperties": false,
                     "description": "The org's effective limits: the plan's, raised by its add-ons, or an operator's override in their place. `null` means unlimited for a count, and 90 days for `history_days` and `audit_days`."
@@ -48496,6 +48698,37 @@
           },
           "had_unpublished_draft": {
             "type": "boolean"
+          },
+          "collection_records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "app_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The app whose collections hold records of the robot."
+                },
+                "app_name": {
+                  "type": "string",
+                  "description": "The app's name."
+                },
+                "records": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "How many records of the robot the app's collections hold, deleted with the robot."
+                }
+              },
+              "required": [
+                "app_id",
+                "app_name",
+                "records"
+              ],
+              "additionalProperties": false
+            },
+            "description": "App collection records that go with the robot, per app. A robot's records are kept in every app it was attached to, also in one it was detached from, and are deleted with their history when the robot is; apps without records of this robot are left out."
           }
         },
         "required": [
@@ -48507,7 +48740,8 @@
           "asset_bytes_freed",
           "job_run_count",
           "had_live_session",
-          "had_unpublished_draft"
+          "had_unpublished_draft",
+          "collection_records"
         ],
         "additionalProperties": false
       },

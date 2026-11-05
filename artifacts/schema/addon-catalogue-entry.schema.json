@@ -23,7 +23,9 @@
         "live_video_ms_per_month",
         "asset_bytes_per_robot",
         "history_days",
-        "audit_days"
+        "audit_days",
+        "collection_records",
+        "collection_bytes"
       ],
       "description": "The plan limit this add-on raises."
     },

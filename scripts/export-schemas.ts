@@ -112,6 +112,7 @@ import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
 import { collectionsDocument } from '../src/collections.js'
+import { roleCollectionRights } from '../src/collections-rights.js'
 import {
   collectionActor,
   collectionRecord,
@@ -577,6 +578,7 @@ export const exportedSchemas = {
   'collection-summary': collectionSummary,
   'collection-list-response': collectionListResponse,
   'collection-definitions-response': collectionDefinitionsResponse,
+  'role-collection-rights': roleCollectionRights, // embedded in effective-rights-response
   'collections-issue': collectionsIssue,
   'collections-effect': collectionsEffect,
   'collections-access-change': collectionsAccessChange,
@@ -1384,6 +1386,8 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'collection-actor', 'collection-record', 'collection-record-list-response', 'collection-revision',
   'collection-record-history-response', 'collection-summary', 'collection-list-response',
   'collection-definitions-response',
+  // Inside effective-rights-response.
+  'role-collection-rights',
 
   // --- The collections schema lifecycle ------------------------------------
   // Documents the server sends: findings about a document, the effects of a

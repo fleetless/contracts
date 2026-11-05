@@ -31,6 +31,32 @@
       "type": "integer",
       "exclusiveMinimum": 0,
       "maximum": 9007199254740991
+    },
+    "collection_records": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The most records the app collections of all the org's apps may hold together: the plan limit `collection_records`, or the operator's override of it. `null` is by contract (Enterprise)."
+    },
+    "collection_bytes": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The most bytes the current records of the org's app collections may occupy together: the plan limit `collection_bytes`, or the operator's override of it. `null` is by contract (Enterprise)."
     }
   },
   "required": [
@@ -39,7 +65,9 @@
     "max_end_users",
     "max_retention_bytes",
     "max_retention_writes_per_minute",
-    "max_realtime_connections"
+    "max_realtime_connections",
+    "collection_records",
+    "collection_bytes"
   ],
   "additionalProperties": false
 }

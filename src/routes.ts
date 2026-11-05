@@ -1144,7 +1144,8 @@ export const ROUTES: readonly RouteEntry[] = [
     errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'not_found'], transport: 'http',
     notes:
       'An app outside the caller\'s org answers `404`, as an unknown id does. A full cascade — its users, server keys, ' +
-      'invitations, OIDC provider configuration and mail templates all go, recorded once as `app.deleted` carrying an `appDeletionSummary`. ' +
+      'invitations, OIDC provider configuration, mail templates, and collections with their records and history all go, recorded once as ' +
+      '`app.deleted` carrying an `appDeletionSummary`. ' +
       'Its robots and the organization\'s roles are untouched: they belong to the org, not to the app. \n\n**No `force` parameter** — see ' +
       '`GET /api/apps/:id/deletion-preview`.',
   },
@@ -1243,7 +1244,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'Only the published configuration counts: a robot with nothing published has no exposures, and its `assets` and `job_history` follow ' +
       'the organization defaults. `reachable` says whether a session of the role reaches the robot at all; a robot it does not reach is ' +
       'still listed, with every capability that explains why. A role that is no role is not an error; it answers `role_known: false` with ' +
-      'nothing granted, and so does a user who is not `active`. A user of another app answers `404`.',
+      'nothing granted, and so does a user who is not `active`. A user of another app answers `404`. `collections` says what the role may do ' +
+      'with the records of each collection of the latest published schema: read, create, and update and delete for every record, only the ' +
+      'role\'s own, or none; it is empty when the app has no published schema.',
   },
 
 
@@ -2933,7 +2936,7 @@ export const ROUTES: readonly RouteEntry[] = [
     notes:
       'The same shape the delete\'s own audit event carries, computed by the same function on purpose: the confirmation dialog and the eventual ' +
       'receipt agree by construction, and any difference between them is real drift — a robot that kept recording in between — rather than two ' +
-      'estimates that quietly disagree.',
+      'estimates that quietly disagree. `collection_records` counts, per app, the app collection records that go with the robot.',
   },
   {
     method: 'DELETE', path: '/api/robots/:id', section: 'robots',
@@ -3561,7 +3564,11 @@ export const ROUTES: readonly RouteEntry[] = [
       'because the same address in two apps is two accounts, and that sum is the number the four routes that create an app user refuse ' +
       '`409 quota_exceeded` against: `POST /api/apps/:id/users`, `POST /api/client/register`, `POST /api/client/invitations/accept`, and a ' +
       'federated sign-in that would create an account, which carries `quota_exceeded` back to the app as its error redirect. A gauge nothing ' +
-      'enforces is a number that reads as a limit and is not one.',
+      'enforces is a number that reads as a limit and is not one. \n\n' +
+      '`collection_records` and `collection_bytes` are the plan limits of the same names, `null` when the plan leaves them to the contract, and ' +
+      'their usage counts the **current** records of all the org\'s apps; a write or an import that would add data past either is refused ' +
+      '`409 plan_limit` naming the key, and reads continue. `collection_history_bytes` is the size of the history and only informs: nothing ' +
+      'is refused against it. A usage figure the cloud does not measure is absent, never `0`.',
   },
   {
     method: 'GET', path: '/api/org/health', section: 'org',

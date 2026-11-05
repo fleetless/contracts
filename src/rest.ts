@@ -1487,6 +1487,18 @@ export const robotDeletionSummary = z.object({
    * was there at all.
    */
   had_unpublished_draft: z.boolean(),
+  collection_records: z
+    .array(
+      z.object({
+        app_id: z.uuid().meta({ description: 'The app whose collections hold records of the robot.' }),
+        app_name: z.string().meta({ description: 'The app\'s name.' }),
+        records: z.number().int().nonnegative().meta({ description: 'How many records of the robot the app\'s collections hold, deleted with the robot.' }),
+      }),
+    )
+    .meta({
+      description:
+        'App collection records that go with the robot, per app. A robot\'s records are kept in every app it was attached to, also in one it was detached from, and are deleted with their history when the robot is; apps without records of this robot are left out.',
+    }),
 })
 export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 
@@ -1667,6 +1679,14 @@ export const orgQuotas = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().positive(),
+  collection_records: z.number().int().positive().nullable().meta({
+    description:
+      'The most records the app collections of all the org\'s apps may hold together: the plan limit `collection_records`, or the operator\'s override of it. `null` is by contract (Enterprise).',
+  }),
+  collection_bytes: z.number().int().positive().nullable().meta({
+    description:
+      'The most bytes the current records of the org\'s app collections may occupy together: the plan limit `collection_bytes`, or the operator\'s override of it. `null` is by contract (Enterprise).',
+  }),
 })
 export type OrgQuotas = z.infer<typeof orgQuotas>
 
@@ -1692,6 +1712,15 @@ export const orgQuotaUsageCounts = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().nonnegative(),
+  collection_records: z.number().int().nonnegative().meta({
+    description: 'Current records in the app collections of all the org\'s apps. Deleted records do not count.',
+  }),
+  collection_bytes: z.number().int().nonnegative().meta({
+    description: 'Bytes the current records of the org\'s app collections occupy, as stored JSON.',
+  }),
+  collection_history_bytes: z.number().int().nonnegative().meta({
+    description: 'Bytes the history of the org\'s app collections occupies: revisions of current and deleted records. Information only; no limit applies to it.',
+  }),
 }).partial()
 export type OrgQuotaUsageCounts = z.infer<typeof orgQuotaUsageCounts>
 

@@ -1209,6 +1209,8 @@ export type {
   CollectionDefinition,
   CollectionsDocument,
 } from './collections.js'
+export { roleCollectionRights } from './collections-rights.js'
+export type { RoleCollectionRights } from './collections-rights.js'
 export { collectionJsonTemplateName, COLLECTION_JSON_TEMPLATES, parseDisplayTemplate } from './collections-templates.js'
 export type { CollectionJsonTemplateName, DisplayPlaceholder, DisplayTemplateParse } from './collections-templates.js'
 export { checkCollectionValue, normalizeCollectionValue } from './collections-values.js'

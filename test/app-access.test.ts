@@ -212,13 +212,25 @@ describe('effective rights', () => {
   })
 
   it('answer for a role that exists and for one that does not', () => {
-    const answer = { role: 'operate', role_known: true, user_id: null, robots: [rights] }
+    const answer = { role: 'operate', role_known: true, user_id: null, robots: [rights], collections: [] }
     expect(effectiveRightsResponse.safeParse(answer).success).toBe(true)
-    expect(effectiveRightsResponse.safeParse({ role: 'gone', role_known: false, user_id: user, robots: [] }).success).toBe(true)
-    expect(effectiveRightsResponse.safeParse({ role: null, role_known: false, user_id: user, robots: [] }).success).toBe(true)
+    expect(effectiveRightsResponse.safeParse({ role: 'gone', role_known: false, user_id: user, robots: [], collections: [] }).success).toBe(true)
+    expect(effectiveRightsResponse.safeParse({ role: null, role_known: false, user_id: user, robots: [], collections: [] }).success).toBe(true)
     expect(effectiveRightsResponse.safeParse({ ...answer, role_known: 'no' }).success).toBe(false)
-    expect(effectiveRightsResponse.safeParse({ role: 'operate', role_known: true, robots: [] }).success).toBe(false)
+    expect(effectiveRightsResponse.safeParse({ role: 'operate', role_known: true, robots: [], collections: [] }).success).toBe(false)
     expect(artifact('effective-rights-response')(answer)).toBe(true)
+  })
+
+  it('list what the role may do with the records of each collection, an empty list when the app has no published schema', () => {
+    const logbook = { collection: 'logbook', label: 'Logbook', binding: 'per_robot', read: true, create: true, update: 'own', delete: false, robot_filter: true }
+    const answer = { role: 'operate', role_known: true, user_id: null, robots: [rights] }
+    expect(effectiveRightsResponse.safeParse({ ...answer, collections: [] }).success).toBe(true)
+    expect(effectiveRightsResponse.safeParse({ ...answer, collections: [logbook, { ...logbook, collection: 'sites', binding: 'global', robot_filter: false }] }).success).toBe(true)
+    expect(effectiveRightsResponse.parse({ ...answer, collections: [logbook] }).collections[0]).toEqual(logbook)
+    expect(effectiveRightsResponse.safeParse({ ...answer, collections: [{ ...logbook, update: true }] }).success).toBe(false)
+    expect(effectiveRightsResponse.safeParse(answer).success, 'an empty list is spelled out, never left off').toBe(false)
+    expect(artifact('effective-rights-response')({ ...answer, collections: [logbook] })).toBe(true)
+    expect(artifact('effective-rights-response')({ ...answer, collections: [{ ...logbook, update: true }] })).toBe(false)
   })
 })
 

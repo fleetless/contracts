@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "collection": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+      "description": "The collection's key."
+    },
+    "label": {
+      "type": "string",
+      "description": "The collection's label for people to read; its key when the schema gives none."
+    },
+    "binding": {
+      "type": "string",
+      "enum": [
+        "global",
+        "per_robot",
+        "one_per_robot"
+      ],
+      "description": "`global`: records belong to the app and no robot. `per_robot`: every record belongs to one robot (system field `robot_id`, fixed when the record is created). `one_per_robot`: every robot of the app has exactly one record, which Fleetless creates itself."
+    },
+    "read": {
+      "type": "boolean",
+      "description": "Whether the role may read the records."
+    },
+    "create": {
+      "type": "boolean",
+      "description": "Whether the role may create records."
+    },
+    "update": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "all"
+        },
+        {
+          "type": "string",
+          "const": "own"
+        },
+        {
+          "type": "boolean",
+          "const": false
+        }
+      ],
+      "description": "`all`: the role may change every record. `own`: only records its user created. `false`: none."
+    },
+    "delete": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "all"
+        },
+        {
+          "type": "string",
+          "const": "own"
+        },
+        {
+          "type": "boolean",
+          "const": false
+        }
+      ],
+      "description": "`all`: the role may delete every record. `own`: only records its user created. `false`: none."
+    },
+    "robot_filter": {
+      "type": "boolean",
+      "description": "`true` on a collection that belongs to robots (`per_robot`, `one_per_robot`): the role sees and writes only the records of robots a session of the role reaches, whatever the rights above say. `false` on a `global` collection."
+    }
+  },
+  "required": [
+    "collection",
+    "label",
+    "binding",
+    "read",
+    "create",
+    "update",
+    "delete",
+    "robot_filter"
+  ],
+  "additionalProperties": false,
+  "description": "What one role may do with the records of one collection."
+}

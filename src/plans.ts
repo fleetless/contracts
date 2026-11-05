@@ -25,7 +25,9 @@ export const PLAN_ORDER: readonly PlanId[] = ['basic', 'plus', 'pro', 'enterpris
  * The limits a plan ties a number to. `history_days` and `audit_days` are
  * not refused against — they size a retention window, not a quota that an
  * action can exceed — but they share this vocabulary because they are read
- * off the same catalogue row.
+ * off the same catalogue row. `collection_records` and `collection_bytes`
+ * are counted over the org's app collections, across all its apps, and
+ * refuse only what a person or an app adds: no add-on raises them.
  */
 export const planLimitKey = z.enum([
   'seats',
@@ -36,6 +38,8 @@ export const planLimitKey = z.enum([
   'asset_bytes_per_robot',
   'history_days',
   'audit_days',
+  'collection_records',
+  'collection_bytes',
 ])
 export type PlanLimitKey = z.infer<typeof planLimitKey>
 
@@ -55,6 +59,16 @@ export const planLimits = z.object({
   }),
   history_days: limit.meta({ description: 'Days the org\'s robot history is kept.' }),
   audit_days: limit.meta({ description: 'Days the org\'s audit log is kept.' }),
+  collection_records: limit.meta({
+    description:
+      'Records in the app collections of all the org\'s apps, together. Only current records count, deleted ones and the history do not. ' +
+      'A write or an import that would add records past it is refused `409 plan_limit` naming this key; reads continue.',
+  }),
+  collection_bytes: limit.meta({
+    description:
+      'Bytes the current records of all the org\'s app collections occupy, as stored JSON (decimal: 1 GB = 1,000,000,000). The history is ' +
+      'shown beside it and not limited. A write or an import that would add data past it is refused `409 plan_limit` naming this key; reads continue.',
+  }),
 })
 export type PlanLimits = z.infer<typeof planLimits>
 
@@ -176,6 +190,8 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       asset_bytes_per_robot: 1_000_000_000,
       history_days: 7,
       audit_days: 7,
+      collection_records: 25_000,
+      collection_bytes: 1_000_000_000,
     },
     features: {
       app_mcp: false,
@@ -201,6 +217,8 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       asset_bytes_per_robot: 2_000_000_000,
       history_days: 30,
       audit_days: 30,
+      collection_records: 250_000,
+      collection_bytes: 10_000_000_000,
     },
     features: {
       app_mcp: true,
@@ -226,6 +244,8 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       asset_bytes_per_robot: 3_000_000_000,
       history_days: 90,
       audit_days: 90,
+      collection_records: 1_000_000,
+      collection_bytes: 50_000_000_000,
     },
     features: {
       app_mcp: true,
@@ -251,6 +271,8 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       asset_bytes_per_robot: null,
       history_days: null,
       audit_days: null,
+      collection_records: null,
+      collection_bytes: null,
     },
     features: {
       app_mcp: true,

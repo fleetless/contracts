@@ -31,6 +31,24 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991
+    },
+    "collection_records": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Current records in the app collections of all the org's apps. Deleted records do not count."
+    },
+    "collection_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Bytes the current records of the org's app collections occupy, as stored JSON."
+    },
+    "collection_history_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Bytes the history of the org's app collections occupies: revisions of current and deleted records. Information only; no limit applies to it."
     }
   },
   "additionalProperties": false
