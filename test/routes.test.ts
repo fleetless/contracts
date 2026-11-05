@@ -930,6 +930,30 @@ describe('app deletion', () => {
   })
 })
 
+describe('the per-app role routes', () => {
+  // Roles belong to the organization; a revert would put a second place to manage them back.
+  const GONE = [
+    'POST /api/apps/:id/roles',
+    'GET /api/apps/:id/roles',
+    'PATCH /api/apps/:id/roles/:roleId',
+    'DELETE /api/apps/:id/roles/:roleId',
+    'PUT /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/permissions',
+    'GET /api/apps/:id/roles/:roleId/mcp-tools',
+  ] as const
+
+  it('are not in the manifest', () => {
+    const keys = new Set(ROUTES.map(key))
+    for (const k of GONE) expect(keys.has(k), `${k} is back in ROUTES`).toBe(false)
+  })
+
+  it('are not in the OpenAPI document either', () => {
+    const paths = Object.keys(openApiDocument().paths)
+    // The organization's own `/api/org/roles` routes replace them; only the per-app paths are forbidden.
+    expect(paths.filter((p) => p.startsWith('/api/apps/{id}/roles'))).toEqual([])
+  })
+})
+
 describe('what a developer may run without the Owner tier', () => {
   it('robot deletion, token rotation, app deletion, server keys and the asset store need no Owner tier', () => {
     for (const [k, status] of [
@@ -2386,6 +2410,20 @@ describe('the slug rename during the history migration (2026-10-05, fleetless/fl
   })
 })
 
+describe('the slug rename and the app locks', () => {
+  it('moves the locks with the name, counts them, and can refuse when a lock has no room left', () => {
+    const rename = ROUTES.find((r) => key(r) === 'POST /api/robots/:id/config/rename-slug')!
+    expect(rename.summary).not.toMatch(/grant/i)
+    expect(rename.notes ?? '').not.toMatch(/grant/i)
+    expect(rename.notes ?? '').toMatch(/Locks follow the rename/)
+    expect(rename.notes ?? '').toMatch(/rewritten_locks/)
+    expect(rename.notes ?? '').toMatch(/lock_full/)
+    expect(rename.errors).toContain('target_state_conflict')
+    const usage = ROUTES.find((r) => key(r) === 'GET /api/robots/:id/config/slug-usage/:slug')!
+    expect(usage.notes ?? '').toMatch(/lock_count/)
+    expect(usage.notes ?? '').not.toMatch(/grant/i)
+  })
+})
 
 describe('owner purchase intents', () => {
   it('requires operation keys on both hosted payment entries and supports unpaid responses', () => {

@@ -671,10 +671,10 @@ describe('every value position a skeleton belongs at carries one', () => {
     'cameras.<slug>.source',
     'cameras.<slug>.source(rtsp).credentials',
     'cameras.<slug>.source(mjpeg).credentials',
-    // The one top-level block that is not slug-keyed: a plain mapping of
-    // overrides, so it carries its skeleton itself rather than through a
-    // section wrapper.
+    // The two top-level blocks that are not slug-keyed: plain mappings, so each
+    // carries its skeleton itself rather than through a section wrapper.
     'low_bandwidth',
+    'access',
     // The map entries — the value position of a second entry added by hand,
     // which the sweep never asked about. `messages.<slug>` is a map entry too
     // and is missing from this list on purpose: its schema holds no mapping, so

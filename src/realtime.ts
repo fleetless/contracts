@@ -231,7 +231,7 @@ export const clientSubscribe = z.object({
    */
   /**
    * `publisher` is here even though a publisher is not subscribable: a client
-   * that models the five grantable kinds and honestly names one gets the
+   * that models the five exposure kinds and honestly names one gets the
    * informative `not_subscribable` the cloud already computes, instead of a
    * `validation_error` reciting an enum. Refusing the *word* rather than the
    * request was the same mistake as the silent wrong-verb subscribe this

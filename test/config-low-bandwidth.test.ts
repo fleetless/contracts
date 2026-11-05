@@ -38,7 +38,7 @@ describe('the low_bandwidth section', () => {
     expect(LOW_BANDWIDTH_DEFAULTS.enter_lag_ms).toBe(2000)
   })
   it('bridge_pressure is no longer reserved', () => {
-    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'robot_details', 'history'])
+    expect(RESERVED_SLUGS).toEqual(['bridge_state', 'robot_details', 'history', 'assets', 'job_history'])
     expect(datapointConfig.safeParse({ topic: '/t', type: 'std_msgs/msg/Float64', field: 'data' }).success).toBe(true)
   })
 })

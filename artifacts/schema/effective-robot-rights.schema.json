@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "robot_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "The robot, one that is attached to the app."
+    },
+    "robot_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "The robot's name."
+    },
+    "published_version": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The version of the robot's published `fleetless.yaml` that the answer was computed from; `null` when nothing is published."
+    },
+    "reachable": {
+      "type": "boolean",
+      "description": "Whether a session of this role reaches the robot at all: at least one slug or one capability is granted once the locks are applied. When `false`, `robots.describe` answers `not_found` for the robot and `robots.list` leaves it out; `capabilities` says why, and `datasheet` is the empty one."
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 63,
+            "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$",
+            "description": "The exposure's slug, or `assets` or `job_history` for the capabilities that belong to the robot as a whole."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "read",
+              "invoke",
+              "publish",
+              "assets",
+              "job_history"
+            ],
+            "description": "The kind of access the capability needs."
+          },
+          "granted": {
+            "type": "boolean",
+            "description": "Whether the role may use it: its requirement is met and the app has not locked it."
+          },
+          "requirement": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The role keys that qualify, from the entry, the rule or the default that decided. Holding one of them, or inheriting from one, is enough. Empty when nobody qualifies."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "entry",
+              "rule",
+              "robot",
+              "org_default"
+            ],
+            "description": "Where the requirement came from: `entry` is the entry's own `role`, `rule` the first matching rule of `access.rules`, `robot` the robot's `access.assets` or `access.job_history`, and `org_default` the organization's default for the kind."
+          },
+          "rule_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For `rule`, the position of the deciding rule in `access.rules`, counted from zero; `null` otherwise."
+          },
+          "rule_match": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For `rule`, that rule's `match` glob; `null` otherwise."
+          },
+          "satisfied_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The key from `requirement` that the role holds through inheritance. `null` when the role is named in the requirement itself, and when it does not meet the requirement at all. Independent of locks."
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "Whether the app locks this capability, as a kind or as a single lock. A lock wins over the requirement."
+          },
+          "unknown_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keys in the requirement that name no role of the organization. They grant nothing."
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "granted",
+          "requirement",
+          "source",
+          "rule_index",
+          "rule_match",
+          "satisfied_by",
+          "locked",
+          "unknown_roles"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every capability of the published configuration, and `assets` and `job_history`, each granted or not."
+    },
+    "datasheet": {
+      "type": "object",
+      "properties": {
+        "robot_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "robot_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "job_history": {
+              "type": "boolean"
+            },
+            "assets": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "job_history",
+            "assets"
+          ],
+          "additionalProperties": false
+        },
+        "exposures": {
+          "maxItems": 2000,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 63,
+                "pattern": "^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "datapoint",
+                  "service",
+                  "action",
+                  "publisher",
+                  "camera"
+                ]
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "unit": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "decimals": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "input_schema": {
+                "anyOf": [
+                  {},
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "slug",
+              "kind",
+              "description",
+              "unit",
+              "decimals",
+              "input_schema"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "robot_id",
+        "robot_name",
+        "capabilities",
+        "exposures"
+      ],
+      "additionalProperties": false,
+      "description": "The datasheet an MCP session of this role would get for the robot."
+    }
+  },
+  "required": [
+    "robot_id",
+    "robot_name",
+    "published_version",
+    "reachable",
+    "capabilities",
+    "datasheet"
+  ],
+  "additionalProperties": false
+}

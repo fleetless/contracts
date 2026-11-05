@@ -69,7 +69,6 @@ export {
   mcpExposure,
   mcpCapabilities,
   mcpRobotDatasheet,
-  mcpRolePreviewResponse,
 } from './mcp.js'
 export type {
   McpAppPaths,
@@ -77,7 +76,6 @@ export type {
   McpExposure,
   McpCapabilities,
   McpRobotDatasheet,
-  McpRolePreviewResponse,
 } from './mcp.js'
 export {
   PROTOCOL_VERSION,
@@ -222,6 +220,8 @@ export {
   lowBandwidthSection,
   LOW_BANDWIDTH_DEFAULTS,
   robotConfigDoc,
+  accessRule,
+  accessSection,
   validationIssue,
   configState,
   snapshotIntervalSeconds,
@@ -251,6 +251,8 @@ export type {
   DatapointConfig,
   LowBandwidthSection,
   RobotConfigDoc,
+  AccessRule,
+  AccessSection,
   ValidationIssue,
   ConfigState,
 } from './config.js'
@@ -268,6 +270,69 @@ export {
   configSchemaHash,
 } from './config-issues.js'
 export type { SchemaIssue, ExposureSection } from './config-issues.js'
+/**
+ * Roles and the rights a document resolves to — one implementation for the
+ * cloud, the console editor and anything else that has to answer "who may use
+ * this?" the same way. See `rights.ts`.
+ */
+export {
+  ROLE_KEY_PATTERN,
+  ROLE_KEY_RULE,
+  roleKey,
+  roleRef,
+  ACCESS_KINDS,
+  accessKind,
+  ENTRY_KINDS,
+  MAX_ORG_ROLES,
+  ROLE_NAME_MAX,
+  SEED_ROLES,
+  SEED_DEFAULTS,
+  matchRosGlob,
+  roleClosure,
+  roleSatisfies,
+  listExposures,
+  requirementOf,
+  findCycle,
+  collectRoleRefs,
+  roleIssues,
+} from './rights.js'
+export type {
+  RoleKey,
+  RoleRef,
+  RoleRefUse,
+  AccessKind,
+  EntryKind,
+  RoleNode,
+  RoleGraph,
+  RoleDefaults,
+  RequirementSource,
+  Requirement,
+  ExposureRef,
+  RightsTarget,
+} from './rights.js'
+/** Organization roles on the wire: the role list, create and change, the rename preview and the organization's defaults. See `org-roles.ts`. */
+export {
+  referencePlace,
+  orgRole,
+  danglingReference,
+  orgRoleListResponse,
+  createOrgRoleRequest,
+  patchOrgRoleRequest,
+  roleRenamePreview,
+  roleDefaultsResponse,
+  putRoleDefaultsRequest,
+} from './org-roles.js'
+export type {
+  ReferencePlace,
+  OrgRole,
+  DanglingReference,
+  OrgRoleListResponse,
+  CreateOrgRoleRequest,
+  PatchOrgRoleRequest,
+  RoleRenamePreview,
+  RoleDefaultsResponse,
+  PutRoleDefaultsRequest,
+} from './org-roles.js'
 export { rosGraphEntry, rosGraph, typeField, typeDefinition, parameterFieldsOf } from './introspection.js'
 export type { RosGraphEntry, RosGraph, TypeField, TypeDefinition } from './introspection.js'
 export {
@@ -578,12 +643,15 @@ export {
   serverKey,
   serverKeyListResponse,
   createServerKeyResponse,
-  role,
-  roleListResponse,
-  rolePermissions,
-  roleRenameRequest,
-  roleDeleteQuery,
-  roleInUseDetails,
+  appLock,
+  MAX_LOCK_SLUGS,
+  appAccess,
+  accessWarning,
+  appAccessResponse,
+  effectiveRightsQuery,
+  effectiveCapability,
+  effectiveRobotRights,
+  effectiveRightsResponse,
 } from './apps.js'
 export type {
   App,
@@ -594,12 +662,14 @@ export type {
   ServerKey,
   ServerKeyListResponse,
   CreateServerKeyResponse,
-  Role,
-  RoleListResponse,
-  RolePermissions,
-  RoleRenameRequest,
-  RoleDeleteQuery,
-  RoleInUseDetails,
+  AppLock,
+  AppAccess,
+  AccessWarning,
+  AppAccessResponse,
+  EffectiveRightsQuery,
+  EffectiveCapability,
+  EffectiveRobotRights,
+  EffectiveRightsResponse,
 } from './apps.js'
 export {
   clientLoginRequest,
@@ -836,6 +906,8 @@ export {
   paymentProviderUnavailableDetails,
   // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
   billingDocumentsUnavailableDetails,
+  // Organization roles.
+  roleCycleDetails,
 } from './errors.js'
 export type {
   ApiError,
@@ -851,6 +923,7 @@ export type {
   FileTooLargeDetails,
   PaymentProviderUnavailableDetails,
   BillingDocumentsUnavailableDetails,
+  RoleCycleDetails,
 } from './errors.js'
 export {
   oauthErrorCode,

@@ -158,8 +158,8 @@ export const MCP_TOOL_NAME_MAX = 128
 export const mcpToolNamePattern = /^[a-z0-9][a-z0-9_-]*$/
 
 /**
- * One exposure of a robot, as `robots.describe` and the console's per-role
- * preview list it. Every exposure the role grants is listed —
+ * One exposure of a robot, as `robots.describe` and `GET /api/robots/:id/datasheet`
+ * list it. Every exposure the caller's role grants is listed —
  * a missing `description` is shown as `null`, never used to hide the entry.
  *
  * `input_schema` is a JSON Schema document generated from an action's,
@@ -185,9 +185,9 @@ export const mcpExposure = z.object({
 })
 export type McpExposure = z.infer<typeof mcpExposure>
 
-/** The two role capabilities a robot tool can need beyond a slug grant. `presence` is a stream and has no tool. */
+/** The two capabilities of a robot as a whole that a tool can need beyond a slug: its past jobs and its asset files. */
 export const mcpCapabilities = z.object({
-  action_history: z.boolean(),
+  job_history: z.boolean(),
   assets: z.boolean(),
 })
 export type McpCapabilities = z.infer<typeof mcpCapabilities>
@@ -205,18 +205,6 @@ export const mcpRobotDatasheet = z.object({
   exposures: z.array(mcpExposure).max(2000),
 })
 export type McpRobotDatasheet = z.infer<typeof mcpRobotDatasheet>
-
-/**
- * What a developer sees before an end user connects: the datasheet each
- * robot of the app would answer for one role. Replaces the per-slug tool
- * preview and its `omitted` list — with a fixed catalog there is no tool to
- * omit, only exposures to grant.
- */
-export const mcpRolePreviewResponse = z.object({
-  role_id: z.uuid(),
-  robots: z.array(mcpRobotDatasheet).max(500),
-})
-export type McpRolePreviewResponse = z.infer<typeof mcpRolePreviewResponse>
 
 /**
  * Where a signed asset link is served. An MCP session token is refused on

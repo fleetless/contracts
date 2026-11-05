@@ -50,7 +50,7 @@ export const SLUG_RULE = 'A name is lower-case: it starts with a letter, continu
  *
  * Names are stable and decoupled from ROS names — renaming a
  * topic on the robot must never break a client app. The reverse also holds
- * and costs more: changing a name breaks every client, role grant and MCP
+ * and costs more: changing a name breaks every client, role rule, app lock and MCP
  * tool name that uses it.
  */
 export const slug = z

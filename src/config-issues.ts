@@ -40,7 +40,7 @@ export const DOCUMENT_ROOT_PATH = '(document)'
 
 /**
  * The five sections whose keys are slugs — one namespace across all of them,
- * which is what lets a role grant say `{robot, slug}` without naming a kind.
+ * which is what lets an app lock name `{robot, slug}` without naming a kind.
  * `messages:` is deliberately not among them: its names are their own
  * namespace.
  *

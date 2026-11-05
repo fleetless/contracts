@@ -12,7 +12,7 @@ import { robot } from './rest.js'
  *
  * Deliberately not `robotListItem`: that one carries `exposes`, the per-kind
  * counts a developer's list shows, which are a configuration fact rather than
- * something an app user's role grants. What an app user is entitled to is the
+ * something an app user's role decides. What an app user is entitled to is the
  * robot, its bridge state, and whether anything is published on it yet.
  */
 export const clientRobotListItem = z.object({

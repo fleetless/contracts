@@ -24,9 +24,9 @@ import {
 } from '../src/index.js'
 import * as contracts from '../src/index.js'
 import {
+  mcpCapabilities,
   mcpExposure,
   mcpRobotDatasheet,
-  mcpRolePreviewResponse,
   MCP_ASSET_LINK_PATH,
   MCP_ASSET_LINK_TTL_MS,
 } from '../src/mcp.js'
@@ -149,7 +149,7 @@ describe('the app-level MCP switch, gone and back', () => {
     name: 'Ops',
     identifier: 'ops',
     robot_ids: [],
-    default_role_id: null,
+    default_role: null,
     created_at: '2026-08-18T10:00:00.000Z',
   }
 
@@ -264,14 +264,13 @@ describe('bundled MCP tool names', () => {
 })
 
 const ROBOT = '0b7d2a4e-1c6f-4d3a-9e8b-2f1a3c4d5e6f'
-const ROLE = '1c8e3b5f-2d7a-4e4b-8f9c-3a2b4c5d6e7f'
 
 describe('mcp datasheet contracts', () => {
   it('accepts a datasheet with one exposure of each kind', () => {
     const sheet = mcpRobotDatasheet.parse({
       robot_id: ROBOT,
       robot_name: 'Packbot 1',
-      capabilities: { action_history: true, assets: false },
+      capabilities: { job_history: true, assets: false },
       exposures: [
         { slug: 'battery', kind: 'datapoint', description: 'Battery charge.', unit: '%', decimals: 1, input_schema: null },
         { slug: 'dock', kind: 'action', description: null, unit: null, decimals: null, input_schema: { type: 'object', properties: {} } },
@@ -281,12 +280,20 @@ describe('mcp datasheet contracts', () => {
     expect(sheet.exposures).toHaveLength(3)
   })
 
+  it('names the two capabilities job_history and assets, and no other', () => {
+    expect(Object.keys(mcpCapabilities.shape)).toEqual(['job_history', 'assets'])
+    expect(mcpCapabilities.safeParse({ job_history: true, assets: false }).success).toBe(true)
+    // A capabilities object that names only one of the two does not satisfy the contract: no alias stands in for job_history.
+    expect(mcpCapabilities.safeParse({ assets: false }).success).toBe(false)
+    expect(mcpCapabilities.safeParse({ job_history: true }).success).toBe(false)
+  })
+
   /** One valid exposure and one valid datasheet, so a test can break exactly one thing. */
   const EXPOSURE = { slug: 'front', kind: 'camera', description: null, unit: null, decimals: null, input_schema: null }
   const datasheet = (overrides: Record<string, unknown> = {}) => ({
     robot_id: ROBOT,
     robot_name: 'Packbot 1',
-    capabilities: { action_history: false, assets: false },
+    capabilities: { job_history: false, assets: false },
     exposures: [EXPOSURE],
     ...overrides,
   })
@@ -302,26 +309,6 @@ describe('mcp datasheet contracts', () => {
     const withKind = (kind: string) => datasheet({ exposures: [{ ...EXPOSURE, kind }] })
     expect(mcpRobotDatasheet.safeParse(withKind('stream')).success).toBe(false)
     expect(mcpRobotDatasheet.safeParse(withKind('datapoint')).success).toBe(true)
-  })
-
-  /**
-   * **The element type, not merely the array.** `robots: []` alone claims
-   * nothing — the first failure mode in this package's own list. Substituting
-   * `z.array(z.unknown())` for `z.array(mcpRobotDatasheet)` in
-   * `mcpRolePreviewResponse` leaves every test in this file green.
-   *
-   * So a valid datasheet must pass, and two differently-broken ones must
-   * not: a bad `kind`, two levels down inside an exposure, and a missing
-   * `capabilities`, the datasheet's own required object. One example would
-   * only prove *something* is checked, at whichever depth it broke.
-   */
-  it('a role preview is a list of datasheets keyed by role', () => {
-    const preview = (robots: unknown[]) => mcpRolePreviewResponse.safeParse({ role_id: ROLE, robots })
-    expect(mcpRolePreviewResponse.parse({ role_id: ROLE, robots: [] }).robots).toEqual([])
-    expect(preview([datasheet()]).success).toBe(true)
-    expect(preview([datasheet({ exposures: [{ ...EXPOSURE, kind: 'stream' }] })]).success).toBe(false)
-    const { capabilities: _dropped, ...withoutCapabilities } = datasheet()
-    expect(preview([withoutCapabilities]).success).toBe(false)
   })
 
   /**

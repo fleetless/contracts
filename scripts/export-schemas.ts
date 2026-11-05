@@ -131,10 +131,8 @@ import {
   createAppRequest,
   serverKey,
   createServerKeyResponse,
-  role,
-  rolePermissions,
 } from '../src/apps.js'
-import { appListResponse, appDeletionSummary, roleDeleteQuery, roleInUseDetails, roleListResponse, roleRenameRequest, serverKeyListResponse } from '../src/apps.js'
+import { appListResponse, appDeletionSummary, serverKeyListResponse } from '../src/apps.js'
 import { feedbackRequest, feedbackResponse } from '../src/feedback.js'
 import {
   clientLoginRequest,
@@ -229,7 +227,7 @@ import {
 } from '../src/protocol.js'
 import { asset, assetKind, assetListResponse, assetSyncStatus, URDF_ASSET_NAME } from '../src/assets.js'
 import { missingAssetQuery } from '../src/assets.js'
-import { mcpRobotDatasheet, mcpRolePreviewResponse } from '../src/mcp.js'
+import { mcpRobotDatasheet } from '../src/mcp.js'
 import { ASSET_FILE_MAX_BYTES, ROBOT_ASSET_STORE_BYTES } from '../src/assets.js'
 import { ASSET_UPLOAD_HEADERS, SNAPSHOT_HEADERS } from '../src/rest.js'
 import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureListResponse } from '../src/rest.js'
@@ -240,7 +238,28 @@ import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDelet
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
-import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation } from '../src/errors.js'
+import {
+  appLock,
+  appAccess,
+  accessWarning,
+  appAccessResponse,
+  effectiveRightsQuery,
+  effectiveCapability,
+  effectiveRobotRights,
+  effectiveRightsResponse,
+} from '../src/apps.js'
+import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation, roleCycleDetails } from '../src/errors.js'
+import {
+  referencePlace,
+  orgRole,
+  danglingReference,
+  orgRoleListResponse,
+  createOrgRoleRequest,
+  patchOrgRoleRequest,
+  roleRenamePreview,
+  roleDefaultsResponse,
+  putRoleDefaultsRequest,
+} from '../src/org-roles.js'
 import {
   passwordChangeRequest,
   refreshRequest,
@@ -415,7 +434,6 @@ export const exportedSchemas = {
   // They replaced an earlier `mcp-tool-preview` pair when the per-slug tool
   // preview gave way to a fixed catalog.
   'mcp-robot-datasheet': mcpRobotDatasheet,
-  'mcp-role-preview-response': mcpRolePreviewResponse,
   // Assets. The three bridge<->cloud frames belong here for the reason
   // stated below: the bridge validates against these files, so a frame absent
   // from this map is a frame it cannot check. The bytes themselves never ride
@@ -566,8 +584,6 @@ export const exportedSchemas = {
   'create-app-request': createAppRequest,
   'server-key': serverKey,
   'create-server-key-response': createServerKeyResponse,
-  role: role,
-  'role-permissions': rolePermissions,
   'client-login-request': clientLoginRequest,
   'client-refresh-request': clientRefreshRequest,
   'client-logout-request': clientLogoutRequest,
@@ -647,13 +663,9 @@ export const exportedSchemas = {
   'org-latency-response': orgLatencyResponse,
   'org-usage-query': orgUsageQuery,
   'org-usage-response': orgUsageResponse,
-  // The console's feedback modal and the role rename and delete routes
-  // (2026-09-30, fleetless/fleetless#79).
+  // The console's feedback modal (2026-09-30, fleetless/fleetless#79).
   'feedback-request': feedbackRequest,
   'feedback-response': feedbackResponse,
-  'role-rename-request': roleRenameRequest,
-  'role-delete-query': roleDeleteQuery,
-  'role-in-use-details': roleInUseDetails,
   'patch-robot-request': patchRobotRequest,
   'rename-slug-request': renameSlugRequest,
   'rename-slug-response': renameSlugResponse,
@@ -845,7 +857,6 @@ export const exportedSchemas = {
   'org-health-query': orgHealthQuery, // GET /api/org/health
   'missing-asset-query': missingAssetQuery, // GET /api/robots/:id/assets/missing
   'app-list-response': appListResponse, // GET /api/apps
-  'role-list-response': roleListResponse, // GET /api/apps/:id/roles
   'server-key-list-response': serverKeyListResponse, // GET /api/apps/:id/server-keys
   'patch-org-response': patchOrgResponse, // PATCH /api/org
   'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
@@ -875,6 +886,37 @@ export const exportedSchemas = {
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'invalid-code-details': invalidCodeDetails, // the details of invalid_code; re-exported by @fleetless/sdk as a type
+
+  // --- Organization roles --------------------------------------------------
+  //
+  // Each shape the six `/api/org/roles` routes name, plus the ones that only
+  // travel inside them (`reference-place`, `dangling-reference`) and the two
+  // that ride an error's `details` (`role-rename-preview` on
+  // `confirmation_required`, `role-cycle-details` on `role_cycle`), so the
+  // reference can link every name to a field table.
+  'org-role-list-response': orgRoleListResponse, // GET /api/org/roles
+  'org-role': orgRole, // POST and PATCH /api/org/roles; embedded in org-role-list-response
+  'dangling-reference': danglingReference, // embedded in org-role-list-response
+  'reference-place': referencePlace, // embedded in dangling-reference and role-rename-preview
+  'create-org-role-request': createOrgRoleRequest, // POST /api/org/roles
+  'patch-org-role-request': patchOrgRoleRequest, // PATCH /api/org/roles/:key
+  'role-rename-preview': roleRenamePreview, // the details of confirmation_required
+  'role-cycle-details': roleCycleDetails, // the details of role_cycle
+  'role-defaults-response': roleDefaultsResponse, // GET and PUT /api/org/roles/defaults
+  'put-role-defaults-request': putRoleDefaultsRequest, // PUT /api/org/roles/defaults
+
+  // --- App access and effective rights -------------------------------------
+  //
+  // The three `/api/apps/:id/access` and `/effective-rights` routes, with the
+  // shapes that only travel inside them so the reference can link each name.
+  'app-access': appAccess, // PUT /api/apps/:id/access
+  'app-access-response': appAccessResponse, // GET and PUT /api/apps/:id/access
+  'app-lock': appLock, // embedded in app-access and app-access-response
+  'access-warning': accessWarning, // embedded in app-access-response
+  'effective-rights-query': effectiveRightsQuery, // GET /api/apps/:id/effective-rights
+  'effective-rights-response': effectiveRightsResponse, // GET /api/apps/:id/effective-rights
+  'effective-robot-rights': effectiveRobotRights, // embedded in effective-rights-response
+  'effective-capability': effectiveCapability, // embedded in effective-robot-rights
 } as const
 
 /**
@@ -1038,7 +1080,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'put-app-mail-template-request',
   'mail-template-preview-request',
   'history-query', 'invoke-request', 'publish-request',
-  'role-permissions', 'job-run-query', 'job-run-summary-query', 'legal-acceptance-list-query',
+  'job-run-query', 'job-run-summary-query', 'legal-acceptance-list-query',
   'org-latency-query', 'audit-query', 'org-usage-query',
   'patch-org-request', 'patch-auth-me-request',
   'patch-robot-request', 'rename-slug-request',
@@ -1048,6 +1090,8 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'refresh-request', 'password-change-request',
   'create-passkey-request', 'rename-passkey-request', 'totp-confirm-request',
   'update-app-request',
+  'create-org-role-request', 'patch-org-role-request', 'put-role-defaults-request',
+  'app-access', 'app-lock', 'effective-rights-query',
   'oauth-token-request', 'dynamic-client-registration-request',
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
@@ -1059,7 +1103,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // other `*-query` above is.
   'oauth-authorize-query', 'org-alerts-query',
   'robot-delete-query', 'org-health-query', 'missing-asset-query',
-  'feedback-request', 'role-rename-request', 'role-delete-query',
+  'feedback-request',
   // The organization's plan changes (2026-10-02, fleetless/fleetless#103,
   // I-2). `plan-change-keep` travels inside both `PUT /api/org/plan/change`'s
   // body and `orgPlan.pending_change`, the same reason `robot-config-doc`
@@ -1110,7 +1154,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'journal-registry-transition-body', 'journal-registry-transition',
   'journal-registry-activation-receipt-body', 'journal-registry-activation-receipt',
   'controller-register-org-response',
-  'mcp-robot-datasheet', 'mcp-role-preview-response', 'asset', 'asset-list-response', 'asset-sync-status',
+  'mcp-robot-datasheet', 'asset', 'asset-list-response', 'asset-sync-status',
   'camera-list-response', 'live-session-response', 'snapshot-meta-response',
   'history-samples-response', 'history-buckets-response', 'org-quotas', 'org-quota-usage',
   'org-quota-usage-counts',
@@ -1134,7 +1178,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'client-provider-list-response', 'client-mcp-interaction',
   'client-mcp-interaction-decision-response',
   'mcp-consent-grant', 'mcp-consent-grant-list-response',
-  'create-server-key-response', 'role', 'client-identity', 'audit-actor',
+  'create-server-key-response', 'client-identity', 'audit-actor',
   'two-factor-challenge', 'client-sign-in-result', 'two-factor-setup-response',
   'client-two-factor-setup-confirm-response',
   'client-robot-list-item', 'client-robot-list-response',
@@ -1151,7 +1195,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'config-versions-response', 'config-version-response', 'types-response', 'fetch-types-response',
   'robot-jobs-response', 'asset-sync-response', 'assets-clear-response',
   'invoke-or-service-response', 'history-response',
-  'app-list-response', 'role-list-response', 'server-key-list-response',
+  'app-list-response', 'server-key-list-response',
   'patch-org-response', 'patch-robot-response',
   'put-robot-details-response', 'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
 
@@ -1161,7 +1205,12 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // send, with defaults already applied.
   'job-state', 'busy-details', 'camera-descriptor', 'urdf-completeness',
   'rate-limit-details', 'parameter-invalid-details', 'parameter-violation',
-  'cancel-rejected-details', 'role-in-use-details', 'invalid-code-details',
+  'cancel-rejected-details', 'invalid-code-details',
+  // Organization roles: answers, the places inside them, and two error details.
+  'org-role-list-response', 'org-role', 'dangling-reference', 'reference-place',
+  'role-rename-preview', 'role-cycle-details', 'role-defaults-response',
+  // App access: the answers, and the shapes inside them.
+  'app-access-response', 'access-warning', 'effective-rights-response', 'effective-robot-rights', 'effective-capability',
   // Embedded in support-token-response, and in authMeSupportResponse, which
   // no route names: what the server sends, never a document it validates.
   'support-session-info',

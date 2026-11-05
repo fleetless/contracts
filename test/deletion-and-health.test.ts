@@ -116,12 +116,17 @@ describe('deletion', () => {
 
 describe('app deletion summary', () => {
   const full = {
-    user_count: 5, role_count: 4, server_key_count: 3,
+    user_count: 5, server_key_count: 3,
     invitation_count: 2, oidc_provider_count: 2, mail_template_count: 1,
   }
 
-  it('accepts the six counts', () => {
+  it('accepts the five counts', () => {
     expect(appDeletionSummary.safeParse(full).success).toBe(true)
+  })
+
+  it('counts no roles: they belong to the organization and survive the app', () => {
+    expect('role_count' in appDeletionSummary.shape).toBe(false)
+    expect(Object.keys(appDeletionSummary.shape)).toHaveLength(5)
   })
 
   it('requires every one of them — an absent count would read as zero on the one screen that must not guess', () => {

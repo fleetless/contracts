@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "read": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Reading datapoints and cameras. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+        },
+        "invoke": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Calling services and starting actions. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+        },
+        "publish": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Driving a robot through its publishers. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A robot's asset files, such as its URDF and meshes. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+        },
+        "job_history": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The history of a robot's jobs. The roles that hold this kind of access by default; an empty list means nobody does, however senior the role."
+        }
+      },
+      "required": [
+        "read",
+        "invoke",
+        "publish",
+        "assets",
+        "job_history"
+      ],
+      "additionalProperties": false,
+      "description": "Every kind of access, each with the keys of the roles that hold it when a robot's published configuration names nobody."
+    }
+  },
+  "required": [
+    "defaults"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "cycle": {
+      "minItems": 2,
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The keys along the loop, in order, ending with the key the loop started from: `[\"a\", \"b\", \"a\"]`."
+    }
+  },
+  "required": [
+    "cycle"
+  ],
+  "additionalProperties": false
+}

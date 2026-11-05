@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { slug } from './common.js'
+import { mcpRobotDatasheet } from './mcp.js'
+import { ACCESS_KINDS, accessKind, roleKey } from './rights.js'
 
 /**
  * Apps, roles and rights.
  *
- * The rule that shapes all of this: **roles are the only filter**. A robot
- * assigned to an app exposes every one of its services to that app; what a
- * role does not grant does not exist for that user. There is no second
- * visibility mechanism, and adding one later would create two places to look
- * when someone cannot see something.
+ * The rule that shapes all of this: **a role is the only thing that grants**.
+ * A robot assigned to an app is reachable through it, and what a user may use
+ * on that robot is decided by the user's role against what the robot's
+ * `fleetless.yaml` and the organization's defaults require; what the role does
+ * not grant does not exist for that user. An app can only take rights away: its
+ * locks win over every role and never grant anything. So there are two places
+ * to look when someone cannot see something, the requirement and the lock, and
+ * no third.
  */
 
 /**
@@ -38,38 +43,26 @@ export const app = z.object({
   }),
   /** Robots are referenced individually; tags never grant rights. */
   robot_ids: z.array(z.uuid()).meta({
-    description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants.',
+    description: 'The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app. What a user of the app may use on an attached robot follows that robot\'s `fleetless.yaml` and the organization\'s defaults, less what the app locks.',
   }),
   /**
-   * **The app's default role — and the two-space cut gave it a server-side
-   * reader it did not have.**
-   *
-   * Through the assignment model this was a console prefill and nothing more:
-   * `putAssignmentRequest` always carried the role explicitly, so no part of
-   * the cloud authorized anybody with it. Assignments are gone. An app user is
-   * created or invited **with** a role, and when the request omits one this is
-   * the role they get — so the field now decides access on two write paths
-   * (`createAppUserRequest`, `createAppInvitationRequest`) rather than
-   * pre-filling a form.
-   *
-   * Worth saying: it changes what a wrong value costs.
-   * A prefill somebody can see and correct became a default applied on the
-   * server, and the obvious next question — should it be required instead? —
-   * has a deliberate answer: no, because an invitation resolves the role at
-   * *creation* time and stores it, so an outstanding invitation is never
-   * re-aimed by a later change here.
+   * **The app's default role, by key.** An app user created, invited or
+   * self-registered without an explicit role gets this one, so the field decides
+   * access on those paths rather than pre-filling a form.
    *
    * `null` — and nullable rather than absent — means *this app has not chosen
-   * one*. That is a normal state, not an unset field: every app is created
-   * before its roles are configured. A create or invite that omits `role_id`
-   * against an app in that state is a `validation_error`, not a user with no
-   * role.
+   * one*, the normal state of an app until somebody picks a default. A create or
+   * invite that names no role against such an app is refused rather than
+   * producing a user with no role. An invitation resolves the role when it is
+   * issued, so a later change here never re-aims one already sent.
    *
-   * The role must belong to **this** app; the schema sees a uuid and cannot
-   * check that, so `PATCH /api/apps/:id` does.
+   * The key is read as it is stored. It need not name a role: a role deleted
+   * since leaves the key behind, which grants nothing and shows up as a warning
+   * of the app's access. The field is written by `PUT /api/apps/:id/access`,
+   * together with the locks, and by no other route.
    */
-  default_role_id: z.uuid().nullable().meta({
-    description: 'The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot.',
+  default_role: roleKey.nullable().meta({
+    description: 'The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one, and then a create or invite that names no role is refused. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The key is shown as stored and may name no role, which grants nothing; `GET /api/apps/:id/access` warns about it. It is set by `PUT /api/apps/:id/access`, not by `PATCH /api/apps/:id`.',
   }),
   created_at: z.iso.datetime().meta({
     description: 'When the app was created, as an ISO 8601 timestamp. `GET /api/apps` orders by this field.',
@@ -89,10 +82,13 @@ export type AppListResponse = z.infer<typeof appListResponse>
  * What deleting an app would destroy — read before the irreversible click,
  * and carried again by the `app.deleted` audit event.
  *
- * **Six numbers, never a sum**, for the reason `robotDeletionSummary` states
+ * **Five numbers, never a sum**, for the reason `robotDeletionSummary` states
  * at length: the console reads this aloud as one sentence, and a total would
- * describe six unrelated magnitudes with one figure on the one screen whose
+ * describe five unrelated magnitudes with one figure on the one screen whose
  * entire justification is naming what cannot be undone.
+ *
+ * Roles are not here: they belong to the organization, so deleting an app
+ * deletes none of them. What the app locks goes with its settings.
  *
  * Robots are not here because they do not go: they belong to the
  * organization, not to the app. The audit trail is not here either — a record
@@ -101,9 +97,6 @@ export type AppListResponse = z.infer<typeof appListResponse>
 export const appDeletionSummary = z.object({
   user_count: z.number().int().nonnegative().meta({
     description: 'App users deleted with the app. They are the developer\'s own customers, not Fleetless users, and exist in no other app.',
-  }),
-  role_count: z.number().int().nonnegative().meta({
-    description: 'Roles deleted with the app, each with its per-robot slug grants.',
   }),
   server_key_count: z.number().int().nonnegative().meta({
     description: 'Server keys deleted with the app. A client still holding one is refused at its next request.',
@@ -160,6 +153,11 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
  * remains only for MCP. `group_id` named a group that owned the app; who may
  * log into an app is the app's own user list.
  *
+ * The id-based default role is absent too, and it does have a successor: the
+ * default role is part of the app's access, replaced together with its locks by
+ * `PUT /api/apps/:id/access` and read as `app.default_role`. A patch that still
+ * names the old field is refused rather than dropped.
+ *
  * The route keeps its own check as belt-and-braces; a schema and a handler
  * agreeing is not two policies, it is one policy stated where each half can
  * enforce it.
@@ -167,19 +165,6 @@ export type CreateAppRequest = z.infer<typeof createAppRequest>
 export const updateAppRequest = z.object({
   name: z.string().min(1).max(120).optional(),
   robot_ids: z.array(z.uuid()).optional(),
-  /**
-   * `app.default_role_id`'s write half — an app *setting*, which is where the
- * two-identity-space model
-   * put the default role, so it belongs on the app's own PATCH and not on a
-   * route of its own.
-   *
-   * **`.nullable().optional()`, and the two mean different things.** Absent
-   * leaves the current default alone; an explicit `null` clears it. A field
-   * that could only be set and never unset would make "we changed our mind"
-   * unreachable through the API — the same silence `.strict()` above exists to
-   * avoid, from the other direction.
-   */
-  default_role_id: z.uuid().nullable().optional(),
 }).strict()
 export type UpdateAppRequest = z.infer<typeof updateAppRequest>
 
@@ -225,142 +210,226 @@ export const createServerKeyResponse = z.object({
 export type CreateServerKeyResponse = z.infer<typeof createServerKeyResponse>
 
 /**
- * Every app starts with `observe` and `operate`; custom roles are allowed
- * too. `builtin` marks the two starting roles — editable, renamable and
- * deletable like any other; the flag only tells the console where they came
- * from.
+ * The most exposures one robot's datasheet lists, so the most slugs a lock on
+ * one robot can name. Exported for whoever grows a lock (a slug rename adds
+ * the new name beside the old one) and must know when there is no room left.
  */
-export const role = z.object({
-  id: z.uuid().meta({
-    description: 'The role, and what an app user\'s `role_id` and an app\'s `default_role_id` refer to.',
-  }),
-  app_id: z.uuid().meta({
-    description: 'The app this role belongs to. Roles are never shared between apps, so a role id from another app reads as `not_found`.',
-  }),
-  name: z.string().min(1).max(60).meta({
-    description: 'The role\'s name, shown wherever a user\'s access is chosen. The two roles every app starts with are named `observe` and `operate`.',
-  }),
-  builtin: z.boolean().meta({
-    description: '`true` for the two roles every app starts with. Their **rights may be re-scoped** exactly like a custom role\'s, through `PUT /api/apps/:id/roles/:roleId/permissions` — the flag exists so the console can explain where they came from, not to protect them. Built-in roles can be renamed and deleted like any other; the flag only records that the cloud seeded them.',
-  }),
-})
-export type Role = z.infer<typeof role>
+export const MAX_LOCK_SLUGS = 2000
 
-/** What `GET /api/apps/:id/roles` answers: the app's roles, builtin and custom alike. */
-export const roleListResponse = z.object({
-  roles: z.array(role).meta({
-    description: 'The app\'s roles, built-in and custom alike, ordered by `created_at` and then by `name`. The tie-break is not cosmetic — the two built-in roles are inserted in one statement and share a creation time to the microsecond, so never read a role by position.',
-  }),
-})
-export type RoleListResponse = z.infer<typeof roleListResponse>
+/** The most robots one app can lock single exposures on; whole kinds go in `locked_kinds`. */
+const MAX_APP_LOCKS = 1000
+
+/** A list names nothing twice. */
+const namedOnce = (items: readonly string[]) => new Set(items).size === items.length
 
 /**
- * The body of `PATCH /api/apps/:id/roles/:roleId`: the role's new name.
+ * **What an app locks, and what it falls back on.** Roles decide who may use
+ * what; an app can only take rights away from them, never add any. A lock wins
+ * over every role and over the organization's defaults, and applies to the
+ * app's users and to its server keys alike.
  *
- * The same bounds as `role.name`, trimmed. Names are unique per app, compared
- * exactly as stored after trimming; a clash answers `409 role_name_taken`.
+ * Two ways to lock: a whole kind of access on every robot the app reaches
+ * (`locked_kinds`), or single capabilities of single robots (`locked`). The
+ * robot-wide `assets` and `job_history` can only be locked as a kind.
  */
-export const roleRenameRequest = z.object({
-  name: z.string().trim().min(1).max(60).meta({
-    description: 'The new name, trimmed, 1 to 60 characters. Unique per app: another role of this app with the same name answers `409 role_name_taken`. The role\'s users keep it under its new name.',
+export const appLock = z.object({
+  robot_id: z.uuid().meta({
+    description: 'The robot whose capabilities are locked for this app.',
+  }),
+  slugs: z.array(slug).min(1).max(MAX_LOCK_SLUGS).refine(namedOnce, { message: 'Name each slug once.' }).meta({
+    uniqueItems: true,
+    description: `The slugs of that robot\'s exposures to lock, at least one and each named once, at most ${MAX_LOCK_SLUGS}. A slug the robot has no exposure for is accepted and warns, and locks nothing.`,
   }),
 }).strict()
-export type RoleRenameRequest = z.infer<typeof roleRenameRequest>
+export type AppLock = z.infer<typeof appLock>
 
-/**
- * The query of `DELETE /api/apps/:id/roles/:roleId`.
- *
- * `move_to` is what makes a held role deletable: every app user and pending
- * invitation holding the role moves to it, and so does the app's default when
- * it pointed at the role, in the same transaction as the delete. Without it a
- * held role answers `409 role_in_use` with `roleInUseDetails`, so a client
- * can ask where they should go instead of guessing.
- */
-export const roleDeleteQuery = z.object({
-  move_to: z.uuid().optional().meta({
-    description: 'Another role of the same app that takes over the deleted role\'s app users, pending invitations and, when it applies, the app\'s default. The role itself or a role of another app answers `400 validation_error`.',
+/** The three fields `appAccess` and `appAccessResponse` share. */
+const appAccessFields = {
+  default_role: roleKey.nullable().meta({
+    description:
+      'The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means the app has none, ' +
+      'and a create or invite that names no role is refused. A key that names no role is accepted and warns; it grants nothing.',
   }),
-}).strict()
-export type RoleDeleteQuery = z.infer<typeof roleDeleteQuery>
-
-/**
- * `details` of `409 role_in_use`: what still holds the role.
- *
- * All three are reported, zeros included, so a client renders one sentence
- * from one shape rather than inferring a missing key.
- */
-export const roleInUseDetails = z.object({
-  users: z.number().int().nonnegative().meta({
-    description: 'App users whose role this is.',
+  locked_kinds: z.array(accessKind).max(ACCESS_KINDS.length).refine(namedOnce, { message: 'Name each kind once.' }).meta({
+    uniqueItems: true,
+    description:
+      'Kinds of access locked for every user and server key of the app, on every robot it reaches: `read`, `invoke`, `publish`, `assets` or ' +
+      '`job_history`, each at most once. The only way to lock `assets` or `job_history`, which belong to the robot as a whole.',
   }),
-  invitations: z.number().int().nonnegative().meta({
-    description: 'Pending invitations that would grant this role when accepted.',
-  }),
-  is_default: z.boolean().meta({
-    description: '`true` when this is the app\'s `default_role_id`; the default then moves with the users to `move_to`.',
-  }),
-}).strict()
-export type RoleInUseDetails = z.infer<typeof roleInUseDetails>
-
-/**
- * The rights matrix of one role: which slugs of which robot it may use, plus
- * the capabilities roles also govern. `capabilities`' own doc comment
- * below says which of them are enforced today and which is still a switch
- * that changes nothing.
- */
-export const rolePermissions = z.object({
-  role_id: z.uuid(),
-  /**
-   * **A slug is unique per robot across ALL exposure kinds** — one namespace,
-   * not one per kind — and the cloud's configuration validation enforces that
-   * with a kind-agnostic collection pass. That is why this list carries slugs
-   * and not (kind, slug) pairs: a grant means the same thing whichever kind the
-   * slug turns out to name. `GET /api/robots/:id/exposures` is the companion
-   * read that lists every grantable slug of a robot **with** its kind, so a
-   * rights matrix can offer them.
-   */
-  grants: z.array(
-    z.object({
-      robot_id: z.uuid(),
-      slugs: z.array(slug),
+  locked: z.array(appLock).max(MAX_APP_LOCKS)
+    .refine((locks) => namedOnce(locks.map((lock) => lock.robot_id)), { message: 'Give each robot one entry; list all of its slugs in it.' })
+    .meta({
+      description:
+        `Single exposures locked on single robots, one entry per robot and at most ${MAX_APP_LOCKS}. A lock never grants anything: it only takes ` +
+        'away what a role would give.',
     }),
-  ),
-  /**
-   * App-wide abilities a role grants, as opposed to per-slug grants above.
-   *
-   * **A capability here is a promise, and one of them is still not kept.** A
-   * capability with no route, no SDK method and no realtime frame behind it can
-   * be switched on while nothing changes, which is worse than its absence: the
-   * developer believes they granted something. **This paragraph stays**
-   * whatever the current tally is: it is the only place that says a switch may
-   * change nothing, and it is how the next unkept capability gets caught.
-   *
-   * `assets` gates the asset store, which is not covered by `grants` because
-   * **assets are not slugs** — and it is its own decision rather than a side
-   * effect of reaching the robot, because a mesh set gives away the machine's
-   * build.
-   *
-   * **`action_history` is kept.** It gates
-   * `GET /api/robots/:id/jobs/history` — an end user whose role lacks it is
-   * refused `403 capability_required`, naming the capability so the developer
-   * knows which switch is off.
-   *
-   * **What granting it discloses.** A `jobRun` names the actor who invoked
-   * it, and `jobActor.label` is an email — so an end user holding this
-   * capability learns which *other* people have been driving that robot.
-   * That is inherent in "may read the history" rather than an oversight, and
-   * it is written down here because the switch lives in the console while its
-   * consequence does not.
-   *
-   * **`presence` is still not implemented.** Nothing in the cloud, the SDK or
-   * the realtime protocol consults it. It remains exactly what the first
-   * paragraph describes.
-   */
-  capabilities: z.object({
-    action_history: z.boolean(),
-    presence: z.boolean(),
-    assets: z.boolean(),
+}
+
+/**
+ * **Which state of the access a write was composed from.** A fingerprint of
+ * the stored access that changes whenever the stored access does, whoever
+ * changed it: another developer's write, but also a slug rename, which adds the
+ * new name to every lock that lists the old one, and a robot detached from the
+ * app, which drops its lock. Opaque: compare it, do not compute it.
+ *
+ * It is what keeps a full replacement from silently undoing a lock that
+ * landed after the caller read the access.
+ */
+const appAccessRevision = z.string().regex(/^[0-9a-f]{64}$/).meta({
+  description:
+    'A fingerprint of the stored access, 64 lower-case hexadecimal characters. It changes whenever the stored access changes, by whichever route ' +
+    '(a write here, a slug rename that adds the new name to a lock, a robot detached from the app). Treat it as opaque: send back the one you read.',
+})
+
+/**
+ * `PUT /api/apps/:id/access`: the whole access of one app, **replaced**. Every
+ * field is named on every write, so the body is exactly what the app has
+ * afterwards; strict, so a field this route does not take is refused rather
+ * than dropped.
+ *
+ * `revision` is the one field that is not part of the access: it says which
+ * state this body was composed from. A caller that read before it wrote sends
+ * it back, and a write composed from a stale read is refused instead of
+ * lifting a lock that landed in between.
+ */
+export const appAccess = z.object({
+  ...appAccessFields,
+  revision: appAccessRevision.optional().meta({
+    description:
+      'The `revision` of the access this body was composed from, as `GET` or `PUT /api/apps/:id/access` answered it. When it is sent and the stored ' +
+      'access has changed since, the write is refused with `409 target_state_conflict` naming `revision` (rule `stale`) and nothing is written; read ' +
+      'the access again and compose the body anew. Left out, the body replaces whatever is stored: the last writer wins.',
+  }),
+}).strict()
+export type AppAccess = z.infer<typeof appAccess>
+
+/**
+ * Something in an app's access that grants or locks nothing as written. Never
+ * a refusal: the access is stored as sent, and these say what is out of step.
+ */
+export const accessWarning = z.object({
+  code: z.enum(['unknown_default_role', 'unknown_lock_slug', 'lock_robot_not_attached']).meta({
+    description:
+      '`unknown_default_role`: the default role names no role of the organization. `unknown_lock_slug`: a lock names a slug the robot has no ' +
+      'published exposure for. `lock_robot_not_attached`: a lock names a robot that is not attached to the app.',
+  }),
+  message: z.string().min(1).meta({
+    description: 'A sentence a person can read, naming the key, robot or slug.',
+  }),
+  robot_id: z.uuid().nullable().meta({
+    description: 'The robot a lock warning is about; `null` for `unknown_default_role`.',
+  }),
+  slug: z.string().nullable().meta({
+    description: 'The slug an `unknown_lock_slug` warning is about; `null` for the other warnings.',
   }),
 })
-export type RolePermissions = z.infer<typeof rolePermissions>
+export type AccessWarning = z.infer<typeof accessWarning>
 
+/** What `GET` and `PUT /api/apps/:id/access` answer: the access as it stands, its revision, and what is out of step in it. */
+export const appAccessResponse = z.object({
+  ...appAccessFields,
+  revision: appAccessRevision.meta({
+    description: 'The revision of the access as it stands. Send it back as `revision` of the next `PUT` to have that write refused when the access has changed in between.',
+  }),
+  warnings: z.array(accessWarning).meta({
+    description: 'What the access names that does not exist as written. Empty when nothing is out of step.',
+  }),
+})
+export type AppAccessResponse = z.infer<typeof appAccessResponse>
+
+/**
+ * `GET /api/apps/:id/effective-rights`: look at the app as one role sees it,
+ * or as one app user does. Exactly one of the two.
+ *
+ * The cross-field rule is a `.refine()`, which JSON Schema cannot express, so
+ * `effective-rights-query.schema.json` describes two independent optional
+ * parameters; the cloud is the only place both-or-neither is refused.
+ */
+export const effectiveRightsQuery = z.object({
+  role: roleKey.optional().meta({
+    description: 'A role key to look at the app as. A key that names no role is not an error: the answer says `role_known: false` and grants nothing.',
+  }),
+  user: z.uuid().optional().meta({
+    description: 'An app user of this app, to look at the app as that user\'s role. A user of another app answers `404`.',
+  }),
+}).strict().refine((query) => (query.role === undefined) !== (query.user === undefined), {
+  message: 'Name exactly one of role and user.',
+})
+export type EffectiveRightsQuery = z.infer<typeof effectiveRightsQuery>
+
+/** One capability of one robot as a role sees it: granted or not, and why. */
+export const effectiveCapability = z.object({
+  name: slug.meta({
+    description: 'The exposure\'s slug, or `assets` or `job_history` for the capabilities that belong to the robot as a whole.',
+  }),
+  kind: accessKind.meta({
+    description: 'The kind of access the capability needs.',
+  }),
+  granted: z.boolean().meta({
+    description: 'Whether the role may use it: its requirement is met and the app has not locked it.',
+  }),
+  requirement: z.array(z.string()).meta({
+    description: 'The role keys that qualify, from the entry, the rule or the default that decided. Holding one of them, or inheriting from one, is enough. Empty when nobody qualifies.',
+  }),
+  source: z.enum(['entry', 'rule', 'robot', 'org_default']).meta({
+    description:
+      'Where the requirement came from: `entry` is the entry\'s own `role`, `rule` the first matching rule of `access.rules`, `robot` the robot\'s ' +
+      '`access.assets` or `access.job_history`, and `org_default` the organization\'s default for the kind.',
+  }),
+  rule_index: z.number().int().nonnegative().nullable().meta({
+    description: 'For `rule`, the position of the deciding rule in `access.rules`, counted from zero; `null` otherwise.',
+  }),
+  rule_match: z.string().nullable().meta({
+    description: 'For `rule`, that rule\'s `match` glob; `null` otherwise.',
+  }),
+  satisfied_by: z.string().nullable().meta({
+    description:
+      'The key from `requirement` that the role holds through inheritance. `null` when the role is named in the requirement itself, and when it ' +
+      'does not meet the requirement at all. Independent of locks.',
+  }),
+  locked: z.boolean().meta({
+    description: 'Whether the app locks this capability, as a kind or as a single lock. A lock wins over the requirement.',
+  }),
+  unknown_roles: z.array(z.string()).meta({
+    description: 'Keys in the requirement that name no role of the organization. They grant nothing.',
+  }),
+})
+export type EffectiveCapability = z.infer<typeof effectiveCapability>
+
+/** One attached robot as a role sees it. */
+export const effectiveRobotRights = z.object({
+  robot_id: z.uuid().meta({ description: 'The robot, one that is attached to the app.' }),
+  robot_name: z.string().min(1).max(200).meta({ description: 'The robot\'s name.' }),
+  published_version: z.number().int().positive().nullable().meta({
+    description: 'The version of the robot\'s published `fleetless.yaml` that the answer was computed from; `null` when nothing is published.',
+  }),
+  reachable: z.boolean().meta({
+    description:
+      'Whether a session of this role reaches the robot at all: at least one slug or one capability is granted once the locks are applied. When `false`, ' +
+      '`robots.describe` answers `not_found` for the robot and `robots.list` leaves it out; `capabilities` says why, and `datasheet` is the empty one.',
+  }),
+  capabilities: z.array(effectiveCapability).meta({
+    description: 'Every capability of the published configuration, and `assets` and `job_history`, each granted or not.',
+  }),
+  datasheet: mcpRobotDatasheet.meta({
+    description: 'The datasheet an MCP session of this role would get for the robot.',
+  }),
+})
+export type EffectiveRobotRights = z.infer<typeof effectiveRobotRights>
+
+/** What `GET /api/apps/:id/effective-rights` answers. */
+export const effectiveRightsResponse = z.object({
+  role: z.string().nullable().meta({
+    description: 'The role key the answer is for: the one asked about, or the app user\'s own. `null` when the app user holds none.',
+  }),
+  role_known: z.boolean().meta({
+    description: 'Whether the key names a role of the organization. `false` means every capability below is not granted.',
+  }),
+  user_id: z.uuid().nullable().meta({
+    description: 'The app user asked about; `null` when a role was asked about. A user who is not `active` reaches nothing, whatever role they hold: every capability below is not granted.',
+  }),
+  robots: z.array(effectiveRobotRights).meta({
+    description: 'The robots attached to the app, each with what the role may use.',
+  }),
+})
+export type EffectiveRightsResponse = z.infer<typeof effectiveRightsResponse>

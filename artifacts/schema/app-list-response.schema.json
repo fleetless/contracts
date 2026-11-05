@@ -39,20 +39,20 @@
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
             },
-            "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app whatever a role grants."
+            "description": "The robots this app may reach, each referenced individually. Tags never grant rights, and a robot absent from this list is invisible to the app. What a user of the app may use on an attached robot follows that robot's `fleetless.yaml` and the organization's defaults, less what the app locks."
           },
-          "default_role_id": {
+          "default_role": {
             "anyOf": [
               {
                 "type": "string",
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                "pattern": "^(?!defaults$)[a-z][a-z0-9_]{0,62}$",
+                "patternErrorMessage": "A role key is lower-case: it starts with a letter and continues with letters, digits and underscores, up to 63 characters in all — `operate`, `night_shift`. A capital, a dash, a dot, a space or a leading digit is refused, and `defaults` is reserved."
               },
               {
                 "type": "null"
               }
             ],
-            "description": "The role an app user gets when created or invited without an explicit one. `null` means this app has not chosen a default, the normal state of an app created before its roles were configured — and then a create or invite that omits `role_id` gets `validation_error`, not a user with no role. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The role must belong to this app, which `PATCH /api/apps/:id` checks and the schema cannot."
+            "description": "The role, by key, that an app user gets when created, invited or self-registered without an explicit one. `null` means this app has not chosen a default, the normal state of an app until someone picks one, and then a create or invite that names no role is refused. An invitation resolves the role when issued, so changing this never re-aims an outstanding one. The key is shown as stored and may name no role, which grants nothing; `GET /api/apps/:id/access` warns about it. It is set by `PUT /api/apps/:id/access`, not by `PATCH /api/apps/:id`."
           },
           "created_at": {
             "type": "string",
@@ -67,7 +67,7 @@
           "name",
           "identifier",
           "robot_ids",
-          "default_role_id",
+          "default_role",
           "created_at"
         ],
         "additionalProperties": false

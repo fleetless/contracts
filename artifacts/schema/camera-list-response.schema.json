@@ -48,7 +48,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "Every camera the published configuration exposes on this robot **and** the caller's role grants. A developer sees all of them; an end user sees what their role allows."
+      "description": "Every camera the published configuration exposes on this robot **and** the caller's role may use. A developer sees all of them; an end user sees what their role allows."
     }
   },
   "required": [

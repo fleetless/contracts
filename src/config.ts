@@ -19,6 +19,7 @@ import {
  * into this file once `alerts.ts` retires.
  */
 import { alertSeverity } from './alerts.js'
+import { ENTRY_KINDS, roleRef, type EntryKind } from './rights.js'
 
 /**
  * The exposure model: what a developer configures per robot, how a
@@ -389,6 +390,17 @@ const underSlug = (slugKey: string, snippet: Snippet): Snippet =>
   ({ ...snippet, body: { [slugKey]: snippet.body } })
 
 /**
+ * `role` on an exposed entry: who may use it. The same field on all five kinds,
+ * so one helper writes the sentence and each kind names what using it means.
+ *
+ * It is the cloud's alone: the bridge is sent the stored document and ignores
+ * `role` and `access` altogether.
+ */
+const entryRole = (use: string, kind: EntryKind) => roleRef.meta({
+  description: `Which role may ${use}: one role key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. Without this, the first rule of \`access.rules\` that fits the entry decides, and without a fitting rule the organization's default for \`${kind}\` applies. A key that names no role of the organization is a warning when you publish, never an error, and grants nothing. The robot ignores it; the cloud enforces it.`,
+})
+
+/**
  * What an exposed service *is*, in the developer's own words.
  *
  * This is what `robots.describe` carries verbatim, so it is read by a model
@@ -682,14 +694,18 @@ export const parameterMap = slugKeyed(parameterSpec)
  * sections at once** — slugs are one namespace, so a name reserved here is
  * reserved everywhere.
  *
- * The first three are built-ins: the cloud or the bridge already publishes
+ * The first two are built-ins: the cloud or the bridge already publishes
  * something under them, so a configured entry would be a second producer for
- * one name. `history` is reserved for a different reason and is not a built-in
- * — nothing publishes it. `GET /api/robots/:id/jobs/history` is a **literal
- * sibling** of `GET /api/robots/:id/jobs/:slug`, so an action or service named
- * `history` would have a job route no caller could ever reach. Reserving the
- * name is the honest half of that: the alternative is a slug the format
- * accepts and one route silently cannot address.
+ * one name. The other three are reserved for a different reason and are not
+ * built-ins — nothing publishes them. `assets` and `job_history` are the
+ * robot-level capabilities a role can be required for and an app can lock; an
+ * entry of the same name would leave a capability's `name` ambiguous between
+ * an exposure and the robot as a whole. `history` is reserved because
+ * `GET /api/robots/:id/jobs/history` is a **literal sibling** of
+ * `GET /api/robots/:id/jobs/:slug`, so an action or service named `history`
+ * would have a job route no caller could ever reach. Reserving the name is the
+ * honest half of that: the alternative is a slug the format accepts and one
+ * route silently cannot address.
  *
  * **This constant is the only list.** The cloud builds its set from it and
  * emits `reserved_slug`; the rename path reads it for the target; an editor
@@ -706,7 +722,7 @@ export const parameterMap = slugKeyed(parameterSpec)
  * ships those sentences to readers who have only the JSON Schema, and
  * "here" would have promised them a refusal this parse does not make.
  */
-export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'history'] as const
+export const RESERVED_SLUGS = ['bridge_state', 'robot_details', 'history', 'assets', 'job_history'] as const
 
 /**
  * When an alert fires and when it is ok again. There is no discriminator:
@@ -1158,6 +1174,7 @@ export const datapointConfig = strictObject({
      */
     defaultSnippets: [underSlug('${1:battery_low}', ALERT_SNIPPET)],
   }).optional(),
+  role: entryRole('read this datapoint', 'read').optional(),
 })
   .superRefine((d, ctx) => {
     if (d.field !== undefined) return
@@ -1408,6 +1425,7 @@ export const actionConfig = strictObject({
     description: 'What this action does, in the developer\'s own words — documentation for the console and for MCP clients, which is all it is: the robot does nothing with it. It is carried verbatim into `robots.describe` and read by a model that has never seen this robot. The action is offered whenever the role grants it; without one it is offered with `description: null`, and the model has nothing but the slug.',
     examples: ['Drives to a target pose on the map.'],
   }),
+  role: entryRole('start this action', 'invoke').optional(),
 }).meta({
   /** The value position of one entry — `navigate: ▮` under `actions:`. */
   defaultSnippets: [ACTION_SNIPPET],
@@ -1448,6 +1466,7 @@ export const serviceConfig = strictObject({
     description: 'What this service does, in the developer\'s own words. The robot does nothing with it — the readers are the console and MCP clients, and without one the service is still offered, with `description: null`, exactly as for an action. It sits on the configuration rather than on the app, so one wording is true for every app that reaches this robot.',
     examples: ['Resets odometry to the origin.'],
   }),
+  role: entryRole('call this service', 'invoke').optional(),
 }).meta({
   /** The value position of one entry — `reset_odometry: ▮` under `services:`. */
   defaultSnippets: [SERVICE_SNIPPET],
@@ -1578,6 +1597,7 @@ export const publisherConfig = strictObject({
     description: 'What sending to this publisher does, in the developer\'s own words. It is documentation for the console and for MCP clients — the robot does nothing with it — and as for actions and services, the publisher is offered whether or not one is written, with `description: null` when it is not. A caller sends here repeatedly and continuously rather than once, which is why this kind alone carries `failsafe` and `quiet_timeout_ms`.',
     examples: ['Velocity command. If sending stops, the robot stops.'],
   }),
+  role: entryRole('send to this publisher, which is what driving the robot is', 'publish').optional(),
 }).meta({
   /** The value position of one entry — `drive: ▮` under `publishers:`. */
   defaultSnippets: [PUBLISHER_SNIPPET],
@@ -1924,6 +1944,7 @@ export const cameraConfig = strictObject({
     description: 'What this camera shows, in the developer\'s own words — documentation for whoever reads the configuration, for the console and for MCP clients; the robot does nothing with it. A camera without one is still offered, with `description: null`, as for actions, services and publishers. What `camera.snapshot` serves is the latest snapshot with its age; a live session is never a tool.',
     examples: ['Forward-facing camera on the mast.'],
   }),
+  role: entryRole('see this camera', 'read').optional(),
 }).meta({
   /** The value position of one entry — `front: ▮` under `cameras:`. */
   defaultSnippets: [CAMERA_SNIPPET],
@@ -2008,6 +2029,79 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
   slugKeyed(entry).refine((m) => Object.keys(m).length <= max, { message: `at most ${max} ${what}` })
 
 /**
+ * What a rule's `match` means, said in words. Beside its pattern, on the same
+ * rule as the other grammars that exist only inside a configuration document:
+ * one constant, read as the parser's message and as the JSON Schema's
+ * `patternErrorMessage`.
+ */
+const ROS_GLOB_RULE = 'A match pattern is an absolute ROS graph name in which `*` stands for any characters inside one segment and `**` for any number of whole segments — `/arm/**`, `/diagnostics/*`, `/joint_*`. It begins with a slash. A relative pattern, a trailing slash, a dash, a dot, or `**` mixed into a longer segment is refused.'
+
+/**
+ * Segments of ROS-name characters and `*`; a segment of `**` stands alone. The
+ * look-ahead keeps `**` out of any longer segment, and looks no further than
+ * the segment it is in.
+ */
+const rosGlob = z
+  .string()
+  .max(255)
+  .regex(/^(?:\/(?:\*\*|(?![A-Za-z0-9_*]*\*\*)(?:\*|[A-Za-z_])[A-Za-z0-9_*]*))+$/, ROS_GLOB_RULE)
+
+const ruleKind = z.enum(ENTRY_KINDS)
+
+/**
+ * One rule of `access.rules`: a role for every entry whose ROS name fits.
+ *
+ * Rules are ordered and the first one that fits an entry decides, so a narrow
+ * rule goes above a wide one. An entry's own `role` is not consulted against
+ * rules at all — it wins outright — and a rule never touches `assets` or
+ * `job_history`, which are the robot's and say so under `access`.
+ */
+export const accessRule = strictObject({
+  match: rosGlob.meta({
+    description: 'A glob over the ROS name an entry is exposed by: the `topic` of a datapoint or a publisher, the `ros_name` of a service or an action, the source topic of a camera that reads a ROS topic. `*` stands for one name segment, or for any characters inside one (`/joint_*`); `**` stands for any number of segments, none included, so `/arm/**` fits `/arm` and everything below it. Always absolute.',
+    patternErrorMessage: ROS_GLOB_RULE,
+  }),
+  kinds: z.array(ruleKind.meta({
+    enumDescriptions: describeValues(ruleKind.options, {
+      read: 'Datapoints and cameras: seeing what the robot reports.',
+      invoke: 'Services and actions: asking the robot to do something.',
+      publish: 'Publishers: sending to the robot, which is what driving it is.',
+    }),
+  })).min(1).max(ENTRY_KINDS.length).meta({
+    description: 'Narrows the rule to some kinds of access. Without it the rule fits entries of every kind.',
+  }).optional(),
+  role: roleRef.meta({
+    description: 'The role that may use what this rule fits: one key, or a list of keys when several roles qualify. A role qualifies when it, or a role it inherits from, is named. A key that names no role of the organization is a warning when you publish and grants nothing.',
+  }),
+})
+export type AccessRule = z.infer<typeof accessRule>
+
+/**
+ * The rights a robot's document sets beyond the `role` of single entries.
+ *
+ * `assets` and `job_history` are the robot's own capabilities and have no ROS
+ * name, so rules cannot reach them; they are named here, one role or a list
+ * each, and without them the organization's default applies.
+ */
+export const accessSection = strictObject({
+  rules: z.array(accessRule).max(100, 'at most 100 rules').meta({
+    description: 'Ordered rules that give a role to every entry whose ROS name fits `match`, so a whole namespace is covered by one line. For an entry the order of precedence is its own `role`, then the first rule that fits it, then the organization\'s default for its kind. A rule that fits no entry of this document is a warning and changes nothing.',
+    defaultSnippets: [{
+      label: 'a rule over a namespace',
+      description: 'Gives everything under `/arm` to one role. The first rule that fits an entry decides, so a narrower rule goes above a wider one.',
+      body: [{ match: '${1:/arm/**}', role: '${2:admin}' }],
+    }],
+  }).optional(),
+  assets: roleRef.meta({
+    description: 'Who may use this robot\'s asset store — the meshes and the URDF a viewer draws it from — in place of the organization\'s default for `assets`. One role key, or a list of keys.',
+  }).optional(),
+  job_history: roleRef.meta({
+    description: 'Who may read this robot\'s job history, in place of the organization\'s default for `job_history`. One role key, or a list of keys. A run names the person who started it, so whoever may read the history learns who else has been driving the robot.',
+  }).optional(),
+})
+export type AccessSection = z.infer<typeof accessSection>
+
+/**
  * A whole robot configuration — everything configurable about one robot.
  *
  * Every section is a mapping keyed by name, not a list of objects carrying
@@ -2015,7 +2109,7 @@ const capped = <T extends z.ZodTypeAny>(entry: T, max: number, what: string) =>
  * rule somebody has to write, and the name reads as the entry's heading.
  *
  * Slugs remain ONE namespace across all five exposure sections, which
- * is what lets a role grant say `{robot, slug}` without naming a kind. That
+ * is what lets an app lock name `{robot, slug}` without naming a kind. That
  * check spans sections and therefore lives in the cloud, not here.
  */
 export const robotConfigDoc = strictObject({
@@ -2027,27 +2121,35 @@ export const robotConfigDoc = strictObject({
     defaultSnippets: [underSlug('${1:drive}', SHARED_MESSAGE_SNIPPET)],
   }).optional(),
   datapoints: capped(datapointConfig, 200, 'datapoints').meta({
-    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Values the robot publishes, each one field of one topic or a whole topic, and **never several topics**. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, `history` is reserved because `GET …/jobs/history` would shadow an action of that name, and `assets` and `job_history` are reserved because they name the robot-level capabilities; all five are refused when the document is validated.',
     defaultSnippets: [
       underSlug('${1:battery_voltage}', DATAPOINT_SNIPPET),
       underSlug('${1:battery}', NUMERIC_DATAPOINT_SNIPPET),
     ],
   }).optional(),
   actions: capped(actionConfig, 200, 'actions').meta({
-    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Things the robot does on request that take time, each reported as a job with progress. **At most one job runs per action slug**: a second call is refused `busy`, and every observer of that slug watches the same job. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, `history` is reserved because `GET …/jobs/history` would shadow an action of that name, and `assets` and `job_history` are reserved because they name the robot-level capabilities; all five are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:navigate}', ACTION_SNIPPET)],
   }).optional(),
   services: capped(serviceConfig, 200, 'services').meta({
-    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'ROS service calls the robot answers — one request, one reply. Unlike an action a service reports **no progress** and the call returns with its result already on the job, so there is nothing left to observe; a second concurrent call is still refused `busy`, exactly as for an action. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, `history` is reserved because `GET …/jobs/history` would shadow an action of that name, and `assets` and `job_history` are reserved because they name the robot-level capabilities; all five are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:reset_odometry}', SERVICE_SNIPPET)],
   }).optional(),
   publishers: capped(publisherConfig, 200, 'publishers').meta({
-    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Topics clients may send to, and where the format\'s whole safety story lives. The `message` template fixes every value a caller cannot change, and **`failsafe` is required**: once a client falls silent the bridge sends the failsafe message itself, so an operator whose window closed does not leave a robot driving. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, `history` is reserved because `GET …/jobs/history` would shadow an action of that name, and `assets` and `job_history` are reserved because they name the robot-level capabilities; all five are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:drive}', PUBLISHER_SNIPPET)],
   }).optional(),
   cameras: capped(cameraConfig, 50, 'cameras').meta({
-    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets a role grant say `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, and `history` is reserved because `GET …/jobs/history` would shadow an action of that name; all three are refused when the document is validated.',
+    description: 'Video the robot streams, and the still frames the cloud serves from it. `width`, `height`, `fps` and `bitrate_kbps` are what **the bridge produces before sending**, not what the camera captures — they live in the configuration rather than in a viewer\'s request precisely so that no viewer can make a robot send more. Keys are slugs, one namespace across all five exposure sections, which is what lets an app lock name `{robot, slug}` without naming a kind; `bridge_state` and `robot_details` are built-in, `history` is reserved because `GET …/jobs/history` would shadow an action of that name, and `assets` and `job_history` are reserved because they name the robot-level capabilities; all five are refused when the document is validated.',
     defaultSnippets: [underSlug('${1:front}', CAMERA_SNIPPET)],
+  }).optional(),
+  access: accessSection.meta({
+    description: 'Who may use what on this robot, beyond the `role` an entry can carry itself: ordered `rules` over ROS name patterns, and the robot-level `assets` and `job_history`. Everything in it is optional. For an entry the precedence is its own `role`, then the first rule that fits, then the organization\'s default for its kind; only the published version counts. The robot ignores this section.',
+    defaultSnippets: [{
+      label: 'access, with one rule',
+      description: 'A rule that gives everything under `/arm` to one role; entries it does not fit keep the organization\'s defaults.',
+      body: { rules: [{ match: '${1:/arm/**}', role: '${2:admin}' }] },
+    }],
   }).optional(),
   low_bandwidth: lowBandwidthSection.optional().meta({
     description: 'Overrides for the bridge\'s low-bandwidth mode; see the section schema.',
