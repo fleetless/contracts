@@ -27,8 +27,8 @@ import {
 import type { RoleDefaults, RoleGraph } from '../src/index.js'
 
 /** A role graph from `{ key: [parents] }`; the display name is not under test. */
-const graphOf = (spec: Record<string, string[]>): RoleGraph =>
-  new Map(Object.entries(spec).map(([key, inherits]) => [key, { name: key, inherits }]))
+const graphOf = (edges: Record<string, string[]>): RoleGraph =>
+  new Map(Object.entries(edges).map(([key, inherits]) => [key, { name: key, inherits }]))
 
 const SEEDED = graphOf({ observe: [], operate: ['observe'], admin: ['operate'] })
 
@@ -150,8 +150,8 @@ describe('matchRosGlob', () => {
     ['/joint_*', '/joint_1', true],
     ['/joint_*', '/joint_1/x', false],
     ['/joint_*', '/joints', false],
-    ['/arm/home', '/arm/home', true],
-    ['/arm/home', '/arm/home/x', false],
+    ['/arm/park', '/arm/park', true],
+    ['/arm/park', '/arm/park/x', false],
     ['/arm/*/home', '/arm/left/home', true],
     ['/arm/*/home', '/arm/home', false],
     ['/*', '/x', true],
