@@ -236,10 +236,10 @@ describe('bundled MCP tool names', () => {
       'console_introspection_read', 'console_introspection_write', 'console_fleet',
       'console_apps_read', 'console_apps_write', 'console_server_keys_read', 'console_server_keys_write',
       'console_roles_read', 'console_roles_write', 'console_app_users_read', 'console_app_users_write',
-      'console_team_read', 'console_team_write', 'console_org_read', 'console_org_write', 'console_audit',
+      'console_team_read', 'console_team_write', 'console_org_read', 'console_audit',
     ]
     expect(app).toHaveLength(7)
-    expect([...app, ...console]).toHaveLength(27)
+    expect([...app, ...console]).toHaveLength(26)
     for (const name of [...app, ...console]) {
       expect(name.length, name).toBeLessThanOrEqual(MCP_TOOL_NAME_MAX)
       expect(mcpToolNamePattern.test(name), name).toBe(true)

@@ -940,7 +940,7 @@ describe('what a developer may run without the Owner tier', () => {
       expect(r!.ownerTier, k).toBe(false)
       expect(r!.errors, `${k} still answers a developer tier_required`).not.toContain('tier_required')
       expect(r!.errors, `${k} lost its not_found`).toContain('not_found')
-      expect(r!.notes ?? '', `${k} still describes an Owner gate`).not.toMatch(/Owner[- ]tier/i)
+      expect(r!.notes ?? '', `${k} still describes an Owner gate`).not.toMatch(/owner/i)
       expect(r!.status, k).toBe(status)
     }
   })
