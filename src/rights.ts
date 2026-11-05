@@ -151,8 +151,11 @@ export function roleClosure(graph: RoleGraph, key: string): string[] {
 /**
  * Whether the held role meets a requirement: it, or any role it inherits from,
  * is named. `via` is the required key that was met when that is not the held
- * role itself, so a caller can say "admin, through operate". `unknown` lists
- * the required keys that are no role — they were skipped, not failed.
+ * role itself, so a caller can say "admin, through operate": `null` when the
+ * held role is named, otherwise the nearest required ancestor, in the order
+ * `roleClosure` walks (the parents of the held role first, and in the order it
+ * lists them), whatever the order of `required`. `unknown` lists the required
+ * keys that are no role — they were skipped, not failed.
  *
  * A held role that is unknown or `null`, and an empty requirement, never
  * satisfy: nobody holds what nobody was given.
@@ -164,8 +167,8 @@ export function roleSatisfies(
 ): { satisfied: boolean; via: string | null; unknown: string[] } {
   const unknown = [...new Set(required.filter((key) => !graph.has(key)))]
   if (held === null || required.length === 0) return { satisfied: false, via: null, unknown }
-  const closure = new Set(roleClosure(graph, held))
-  const met = required.find((key) => closure.has(key))
+  const wanted = new Set(required)
+  const met = roleClosure(graph, held).find((key) => wanted.has(key))
   if (met === undefined) return { satisfied: false, via: null, unknown }
   return { satisfied: true, via: met === held ? null : met, unknown }
 }
@@ -295,6 +298,11 @@ export function matchRosGlob(pattern: string, rosName: string): boolean {
   return fits[0]![0]!
 }
 
+/** Whether an `access.rules` rule applies to an entry of this kind and ROS name: its `kinds` include the kind when it names any, and its glob fits. */
+function ruleFits(rule: { match: string; kinds?: readonly EntryKind[] }, kind: EntryKind, rosName: string): boolean {
+  return (rule.kinds === undefined || rule.kinds.includes(kind)) && matchRosGlob(rule.match, rosName)
+}
+
 /** One exposed entry of a document, as the rights resolver sees it. Built-in datapoints are not listed. */
 export interface ExposureRef {
   slug: string
@@ -378,8 +386,7 @@ export function requirementOf(
     const rules = doc.access?.rules ?? []
     if (rosName !== null) {
       for (const [index, rule] of rules.entries()) {
-        if (rule.kinds !== undefined && !rule.kinds.includes(kind)) continue
-        if (matchRosGlob(rule.match, rosName)) {
+        if (ruleFits(rule, kind, rosName)) {
           return { roles: keysOf(rule.role), source: { kind: 'rule', index, match: rule.match } }
         }
       }
@@ -455,10 +462,7 @@ export function roleIssues(doc: RobotConfigDoc | null, graph: RoleGraph): Valida
   }
   const exposures = listExposures(doc)
   for (const [index, rule] of (doc.access?.rules ?? []).entries()) {
-    const fits = exposures.some((exposure) =>
-      exposure.rosName !== null
-      && (rule.kinds === undefined || rule.kinds.includes(exposure.kind))
-      && matchRosGlob(rule.match, exposure.rosName))
+    const fits = exposures.some((exposure) => exposure.rosName !== null && ruleFits(rule, exposure.kind, exposure.rosName))
     if (fits) continue
     issues.push({
       path: `access.rules[${index}].match`,

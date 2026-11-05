@@ -25,7 +25,9 @@ version.
   `SEED_ROLES`, `SEED_DEFAULTS` and their types. `roleIssues` yields the two
   warnings a document can earn, `unknown_role` and `rule_matches_nothing`.
 - `warnings` on `publishConfigResponse`: every warning of the published
-  document, `[]` when it has none.
+  document, `[]` when it has none. **Breaking (major):** the field is required,
+  so an answer from a cloud that does not send it yet no longer satisfies the
+  contract.
 - Organization roles on the wire. Six developer routes, none owner-only:
   `GET` and `POST /api/org/roles`, `PATCH` and `DELETE /api/org/roles/:key`,
   and `GET` and `PUT /api/org/roles/defaults`. The list answers each role with
@@ -52,15 +54,17 @@ version.
 
 ### Removed
 
-- The per-app role routes: `POST` and `GET /api/apps/:id/roles`, `PATCH` and
-  `DELETE /api/apps/:id/roles/:roleId`, `PUT` and `GET
-  /api/apps/:id/roles/:roleId/permissions`, and `GET
+- **Breaking (major):** The per-app role routes: `POST` and `GET
+  /api/apps/:id/roles`, `PATCH` and `DELETE /api/apps/:id/roles/:roleId`,
+  `PUT` and `GET /api/apps/:id/roles/:roleId/permissions`, and `GET
   /api/apps/:id/roles/:roleId/mcp-tools`. Roles belong to the organization
   from here on.
-- The shapes of those routes, with their types and JSON Schema artifacts:
-  `role`, `roleListResponse`, `roleRenameRequest`, `roleDeleteQuery`,
-  `roleInUseDetails`, `rolePermissions` and `mcpRolePreviewResponse`.
-- The error codes `role_name_taken`, `role_in_use` and `last_role`.
+- **Breaking (major):** The shapes of those routes, with their types and JSON
+  Schema artifacts: `role`, `roleListResponse`, `roleRenameRequest`,
+  `roleDeleteQuery`, `roleInUseDetails`, `rolePermissions` and
+  `mcpRolePreviewResponse`.
+- **Breaking (major):** The error codes `role_name_taken`, `role_in_use` and
+  `last_role`.
 
 ## [13.2.0] — 2026-11-05
 

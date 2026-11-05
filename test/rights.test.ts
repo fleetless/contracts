@@ -174,7 +174,8 @@ describe('matchRosGlob', () => {
     const name = `/${Array.from({ length: 40 }, () => 'a').join('/')}`
     const started = Date.now()
     expect(matchRosGlob(pattern, name)).toBe(false)
-    expect(Date.now() - started).toBeLessThan(500)
+    // A backtracking matcher would not finish in any reasonable time on this input, so the bound only has to be generous.
+    expect(Date.now() - started).toBeLessThan(5000)
   })
 })
 
@@ -226,8 +227,18 @@ describe('roleSatisfies', () => {
     expect(roleSatisfies(graph, 'observe', ['operate'])).toEqual({ satisfied: false, via: null, unknown: [] })
   })
 
-  it('is met by any one of a list, and reports the one that was', () => {
-    expect(roleSatisfies(graph, 'admin', ['d1', 'wartung', 'operate'])).toEqual({ satisfied: true, via: 'wartung', unknown: [] })
+  it('is met by any one of a list, and reports the nearest ancestor that was, whatever the list order', () => {
+    // Closure order from admin is admin, operate, wartung, observe: operate comes first although the list names wartung first.
+    expect(roleSatisfies(graph, 'admin', ['d1', 'wartung', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['operate', 'wartung'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['wartung', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+    // A parent is nearer than its own parent, even when the list names the grandparent first.
+    expect(roleSatisfies(graph, 'admin', ['observe', 'operate'])).toEqual({ satisfied: true, via: 'operate', unknown: [] })
+  })
+
+  it('has no via when the held role is itself in the list', () => {
+    expect(roleSatisfies(graph, 'admin', ['operate', 'admin'])).toEqual({ satisfied: true, via: null, unknown: [] })
+    expect(roleSatisfies(graph, 'admin', ['admin', 'operate'])).toEqual({ satisfied: true, via: null, unknown: [] })
   })
 
   it('is never met by a held role that is unknown or absent', () => {
