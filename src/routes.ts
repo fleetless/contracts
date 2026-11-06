@@ -1045,7 +1045,8 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
     params: [{ name: 'key', description: "The role's key, as listed by `GET /api/org/roles`; a key that names no role answers `404`." }],
     query: null, request: patchOrgRoleRequest, response: orgRole,
-    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found', 'role_cycle', 'role_key_taken', 'confirmation_required'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'validation_error', 'not_found', 'role_cycle', 'role_key_taken', 'confirmation_required', 'rate_limited'],
+    transport: 'http',
     notes:
       'A field that is left out stays as it is; `inherits` replaces the whole list. A change to `inherits` that would lead back to the role is ' +
       '`400 role_cycle`, with the loop in `details`. \n\n**Renaming the key is one call or two.** Without `update_references`, the rename is ' +
@@ -1057,7 +1058,9 @@ export const ROUTES: readonly RouteEntry[] = [
       '`confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected ' +
       'published `fleetless.yaml` and each app\'s published collections schema get a new version that differs only in the key, and an ' +
       'existing draft of either is updated the same way. If the ' +
-      'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key ' +
+      'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A rename ' +
+      'that has to rewrite the collections schema of an app whose collections are busy with a publish, a restore or a purge waits up to two ' +
+      'seconds for it, then answers `429 rate_limited` with `retry_after_ms` and changes nothing; repeat the call. A new key ' +
       'that another role has is `409 role_key_taken`.',
   },
   {

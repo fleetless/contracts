@@ -117,6 +117,10 @@ version.
   **Breaking (major):** the enum of `kind`
   widens, so an exhaustive `switch` over it needs the new case and a validator
   built from the old artifacts refuses the new places.
+- **A role rename can answer `429 rate_limited`.** `PATCH /api/org/roles/:key`
+  lists `rate_limited` among its errors: a rename with `update_references` that
+  has to rewrite the schema of an app whose collections are busy waits up to
+  two seconds, then answers `429` with `retry_after_ms` and changes nothing.
 - **Deletion summaries count collections.** `appDeletionSummary` gains
   `collection_count` and `record_count`, and `robotDeletionSummary` gains
   `collection_records`, the records that go with the robot per app. All three
