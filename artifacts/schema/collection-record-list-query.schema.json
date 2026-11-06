@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "filter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
+    },
+    "search": {
+      "type": "string",
+      "description": "Words that must all occur, in any letter case, in at least one searchable field of the record. At most 10 words, separated by whitespace."
+    },
+    "sort": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
+    },
+    "expand": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reference fields to embed as records, separated by commas. Only one hop is followed. The embedded records are not counted in the size of a page."
+    },
+    "limit": {
+      "description": "The most records to return, 1 to 500. Default 50. A page can hold fewer: see `next_cursor`.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{1,4}$"
+        },
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      ]
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The `next_cursor` of the previous page."
+    },
+    "count": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ],
+      "description": "`true` adds `total`, the number of records that match."
+    },
+    "deleted": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ],
+      "description": "`true` lists deleted records instead, newest deletion first. Needs the right to create records."
+    },
+    "robot": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Only the records of this robot, in a collection that belongs to robots."
+    }
+  },
+  "additionalProperties": false
+}

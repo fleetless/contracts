@@ -1,0 +1,612 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The published schema version. Null before anything was published."
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "binding": {
+            "type": "string",
+            "enum": [
+              "global",
+              "per_robot",
+              "one_per_robot"
+            ],
+            "description": "`global`: records belong to the app and no robot. `per_robot`: every record belongs to one robot (system field `robot_id`, fixed when the record is created). `one_per_robot`: every robot of the app has exactly one record, which Fleetless creates itself."
+          },
+          "display": {
+            "type": "string",
+            "description": "The template that names a record of this collection."
+          },
+          "fields": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,62}$",
+              "description": "A collection key or a field key: `^[a-z][a-z0-9_]{0,62}$`. Keys appear in URLs, filters and record bodies; `label` is the text people read."
+            },
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "text"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "max_length": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000,
+                      "description": "Longest value in characters. Default 255, at most 1000."
+                    },
+                    "pattern": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "A regular expression in the RE2 subset, checked in unicode mode: lookahead, lookbehind and backreferences are not supported. At most 1,000 characters, and the cloud may also refuse a pattern as too complex (its compiled size is bounded; counted repeats such as `{n}` multiply it), which a document reports as an invalid pattern. The value must match somewhere in it; anchor it with `^` and `$` to match the whole value."
+                    },
+                    "searchable": {
+                      "type": "boolean",
+                      "description": "Include this field in the `search` of record lists."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "long_text"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "max_length": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100000,
+                      "description": "Longest value in characters. Default 10000, at most 100000."
+                    },
+                    "searchable": {
+                      "type": "boolean",
+                      "description": "Include this field in the `search` of record lists."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "number"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "integer": {
+                      "type": "boolean",
+                      "description": "Accept whole numbers only."
+                    },
+                    "min": {
+                      "type": "number",
+                      "description": "Smallest accepted value."
+                    },
+                    "max": {
+                      "type": "number",
+                      "description": "Largest accepted value."
+                    },
+                    "unit": {
+                      "type": "string",
+                      "description": "A unit to show next to the value, such as `m` or `rad/s`. Display only; nothing converts values."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "boolean"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "select"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "options": {
+                      "minItems": 1,
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "What is stored in records and used in filters."
+                          },
+                          "label": {
+                            "type": "string",
+                            "description": "What people see instead of the value."
+                          }
+                        },
+                        "required": [
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "The accepted values, 1 to 500. Two options may not share a value."
+                    },
+                    "multiple": {
+                      "type": "boolean",
+                      "description": "Hold a list of distinct options instead of one."
+                    },
+                    "searchable": {
+                      "type": "boolean",
+                      "description": "Include the values and labels of the chosen options in the `search` of record lists."
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "options"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "date"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "datetime"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "json"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "schema": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      ],
+                      "description": "What the value must look like: the name of a built-in template (`pose2d`, `point2d`, `polygon2d`, `range1d`) or an inline JSON Schema (draft 2020-12). Without it any JSON value is accepted."
+                    }
+                  },
+                  "required": [
+                    "type"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "reference"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "description": "A short name for people to read. It may change at any time; the key is what code uses."
+                    },
+                    "description": {
+                      "type": "string",
+                      "maxLength": 1000,
+                      "description": "Free text that explains the field to the people who fill it in."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "A new record must set this field, and an update may not clear it."
+                    },
+                    "unique": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "collection"
+                        }
+                      ],
+                      "description": "`true`: no two records hold the same value, within the collection (`global`) or within one robot (`per_robot`, `one_per_robot`). `collection`: on a robot-bound collection, across all robots. Empty values never collide. Not allowed on `boolean` and `json` fields."
+                    },
+                    "default": {
+                      "description": "The value a record gets when it does not set this field. It must itself be a valid value of the field."
+                    },
+                    "to": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]{0,62}$",
+                      "description": "The key of the collection whose records this field points at. It must be a collection of the same document."
+                    },
+                    "on_delete": {
+                      "type": "string",
+                      "enum": [
+                        "prevent",
+                        "clear"
+                      ],
+                      "description": "`prevent` (the default): a record that other records point at cannot be deleted. `clear`: deleting it clears the reference in the records that pointed at it."
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "to"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "can": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "boolean"
+              },
+              "create": {
+                "type": "boolean"
+              },
+              "update": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "own"
+                    ]
+                  },
+                  {
+                    "type": "boolean",
+                    "const": false
+                  }
+                ],
+                "description": "`all`: any record. `own`: only records the caller created. `false`: none."
+              },
+              "delete": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "own"
+                    ]
+                  },
+                  {
+                    "type": "boolean",
+                    "const": false
+                  }
+                ],
+                "description": "`all`: any record. `own`: only records the caller created. `false`: none."
+              }
+            },
+            "required": [
+              "read",
+              "create",
+              "update",
+              "delete"
+            ],
+            "additionalProperties": false,
+            "description": "What the caller may do with the records of this collection."
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "binding",
+          "display",
+          "fields",
+          "can"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "collections"
+  ],
+  "additionalProperties": false,
+  "description": "The collections the caller may read, with their field definitions and the caller's rights."
+}

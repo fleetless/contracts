@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ],
+      "description": "`true` also puts records back to their state at the version's restore point. Default `false`."
+    },
+    "collections": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The touched collections to put records back in, separated by commas. Default: all of them."
+    }
+  },
+  "additionalProperties": false
+}

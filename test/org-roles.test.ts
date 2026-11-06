@@ -177,10 +177,10 @@ describe('what the role list answers', () => {
 
   it('names a place a role key is written in, whatever the kind', () => {
     expect(referencePlace.safeParse(place).success).toBe(true)
-    for (const kind of ['config', 'app_user', 'invitation', 'app_default', 'role_inherits', 'org_default']) {
+    for (const kind of ['config', 'collection_schema', 'app_user', 'invitation', 'app_default', 'role_inherits', 'org_default']) {
       expect(referencePlace.safeParse({ ...place, kind }).success, kind).toBe(true)
     }
-    expect(referencePlace.safeParse({ ...place, kind: 'collection_schema' }).success).toBe(false)
+    expect(referencePlace.safeParse({ ...place, kind: 'collections' }).success).toBe(false)
     expect(referencePlace.safeParse({
       kind: 'org_default', label: 'read', path: null, robot_id: null, app_id: null, user_id: null, document: null, new_version: null,
     }).success).toBe(true)
@@ -188,6 +188,20 @@ describe('what the role list answers', () => {
     expect(referencePlace.safeParse({ ...place, new_version: 0 }).success).toBe(false)
     const { path: _path, ...withoutPath } = place
     expect(referencePlace.safeParse(withoutPath).success, 'a null is spelled out, never left off').toBe(false)
+  })
+
+  it('names the role key in an app\'s collection access by app, schema document and path', () => {
+    const access = {
+      kind: 'collection_schema', label: 'Fleet app', path: 'collections.notes.access.update.own[1]', robot_id: null, app_id: id,
+      user_id: null, document: 'published', new_version: 7,
+    }
+    expect(referencePlace.safeParse(access).success).toBe(true)
+    expect(referencePlace.safeParse({ ...access, document: 'draft', new_version: null }).success).toBe(true)
+    const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/reference-place.schema.json', import.meta.url), 'utf8'))
+    expect(schema.properties.kind.description).toContain('`collection_schema`')
+    expect(schema.properties.path.description).toContain('collections.notes.access')
+    expect(schema.properties.app_id.description).toContain('`collection_schema`')
+    expect(schema.properties.document.description).toContain('`collection_schema`')
   })
 
   it('names the inheriting role by its key, since display names are not unique', () => {

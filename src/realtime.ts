@@ -5,6 +5,8 @@ import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
+import { collectionKey } from './collections.js'
+import { collectionFilter, collectionRecord } from './collections-records.js'
 
 /**
  * Client realtime protocol: WebSocket subscriptions on datapoints, the
@@ -538,3 +540,183 @@ export const orgEventDropped = z
   })
   .strict()
 export type OrgEventDropped = z.infer<typeof orgEventDropped>
+
+// ---------------------------------------------------------------------------
+// App collections
+// ---------------------------------------------------------------------------
+
+/**
+ * The name a client gives one of its collection subscriptions. Every event and
+ * every refusal of that subscription carries it back, so one socket can hold
+ * several subscriptions, to the same collection with different filters
+ * included, and tell their events apart.
+ */
+const collectionRequestId = z.string().min(1).max(64).meta({
+  description: 'Chosen by the client, unique among the collection subscriptions open on this socket: a `request_id` that is already in use is refused with `validation_error`. Every frame about the subscription carries it.',
+})
+
+/**
+ * Subscribe to the changes of one collection's records.
+ *
+ * **The cloud answers with `collection_subscribed` once the subscription is
+ * registered, and with `collection_subscribe_error` when it is refused. There
+ * is no first snapshot.** To show the records that exist, subscribe, wait for
+ * `collection_subscribed` and list then: from that frame on every change the
+ * subscription covers is delivered as an event, so none can fall between the
+ * list and the events. An event that arrives while the list is still being
+ * read may or may not be in its result; apply it to the result by `id` and
+ * `revision`. A subscription is registered afresh on every connection, so a
+ * client that reconnects and subscribes again gets a new `collection_subscribed`
+ * and lists again; changes made while it was disconnected are not replayed.
+ *
+ * The caller's rights are checked on every event, not only on subscribe: a
+ * record that the caller may no longer see, because its values changed, the
+ * role lost the right or the robot was detached, is announced once as
+ * `removed`, and one that comes into view as `entered`.
+ *
+ * **When a subscription is judged.** At the frame, with the role and status an
+ * app user has then and not as at `auth`: a user who was re-roled is answered
+ * for the new role (`collection_not_found` when it has no right on the
+ * collection, `forbidden` when it may not read it), and one who was blocked or
+ * removed is answered `forbidden` and stays unsubscribed. A frame sent before
+ * `auth` is answered with `collection_subscribe_error` and code `unauthorized`;
+ * the socket stays open. A socket holds at most 50 subscriptions.
+ */
+export const collectionSubscribe = z
+  .object({
+    type: z.literal('collection_subscribe'),
+    request_id: collectionRequestId,
+    app_id: z
+      .uuid()
+      .meta({
+        description:
+          'The app whose collection to follow. Required on the connection of a developer, whose token belongs to the organization and so to no app: without it the subscribe is refused with `validation_error`. On the connection of an app user or a server key it can be left out, because the token names the app; if it is sent, it must be that app, otherwise `validation_error`. An app that does not exist or belongs to another organization is answered `collection_not_found`.',
+      })
+      .optional(),
+    collection: collectionKey.meta({ description: 'The key of the collection.' }),
+    robot_id: z.uuid().meta({ description: 'Only the records of this robot, in a collection that belongs to robots.' }).optional(),
+    filter: collectionFilter
+      .meta({
+        description:
+          'Only records matching this filter are delivered, with the grammar of the `filter` of the record list but as an object, not JSON text. The whole frame is at most 16,384 bytes; a larger frame closes the socket with code 1009 (message too big) instead of being answered, so a filter with many long values may not fit.',
+      })
+      .optional(),
+  })
+  .strict()
+  .meta({
+    description:
+      'Subscribes to the changes of the records of one collection. The cloud answers an accepted subscription with `collection_subscribed` and a refused one with `collection_subscribe_error`.',
+  })
+export type CollectionSubscribe = z.infer<typeof collectionSubscribe>
+
+/**
+ * A collection subscription is registered. Sent once for every
+ * `collection_subscribe` that is accepted, after the cloud has judged it (the
+ * collection exists, the caller may read it, the robot and the filter fit) and
+ * registered it, and before the first `collection_event` of that
+ * subscription: a client that lists the records now misses no change, because
+ * every change from this frame on reaches it as an event.
+ *
+ * The frame is sent again for every subscribe, so a client that reconnects and
+ * subscribes again receives it again. It does not say that anything exists or
+ * changed; it carries only the `request_id`.
+ */
+export const collectionSubscribed = z
+  .object({
+    type: z.literal('collection_subscribed'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription that is now registered.' }),
+  })
+  .strict()
+  .meta({ description: 'A collection subscription is registered: every change it covers is delivered from now on.' })
+export type CollectionSubscribed = z.infer<typeof collectionSubscribed>
+
+export const collectionUnsubscribe = z
+  .object({
+    type: z.literal('collection_unsubscribe'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription to end.' }),
+  })
+  .strict()
+  .meta({ description: 'Ends a collection subscription.' })
+export type CollectionUnsubscribe = z.infer<typeof collectionUnsubscribe>
+
+/**
+ * One change to a record the subscriber can see. `record` is the whole record,
+ * up to 1 MB, in the shape the REST routes answer.
+ *
+ * **A client that cannot keep up is disconnected, not skipped.** A socket whose
+ * send buffer holds more than 8 MiB, or that has more than 2,000 collection
+ * changes waiting to be delivered (a bulk import into a big collection does
+ * that), is closed with code 1013 ("try again later"). The client reconnects,
+ * subscribes again and lists again.
+ */
+export const collectionEvent = z
+  .object({
+    type: z.literal('collection_event'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription the event belongs to.' }),
+    event: z.enum(['created', 'updated', 'deleted', 'removed', 'entered']).meta({
+      description:
+        '`created`, `updated` and `deleted`: the record was written. `removed`: the record left the view of this subscription without being deleted, because its values no longer match the filter, the role lost the right to read it or its robot was detached. `entered`: the record came into view the same way.',
+    }),
+    id: z.uuid().meta({ description: 'The id of the record.' }),
+    record: collectionRecord
+      .meta({
+        description:
+          'The record: as it is now for `created`, `updated`, `entered` and `removed`, and as it was for `deleted`. Absent only on a `removed` event for a record the subscriber may no longer read, so that its values are not told: that is the case when the robot of the record was detached, or when the role lost the right to read the collection.',
+      })
+      .optional(),
+  })
+  .strict()
+  .meta({ description: 'A record came into view, changed or went away.' })
+export type CollectionEvent = z.infer<typeof collectionEvent>
+
+/**
+ * Refusal of a collection subscription, or the end of one. The codes are those
+ * of REST: `collection_not_found`, `forbidden`, `robot_not_attached` and
+ * `validation_error` when the subscribe is refused; `collection_removed`,
+ * `forbidden`, `robot_not_attached`, `validation_error` and `internal_error`
+ * when a running subscription ends:
+ *
+ * - `collection_removed`: a publish or restore removed its collection;
+ * - `forbidden`: the user was re-roled, blocked or removed, or the role lost the
+ *   right to read the collection;
+ * - `robot_not_attached`: the robot the subscription follows was detached, or a
+ *   robot with more than 5,000 records was detached (when a robot is attached
+ *   or detached, at most 5,000 of its records are announced to a subscription,
+ *   as `entered` or `removed`);
+ * - `validation_error`: its `filter` no longer fits the collection after a
+ *   publish;
+ * - `internal_error`: it could not be judged again (the database or the rights
+ *   check failed), or a robot coming or going could not be announced. The cloud
+ *   ends the subscription rather than go on telling a caller what it may no
+ *   longer see; subscribing again is the way back.
+ *
+ * `request_id` echoes what the client sent and is a plain string for the reason
+ * `subscribeError`'s ids are: the refusal must be constructible when the id
+ * itself was what was wrong.
+ */
+export const collectionSubscribeError = z
+  .object({
+    type: z.literal('collection_subscribe_error'),
+    request_id: z.string().meta({ description: 'The `request_id` of the subscription, as the client sent it.' }),
+    code: z.string().min(1).meta({ description: 'A stable error code, as in REST; `unauthorized` is also possible here, for a subscribe sent before `auth`.' }),
+    message: z.string().min(1),
+  })
+  .strict()
+  .meta({ description: 'A collection subscription was refused or has ended.' })
+export type CollectionSubscribeError = z.infer<typeof collectionSubscribeError>
+
+/**
+ * Sent to every socket that holds a collection subscription in the app after a
+ * schema version was published or restored. Rights and collections may have
+ * changed, so a client that cached definitions reads them again. Subscriptions
+ * whose collection or right is gone end with their own
+ * `collection_subscribe_error`.
+ */
+export const collectionsSchemaPublished = z
+  .object({
+    type: z.literal('collections_schema_published'),
+    version: z.number().int().min(1).meta({ description: 'The version that is in force now.' }),
+  })
+  .strict()
+  .meta({ description: 'A new schema version is in force for the app.' })
+export type CollectionsSchemaPublished = z.infer<typeof collectionsSchemaPublished>

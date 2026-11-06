@@ -362,9 +362,6 @@ export {
   fetchTypesResponse,
   datapointDescriptor,
   datapointListResponse,
-  robotDetailsDoc,
-  putRobotDetailsResponse,
-  putRobotDetailsRequest,
   invokeRequest,
   invokeResponse,
   // Addressing.
@@ -467,9 +464,6 @@ export type {
   FetchTypesResponse,
   DatapointDescriptor,
   DatapointListResponse,
-  RobotDetailsDoc,
-  PutRobotDetailsResponse,
-  PutRobotDetailsRequest,
   InvokeRequest,
   InvokeResponse,
   CancelRequest,
@@ -518,6 +512,12 @@ export {
   orgEventUnsubscribe,
   orgEventReplay,
   orgEventDropped,
+  collectionSubscribe,
+  collectionSubscribed,
+  collectionUnsubscribe,
+  collectionEvent,
+  collectionSubscribeError,
+  collectionsSchemaPublished,
 } from './realtime.js'
 export type {
   ClientAuth,
@@ -543,6 +543,12 @@ export type {
   OrgEventUnsubscribe,
   OrgEventReplay,
   OrgEventDropped,
+  CollectionSubscribe,
+  CollectionSubscribed,
+  CollectionUnsubscribe,
+  CollectionEvent,
+  CollectionSubscribeError,
+  CollectionsSchemaPublished,
 } from './realtime.js'
 export {
   password,
@@ -864,8 +870,8 @@ export type {
   AssetStoreRefusedDetails,
   AssetSyncBusyDetails,
 } from './assets.js'
-export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS } from './audit.js'
-export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse } from './audit.js'
+export { auditActor, auditEvent, auditQuery, auditListResponse, AUDIT_CSV_COLUMNS, AUDIT_RETENTION_DAYS, COLLECTION_AUDIT_ACTIONS } from './audit.js'
+export type { AuditActor, AuditEvent, AuditQuery, AuditListResponse, CollectionAuditAction } from './audit.js'
 export {
   alertRowCondition,
   alertSeverity,
@@ -906,6 +912,12 @@ export {
   paymentProviderUnavailableDetails,
   // 2026-10-19 — Lexware billing documents (fleetless/fleetless#544).
   billingDocumentsUnavailableDetails,
+  // 2026-11-04 — app collections.
+  confirmationRequiredDetails,
+  recordReferencedDetails,
+  recordChangedDetails,
+  referenceInvalidDetails,
+  requiredMissingDetails,
   // Organization roles.
   roleCycleDetails,
 } from './errors.js'
@@ -923,6 +935,11 @@ export type {
   FileTooLargeDetails,
   PaymentProviderUnavailableDetails,
   BillingDocumentsUnavailableDetails,
+  ConfirmationRequiredDetails,
+  RecordReferencedDetails,
+  RecordChangedDetails,
+  ReferenceInvalidDetails,
+  RequiredMissingDetails,
   RoleCycleDetails,
 } from './errors.js'
 export {
@@ -1170,3 +1187,127 @@ export type {
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
   InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
 } from './billing.js'
+
+export {
+  COLLECTIONS_FORMAT_VERSION,
+  COLLECTION_RESERVED_KEYS,
+  COLLECTION_LIMITS,
+  collectionKey,
+  collectionBinding,
+  collectionFieldType,
+  collectionField,
+  collectionAccessValue,
+  collectionAccess,
+  collectionDefinition,
+  collectionsDocument,
+} from './collections.js'
+export type {
+  CollectionKey,
+  CollectionBinding,
+  CollectionFieldType,
+  CollectionField,
+  CollectionAccessValue,
+  CollectionAccess,
+  CollectionDefinition,
+  CollectionsDocument,
+} from './collections.js'
+export { roleCollectionRights } from './collections-rights.js'
+export type { RoleCollectionRights } from './collections-rights.js'
+export { collectionJsonTemplateName, COLLECTION_JSON_TEMPLATES, parseDisplayTemplate } from './collections-templates.js'
+export type { CollectionJsonTemplateName, DisplayPlaceholder, DisplayTemplateParse } from './collections-templates.js'
+export { checkCollectionValue, normalizeCollectionValue } from './collections-values.js'
+export type { CollectionValueProblem, CollectionValueOptions } from './collections-values.js'
+export { collectionsIssue, collectionsDocumentIssues, collectionsAccessWarnings } from './collections-issues.js'
+export type { CollectionsIssue, CollectionsDocumentIssuesOptions } from './collections-issues.js'
+export {
+  COLLECTION_FILTER_OPS,
+  COLLECTION_FILTER_SYSTEM_KEYS,
+  collectionActor,
+  collectionRecord,
+  collectionFilter,
+  parseCollectionFilter,
+  parseCollectionSort,
+  collectionRecordListQuery,
+  collectionRecordGetQuery,
+  collectionRecordListResponse,
+  collectionRecordWrite,
+  collectionRevision,
+  collectionRecordHistoryQuery,
+  collectionRecordHistoryResponse,
+  collectionRecordRestoreRequest,
+  collectionSummary,
+  collectionListResponse,
+  collectionDefinitionsResponse,
+} from './collections-records.js'
+export type {
+  CollectionActor,
+  CollectionRecord,
+  CollectionFilter,
+  CollectionFilterOp,
+  CollectionFilterNode,
+  CollectionFilterIssue,
+  CollectionFilterParse,
+  CollectionSortField,
+  CollectionSortParse,
+  CollectionRecordListQuery,
+  CollectionRecordGetQuery,
+  CollectionRecordListResponse,
+  CollectionRecordWrite,
+  CollectionRevision,
+  CollectionRecordHistoryQuery,
+  CollectionRecordHistoryResponse,
+  CollectionRecordRestoreRequest,
+  CollectionSummary,
+  CollectionListResponse,
+  CollectionDefinitionsResponse,
+} from './collections-records.js'
+export {
+  collectionsEffect,
+  collectionsAccessChange,
+  collectionsSchemaPreview,
+  collectionsDraftResponse,
+  putCollectionsDraftRequest,
+  collectionsPublishRequest,
+  collectionsPublishResponse,
+  collectionsVersionSummary,
+  collectionsVersionsResponse,
+  collectionsVersionResponse,
+  collectionsRestorePreview,
+  collectionsRestorePreviewQuery,
+  collectionsRestoreRequest,
+  collectionsRestoreResponse,
+  collectionsPurgeRequest,
+  collectionsPurgePreview,
+  collectionsPurgeResponse,
+} from './collections-schema.js'
+export type {
+  CollectionsEffect,
+  CollectionsAccessChange,
+  CollectionsSchemaPreview,
+  CollectionsDraftResponse,
+  PutCollectionsDraftRequest,
+  CollectionsPublishRequest,
+  CollectionsPublishResponse,
+  CollectionsVersionSummary,
+  CollectionsVersionsResponse,
+  CollectionsVersionResponse,
+  CollectionsRestorePreview,
+  CollectionsRestorePreviewQuery,
+  CollectionsRestoreRequest,
+  CollectionsRestoreResponse,
+  CollectionsPurgeRequest,
+  CollectionsPurgePreview,
+  CollectionsPurgeResponse,
+} from './collections-schema.js'
+export {
+  collectionImportRequest,
+  collectionImportPreview,
+  collectionImportResult,
+  collectionExportQuery,
+} from './collections-transfer.js'
+export type {
+  CollectionImportRequest,
+  CollectionImportPreview,
+  CollectionImportResult,
+  CollectionExportQuery,
+} from './collections-transfer.js'

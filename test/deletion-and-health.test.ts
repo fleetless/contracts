@@ -57,20 +57,37 @@ describe('deletion', () => {
     asset_bytes_freed: 0,
     job_run_count: 41_233,
     had_live_session: false, had_unpublished_draft: true,
+    collection_records: [{ app_id: '0e0a56b6-8a38-4e53-8c30-0d3f1f3c2a10', app_name: 'Warehouse', records: 1_204 }],
     }
     expect(robotDeletionSummary.parse(summary)).toEqual(summary)
+  })
+
+  it('counts the robot\'s app collection records per app, none being an empty list', () => {
+    const base = {
+      slug_count: 0, sample_rows: 0, bytes_freed: 0, cameras: [], asset_count: 0, asset_bytes_freed: 0, job_run_count: 0,
+      had_live_session: false, had_unpublished_draft: false,
+    }
+    expect(robotDeletionSummary.safeParse({ ...base, collection_records: [] }).success).toBe(true)
+    const row = { app_id: '0e0a56b6-8a38-4e53-8c30-0d3f1f3c2a10', app_name: 'Warehouse', records: 3 }
+    expect(robotDeletionSummary.safeParse({ ...base, collection_records: [row] }).success).toBe(true)
+    // Missing is not zero: a summary that does not say stands for an unknown amount.
+    expect(robotDeletionSummary.safeParse(base).success).toBe(false)
+    for (const bad of [{ ...row, app_id: 'warehouse' }, { ...row, records: -1 }, { ...row, records: 1.5 }, { app_id: row.app_id, records: 3 }]) {
+      expect(robotDeletionSummary.safeParse({ ...base, collection_records: [bad] }).success).toBe(false)
+    }
   })
 
   it('requires every field, because an absent count reads as zero', () => {
     // "Nothing was destroyed" and "nobody counted" are different facts, and a
     // receipt that omits one of them is a receipt for an unknown amount.
-    for (const drop of ['slug_count', 'sample_rows', 'bytes_freed', 'cameras', 'job_run_count', 'had_live_session', 'had_unpublished_draft']) {
+    for (const drop of ['slug_count', 'sample_rows', 'bytes_freed', 'cameras', 'job_run_count', 'had_live_session', 'had_unpublished_draft', 'collection_records']) {
       const partial: Record<string, unknown> = {
         slug_count: 0, sample_rows: 0, bytes_freed: 0, cameras: [],
         asset_count: 0,
     asset_bytes_freed: 0,
     job_run_count: 0,
     had_live_session: false, had_unpublished_draft: false,
+        collection_records: [],
       }
       delete partial[drop]
       expect(robotDeletionSummary.safeParse(partial).success).toBe(false)
@@ -86,6 +103,7 @@ describe('deletion', () => {
     asset_bytes_freed: 0,
     job_run_count: 0,
     had_live_session: false, had_unpublished_draft: true,
+    collection_records: [],
     })
     expect(neverPublished.had_unpublished_draft).toBe(true)
   })
@@ -118,15 +136,16 @@ describe('app deletion summary', () => {
   const full = {
     user_count: 5, server_key_count: 3,
     invitation_count: 2, oidc_provider_count: 2, mail_template_count: 1,
+    collection_count: 4, record_count: 12_000,
   }
 
-  it('accepts the five counts', () => {
+  it('accepts the seven counts', () => {
     expect(appDeletionSummary.safeParse(full).success).toBe(true)
   })
 
   it('counts no roles: they belong to the organization and survive the app', () => {
     expect('role_count' in appDeletionSummary.shape).toBe(false)
-    expect(Object.keys(appDeletionSummary.shape)).toHaveLength(5)
+    expect(Object.keys(appDeletionSummary.shape)).toHaveLength(7)
   })
 
   it('requires every one of them — an absent count would read as zero on the one screen that must not guess', () => {
@@ -138,6 +157,15 @@ describe('app deletion summary', () => {
 
   it('refuses a negative count', () => {
     expect(appDeletionSummary.safeParse({ ...full, user_count: -1 }).success).toBe(false)
+    expect(appDeletionSummary.safeParse({ ...full, record_count: -1 }).success).toBe(false)
+    expect(appDeletionSummary.safeParse({ ...full, collection_count: 1.5 }).success).toBe(false)
+  })
+
+  it('counts the collections and records that go with the app, zero for an app without any', () => {
+    expect(appDeletionSummary.safeParse({ ...full, collection_count: 0, record_count: 0 }).success).toBe(true)
+    // A summary from before collections lacks both, which reads as zero — so it is refused rather than guessed.
+    const { collection_count: _c, record_count: _r, ...old } = full
+    expect(appDeletionSummary.safeParse(old).success).toBe(false)
   })
 })
 

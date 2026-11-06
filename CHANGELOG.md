@@ -9,6 +9,167 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **App collections: structured records an app stores in the cloud.** A
+  developer describes them in one document, `collectionsDocument`
+  (`COLLECTIONS_FORMAT_VERSION` 1): up to 50 collections of up to 100 fields,
+  each field a `collectionFieldType` with its own bounds, a `display` template,
+  and an `access` rule per collection saying who may read and write.
+  `collectionsDocumentIssues` judges a document and `collectionsAccessWarnings`
+  names what its access rules allow; `checkCollectionValue` and
+  `normalizeCollectionValue` judge and normalise one value the same way on
+  every side, and `parseCollectionFilter` and `parseCollectionSort` read the
+  filter and sort of a list request and report every problem with a JSON
+  Pointer path. Four JSON templates (`pose2d`, `point2d`, `polygon2d`,
+  `range1d`) are built in, and a field may carry an inline JSON Schema.
+  `collections:` with nothing under it (YAML null) reads as no collections,
+  the form of a template for a new app. A `json` value may nest arrays and
+  objects 32 levels deep, and a `text` pattern is at most 1,000 characters;
+  the cloud may also refuse a pattern as too complex.
+- **Records.** A record travels as an envelope, `collectionRecord`: its system
+  fields (id, robot, who and when, revision), the rendered display text and the
+  required fields it is missing, with its own values under `values`. Writes
+  send `values`, an optional robot and an optional expected revision, and a
+  stale revision is answered `record_changed`. Lists take a filter, a search, a
+  sort, `expand`, a page of 1 to 500 and a cursor, and reading one record
+  takes the same `expand` (`collectionRecordGetQuery`); a page ends at 4 MiB
+  of stored values, so only a `null` cursor says a list is at its end. The
+  list of deleted records marks each record with `deleted_at` and
+  `deleted_by`. Every change keeps a revision, `collectionRevision`, which the
+  history route lists (in pages that end at 4 MiB as well) and the restore
+  route can bring back. An actor is labelled by display name; an email
+  address is shown only to a developer or a server key and to the person
+  themselves.
+- **Schema lifecycle.** Saving a draft, previewing it, publishing it, listing
+  and restoring versions, and purging old history are separate steps. A change
+  that would alter or remove data is previewed first: the preview lists its
+  effects (ten kinds) and a token that stands for exactly that list, and the
+  confirming request sends the token back as `confirm`; the preview also
+  carries `source_sha256`, the hash of the draft it is for, which a publish can
+  send back so that a draft saved again in between is not published unseen,
+  also when there are no effects and so no token. A version can be restored
+  together with its data for 90 days, and a version that a restore published
+  says whether it put records back (`with_data`) and how many
+  (`reverted_totals`).
+- **Import and export.** An import is all or nothing and takes two requests, a
+  preview that lists at most 1,000 errors with row, column, value and reason,
+  and a confirmation with the preview's token; without a token the import
+  route answers the preview, and a token that no longer holds is `409
+  confirmation_required`. Modes are `upsert` and `mirror`, and a mirror's
+  `scope` names a filter or a robot. The export query takes the filter, search
+  and sort of a record list.
+- **Realtime.** `collection_subscribe` and `collection_unsubscribe` open and
+  close a subscription on the client socket, `collection_event` carries
+  `created`, `updated`, `deleted`, `removed` and `entered` with the whole
+  record, and `collection_subscribe_error` and `collections_schema_published`
+  tell a client its subscription failed or its definitions changed. The cloud
+  answers an accepted subscription with `collection_subscribed`
+  (`collectionSubscribed`, carrying the `request_id`) once it is registered,
+  also after a reconnect and a new subscribe, and every change from that frame
+  on is delivered as an event: subscribe, wait for it, then list. There is no
+  first snapshot. A developer connection names the app in `app_id`; a socket
+  holds 50 subscriptions at most, and one that falls too far behind is closed
+  with 1013.
+- **Limits.** `COLLECTION_LIMITS` names every bound in one place: record size
+  (1 MiB), text lengths, select options, filter depth and conditions, page
+  sizes, import size (10 MB, 50,000 rows), pattern length, `json` nesting
+  depth, the longest text an import error repeats and the write rates (600 a
+  minute for an app, 120 for one acting user or key).
+- **Routes and codes.** A new route section, App collections, with the
+  developer routes under `/api/apps/:id/collections` and the same records,
+  import and export for app users and server keys under
+  `/api/client/collections`; only the two history purge routes need the Owner
+  tier. New error codes `record_referenced`, `record_changed`,
+  `collection_not_found`, `collection_removed`, `reference_invalid`,
+  `required_missing` and `robot_not_attached`, with their details, and the
+  audit actions listed as `COLLECTION_AUDIT_ACTIONS`. `confirmation_required`,
+  which organization roles have used since 14.0.0, now also answers a
+  publish, restore, purge or import that would change data. Its `details` is
+  `{ preview }` here (`confirmationRequiredDetails`, the token in
+  `details.preview.token`) and the rename preview itself for a role rename
+  (the token in `details.confirm`), so a client that handles both looks for
+  `details.preview` first.
+- **Plan limits for collections.** `planLimitKey` gains `collection_records`
+  and `collection_bytes`, counted per organization across its apps over
+  current records only: 25,000 records and 1 GB on Basic, 250,000 and 10 GB on
+  Plus, 1,000,000 and 50 GB on Pro, by contract on Enterprise. No add-on
+  raises them. `GET /api/org/quotas` carries both as limits (`orgQuotas`,
+  `null` when by contract) and as usage, with `collection_history_bytes`
+  beside them for information (`orgQuotaUsageCounts`); a write or an import
+  that adds data past a limit is `409 plan_limit` naming the key.
+- **Collection rights of a role.** `roleCollectionRights` says per collection
+  what a role may do: read, create, and update and delete on every record, on
+  the role's own only (`own`), or not at all. The effective-rights answer
+  (`GET /api/apps/:id/effective-rights`) lists one row per collection of the
+  published schema in `collections`, an empty list without one.
+
+### Changed
+
+- **A role key can be written in an app's collections schema.** `referencePlace`
+  gains the kind `collection_schema`: the `access` of a collection in the
+  published schema or the draft of an app, with the app's id in `app_id`, the
+  place in `path` (such as `collections.notes.access.update.own[1]`), `document`
+  and, for the published schema, the `new_version` a rename with
+  `update_references` would give it. It appears in the role list's `dangling`
+  places and in the rename preview. The version such a rename appends is
+  audited as `collection_schema.published` with `role_rename` in its details.
+  **Breaking (major):** the enum of `kind`
+  widens, so an exhaustive `switch` over it needs the new case and a validator
+  built from the old artifacts refuses the new places.
+- **A role rename can answer `429 rate_limited`.** `PATCH /api/org/roles/:key`
+  lists `rate_limited` among its errors: a rename with `update_references` that
+  has to rewrite the schema of an app whose collections are busy waits up to
+  two seconds, then answers `429` with `retry_after_ms` and changes nothing.
+  A schema text it cannot rewrite without losing it (an access rule that is an
+  alias, say) refuses the rename with `400 validation_error` naming
+  `update_references`, and changes nothing.
+- **Deletion summaries count collections.** `appDeletionSummary` gains
+  `collection_count` and `record_count`, and `robotDeletionSummary` gains
+  `collection_records`, the records that go with the robot per app. All three
+  are required fields of responses the server sends, like the other counts.
+  A consumer that builds these objects itself (a test double, say) adds them.
+- **Quota and effective-rights answers have new required fields.**
+  `orgQuotas` gains `collection_records` and `collection_bytes`, and
+  `effectiveRightsResponse` gains `collections`. A consumer that builds these
+  answers itself adds them, as above; one that only reads them is unaffected.
+- **Breaking (major):** `planLimits` requires `collection_records` and
+  `collection_bytes`, like its other keys. That is the `limits` of `orgPlan`
+  (`GET /api/org/plan`), of every plan catalogue entry and of
+  `planChangeDecisionStatusResponse`, and the constant `PLANS`. A consumer
+  that builds plan limits itself, or keeps a `Record<PlanLimitKey, ...>`,
+  adds both keys, and a validator built from the old artifacts refuses the new
+  answers. A consumer that embeds `orgPlan` or `planLimits` in a schema of its
+  own (an admin or operator API, say) inherits the two required keys: its
+  parsed type changes, every fixture or stored sample of a plan needs
+  `collection_records` and `collection_bytes` (`null` is by contract), and a
+  plan written before this release, without them, no longer parses. A list of
+  limit keys written out by hand (an enum, or a table keyed by limit) does not
+  widen with `planLimitKey` and gets the two keys added by hand. The enums that
+  do follow it widen as well: `addonCatalogueEntry.raises`,
+  `assetPlanLimitDetails.limit` and `planLimitDetails.limit` accept the two new
+  keys. The last one is the `details.limit` of `409 plan_limit` for a
+  collection write; no add-on raises the keys and an asset refusal never names
+  them. An exhaustive `switch` over any of the three needs the two cases.
+  `planOverrides` and the `overrides` of an admin plan change accept the two
+  keys too, and a validator built from the older artifacts refuses a request
+  that names them.
+
+### Removed
+
+- **Breaking (major):** The `robot_details` built-in. `robotDetailsDoc`,
+  `putRobotDetailsRequest` and `putRobotDetailsResponse` (with their types and
+  the three JSON Schema artifacts), the route `PUT /api/robots/:id/details`,
+  and the reserved slug are gone: `RESERVED_SLUGS` is now `bridge_state`,
+  `history`, `assets` and `job_history`, so `robot_details` is an ordinary slug
+  that a configuration may use. The descriptions of `datapointDescriptor`,
+  `datapointListResponse` and the configuration sections name `bridge_state`
+  as the only built-in datapoint. Nothing was deprecated first. To move over,
+  keep what a robot's details held in a collection with one record per robot
+  (`binding: one_per_robot`) in the app's collections document, and read and
+  write it with the collection routes; delete the calls of the removed route
+  and the code that parsed the removed schemas.
+
 ## [14.0.0] — 2026-11-05
 
 Per-app roles are replaced by organization roles. What follows is one major

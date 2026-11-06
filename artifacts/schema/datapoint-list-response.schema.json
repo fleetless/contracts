@@ -16,7 +16,7 @@
           },
           "builtin": {
             "type": "boolean",
-            "description": "`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds."
+            "description": "`true` for the datapoint every robot has, `bridge_state`, and `false` for everything the published configuration adds."
           },
           "unit": {
             "anyOf": [
@@ -51,7 +51,7 @@
         ],
         "additionalProperties": false
       },
-      "description": "Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller's role may read."
+      "description": "Everything a client may read on this robot: the built-in `bridge_state`, plus every datapoint the published configuration exposes and the caller's role may read."
     }
   },
   "required": [

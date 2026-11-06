@@ -47,6 +47,37 @@
     },
     "had_unpublished_draft": {
       "type": "boolean"
+    },
+    "collection_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "description": "The app whose collections hold records of the robot."
+          },
+          "app_name": {
+            "type": "string",
+            "description": "The app's name."
+          },
+          "records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "How many records of the robot the app's collections hold, deleted with the robot."
+          }
+        },
+        "required": [
+          "app_id",
+          "app_name",
+          "records"
+        ],
+        "additionalProperties": false
+      },
+      "description": "App collection records that go with the robot, per app. A robot's records are kept in every app it was attached to, also in one it was detached from, and are deleted with their history when the robot is; apps without records of this robot are left out."
     }
   },
   "required": [
@@ -58,7 +89,8 @@
     "asset_bytes_freed",
     "job_run_count",
     "had_live_session",
-    "had_unpublished_draft"
+    "had_unpublished_draft",
+    "collection_records"
   ],
   "additionalProperties": false
 }

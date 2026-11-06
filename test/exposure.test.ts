@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect } from 'vitest'
+import * as contracts from '../src/index.js'
 import {
   RESERVED_SLUGS,
+  slug,
   datapointConfig,
   robotConfigDoc,
   validationIssue,
@@ -20,7 +22,6 @@ import {
   publishConfigResponse,
   introspectionResponse,
   datapointListResponse,
-  robotDetailsDoc,
   parameterSpec,
   ERROR_CODES,
 } from '../src/index.js'
@@ -66,7 +67,7 @@ describe('exposure model', () => {
     expect(datapointConfig.safeParse({ ...DATAPOINT, type: 'example/srv/AddTwoInts' }).success).toBe(true)
   })
 
-  it('names the reserved slugs, the two built-ins first', () => {
+  it('RESERVED_SLUGS is bridge_state and history', () => {
     // `history` is not a built-in — nothing publishes it, no plane serves it.
     // Reserved because `GET /api/robots/:id/jobs/history` (see `routes.test.ts`)
     // is a literal sibling of `/jobs/:slug`, so an action of that name would be
@@ -74,7 +75,20 @@ describe('exposure model', () => {
     // so an exposure of the same name would make a capability's `name` ambiguous.
     // Order matters too: the console's built-in slug list
     // annotates against this union, so a reorder must not pass unremarked.
-    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'robot_details', 'history', 'assets', 'job_history'])
+    expect([...RESERVED_SLUGS]).toEqual(['bridge_state', 'history', 'assets', 'job_history'])
+  })
+
+  it('a document with a datapoint slug robot_details validates', () => {
+    // The name was reserved while the cloud published a built-in under it;
+    // nothing does any more, so it is an ordinary slug like any other.
+    expect(slug.safeParse('robot_details').success).toBe(true)
+    expect(robotConfigDoc.safeParse({ fleetless: 1, datapoints: { robot_details: DATAPOINT } }).success).toBe(true)
+  })
+
+  it('no longer exports the robot_details document or its request and response', () => {
+    for (const gone of ['robotDetailsDoc', 'putRobotDetailsRequest', 'putRobotDetailsResponse']) {
+      expect(Object.keys(contracts), gone).not.toContain(gone)
+    }
   })
 
   it('carries a whole configuration as one document', () => {
@@ -351,7 +365,7 @@ describe('REST shapes', () => {
     ).toBe(true)
   })
 
-  it('describes the readable datapoints including the built-ins', () => {
+  it('describes the readable datapoints including the built-in bridge_state', () => {
     expect(
       datapointListResponse.safeParse({
         datapoints: [
@@ -360,20 +374,6 @@ describe('REST shapes', () => {
         ],
       }).success,
     ).toBe(true)
-  })
-
-  it('bounds robot_details keys and value kinds', () => {
-    expect(
-      robotDetailsDoc.safeParse({
-        model: 'ranger-x1',
-        payload_kg: 12.5,
-        indoor: true,
-        sensors: ['lidar', 'imu'],
-        dimensions: { x: 1, y: 2 },
-      }).success,
-    ).toBe(true)
-    expect(robotDetailsDoc.safeParse({ 'Model-Name': 'ranger-x1' }).success).toBe(false)
-    expect(robotDetailsDoc.safeParse({ model: null }).success).toBe(false)
   })
 })
 

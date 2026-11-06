@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991,
+      "description": "The position of this revision in the history. Use it to page (`before_seq`) and to restore (`seq`)."
+    },
+    "op": {
+      "type": "string",
+      "enum": [
+        "create",
+        "update",
+        "delete",
+        "restore"
+      ]
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "developer",
+            "app_user",
+            "server_key",
+            "fleetless"
+          ],
+          "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "description": "The id of the developer, app user or server key. The nil id for the platform."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label"
+      ],
+      "additionalProperties": false,
+      "description": "Who or what made a change to a record."
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Why a change was made when it was not an ordinary write: `schema v5`, `import`, `restore v4`. Null otherwise."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "The record's revision number after this change."
+    },
+    "changes": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "old": {},
+          "new": {}
+        },
+        "required": [
+          "old",
+          "new"
+        ],
+        "additionalProperties": false
+      },
+      "description": "The fields this change touched by key, each with its value before and after. `null` means no value."
+    },
+    "record": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "robot_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The robot a record of a `per_robot` or `one_per_robot` collection belongs to; null in a `global` collection."
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            "created_by": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "developer",
+                    "app_user",
+                    "server_key",
+                    "fleetless"
+                  ],
+                  "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The id of the developer, app user or server key. The nil id for the platform."
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "label"
+              ],
+              "additionalProperties": false,
+              "description": "Who or what made a change to a record."
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            "updated_by": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "developer",
+                    "app_user",
+                    "server_key",
+                    "fleetless"
+                  ],
+                  "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The id of the developer, app user or server key. The nil id for the platform."
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "label"
+              ],
+              "additionalProperties": false,
+              "description": "Who or what made a change to a record."
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "description": "Starts at 1 and grows by one with every change. Send it as `expected_revision` to refuse a write that would overwrite a newer one."
+            },
+            "display": {
+              "type": "string",
+              "description": "The collection's display template filled in for this record."
+            },
+            "missing_required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Required fields that are empty because the schema changed after the record was written. The record can still be updated in its other fields. Absent when nothing is missing."
+            },
+            "values": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {},
+              "description": "The record's fields by key. A field without a value is absent. With `expand`, a reference field holds the referenced record in this same shape instead of its id, when the caller may read that collection."
+            },
+            "deleted_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+              "description": "When the record was deleted. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+            },
+            "deleted_by": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "developer",
+                    "app_user",
+                    "server_key",
+                    "fleetless"
+                  ],
+                  "description": "What made the change: a developer, a user of the app, a server key of the app, or the platform itself."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "The id of the developer, app user or server key. The nil id for the platform."
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "description": "A name to show: the person's display name, the name of a server key, `Fleetless`, `Deleted user` when the user no longer exists, or `Deleted key` when the key does. A person without a display name reads as their email address to a developer or a server key and to themselves, and to an app user reading someone else as `Team member` (a developer) or `User` (an app user): an app user never learns another person's address."
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "label"
+              ],
+              "additionalProperties": false,
+              "description": "Who deleted the record. Present only in the list of deleted records (`deleted=true`); absent on a live record."
+            }
+          },
+          "required": [
+            "id",
+            "robot_id",
+            "created_at",
+            "created_by",
+            "updated_at",
+            "updated_by",
+            "revision",
+            "display",
+            "values"
+          ],
+          "additionalProperties": false,
+          "description": "A record of a collection: its system fields and its values."
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The whole record, on a `delete` revision. Null on every other operation."
+    }
+  },
+  "required": [
+    "seq",
+    "op",
+    "at",
+    "actor",
+    "reason",
+    "revision",
+    "changes",
+    "record"
+  ],
+  "additionalProperties": false,
+  "description": "One change in the history of a record."
+}

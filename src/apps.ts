@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { slug } from './common.js'
 import { mcpRobotDatasheet } from './mcp.js'
+import { roleCollectionRights } from './collections-rights.js'
 import { ACCESS_KINDS, accessKind, roleKey } from './rights.js'
 
 /**
@@ -82,9 +83,9 @@ export type AppListResponse = z.infer<typeof appListResponse>
  * What deleting an app would destroy — read before the irreversible click,
  * and carried again by the `app.deleted` audit event.
  *
- * **Five numbers, never a sum**, for the reason `robotDeletionSummary` states
+ * **Seven numbers, never a sum**, for the reason `robotDeletionSummary` states
  * at length: the console reads this aloud as one sentence, and a total would
- * describe five unrelated magnitudes with one figure on the one screen whose
+ * describe seven unrelated magnitudes with one figure on the one screen whose
  * entire justification is naming what cannot be undone.
  *
  * Roles are not here: they belong to the organization, so deleting an app
@@ -109,6 +110,12 @@ export const appDeletionSummary = z.object({
   }),
   mail_template_count: z.number().int().nonnegative().meta({
     description: 'Custom mail templates, of at most three. A kind using the Fleetless default text is not counted — there is no row to lose.',
+  }),
+  collection_count: z.number().int().nonnegative().meta({
+    description: 'Collections of the app\'s latest published schema. They go with the app, together with their records and history.',
+  }),
+  record_count: z.number().int().nonnegative().meta({
+    description: 'Records of the app\'s collections, deleted with the app.',
   }),
 })
 export type AppDeletionSummary = z.infer<typeof appDeletionSummary>
@@ -430,6 +437,10 @@ export const effectiveRightsResponse = z.object({
   }),
   robots: z.array(effectiveRobotRights).meta({
     description: 'The robots attached to the app, each with what the role may use.',
+  }),
+  collections: z.array(roleCollectionRights).meta({
+    description:
+      'What the role may do with the records of each collection of the app\'s latest published schema, in the schema\'s order. Empty when the app has no published schema. A role that is no role, and a user who is not `active`, are granted nothing in any row.',
   }),
 })
 export type EffectiveRightsResponse = z.infer<typeof effectiveRightsResponse>

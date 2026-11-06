@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
 import { ADDONS, PLANS, PLAN_ORDER, nextPlanRaising, pricesFromEurMonth, requiredPlanFor, usdCentsFromEurCents, yearlyEurCents } from '../src/plans.js'
-import { adminPlanChangeRequest, planChangeRequest, planChangePrepareRequest, planChangeDecisionLookupQuery, planChangeDecisionStatusResponse } from '../src/plans.js'
+import { adminPlanChangeRequest, planLimitKey, planLimits, planChangeRequest, planChangePrepareRequest, planChangeDecisionLookupQuery, planChangeDecisionStatusResponse } from '../src/plans.js'
 import { ERROR_CODES, planLimitDetails, assetPlanLimitDetails } from '../src/errors.js'
 import { liveSessionEndReason } from '../src/realtime.js'
 import { auditActor } from '../src/audit.js'
 
 describe('the plan catalogue matches the decision table (2026-09-30)', () => {
   it('limits', () => {
-    expect(PLANS.basic.limits).toEqual({ seats: 1, robots: 1, apps: 1, app_users: 10, live_video_ms_per_month: 36_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 7, audit_days: 7 })
-    expect(PLANS.plus.limits).toEqual({ seats: 3, robots: 3, apps: 3, app_users: 25, live_video_ms_per_month: 360_000_000, asset_bytes_per_robot: 2_000_000_000, history_days: 30, audit_days: 30 })
-    expect(PLANS.pro.limits).toEqual({ seats: 5, robots: 5, apps: 5, app_users: 50, live_video_ms_per_month: 900_000_000, asset_bytes_per_robot: 3_000_000_000, history_days: 90, audit_days: 90 })
+    expect(PLANS.basic.limits).toEqual({
+      seats: 1, robots: 1, apps: 1, app_users: 10, live_video_ms_per_month: 36_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 7, audit_days: 7,
+      collection_records: 25_000, collection_bytes: 1_000_000_000,
+    })
+    expect(PLANS.plus.limits).toEqual({
+      seats: 3, robots: 3, apps: 3, app_users: 25, live_video_ms_per_month: 360_000_000, asset_bytes_per_robot: 2_000_000_000, history_days: 30, audit_days: 30,
+      collection_records: 250_000, collection_bytes: 10_000_000_000,
+    })
+    expect(PLANS.pro.limits).toEqual({
+      seats: 5, robots: 5, apps: 5, app_users: 50, live_video_ms_per_month: 900_000_000, asset_bytes_per_robot: 3_000_000_000, history_days: 90, audit_days: 90,
+      collection_records: 1_000_000, collection_bytes: 50_000_000_000,
+    })
     expect(Object.values(PLANS.enterprise.limits).every((v) => v === null)).toBe(true)
   })
   it('features', () => {
@@ -58,6 +67,22 @@ describe('helpers', () => {
     expect(nextPlanRaising('pro', 'robots')).toBe('enterprise')
     expect(nextPlanRaising('enterprise', 'robots')).toBeNull()
   })
+  it('the collection limits climb with the plan, and no add-on raises them', () => {
+    expect(nextPlanRaising('basic', 'collection_records')).toBe('plus')
+    expect(nextPlanRaising('plus', 'collection_bytes')).toBe('pro')
+    expect(nextPlanRaising('pro', 'collection_records')).toBe('enterprise')
+    expect(nextPlanRaising('enterprise', 'collection_bytes')).toBeNull()
+    expect(Object.values(ADDONS).map((a) => a.raises)).not.toContain('collection_records')
+    expect(Object.values(ADDONS).map((a) => a.raises)).not.toContain('collection_bytes')
+  })
+  it('the collection limits are plan limits like the others, with a description each', () => {
+    expect(planLimitKey.options).toEqual(expect.arrayContaining(['collection_records', 'collection_bytes']))
+    for (const key of ['collection_records', 'collection_bytes'] as const) {
+      expect(planLimits.shape[key].meta()?.description, key).toMatch(/\S/)
+      expect(planLimits.safeParse({ ...PLANS.basic.limits, [key]: 0 }).success, `${key} is positive`).toBe(false)
+      expect(planLimits.safeParse({ ...PLANS.basic.limits, [key]: null }).success, `${key} may be by contract`).toBe(true)
+    }
+  })
 })
 
 describe("the organization's plan: changes, the admin request and plan errors (2026-10-02, fleetless/fleetless#103)", () => {
@@ -102,12 +127,17 @@ describe("the organization's plan: changes, the admin request and plan errors (2
   it('the admin request takes overrides that clear with null', () => {
     expect(adminPlanChangeRequest.safeParse({ plan: 'enterprise', overrides: { robots: 40, history_days: 365, seats: null } }).success).toBe(true)
     expect(adminPlanChangeRequest.safeParse({ plan: 'pro', addons: { robots: 2 } }).success).toBe(true)
+    expect(adminPlanChangeRequest.safeParse({ plan: 'enterprise', overrides: { collection_records: 5_000_000, collection_bytes: null } }).success).toBe(true)
     expect(adminPlanChangeRequest.safeParse({ plan: 'gold' }).success).toBe(false)
   })
 
   it('plan_limit details carry what lifts the limit', () => {
     expect(planLimitDetails.safeParse({ limit: 'robots', used: 1, max: 1, plan: 'basic', lifted_by: { plan: 'plus', addon: null } }).success).toBe(true)
     expect(planLimitDetails.safeParse({ limit: 'history_days', used: 1, max: 1, plan: 'basic', lifted_by: { plan: 'plus', addon: null } }).success).toBe(false)
+    // A write that adds collection records or bytes past the plan is refused naming the key; nothing buys more of either.
+    for (const limit of ['collection_records', 'collection_bytes']) {
+      expect(planLimitDetails.safeParse({ limit, used: 25_000, max: 25_000, plan: 'basic', lifted_by: { plan: 'plus', addon: null } }).success, limit).toBe(true)
+    }
     expect(assetPlanLimitDetails.safeParse({ limit: 'asset_bytes_per_robot', used: 9, max: 10, plan: 'basic', lifted_by: { plan: 'plus', addon: null }, store_bytes: 10, used_bytes: 9, size_bytes: 2 }).success).toBe(true)
   })
 

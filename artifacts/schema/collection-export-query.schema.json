@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "enum": [
+        "csv",
+        "json"
+      ],
+      "description": "`csv`: UTF-8 text with a header row. `json`: an array of objects."
+    },
+    "filter": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A filter as JSON text, for example `{\"location.name\":{\"eq\":\"XTD1\"}}`. A condition names a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or a field of a referenced record written `reference.field`. `created_by` is compared with the id of the developer, user or key that created the record."
+    },
+    "search": {
+      "type": "string",
+      "description": "Words that must all occur, in any letter case, in at least one searchable field of the record. At most 10 words, separated by whitespace."
+    },
+    "sort": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Up to 3 fields separated by commas; a leading `-` sorts descending, for example `-position_m,name`. A field is named as in `filter`: a field of the collection, one of the system fields `id`, `robot_id`, `created_at`, `updated_at` and `created_by`, or `reference.field`. Ties are broken by `id`."
+    },
+    "robot": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+      "description": "Only the records of this robot, in a collection that belongs to robots."
+    },
+    "fields": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The fields to export by key, separated by commas, in the order given. Default: all fields, in the order of the schema."
+    },
+    "references": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How reference fields are written: `id` (the default) or the key of a unique field of the target collection, such as `name`, so that the file can be imported again. A reference field in the file whose target collection has no such unique field is `400 validation_error` (field `references`, rule `not_unique`); with no reference field among the columns the value is ignored."
+    },
+    "system": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ],
+      "description": "`true` adds the system fields after the fields: `robot_id` in a collection that belongs to robots, then `id`, `created_at`, `created_by`, `updated_at`, `updated_by` and `revision`. `created_by` and `updated_by` are the actors' labels. Default `false`."
+    }
+  },
+  "required": [
+    "format"
+  ],
+  "additionalProperties": false
+}

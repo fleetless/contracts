@@ -59,6 +59,13 @@ describe('the route manifest', () => {
     expect(keys.length, 'duplicate entries').toBe(new Set(keys).size)
   })
 
+  it('ROUTES has no /api/robots/:id/details', () => {
+    // The robot details document went with the `robot_details` built-in; a
+    // manifest that kept the route would make the cloud's set-equality test
+    // demand a handler for a door that must not exist.
+    expect(ROUTES.filter((r) => r.path.startsWith('/api/robots/:id/details')).map(key)).toEqual([])
+  })
+
   it('declares every :param of its path, in order, and nothing else', () => {
     for (const r of ROUTES) {
       const inPath = [...r.path.matchAll(/:([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])
@@ -1806,10 +1813,12 @@ describe('the parked-items round', () => {
       expect(r.contentType).toMatch(/^[a-z]+\/[a-z0-9.+*-]+$/)
     }
     expect(ROUTES.filter((r) => r.contentType !== undefined).map(key).sort()).toEqual([
+      'GET /api/apps/:id/collections/:c/export',
       'GET /api/asset-links/:token',
       'GET /api/audit/export',
       'GET /api/billing/documents/:id/file',
       'GET /api/billing/invoices/:id/pdf',
+      'GET /api/client/collections/:c/export',
       'GET /api/robots/:id/assets/:assetId',
       'GET /api/robots/:id/cameras/:slug/snapshot',
       'GET /api/robots/:id/urdf',
@@ -2114,7 +2123,7 @@ describe('openapi hygiene', () => {
     expect(carriers.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
       ROUTES.filter((r) => r.contentType !== undefined).map(key).sort(),
     )
-    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(7)
+    expect(carriers.length, 'no route carries a contentType — the manifest half is missing').toBe(9)
     // Key order is what the documentation site reads: `contentType` sits
     // between `response` and `errors`, not appended past `transport`.
     for (const r of carriers) {

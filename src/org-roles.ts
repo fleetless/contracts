@@ -30,35 +30,36 @@ const roleName = z.string().trim().min(1).max(ROLE_NAME_MAX)
  * so a client renders a row without switching on `kind` to find a field.
  */
 export const referencePlace = z.object({
-  kind: z.enum(['config', 'app_user', 'invitation', 'app_default', 'role_inherits', 'org_default']).meta({
+  kind: z.enum(['config', 'collection_schema', 'app_user', 'invitation', 'app_default', 'role_inherits', 'org_default']).meta({
     description:
-      'What writes the key: `config` is a `role` or `access` value in a robot\'s `fleetless.yaml`, `app_user` an app user who holds it, ' +
-      '`invitation` an invitation that carries it, `app_default` an app\'s default role, `role_inherits` another role that inherits from it, ' +
-      'and `org_default` one of the organization\'s defaults.',
+      'What writes the key: `config` is a `role` or `access` value in a robot\'s `fleetless.yaml`, `collection_schema` an `access` entry of a collection ' +
+      'in an app\'s collections schema, `app_user` an app user who holds it, `invitation` an invitation that carries it, `app_default` an app\'s ' +
+      'default role, `role_inherits` another role that inherits from it, and `org_default` one of the organization\'s defaults.',
   }),
   label: z.string().meta({
-    description: 'What a person reads to find the place: the robot name (`config`), the e-mail address of the app user or of the invitee (`app_user`, `invitation`), the app name (`app_default`), the name of the inheriting role (`role_inherits`), or the access kind of an organization default (`org_default`).',
+    description: 'What a person reads to find the place: the robot name (`config`), the app name (`collection_schema`, `app_default`), the e-mail address of the app user or of the invitee (`app_user`, `invitation`), the name of the inheriting role (`role_inherits`), or the access kind of an organization default (`org_default`).',
   }),
   path: z.string().nullable().meta({
     description:
       'Where the key is written. For `config`, the place in the YAML, such as `services.arm_home.role` or `access.rules[1].role`; for ' +
+      '`collection_schema`, the place in the collections schema, such as `collections.notes.access.update.own[1]`; for ' +
       '`role_inherits`, the key of the role that inherits from it, because display names are not unique; `null` for every other kind.',
   }),
   robot_id: z.uuid().nullable().meta({
     description: 'The robot whose document holds the key (`config`); `null` for every other kind.',
   }),
   app_id: z.uuid().nullable().meta({
-    description: 'The app the user, invitation or default role belongs to (`app_user`, `invitation`, `app_default`); `null` for every other kind.',
+    description: 'The app the key belongs to: the app whose collections schema holds it (`collection_schema`), or the app of the user, invitation or default role (`app_user`, `invitation`, `app_default`); `null` for every other kind.',
   }),
   user_id: z.uuid().nullable().meta({
     description: 'The app user who holds the key (`app_user`); `null` for every other kind.',
   }),
   document: z.enum(['published', 'draft']).nullable().meta({
-    description: 'Which version of the robot\'s document holds the key (`config`): the published one or the draft; `null` for every other kind.',
+    description: 'Which version of the document holds the key (`config`: the robot\'s configuration, `collection_schema`: the app\'s collections schema): the published one or the draft; `null` for every other kind.',
   }),
   new_version: z.number().int().positive().nullable().meta({
     description:
-      'For a published document, the version number a rename with `update_references` would give it, a copy that differs only in the key; ' +
+      'For a published document (`config` or `collection_schema`), the version number a rename with `update_references` would give it, a copy that differs only in the key; ' +
       '`null` for a draft and for every place that is no document.',
   }),
 })
@@ -87,7 +88,7 @@ export const orgRole = z.object({
     description: 'Apps that use this role as their default role.',
   }),
   references: z.number().int().nonnegative().meta({
-    description: 'Places in documents that name this role, such as a `role` in a robot\'s `fleetless.yaml`. A rename with `update_references` rewrites them.',
+    description: 'Places in documents that name this role, such as a `role` in a robot\'s `fleetless.yaml` or an `access` entry in an app\'s collections schema. A rename with `update_references` rewrites them.',
   }),
 })
 export type OrgRole = z.infer<typeof orgRole>

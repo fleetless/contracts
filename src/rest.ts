@@ -98,19 +98,19 @@ export type JointStatePutResponse = z.infer<typeof jointStatePutResponse>
  * same call for the same reason: fold cameras in and the sentence "this deletes
  * N slugs and M cameras" counts them twice. A list row has the same problem.
  *
- * **Counted from the published configuration, and excluding the built-ins.**
+ * **Counted from the published configuration, and excluding the built-in datapoint.**
  * `GET /api/robots/:id/exposures` answers *which* slugs and prepends the
- * built-in datapoints — `bridge_state` and `robot_details` — as
- * `builtin: true`; this answers *how many* and counts only what somebody
- * configured. So a robot with an empty published config reports
- * `datapoints: 0` here and two entries there. That is intentional, and it is
- * written on both sides so the disagreement is never mistaken for a bug.
+ * built-in datapoint, `bridge_state`, as `builtin: true`; this answers *how
+ * many* and counts only what somebody configured. So a robot with an empty
+ * published config reports `datapoints: 0` here and one entry there. That is
+ * intentional, and it is written on both sides so the disagreement is never
+ * mistaken for a bug.
  *
- * The number was "three" while `bridge_pressure` existed and is "two" since
- * protocol 3 dropped it; the cloud builds that prefix from its own built-in
- * set rather than a literal, so the next built-in moves this count again.
- * Read the count off that set, not off this sentence, before filing the bug
- * this comment exists to prevent.
+ * The number was "three" while `bridge_pressure` existed and has only gone
+ * down since; the cloud builds that prefix from its own built-in set rather
+ * than a literal, so the next built-in moves this count again. Read the count
+ * off that set, not off this sentence, before filing the bug this comment
+ * exists to prevent.
  */
 export const exposureCounts = z.object({
   datapoints: z.number().int().nonnegative(),
@@ -361,7 +361,7 @@ export const fetchTypesResponse = z.object({
 export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
 
 /**
- * What a client can read on this robot: the built-ins plus everything the
+ * What a client can read on this robot: the built-in plus everything the
  * published configuration exposes. This is the seed of the generated
  * per-robot API.
  *
@@ -372,7 +372,7 @@ export type FetchTypesResponse = z.infer<typeof fetchTypesResponse>
 export const datapointDescriptor = z.object({
   slug: slug.meta({ description: 'The name a client reads this datapoint by.' }),
   builtin: z.boolean().meta({
-    description: '`true` for the datapoints every robot has — `bridge_state` and `robot_details` — and `false` for everything the published configuration adds.',
+    description: '`true` for the datapoint every robot has, `bridge_state`, and `false` for everything the published configuration adds.',
   }),
   unit: z.string().nullable().meta({
     description: 'The unit the value carries **after** any scale and offset, shown beside the number so nobody has to guess whether `15` means percent, volts or minutes. `null` when the configuration names none.',
@@ -392,31 +392,10 @@ export type DatapointDescriptor = z.infer<typeof datapointDescriptor>
 
 export const datapointListResponse = z.object({
   datapoints: z.array(datapointDescriptor).meta({
-    description: 'Everything a client may read on this robot: the two built-ins, plus every datapoint the published configuration exposes and the caller\'s role may read.',
+    description: 'Everything a client may read on this robot: the built-in `bridge_state`, plus every datapoint the published configuration exposes and the caller\'s role may read.',
   }),
 })
 export type DatapointListResponse = z.infer<typeof datapointListResponse>
-
-/**
- * The built-in `robot_details` datapoint: static properties the developer
- * maintains. Bounded so one robot cannot become a document store.
- */
-export const robotDetailsDoc = z.record(
-  z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),
-  z.union([z.string().max(4096), z.number(), z.boolean(), z.array(z.unknown()), z.record(z.string(), z.unknown())]),
-)
-export type RobotDetailsDoc = z.infer<typeof robotDetailsDoc>
-
-/** What `PUT /api/robots/:id/details` answers: the stored document, which is the one that was sent. */
-export const putRobotDetailsResponse = z.object({
-  details: robotDetailsDoc.meta({
-    description: 'The stored `robot_details` document, which is the one that was just sent — this route **replaces** the document rather than merging into it. Keys are the developer\'s own, lowercase and at most 64 characters; a value is a string of at most 4096 characters, a number, a boolean, an array or an object.',
-  }),
-})
-export type PutRobotDetailsResponse = z.infer<typeof putRobotDetailsResponse>
-
-export const putRobotDetailsRequest = z.object({ details: robotDetailsDoc })
-export type PutRobotDetailsRequest = z.infer<typeof putRobotDetailsRequest>
 
 
 /* ------------------------------------------------------------------------
@@ -1508,6 +1487,18 @@ export const robotDeletionSummary = z.object({
    * was there at all.
    */
   had_unpublished_draft: z.boolean(),
+  collection_records: z
+    .array(
+      z.object({
+        app_id: z.uuid().meta({ description: 'The app whose collections hold records of the robot.' }),
+        app_name: z.string().meta({ description: 'The app\'s name.' }),
+        records: z.number().int().nonnegative().meta({ description: 'How many records of the robot the app\'s collections hold, deleted with the robot.' }),
+      }),
+    )
+    .meta({
+      description:
+        'App collection records that go with the robot, per app. A robot\'s records are kept in every app it was attached to, also in one it was detached from, and are deleted with their history when the robot is; apps without records of this robot are left out.',
+    }),
 })
 export type RobotDeletionSummary = z.infer<typeof robotDeletionSummary>
 
@@ -1688,6 +1679,14 @@ export const orgQuotas = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().positive(),
+  collection_records: z.number().int().positive().nullable().meta({
+    description:
+      'The most records the app collections of all the org\'s apps may hold together: the plan limit `collection_records`, or the operator\'s override of it. `null` is by contract (Enterprise).',
+  }),
+  collection_bytes: z.number().int().positive().nullable().meta({
+    description:
+      'The most bytes the current records of the org\'s app collections may occupy together: the plan limit `collection_bytes`, or the operator\'s override of it. `null` is by contract (Enterprise).',
+  }),
 })
 export type OrgQuotas = z.infer<typeof orgQuotas>
 
@@ -1713,6 +1712,15 @@ export const orgQuotaUsageCounts = z.object({
   max_retention_bytes: z.number().int().nonnegative(),
   max_retention_writes_per_minute: z.number().int().nonnegative(),
   max_realtime_connections: z.number().int().nonnegative(),
+  collection_records: z.number().int().nonnegative().meta({
+    description: 'Current records in the app collections of all the org\'s apps. Deleted records do not count.',
+  }),
+  collection_bytes: z.number().int().nonnegative().meta({
+    description: 'Bytes the current records of the org\'s app collections occupy, as stored JSON.',
+  }),
+  collection_history_bytes: z.number().int().nonnegative().meta({
+    description: 'Bytes the history of the org\'s app collections occupies: revisions of current and deleted records. Information only; no limit applies to it.',
+  }),
 }).partial()
 export type OrgQuotaUsageCounts = z.infer<typeof orgQuotaUsageCounts>
 

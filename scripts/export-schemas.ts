@@ -87,7 +87,6 @@ import {
   publishConfigResponse,
   introspectionResponse,
   datapointListResponse,
-  robotDetailsDoc,
 } from '../src/rest.js'
 import {
   clientAuth,
@@ -103,10 +102,60 @@ import {
   orgEventUnsubscribe,
   orgEventReplay,
   orgEventDropped,
+  collectionSubscribe,
+  collectionSubscribed,
+  collectionUnsubscribe,
+  collectionEvent,
+  collectionSubscribeError,
+  collectionsSchemaPublished,
 } from '../src/realtime.js'
 import { apiError } from '../src/errors.js'
 import { controllerRegisterWrite, controllerRegisterOrgResponse } from '../src/controller-register.js'
 import { legalDocumentReference, legalTextReferences } from '../src/legal.js'
+import { collectionsDocument } from '../src/collections.js'
+import { roleCollectionRights } from '../src/collections-rights.js'
+import {
+  collectionActor,
+  collectionRecord,
+  collectionFilter,
+  collectionRecordListQuery,
+  collectionRecordGetQuery,
+  collectionRecordListResponse,
+  collectionRecordWrite,
+  collectionRevision,
+  collectionRecordHistoryQuery,
+  collectionRecordHistoryResponse,
+  collectionRecordRestoreRequest,
+  collectionSummary,
+  collectionListResponse,
+  collectionDefinitionsResponse,
+} from '../src/collections-records.js'
+import { collectionsIssue } from '../src/collections-issues.js'
+import {
+  collectionsEffect,
+  collectionsAccessChange,
+  collectionsSchemaPreview,
+  collectionsDraftResponse,
+  putCollectionsDraftRequest,
+  collectionsPublishRequest,
+  collectionsPublishResponse,
+  collectionsVersionSummary,
+  collectionsVersionsResponse,
+  collectionsVersionResponse,
+  collectionsRestorePreview,
+  collectionsRestorePreviewQuery,
+  collectionsRestoreRequest,
+  collectionsRestoreResponse,
+  collectionsPurgeRequest,
+  collectionsPurgePreview,
+  collectionsPurgeResponse,
+} from '../src/collections-schema.js'
+import {
+  collectionImportRequest,
+  collectionImportPreview,
+  collectionImportResult,
+  collectionExportQuery,
+} from '../src/collections-transfer.js'
 import { legalAcceptanceListQuery, legalAcceptanceVersionRow, legalAcceptanceListResponse } from '../src/legal-acceptances.js'
 import {
   org,
@@ -234,7 +283,7 @@ import { invokeRequest, invokeResponse, publishRequest, jobResponse, exposureLis
 import { invokeOrServiceResponse, historyResponse } from '../src/rest.js'
 import { latencyBucket, robotLatencySeries, orgLatencyQuery, orgLatencyResponse } from '../src/rest.js'
 import { orgUsageQuery, orgUsageResponse } from '../src/rest.js'
-import { orgHealthQuery, patchRobotResponse, putRobotDetailsResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
+import { orgHealthQuery, patchRobotResponse, robotDeleteQuery, serviceCallResponse } from '../src/rest.js'
 import { patchRobotRequest, renameSlugRequest, renameSlugResponse, slugUsageResponse } from '../src/rest.js'
 import { assetSyncRequest, assetSyncResponse, assetsClearResponse, urdfCompleteness } from '../src/assets.js'
 import { updateAppRequest } from '../src/apps.js'
@@ -248,7 +297,18 @@ import {
   effectiveRobotRights,
   effectiveRightsResponse,
 } from '../src/apps.js'
-import { cancelRejectedDetails, invalidCodeDetails, parameterInvalidDetails, parameterViolation, roleCycleDetails } from '../src/errors.js'
+import {
+  cancelRejectedDetails,
+  confirmationRequiredDetails,
+  invalidCodeDetails,
+  parameterInvalidDetails,
+  parameterViolation,
+  recordChangedDetails,
+  recordReferencedDetails,
+  referenceInvalidDetails,
+  requiredMissingDetails,
+  roleCycleDetails,
+} from '../src/errors.js'
 import {
   referencePlace,
   orgRole,
@@ -298,7 +358,6 @@ import {
   jointStatePutRequest,
   jointStatePutResponse,
   putConfigDraftRequest,
-  putRobotDetailsRequest,
   rateLimitDetails,
   robotTokenRotateResponse,
   releaseLiveQuery,
@@ -505,7 +564,44 @@ export const exportedSchemas = {
   'publish-config-response': publishConfigResponse,
   'introspection-response': introspectionResponse,
   'datapoint-list-response': datapointListResponse,
-  'robot-details-doc': robotDetailsDoc,
+  'collections-document': collectionsDocument,
+  'collection-actor': collectionActor,
+  'collection-record': collectionRecord,
+  'collection-filter': collectionFilter,
+  'collection-record-list-query': collectionRecordListQuery,
+  'collection-record-get-query': collectionRecordGetQuery,
+  'collection-record-list-response': collectionRecordListResponse,
+  'collection-record-write': collectionRecordWrite,
+  'collection-revision': collectionRevision,
+  'collection-record-history-query': collectionRecordHistoryQuery,
+  'collection-record-history-response': collectionRecordHistoryResponse,
+  'collection-record-restore-request': collectionRecordRestoreRequest,
+  'collection-summary': collectionSummary,
+  'collection-list-response': collectionListResponse,
+  'collection-definitions-response': collectionDefinitionsResponse,
+  'role-collection-rights': roleCollectionRights, // embedded in effective-rights-response
+  'collections-issue': collectionsIssue,
+  'collections-effect': collectionsEffect,
+  'collections-access-change': collectionsAccessChange,
+  'collections-schema-preview': collectionsSchemaPreview,
+  'collections-draft-response': collectionsDraftResponse,
+  'put-collections-draft-request': putCollectionsDraftRequest,
+  'collections-publish-request': collectionsPublishRequest,
+  'collections-publish-response': collectionsPublishResponse,
+  'collections-version-summary': collectionsVersionSummary,
+  'collections-versions-response': collectionsVersionsResponse,
+  'collections-version-response': collectionsVersionResponse,
+  'collections-restore-preview': collectionsRestorePreview,
+  'collections-restore-preview-query': collectionsRestorePreviewQuery,
+  'collections-restore-request': collectionsRestoreRequest,
+  'collections-restore-response': collectionsRestoreResponse,
+  'collections-purge-request': collectionsPurgeRequest,
+  'collections-purge-preview': collectionsPurgePreview,
+  'collections-purge-response': collectionsPurgeResponse,
+  'collection-import-request': collectionImportRequest,
+  'collection-import-preview': collectionImportPreview,
+  'collection-import-result': collectionImportResult,
+  'collection-export-query': collectionExportQuery,
   'client-auth': clientAuth,
   'auth-ok': authOk,
   'auth-error': authError,
@@ -518,6 +614,12 @@ export const exportedSchemas = {
   'org-event-unsubscribe': orgEventUnsubscribe,
   'org-event-replay': orgEventReplay,
   'org-event-dropped': orgEventDropped,
+  'collection-subscribe': collectionSubscribe,
+  'collection-subscribed': collectionSubscribed,
+  'collection-unsubscribe': collectionUnsubscribe,
+  'collection-event': collectionEvent,
+  'collection-subscribe-error': collectionSubscribeError,
+  'collections-schema-published': collectionsSchemaPublished,
   'api-error': apiError,
   org: org,
   'auth-me-response': authMeResponse,
@@ -819,7 +921,6 @@ export const exportedSchemas = {
   'dynamic-client-registration-response': dynamicClientRegistrationResponse, // POST /mcp/oauth/register
   'authorization-server-metadata': authorizationServerMetadata, // GET /.well-known/oauth-authorization-server/mcp
   'protected-resource-metadata': protectedResourceMetadata, // GET /.well-known/oauth-protected-resource/mcp
-  'put-robot-details-request': putRobotDetailsRequest, // PUT /api/robots/:id/details
   'joint-state-put-request': jointStatePutRequest, // PUT /api/robots/:id/urdf/joint-state
   'put-config-draft-request': putConfigDraftRequest, // PUT /api/robots/:id/config/draft
   'config-versions-response': configVersionsResponse, // GET /api/robots/:id/config/versions
@@ -860,7 +961,6 @@ export const exportedSchemas = {
   'server-key-list-response': serverKeyListResponse, // GET /api/apps/:id/server-keys
   'patch-org-response': patchOrgResponse, // PATCH /api/org
   'patch-robot-response': patchRobotResponse, // PATCH /api/robots/:id
-  'put-robot-details-response': putRobotDetailsResponse, // PUT /api/robots/:id/details
   'joint-state-put-response': jointStatePutResponse, // PUT /api/robots/:id/urdf/joint-state
   'robot-token-rotate-response': robotTokenRotateResponse, // POST /api/robots/:id/token/rotate
   // The other half of `invoke-or-service-response`. `invokeResponse` was
@@ -886,6 +986,12 @@ export const exportedSchemas = {
   'parameter-violation': parameterViolation, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'cancel-rejected-details': cancelRejectedDetails, // re-exported by @fleetless/sdk as a type; the generated SDK reference links here
   'invalid-code-details': invalidCodeDetails, // the details of invalid_code; re-exported by @fleetless/sdk as a type
+  // The details of the app collections refusals; the SDK re-exports them as types too.
+  'confirmation-required-details': confirmationRequiredDetails,
+  'record-referenced-details': recordReferencedDetails,
+  'record-changed-details': recordChangedDetails,
+  'reference-invalid-details': referenceInvalidDetails,
+  'required-missing-details': requiredMissingDetails,
 
   // --- Organization roles --------------------------------------------------
   //
@@ -1054,6 +1160,9 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'subscribe-error', 'datapoint-event', 'resource-health-event', 'job-event',
   'client-invoke', 'client-cancel', 'client-publish', 'command-result', 'error-frame',
   'org-event-subscribe', 'org-event-unsubscribe',
+  // Collection subscriptions, in both directions as the frames above are.
+  'collection-subscribe', 'collection-subscribed', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error',
+  'collections-schema-published',
 
   // --- REST request bodies and queries -------------------------------------
   'create-robot-request', 'waitlist-request',
@@ -1096,7 +1205,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // Support sessions (internal, Block D). The grant exchange the operator's
   // server sends: a document the console's server validates on arrival.
   'support-token-request', 'support-renew-fail-request',
-  'put-robot-details-request', 'joint-state-put-request', 'put-config-draft-request',
+  'joint-state-put-request', 'put-config-draft-request',
   'fetch-types-request', 'cancel-request', 'recover-held-job-request', 'release-live-query', 'asset-sync-request',
   // The eight documented query strings (2026-09-05). A query is a document
   // the server validates on arrival, so `input` for the same reason every
@@ -1128,8 +1237,29 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // frame, so it is an accepted document on two surfaces and never a response
   // shape of its own.
   'robot-config-doc', 'datapoint-config', 'action-config', 'service-config',
-  'publisher-config', 'parameter-spec', 'camera-source', 'robot-details-doc',
+  'publisher-config', 'parameter-spec', 'camera-source',
   'snapshot-header',
+
+  // The collections document is written by an author and validated on arrival,
+  // and it travels back inside the draft and version responses — the same
+  // two-surface document `robot-config-doc` is.
+  'collections-document',
+
+  // What a caller sends to write or read records: the write body, the history
+  // and restore requests, the list and history query strings, and the filter
+  // object the server validates on arrival.
+  'collection-record-write', 'collection-record-list-query', 'collection-record-get-query', 'collection-record-history-query',
+  'collection-record-restore-request', 'collection-filter',
+
+  // The schema lifecycle: the draft a developer saves, the publish and restore
+  // bodies that carry a preview's token, the restore preview's query string and
+  // the owner's purge request.
+  'put-collections-draft-request', 'collections-publish-request', 'collections-restore-preview-query',
+  'collections-restore-request', 'collections-purge-request',
+
+  // Import and export: the file a caller uploads with its mapping, and the
+  // query string that shapes a download.
+  'collection-import-request', 'collection-export-query',
 ]
 
 /**
@@ -1197,7 +1327,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'invoke-or-service-response', 'history-response',
   'app-list-response', 'server-key-list-response',
   'patch-org-response', 'patch-robot-response',
-  'put-robot-details-response', 'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
+  'joint-state-put-response', 'robot-token-rotate-response', 'service-call-response',
 
   // --- Embedded shapes the SDK re-exports as types -------------------------
   // Every one of these appears only inside a response, which is what makes
@@ -1251,6 +1381,34 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // Embedded in `billing-view`, which the server sends; never validated on
   // arrival.
   'billing-issuer', 'billing-charge-invoice', 'billing-charge',
+
+  // --- Collection records --------------------------------------------------
+  // Documents the server sends: a record and the actor inside it, a page of
+  // records, a record's history, the collection overview and the definitions.
+  'collection-actor', 'collection-record', 'collection-record-list-response', 'collection-revision',
+  'collection-record-history-response', 'collection-summary', 'collection-list-response',
+  'collection-definitions-response',
+  // Inside effective-rights-response.
+  'role-collection-rights',
+
+  // --- The collections schema lifecycle ------------------------------------
+  // Documents the server sends: findings about a document, the effects of a
+  // change on data, the previews (each with the token that confirms it), the
+  // draft, the versions and what a publish, restore or purge did.
+  'collections-issue', 'collections-effect', 'collections-access-change', 'collections-schema-preview',
+  'collections-draft-response', 'collections-publish-response', 'collections-version-summary',
+  'collections-versions-response', 'collections-version-response', 'collections-restore-preview',
+  'collections-restore-response', 'collections-purge-preview', 'collections-purge-response',
+
+  // --- Import and export ---------------------------------------------------
+  // What the server answers to an import: the preview with its token and the
+  // result of the confirmed import.
+  'collection-import-preview', 'collection-import-result',
+
+  // --- Details of the app collections refusals -----------------------------
+  // Embedded in an error the server sends; never a document it validates.
+  'confirmation-required-details', 'record-referenced-details', 'record-changed-details',
+  'reference-invalid-details', 'required-missing-details',
 ]
 
 const INPUT = new Set(SCHEMA_IO_INPUT)
