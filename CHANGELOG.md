@@ -117,10 +117,21 @@ version.
   `planChangeDecisionStatusResponse`, and the constant `PLANS`. A consumer
   that builds plan limits itself, or keeps a `Record<PlanLimitKey, ...>`,
   adds both keys, and a validator built from the old artifacts refuses the new
-  answers. The enums that follow `planLimitKey` widen as well:
-  `addonCatalogueEntry.raises` and `assetPlanLimitDetails.limit` accept the
-  two new keys, although no add-on raises them and an asset refusal never
-  names them, so an exhaustive `switch` over either needs the two cases.
+  answers. A consumer that embeds `orgPlan` or `planLimits` in a schema of its
+  own (an admin or operator API, say) inherits the two required keys: its
+  parsed type changes, every fixture or stored sample of a plan needs
+  `collection_records` and `collection_bytes` (`null` is by contract), and a
+  plan written before this release, without them, no longer parses. A list of
+  limit keys written out by hand (an enum, or a table keyed by limit) does not
+  widen with `planLimitKey` and gets the two keys added by hand. The enums that
+  do follow it widen as well: `addonCatalogueEntry.raises`,
+  `assetPlanLimitDetails.limit` and `planLimitDetails.limit` accept the two new
+  keys. The last one is the `details.limit` of `409 plan_limit` for a
+  collection write; no add-on raises the keys and an asset refusal never names
+  them. An exhaustive `switch` over any of the three needs the two cases.
+  `planOverrides` and the `overrides` of an admin plan change accept the two
+  keys too, and a validator built from the older artifacts refuses a request
+  that names them.
 
 ### Removed
 
