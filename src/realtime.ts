@@ -558,10 +558,16 @@ const collectionRequestId = z.string().min(1).max(64).meta({
 /**
  * Subscribe to the changes of one collection's records.
  *
- * **There is no acknowledgement and no first snapshot.** An accepted
- * subscription is silent until a record changes; only a refusal is answered,
- * with `collection_subscribe_error`. To show the records that exist, subscribe
- * first and list afterwards, so that no change can fall between the two.
+ * **The cloud answers with `collection_subscribed` once the subscription is
+ * registered, and with `collection_subscribe_error` when it is refused. There
+ * is no first snapshot.** To show the records that exist, subscribe, wait for
+ * `collection_subscribed` and list then: from that frame on every change the
+ * subscription covers is delivered as an event, so none can fall between the
+ * list and the events. An event that arrives while the list is still being
+ * read may or may not be in its result; apply it to the result by `id` and
+ * `revision`. A subscription is registered afresh on every connection, so a
+ * client that reconnects and subscribes again gets a new `collection_subscribed`
+ * and lists again; changes made while it was disconnected are not replayed.
  *
  * The caller's rights are checked on every event, not only on subscribe: a
  * record that the caller may no longer see, because its values changed, the
@@ -597,8 +603,32 @@ export const collectionSubscribe = z
       .optional(),
   })
   .strict()
-  .meta({ description: 'Subscribes to the changes of the records of one collection.' })
+  .meta({
+    description:
+      'Subscribes to the changes of the records of one collection. The cloud answers an accepted subscription with `collection_subscribed` and a refused one with `collection_subscribe_error`.',
+  })
 export type CollectionSubscribe = z.infer<typeof collectionSubscribe>
+
+/**
+ * A collection subscription is registered. Sent once for every
+ * `collection_subscribe` that is accepted, after the cloud has judged it (the
+ * collection exists, the caller may read it, the robot and the filter fit) and
+ * registered it, and before the first `collection_event` of that
+ * subscription: a client that lists the records now misses no change, because
+ * every change from this frame on reaches it as an event.
+ *
+ * The frame is sent again for every subscribe, so a client that reconnects and
+ * subscribes again receives it again. It does not say that anything exists or
+ * changed; it carries only the `request_id`.
+ */
+export const collectionSubscribed = z
+  .object({
+    type: z.literal('collection_subscribed'),
+    request_id: collectionRequestId.meta({ description: 'The `request_id` of the subscription that is now registered.' }),
+  })
+  .strict()
+  .meta({ description: 'A collection subscription is registered: every change it covers is delivered from now on.' })
+export type CollectionSubscribed = z.infer<typeof collectionSubscribed>
 
 export const collectionUnsubscribe = z
   .object({

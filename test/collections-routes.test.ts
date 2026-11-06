@@ -307,9 +307,10 @@ describe('what the notes say about limits', () => {
   it('describe the collection frames on /realtime', () => {
     const realtime = row('GET /realtime')
     expect(realtime.summary).toMatch(/app collections/)
-    for (const frame of ['collection_subscribe', 'collection_event', 'collection_subscribe_error', 'collections_schema_published', '1013', '1009']) {
+    for (const frame of ['collection_subscribe', 'collection_subscribed', 'collection_event', 'collection_subscribe_error', 'collections_schema_published', '1013', '1009']) {
       expect(realtime.notes ?? '', frame).toContain(frame)
     }
+    expect(realtime.notes ?? '').not.toMatch(/is silent/)
   })
 })
 

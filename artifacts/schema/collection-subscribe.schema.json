@@ -44,5 +44,5 @@
     "collection"
   ],
   "additionalProperties": false,
-  "description": "Subscribes to the changes of the records of one collection."
+  "description": "Subscribes to the changes of the records of one collection. The cloud answers an accepted subscription with `collection_subscribed` and a refused one with `collection_subscribe_error`."
 }

@@ -103,6 +103,7 @@ import {
   orgEventReplay,
   orgEventDropped,
   collectionSubscribe,
+  collectionSubscribed,
   collectionUnsubscribe,
   collectionEvent,
   collectionSubscribeError,
@@ -614,6 +615,7 @@ export const exportedSchemas = {
   'org-event-replay': orgEventReplay,
   'org-event-dropped': orgEventDropped,
   'collection-subscribe': collectionSubscribe,
+  'collection-subscribed': collectionSubscribed,
   'collection-unsubscribe': collectionUnsubscribe,
   'collection-event': collectionEvent,
   'collection-subscribe-error': collectionSubscribeError,
@@ -1159,7 +1161,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'client-invoke', 'client-cancel', 'client-publish', 'command-result', 'error-frame',
   'org-event-subscribe', 'org-event-unsubscribe',
   // Collection subscriptions, in both directions as the frames above are.
-  'collection-subscribe', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error',
+  'collection-subscribe', 'collection-subscribed', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error',
   'collections-schema-published',
 
   // --- REST request bodies and queries -------------------------------------

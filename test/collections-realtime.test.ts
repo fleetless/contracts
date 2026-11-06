@@ -5,6 +5,7 @@ import {
   collectionEvent,
   collectionSubscribe,
   collectionSubscribeError,
+  collectionSubscribed,
   collectionUnsubscribe,
   collectionsSchemaPublished,
 } from '../src/index.js'
@@ -241,10 +242,35 @@ describe('collections_schema_published', () => {
   })
 })
 
+describe('collection_subscribed', () => {
+  const subscribed = (over: Record<string, unknown> = {}): Record<string, unknown> => ({ type: 'collection_subscribed', request_id: 'logbook-1', ...over })
+
+  it('names the subscription that is now registered', () => {
+    expect(collectionSubscribed.safeParse(subscribed()).success).toBe(true)
+    expect(collectionSubscribed.safeParse(subscribed({ request_id: 'x'.repeat(64) })).success).toBe(true)
+  })
+
+  it('refuses a missing or unusable request id and keys it does not know', () => {
+    expect(collectionSubscribed.safeParse({ type: 'collection_subscribed' }).success).toBe(false)
+    expect(collectionSubscribed.safeParse(subscribed({ request_id: '' })).success).toBe(false)
+    expect(collectionSubscribed.safeParse(subscribed({ request_id: 'x'.repeat(65) })).success).toBe(false)
+    expect(collectionSubscribed.safeParse(subscribed({ records: [] })).success).toBe(false)
+    expect(collectionSubscribed.safeParse(subscribed({ type: 'collection_subscribe' })).success).toBe(false)
+  })
+
+  it('is the answer the subscribe frame promises, and the subscribe says so', () => {
+    const schema = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-subscribe.schema.json', import.meta.url), 'utf8'))
+    expect(schema.description).toContain('collection_subscribed')
+    expect(schema.description).not.toMatch(/no acknowledgement/i)
+    const ack = JSON.parse(readFileSync(new URL('../artifacts/schema/collection-subscribed.schema.json', import.meta.url), 'utf8'))
+    expect(ack.description).toMatch(/registered/)
+  })
+})
+
 describe('the published schemas of the frames', () => {
   const dir = new URL('../artifacts/schema/', import.meta.url)
 
-  it.each(['collection-subscribe', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error', 'collections-schema-published'])(
+  it.each(['collection-subscribe', 'collection-subscribed', 'collection-unsubscribe', 'collection-event', 'collection-subscribe-error', 'collections-schema-published'])(
     '%s has an artifact',
     (name) => {
       expect(existsSync(new URL(`${name}.schema.json`, dir))).toBe(true)

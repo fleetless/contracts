@@ -63,10 +63,14 @@ version.
   close a subscription on the client socket, `collection_event` carries
   `created`, `updated`, `deleted`, `removed` and `entered` with the whole
   record, and `collection_subscribe_error` and `collections_schema_published`
-  tell a client its subscription failed or its definitions changed. An
-  accepted subscription is silent: subscribe first, then list. A developer
-  connection names the app in `app_id`; a socket holds 50 subscriptions at
-  most, and one that falls too far behind is closed with 1013.
+  tell a client its subscription failed or its definitions changed. The cloud
+  answers an accepted subscription with `collection_subscribed`
+  (`collectionSubscribed`, carrying the `request_id`) once it is registered,
+  also after a reconnect and a new subscribe, and every change from that frame
+  on is delivered as an event: subscribe, wait for it, then list. There is no
+  first snapshot. A developer connection names the app in `app_id`; a socket
+  holds 50 subscriptions at most, and one that falls too far behind is closed
+  with 1013.
 - **Limits.** `COLLECTION_LIMITS` names every bound in one place: record size
   (1 MiB), text lengths, select options, filter depth and conditions, page
   sizes, import size (10 MB, 50,000 rows), pattern length, `json` nesting
