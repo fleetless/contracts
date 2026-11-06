@@ -1055,7 +1055,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'rewritten, the document it is in, the version a published document would get, and a `confirm` token. A rename with no place to ' +
       'rewrite applies at once and needs no token. The second call repeats the same body with ' +
       '`confirm` set to that token and rewrites all of it in one transaction. Assignments and role rows change directly; each affected ' +
-      'published `fleetless.yaml` gets a new version that differs only in the key, and an existing draft is updated the same way. If the ' +
+      'published `fleetless.yaml` and each app\'s published collections schema get a new version that differs only in the key, and an ' +
+      'existing draft of either is updated the same way. If the ' +
       'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A new key ' +
       'that another role has is `409 role_key_taken`.',
   },

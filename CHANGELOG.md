@@ -106,6 +106,15 @@ version.
 
 ### Changed
 
+- **A role key can be written in an app's collections schema.** `referencePlace`
+  gains the kind `collection_schema`: the `access` of a collection in the
+  published schema or the draft of an app, with the app's id in `app_id`, the
+  place in `path` (such as `collections.notes.access.update.own[1]`), `document`
+  and, for the published schema, the `new_version` a rename with
+  `update_references` would give it. It appears in the role list's `dangling`
+  places and in the rename preview. **Breaking (major):** the enum of `kind`
+  widens, so an exhaustive `switch` over it needs the new case and a validator
+  built from the old artifacts refuses the new places.
 - **Deletion summaries count collections.** `appDeletionSummary` gains
   `collection_count` and `record_count`, and `robotDeletionSummary` gains
   `collection_records`, the records that go with the robot per app. All three
