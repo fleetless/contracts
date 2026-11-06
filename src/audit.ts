@@ -248,7 +248,11 @@ export const AUDIT_RETENTION_DAYS = 90
  * are not audited, here as everywhere in this log.
  *
  * - `collection_schema.published`: a schema version was published; the entry
- *   names the version and counts the effects it had on data.
+ *   names the version and counts the effects it had on data. A role rename
+ *   that rewrites the key in the `access` of an app's collections also appends
+ *   a version, which changes no record: its entry has no effects and carries
+ *   `role_rename` with the `from` and `to` keys, and its actor is the
+ *   developer who renamed the role.
  * - `collection_schema.restored`: an earlier version was restored; the entry
  *   names the version, says whether records were put back too and counts what
  *   changed.

@@ -112,7 +112,9 @@ version.
   place in `path` (such as `collections.notes.access.update.own[1]`), `document`
   and, for the published schema, the `new_version` a rename with
   `update_references` would give it. It appears in the role list's `dangling`
-  places and in the rename preview. **Breaking (major):** the enum of `kind`
+  places and in the rename preview. The version such a rename appends is
+  audited as `collection_schema.published` with `role_rename` in its details.
+  **Breaking (major):** the enum of `kind`
   widens, so an exhaustive `switch` over it needs the new case and a validator
   built from the old artifacts refuses the new places.
 - **Deletion summaries count collections.** `appDeletionSummary` gains
