@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.0.0] — 2026-11-06
+
 ### Added
 
 - **App collections: structured records an app stores in the cloud.** A
