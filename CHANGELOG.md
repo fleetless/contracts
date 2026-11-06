@@ -121,6 +121,9 @@ version.
   lists `rate_limited` among its errors: a rename with `update_references` that
   has to rewrite the schema of an app whose collections are busy waits up to
   two seconds, then answers `429` with `retry_after_ms` and changes nothing.
+  A schema text it cannot rewrite without losing it (an access rule that is an
+  alias, say) refuses the rename with `400 validation_error` naming
+  `update_references`, and changes nothing.
 - **Deletion summaries count collections.** `appDeletionSummary` gains
   `collection_count` and `record_count`, and `robotDeletionSummary` gains
   `collection_records`, the records that go with the robot per app. All three

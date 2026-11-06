@@ -1060,7 +1060,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'existing draft of either is updated the same way. If the ' +
       'places changed between the two calls, the token is stale and the second call answers a new preview instead of applying. A rename ' +
       'that has to rewrite the collections schema of an app whose collections are busy with a publish, a restore or a purge waits up to two ' +
-      'seconds for it, then answers `429 rate_limited` with `retry_after_ms` and changes nothing; repeat the call. A new key ' +
+      'seconds for it, then answers `429 rate_limited` with `retry_after_ms` and changes nothing; repeat the call. A schema whose text cannot ' +
+      'be rewritten without losing it, because an access rule is an alias for instance, refuses the rename with `400 validation_error` ' +
+      'naming `update_references` and changes nothing; rename the role without `update_references` and edit that schema by hand. A new key ' +
       'that another role has is `409 role_key_taken`.',
   },
   {
