@@ -645,7 +645,7 @@
                       "waitlist_decline",
                       "waitlist_confirm"
                     ],
-                    "description": "The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it."
+                    "description": "The source action the operator_effect_outbox row had when it was frozen. Replay deletes the row only while it still has it and has no delivery left: an invitation effect carries the deliveries of many entries, and deleting it would cascade to them."
                   }
                 },
                 "required": [
@@ -1409,7 +1409,7 @@
                       "waitlist_decline",
                       "waitlist_confirm"
                     ],
-                    "description": "The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it."
+                    "description": "The source action the operator_effect_outbox row had when it was frozen. Replay deletes the row only while it still has it and has no delivery left: an invitation effect carries the deliveries of many entries, and deleting it would cascade to them."
                   }
                 },
                 "required": [

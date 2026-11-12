@@ -61,7 +61,7 @@ export const journalManifestRow = z.union([
   z.strictObject({ ...member, type: z.literal('global_operator_audit'), audit_id: uuid }),
   z.strictObject({
     ...member, type: z.literal('waitlist_mail_effect'), effect_id: uuid,
-    source_action: waitlistMailAction.meta({ description: 'The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it.' }),
+    source_action: waitlistMailAction.meta({ description: 'The source action the operator_effect_outbox row had when it was frozen. Replay deletes the row only while it still has it and has no delivery left: an invitation effect carries the deliveries of many entries, and deleting it would cascade to them.' }),
   }),
   z.strictObject({
     ...member, type: z.literal('waitlist_mail_delivery'), delivery_id: uuid, effect_id: uuid,
@@ -262,6 +262,11 @@ export const journalManifestBinding = z.strictObject({
   if (manifest.scope.kind === 'waitlist') {
     // The waiting list has no objects: no mapping, so no free string can carry an address into this manifest.
     if (manifest.entries.length !== 0) problem('A waitlist manifest has no object entries', ['manifest', 'entries'])
+    const effects = new Map(manifest.rows.flatMap((row) => (row.type === 'waitlist_mail_effect' ? [[row.effect_id, row.source_action] as const] : [])))
+    const deliveries = manifest.rows.filter((row) => row.type === 'waitlist_mail_delivery')
+    if (deliveries.some((row) => effects.has(row.effect_id) && effects.get(row.effect_id) !== row.source_action)) {
+      problem('A delivery and its effect disagree on the source action', ['manifest', 'rows'])
+    }
     if (intent.kind === 'waitlist.withdrawal') {
       // One entry: exactly its own row, and mail deliveries addressed for it alone.
       const entries = manifest.rows.filter((row) => row.type === 'uuid_row' && row.table === 'waitlist')
@@ -269,8 +274,14 @@ export const journalManifestBinding = z.strictObject({
       if (entries.length !== 1 || only?.type !== 'uuid_row' || only.id !== ids.entry_id || only.membership_kind !== 'affected') {
         problem('A withdrawal names exactly its own entry', ['manifest', 'rows'])
       }
-      if (manifest.rows.some((row) => row.type === 'waitlist_mail_delivery' && row.entry_id !== ids.entry_id)) {
+      if (deliveries.some((row) => row.entry_id !== ids.entry_id)) {
         problem('A withdrawal deletes only its own entry\'s deliveries', ['manifest', 'rows'])
+      }
+      // An effect goes only as the parent of one of the withdrawal's own deliveries (replay then deletes it only once it has none left).
+      for (const [effectId, sourceAction] of effects) {
+        if (!deliveries.some((row) => row.effect_id === effectId && row.source_action === sourceAction)) {
+          problem('A withdrawal deletes only the effects of its own deliveries', ['manifest', 'rows'])
+        }
       }
     }
   }

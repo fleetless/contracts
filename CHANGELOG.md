@@ -29,7 +29,10 @@ version.
   `waitlist_reinvite`, `waitlist_decline` and `waitlist_confirm`, so no
   manifest can name a billing or plan-change effect.
 - `journalManifestBinding` refuses waiting-list rows and members outside the
-  `waitlist` scope, and object entries inside it.
+  `waitlist` scope, and object entries inside it. In a `waitlist` manifest a
+  delivery and its effect member agree on the source action, and a
+  withdrawal names an effect only as the parent of one of its own
+  deliveries. Replay deletes an effect only once it has no delivery left.
 
 ## [15.0.1] — 2026-11-12
 
