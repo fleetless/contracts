@@ -16286,7 +16286,7 @@
                         "const": "paid_change"
                       },
                       "invoice_id": {
-                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -16339,7 +16339,7 @@
                         "const": "paid_change"
                       },
                       "invoice_id": {
-                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -16434,7 +16434,7 @@
                         "const": "paid_change"
                       },
                       "invoice_id": {
-                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -16508,7 +16508,7 @@
                         "const": "paid_change"
                       },
                       "invoice_id": {
-                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -16556,7 +16556,7 @@
                         "const": "paid_change"
                       },
                       "invoice_id": {
-                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                        "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                         "type": "string",
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -17768,7 +17768,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The Fleetless invoice charged now, or `null` when the change was only scheduled for the period's end or was charged through Lexware (then the charge is in `billing.charges`)."
+                "description": "The Fleetless invoice charged now, or `null` when nothing was charged now (a change scheduled for the period end, or an increase that cost nothing) or the change was charged through Lexware (then the charge is in `billing.charges`)."
               },
               "intent": {
                 "type": "object",
@@ -17790,7 +17790,7 @@
                     "const": "paid_change"
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -18846,7 +18846,8 @@
                 "additionalProperties": false
               },
               "charged": {
-                "type": "null"
+                "type": "null",
+                "description": "Always `null`: nothing was charged now (a scheduled change or an increase that cost nothing)."
               },
               "intent": {
                 "type": "object",
@@ -23952,7 +23953,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -24009,7 +24010,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -24109,7 +24110,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -24187,7 +24188,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -24239,7 +24240,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -24393,7 +24394,7 @@
                 ]
               },
               "invoice_id": {
-                "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45315,7 +45316,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45373,7 +45374,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45474,7 +45475,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45553,7 +45554,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45606,7 +45607,7 @@
                     ]
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45760,7 +45761,7 @@
                 ]
               },
               "invoice_id": {
-                "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                 "type": "string",
                 "format": "uuid",
                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -46994,7 +46995,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "The Fleetless invoice charged now, or `null` when the change was only scheduled for the period's end or was charged through Lexware (then the charge is in `billing.charges`)."
+                "description": "The Fleetless invoice charged now, or `null` when nothing was charged now (a change scheduled for the period end, or an increase that cost nothing) or the change was charged through Lexware (then the charge is in `billing.charges`)."
               },
               "intent": {
                 "type": "object",
@@ -47016,7 +47017,7 @@
                     "const": "paid_change"
                   },
                   "invoice_id": {
-                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.",
+                    "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -48072,7 +48073,8 @@
                 "additionalProperties": false
               },
               "charged": {
-                "type": "null"
+                "type": "null",
+                "description": "Always `null`: nothing was charged now (a scheduled change or an increase that cost nothing)."
               },
               "intent": {
                 "type": "object",

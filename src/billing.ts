@@ -604,8 +604,8 @@ const intentIdentity = {
   invoice_id: z.uuid().optional().meta({
     description:
       'For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with ' +
-      'payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the ' +
-      'matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.',
+      'payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware ' +
+      '(`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.',
   }),
 }
 export const purchaseHoldReason = z.enum([
@@ -1187,8 +1187,8 @@ const acceptedBillingFields = {
   billing: billingView.meta({ description: 'The billing view after the change.' }),
   charged: billingInvoice.nullable().meta({
     description:
-      'The Fleetless invoice charged now, or `null` when the change was only scheduled for the period\'s end or was ' +
-      'charged through Lexware (then the charge is in `billing.charges`).',
+      'The Fleetless invoice charged now, or `null` when nothing was charged now (a change scheduled for the period end, ' +
+      'or an increase that cost nothing) or the change was charged through Lexware (then the charge is in `billing.charges`).',
   }),
 }
 const acceptedPaidChange = z.object({
@@ -1197,7 +1197,9 @@ const acceptedPaidChange = z.object({
 }).strict()
 const acceptedNoPaymentChange = z.object({
   billing: billingView,
-  charged: z.null(),
+  charged: z.null().meta({
+    description: 'Always `null`: nothing was charged now (a scheduled change or an increase that cost nothing).',
+  }),
   intent: purchaseIntentAcceptedWithoutPayment,
 }).strict()
 export const billingChangeResponse = z.union([
