@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.0.1] — 2026-11-12
+
 ### Fixed
 
 - The description of `billingChangeResponse.charged` says `null` also means
