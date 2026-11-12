@@ -11,16 +11,22 @@ version.
 
 ### Fixed
 
-- The description of `billingChangeResponse.charged` says `null` also means the
-  change was charged through Lexware, where the charge is in `billing.charges`
-  and there is no Fleetless invoice.
+- The description of `billingChangeResponse.charged` says `null` also means
+  nothing was charged now (a change scheduled for the period's end, or an
+  increase that cost nothing) or the change was charged through Lexware,
+  where the charge is in `billing.charges` and there is no Fleetless invoice.
+  The `charged` of an accepted change without payment says it is always
+  `null`.
 - The description of `intent.invoice_id` on a confirmed paid change says it
-  names the charge or invoice created for that decision, and with a Lexware
-  issuer the matching `billing.charges[].id` (carried over from
-  fleetless/contracts#67). Descriptions only; the wire format does not change.
-- The plan catalogue says `audit_export: true` for Basic and Plus, as the cloud
-  already behaves: it exports the audit log on every plan. `requiredPlanFor('audit_export')`
-  is now `basic`. A catalogue value only; the wire format does not change.
+  names the charge or invoice created for that decision, and when the charge
+  was issued through Lexware (`charged` is `null`) the matching
+  `billing.charges[].id`; it is absent on a `paid_change` in any other state
+  (carried over from fleetless/contracts#67). Descriptions only; the wire
+  format does not change.
+- The plan catalogue says `audit_export: true` for Basic and Plus, as the
+  cloud already behaves: it exports the audit log on every plan.
+  `requiredPlanFor('audit_export')` is now `basic`. A catalogue value only;
+  the wire format does not change.
 
 ## [15.0.0] — 2026-11-06
 
