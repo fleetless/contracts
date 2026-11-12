@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.1.0] — 2026-11-12
+
 ### Added
 
 - **Deletion journal: the waiting list** (fleetless/fleetless#1082). Two
