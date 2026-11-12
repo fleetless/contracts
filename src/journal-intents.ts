@@ -78,6 +78,8 @@ const branches = [
   captured('ops_event.retention', z.strictObject({ ...org, ...batch })),
   captured('ops_global_event.retention', z.strictObject(batch)),
   captured('operator_audit.retention', z.strictObject(batch)),
+  // The waiting list has no organization: entries are deleted by their own retention period.
+  captured('waitlist.retention', z.strictObject(batch)),
   plain('org_note_text.remove', z.strictObject({ ...org, old_note_generation: uuid })),
   plain('org_note_text.replace', z.strictObject({ ...org, old_note_generation: uuid })),
   captured('oidc_interaction.expire', z.strictObject({ ...org, ...batch })),
