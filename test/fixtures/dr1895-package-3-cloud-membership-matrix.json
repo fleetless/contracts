@@ -25,11 +25,12 @@
     "ops_global_event.retention":"global_ops_event",
     "operator_audit.retention":"operator_audit",
     "waitlist.retention":"waitlist",
+    "waitlist.withdrawal":"waitlist",
     "auth_factor.remove":"subject"
   },
   "member_common": {"membership_kind":["affected","unaffected"]},
   "row_variants": [
-    {"type":"uuid_row","table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents","operator_effect_outbox","operator_effect_mail_deliveries"],"fields":{"table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents","operator_effect_outbox","operator_effect_mail_deliveries"],"id":"uuid","row_generation":"uuid"},"physical_identity":["table","id"],"rule":"row_generation equals id for these immutable UUID row identities"},
+    {"type":"uuid_row","table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents"],"fields":{"table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents"],"id":"uuid","row_generation":"uuid"},"physical_identity":["table","id"],"rule":"row_generation equals id for these immutable UUID row identities"},
     {"type":"basic_activity_observation","table":"basic_activity_observations","fields":{"org_id":"uuid","audit_event_id":"uuid"},"physical_identity":["audit_event_id"],"rule":"audit_event_id is the actual primary key; the observation also carries org_id"},
     {"type":"history_sample","table":"datapoint_series_samples","fields":{"robot_id":"uuid","series_id":"positive_integer","series_generation":"uuid","captured_at_epoch_us":"positive_safe_integer","sample_id":"uuid"},"physical_identity":["robot_id","series_id","captured_at_epoch_us","sample_id"],"rule":"captured_at_epoch_us is read losslessly from the actual timestamptz partition key; millisecond RFC 3339 is insufficient"},
     {"type":"latency_bucket","table":"bridge_latency_buckets","fields":{"robot_id":"uuid","bucket_at":"utc_millis","bucket_generation":"uuid"},"physical_identity":["robot_id","bucket_at"],"rule":"the generation records old content but is not a second physical row at the same bucket key"},
@@ -46,7 +47,9 @@
     {"type":"org_ops_event","table":"ops_events","fields":{"org_id":"uuid","event_id":"uuid"},"physical_identity":["event_id"],"rule":"org_id was non-NULL at freeze; dependent jobs are separate uuid_row members"},
     {"type":"global_ops_event","table":"ops_events","fields":{"event_id":"uuid"},"physical_identity":["event_id"],"rule":"org_id IS NULL at freeze; no invented org_id; dependent jobs are separate uuid_row members"},
     {"type":"org_operator_audit","table":"operator_audit","fields":{"org_id":"uuid","audit_id":"uuid"},"physical_identity":["audit_id"],"rule":"org_id was non-NULL at freeze, before SET NULL can erase the ownership clue"},
-    {"type":"global_operator_audit","table":"operator_audit","fields":{"audit_id":"uuid"},"physical_identity":["audit_id"],"rule":"org_id IS NULL at freeze; global classification requires independent content review"}
+    {"type":"global_operator_audit","table":"operator_audit","fields":{"audit_id":"uuid"},"physical_identity":["audit_id"],"rule":"org_id IS NULL at freeze; global classification requires independent content review"},
+    {"type":"waitlist_mail_effect","table":"operator_effect_outbox","fields":{"effect_id":"uuid","source_action":["waitlist_invite","waitlist_reinvite","waitlist_decline","waitlist_confirm"]},"physical_identity":["effect_id"],"rule":"only in the waitlist scope; replay deletes the effect only while its source_action is still the frozen one"},
+    {"type":"waitlist_mail_delivery","table":"operator_effect_mail_deliveries","fields":{"delivery_id":"uuid","effect_id":"uuid","entry_id":"uuid","source_action":["waitlist_invite","waitlist_reinvite","waitlist_decline","waitlist_confirm"]},"physical_identity":["delivery_id"],"rule":"only in the waitlist scope; replay deletes the delivery only while its effect, target entry and source_action are the frozen ones"}
   ],
   "object_entry_variants": [
     {"kind":"asset_blob","fields":{"mapping_id":"uuid","source_project_id":"opaque_id","source_bucket":"opaque_id","old_key":"restricted_string","version_ids":"nonempty_unique_version_ids"},"physical_identity":["mapping_id"],"rule":"each affected and unaffected mapping is a separate entry; the same blob key/version may be referenced by distinct mappings; physical deletion requires no surviving mapping"},

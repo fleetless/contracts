@@ -1144,6 +1144,38 @@
         },
         "kind": {
           "type": "string",
+          "const": "waitlist.withdrawal"
+        },
+        "ids": {
+          "type": "object",
+          "properties": {
+            "entry_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          },
+          "required": [
+            "entry_id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "operation_id",
+        "kind",
+        "ids"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "kind": {
+          "type": "string",
           "const": "oidc_interaction.expire"
         },
         "ids": {

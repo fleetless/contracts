@@ -55,6 +55,7 @@ const examples: [string, Record<string, unknown>, boolean][] = [
   ...['ops_global_event.retention', 'operator_audit.retention', 'mcp_central_interaction.expire', 'mcp_central_client.expire',
     'console_interaction.expire', 'console_code.expire', 'waitlist.retention'].map((kind): [string, Record<string, unknown>, boolean] =>
     [kind, batch, true]),
+  ['waitlist.withdrawal', { entry_id: id }, true],
   ['org_note_text.remove', { ...org, old_note_generation: id }, false],
   ['org_note_text.replace', { ...org, old_note_generation: id }, false],
   ['instance.serial_lock', { instance_id: id, serial_binding_id: id, serial_binding_generation: 1 }, false],
@@ -124,7 +125,7 @@ describe('closed v2 journal intents', () => {
           }
         }
         if (candidate.kind.startsWith('mcp_central_') || candidate.kind.startsWith('console_') || candidate.kind === 'ops_global_event.retention'
-          || candidate.kind === 'waitlist.retention') {
+          || candidate.kind.startsWith('waitlist.')) {
           rejects({ ...value, ids: { ...candidate.ids, org_id: id } })
         }
         if (candidate.kind === 'auth_factor.remove') rejects({ ...value, ids: { ...candidate.ids, subject_kind: 'app_user', factor_kind: 'passkey' } })

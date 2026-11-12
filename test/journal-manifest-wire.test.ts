@@ -78,29 +78,78 @@ describe('package 3 protected manifest wire', () => {
     }
   })
 
-  it('binds a waiting-list retention batch to the waitlist scope and its tables only (fleetless/fleetless#1082)', () => {
+  describe('the waiting list (fleetless/fleetless#1082)', () => {
     const binding = (contracts as any).journalManifestBinding
     const validateBinding = validateArtifact('journal-manifest-binding')
-    const row = (table: string, id: string) => ({ type: 'uuid_row', table, id, row_generation: id, membership_kind: 'affected' })
-    const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333',
-      '44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555', '66666666-6666-4666-8666-666666666666']
-    const tables = ['operator_effect_mail_deliveries', 'operator_effect_outbox', 'waitlist', 'waitlist_consents',
-      'waitlist_invitation_proofs', 'waitlist_invitations']
-    const rows = tables.map((table, index) => row(table, ids[index]!))
-    const make = (scope: unknown, members: unknown[], intentIds: Record<string, unknown> = { batch_id: uuid, cutoff_at: at, policy_revision: 1 }) => ({
-      intent: { operation_id: uuid, kind: 'waitlist.retention', ids: intentIds },
-      manifest: { schema: 'fleetless.deletion-manifest.v1', environment: 'production', generation: 1, operation_id: uuid, manifest_id: uuid,
-        scope, entries: [], rows: members,
-        batches: [{ batch_id: uuid, kind: 'waitlist.retention', cutoff_at: at, policy_revision: 1, rows: members }] },
+    const [entry, invitation, proof, consent, effect, delivery, other] = ['11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444',
+      '55555555-5555-4555-8555-555555555555', '66666666-6666-4666-8666-666666666666', '77777777-7777-4777-8777-777777777777']
+    const row = (table: string, rowId: string) => ({ type: 'uuid_row', table, id: rowId, row_generation: rowId, membership_kind: 'affected' })
+    const mailDelivery = (entryId: string, deliveryId = delivery) => ({ type: 'waitlist_mail_delivery', delivery_id: deliveryId, effect_id: effect,
+      entry_id: entryId, source_action: 'waitlist_confirm', membership_kind: 'affected' })
+    const mailEffect = { type: 'waitlist_mail_effect', effect_id: effect, source_action: 'waitlist_confirm', membership_kind: 'affected' }
+    // Sorted by physical identity: deliveries, outbox, then the four waiting-list tables.
+    const rows = [mailDelivery(entry!), mailEffect, row('waitlist', entry!), row('waitlist_consents', consent!),
+      row('waitlist_invitation_proofs', proof!), row('waitlist_invitations', invitation!)]
+    const manifestOf = (scope: unknown, members: unknown[], batches: unknown[], entries: unknown[] = []) => ({
+      schema: 'fleetless.deletion-manifest.v1', environment: 'production', generation: 1, operation_id: uuid, manifest_id: uuid,
+      scope, entries, rows: members, batches })
+    const retention = (scope: unknown, members: unknown[], ids: Record<string, unknown> = { batch_id: uuid, cutoff_at: at, policy_revision: 1 }, entries: unknown[] = []) => ({
+      intent: { operation_id: uuid, kind: 'waitlist.retention', ids },
+      manifest: manifestOf(scope, members, [{ batch_id: uuid, kind: 'waitlist.retention', cutoff_at: at, policy_revision: 1, rows: members }], entries),
     })
-    const valid = make({ kind: 'waitlist' }, rows)
-    expect(binding.safeParse(valid).success, JSON.stringify(binding.safeParse(valid).error?.issues)).toBe(true)
-    expect(validateBinding(valid)).toBe(true)
-    // A table outside the waiting list, an organization scope or an organization in the ids is refused.
-    expect(binding.safeParse(make({ kind: 'waitlist' }, [...rows.slice(0, 2), row('job_runs', ids[2]!)])).success).toBe(false)
-    expect(binding.safeParse(make({ kind: 'organization', org_id: uuid }, rows)).success).toBe(false)
-    expect(binding.safeParse(make({ kind: 'waitlist' }, rows, { org_id: uuid, batch_id: uuid, cutoff_at: at, policy_revision: 1 })).success).toBe(false)
-    expect((contracts as any).journalManifestScope.safeParse({ kind: 'waitlist', org_id: uuid }).success).toBe(false)
+    const withdrawal = (members: unknown[], entryId = entry) => ({
+      intent: { operation_id: uuid, kind: 'waitlist.withdrawal', ids: { entry_id: entryId } },
+      manifest: manifestOf({ kind: 'waitlist' }, members, []),
+    })
+    const accepted = (value: unknown) => {
+      expect(binding.safeParse(value).success, JSON.stringify(binding.safeParse(value).error?.issues)).toBe(true)
+      expect(validateBinding(value), JSON.stringify(validateBinding.errors)).toBe(true)
+    }
+    const refused = (value: unknown) => expect(binding.safeParse(value).success).toBe(false)
+
+    it('binds a retention batch and a withdrawal over the four tables and the waiting-list mail members', () => {
+      accepted(retention({ kind: 'waitlist' }, rows))
+      accepted(withdrawal(rows))
+    })
+
+    it('admits the shared operator-effect tables only as waiting-list members with a waiting-list source action', () => {
+      const row_ = (contracts as any).journalManifestRow
+      for (const table of ['operator_effect_outbox', 'operator_effect_mail_deliveries']) expect(row_.safeParse(row(table, effect!)).success).toBe(false)
+      for (const source_action of ['plan_change', 'billing_resend_payment_link', 'invitation_resend']) {
+        expect(row_.safeParse({ ...mailEffect, source_action }).success).toBe(false)
+        expect(row_.safeParse({ ...mailDelivery(entry!), source_action }).success).toBe(false)
+      }
+    })
+
+    it('keeps waiting-list members out of every other scope, and other rows out of its own', () => {
+      const orgBatch = (kind: string, members: unknown[]) => ({
+        intent: { operation_id: uuid, kind, ids: { org_id: uuid, batch_id: uuid, cutoff_at: at, policy_revision: 1 } },
+        manifest: manifestOf({ kind: 'organization', org_id: uuid }, members, [{ batch_id: uuid, kind, cutoff_at: at, policy_revision: 1, rows: members }]),
+      })
+      refused(orgBatch('job_run.retention', [row('waitlist', entry!)]))
+      refused(orgBatch('audit.retention', [mailEffect]))
+      refused(retention({ kind: 'organization', org_id: uuid }, rows))
+      refused(retention({ kind: 'waitlist' }, [row('job_runs', other!), ...rows.slice(2)]))
+      refused(retention({ kind: 'waitlist' }, rows, { org_id: uuid, batch_id: uuid, cutoff_at: at, policy_revision: 1 }))
+      expect((contracts as any).journalManifestScope.safeParse({ kind: 'waitlist', org_id: uuid }).success).toBe(false)
+    })
+
+    it('carries no object entry, the only place a free string could hold an address', () => {
+      const asset = { kind: 'asset_blob', mapping_id: uuid, source_project_id: 'project', source_bucket: 'bucket',
+        old_key: 'waitlist/someone', version_ids: ['version-1'], membership_kind: 'affected' }
+      refused(retention({ kind: 'waitlist' }, rows, undefined, [asset]))
+    })
+
+    it('ties a withdrawal to its one entry', () => {
+      refused(withdrawal(rows, other))
+      refused(withdrawal([mailDelivery(other!), ...rows.slice(1)]))
+      refused(withdrawal(rows.filter((member: any) => member.table !== 'waitlist')))
+      refused(withdrawal([...rows.slice(0, 2), row('waitlist', entry!), row('waitlist', other!), ...rows.slice(3)].sort(() => 0)))
+      // A withdrawal is no sweep: no batch.
+      const batched = withdrawal(rows)
+      refused({ ...batched, manifest: { ...batched.manifest, batches: [{ batch_id: uuid, kind: 'waitlist.retention', cutoff_at: at, policy_revision: 1, rows }] } })
+    })
   })
 
   it('rejects all ten broken Cloud manifest bindings and structural owner/shape drift', () => {

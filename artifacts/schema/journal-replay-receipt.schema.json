@@ -155,6 +155,7 @@
               "ops_global_event.retention",
               "operator_audit.retention",
               "waitlist.retention",
+              "waitlist.withdrawal",
               "org_note_text.remove",
               "org_note_text.replace",
               "oidc_interaction.expire",
