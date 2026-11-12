@@ -9,6 +9,12 @@ version.
 
 ## [Unreleased]
 
+### Fixed
+
+- The plan catalogue says `audit_export: true` for Basic and Plus, as the cloud
+  already behaves: it exports the audit log on every plan. `requiredPlanFor('audit_export')`
+  is now `basic`. A catalogue value only; the wire format does not change.
+
 ## [15.0.0] — 2026-11-06
 
 ### Added
