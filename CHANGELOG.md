@@ -9,6 +9,18 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **Deletion journal: the waiting list's retention.** A new intent kind,
+  `waitlist.retention`, with batch-only ids like `ops_global_event.retention`
+  (the waiting list has no organization), and a manifest scope `waitlist`
+  that admits only `uuid_row` members of `waitlist`, `waitlist_invitations`,
+  `waitlist_invitation_proofs`, `waitlist_consents`, `operator_effect_outbox`
+  and `operator_effect_mail_deliveries`. The cloud journals the deletions of
+  its waiting-list retention job with it, so a restore cannot bring an
+  expired entry, or the mail rows that carry its address, back
+  (fleetless/fleetless#1082).
+
 ## [15.0.1] — 2026-11-12
 
 ### Fixed

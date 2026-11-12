@@ -96,7 +96,10 @@ implementation work; it does not require another general spec approval.
 Cloud `fb438e6` adds a machine-readable matrix: 48 branches for 45 kinds.
 The additional `ops_global_event.retention` branch captures an exact protected
 batch without an invented organization ID; `ops_event.retention` still requires
-its organization. This delta is implemented, and the corrected Cloud template
+its organization. `waitlist.retention` (fleetless/fleetless#1082) is shaped the
+same way: batch-only ids, its own `waitlist` scope, and only `uuid_row` members
+of the waiting-list tables and the operator mail rows that carry their
+addresses. This delta is implemented, and the corrected Cloud template
 enum now agrees with Contracts. Registry source paths stay outside intent IDs.
 
 Cloud `c76fbeb1913b737b6f51c0edf0015870687b8bdd` closes the protected

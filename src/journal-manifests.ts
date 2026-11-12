@@ -19,6 +19,7 @@ export const journalManifestScope = z.union([
   z.strictObject({ kind: z.literal('console_oauth') }),
   z.strictObject({ kind: z.literal('global_ops_event') }),
   z.strictObject({ kind: z.literal('operator_audit') }),
+  z.strictObject({ kind: z.literal('waitlist') }),
   z.strictObject({ kind: z.literal('subject'), subject_kind: z.enum(['developer', 'app_user']), subject_id: uuid }),
 ])
 export type JournalManifestScope = z.infer<typeof journalManifestScope>
@@ -26,6 +27,8 @@ export type JournalManifestScope = z.infer<typeof journalManifestScope>
 const uuidRowTable = z.enum([
   'assets', 'audit_events', 'job_runs', 'oidc_interactions',
   'organization_exports', 'ops_notification_jobs', 'console_oauth_codes',
+  'waitlist', 'waitlist_invitations', 'waitlist_invitation_proofs', 'waitlist_consents',
+  'operator_effect_outbox', 'operator_effect_mail_deliveries',
 ])
 const member = { membership_kind: membership }
 // Retention sweeps name an expired time range instead of every deleted row.
@@ -92,7 +95,7 @@ const sweepKinds = [
   'ops_event.retention', 'ops_global_event.retention', 'operator_audit.retention',
   'oidc_interaction.expire', 'mcp_interaction.expire', 'mcp_central_interaction.expire',
   'mcp_client.expire', 'mcp_central_client.expire', 'console_interaction.expire',
-  'console_code.expire',
+  'console_code.expire', 'waitlist.retention',
 ] as const
 const explicitKinds = ['history.slug_delete', 'robot_assets.clear'] as const
 export const journalManifestBatch = z.union([
@@ -147,6 +150,12 @@ export const journalManifestIntentProjection = z.union(backedBranches.map((branc
 })) as unknown as [z.ZodType<ManifestIntentProjection>, ...z.ZodType<ManifestIntentProjection>[]])
 export type JournalManifestIntentProjection = z.infer<typeof journalManifestIntentProjection>
 
+/** What a waiting-list retention batch may name: the entries, what hangs off them, and the mail rows that carry their addresses. */
+const waitlistTables: ReadonlySet<string> = new Set([
+  'waitlist', 'waitlist_invitations', 'waitlist_invitation_proofs', 'waitlist_consents',
+  'operator_effect_outbox', 'operator_effect_mail_deliveries',
+])
+
 const nonOrganizationScope: Record<string, JournalManifestScope['kind']> = {
   'mcp_central_client.revoke': 'central_mcp',
   'mcp_central_interaction.expire': 'central_mcp',
@@ -155,6 +164,7 @@ const nonOrganizationScope: Record<string, JournalManifestScope['kind']> = {
   'console_code.expire': 'console_oauth',
   'ops_global_event.retention': 'global_ops_event',
   'operator_audit.retention': 'operator_audit',
+  'waitlist.retention': 'waitlist',
   'auth_factor.remove': 'subject',
 }
 
@@ -227,6 +237,7 @@ export const journalManifestBinding = z.strictObject({
     console_oauth: (row) => row.type === 'console_interaction' || (row.type === 'uuid_row' && row.table === 'console_oauth_codes'),
     global_ops_event: (row) => row.type === 'global_ops_event' || (row.type === 'uuid_row' && row.table === 'ops_notification_jobs'),
     operator_audit: (row) => row.type === 'global_operator_audit' || row.type === 'org_operator_audit',
+    waitlist: (row) => row.type === 'uuid_row' && waitlistTables.has(row.table),
   }
   const allows = allowedRows[manifest.scope.kind]
   if (allows && !manifest.rows.every(allows)) problem('Row outside closed source scope', ['manifest', 'rows'])

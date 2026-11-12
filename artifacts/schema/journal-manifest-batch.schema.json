@@ -24,7 +24,8 @@
             "mcp_client.expire",
             "mcp_central_client.expire",
             "console_interaction.expire",
-            "console_code.expire"
+            "console_code.expire",
+            "waitlist.retention"
           ]
         },
         "cutoff_at": {
@@ -65,7 +66,13 @@
                       "oidc_interactions",
                       "organization_exports",
                       "ops_notification_jobs",
-                      "console_oauth_codes"
+                      "console_oauth_codes",
+                      "waitlist",
+                      "waitlist_invitations",
+                      "waitlist_invitation_proofs",
+                      "waitlist_consents",
+                      "operator_effect_outbox",
+                      "operator_effect_mail_deliveries"
                     ]
                   },
                   "id": {
@@ -740,7 +747,13 @@
                       "oidc_interactions",
                       "organization_exports",
                       "ops_notification_jobs",
-                      "console_oauth_codes"
+                      "console_oauth_codes",
+                      "waitlist",
+                      "waitlist_invitations",
+                      "waitlist_invitation_proofs",
+                      "waitlist_consents",
+                      "operator_effect_outbox",
+                      "operator_effect_mail_deliveries"
                     ]
                   },
                   "id": {

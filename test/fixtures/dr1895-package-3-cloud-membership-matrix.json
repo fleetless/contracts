@@ -13,6 +13,7 @@
     {"kind":"console_oauth","fields":{}},
     {"kind":"global_ops_event","fields":{}},
     {"kind":"operator_audit","fields":{}},
+    {"kind":"waitlist","fields":{}},
     {"kind":"subject","fields":{"subject_kind":["developer","app_user"],"subject_id":"uuid"}}
   ],
   "non_organization_scope_kinds": {
@@ -23,11 +24,12 @@
     "console_code.expire":"console_oauth",
     "ops_global_event.retention":"global_ops_event",
     "operator_audit.retention":"operator_audit",
+    "waitlist.retention":"waitlist",
     "auth_factor.remove":"subject"
   },
   "member_common": {"membership_kind":["affected","unaffected"]},
   "row_variants": [
-    {"type":"uuid_row","table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes"],"fields":{"table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes"],"id":"uuid","row_generation":"uuid"},"physical_identity":["table","id"],"rule":"row_generation equals id for these immutable UUID row identities"},
+    {"type":"uuid_row","table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents","operator_effect_outbox","operator_effect_mail_deliveries"],"fields":{"table":["assets","audit_events","job_runs","oidc_interactions","organization_exports","ops_notification_jobs","console_oauth_codes","waitlist","waitlist_invitations","waitlist_invitation_proofs","waitlist_consents","operator_effect_outbox","operator_effect_mail_deliveries"],"id":"uuid","row_generation":"uuid"},"physical_identity":["table","id"],"rule":"row_generation equals id for these immutable UUID row identities"},
     {"type":"basic_activity_observation","table":"basic_activity_observations","fields":{"org_id":"uuid","audit_event_id":"uuid"},"physical_identity":["audit_event_id"],"rule":"audit_event_id is the actual primary key; the observation also carries org_id"},
     {"type":"history_sample","table":"datapoint_series_samples","fields":{"robot_id":"uuid","series_id":"positive_integer","series_generation":"uuid","captured_at_epoch_us":"positive_safe_integer","sample_id":"uuid"},"physical_identity":["robot_id","series_id","captured_at_epoch_us","sample_id"],"rule":"captured_at_epoch_us is read losslessly from the actual timestamptz partition key; millisecond RFC 3339 is insufficient"},
     {"type":"latency_bucket","table":"bridge_latency_buckets","fields":{"robot_id":"uuid","bucket_at":"utc_millis","bucket_generation":"uuid"},"physical_identity":["robot_id","bucket_at"],"rule":"the generation records old content but is not a second physical row at the same bucket key"},
@@ -51,7 +53,7 @@
     {"kind":"export_archive","fields":{"mapping_id":"uuid","source_project_id":"opaque_id","source_bucket":"opaque_id","old_key":"restricted_string","version_ids":"nonempty_unique_version_ids"},"physical_identity":["mapping_id"]}
   ],
   "batch_variants": [
-    {"form":"sweep","kinds":["history.retention","audit.retention","job_run.retention","latency.retention","ops_event.retention","ops_global_event.retention","operator_audit.retention","oidc_interaction.expire","mcp_interaction.expire","mcp_central_interaction.expire","mcp_client.expire","mcp_central_client.expire","console_interaction.expire","console_code.expire"],"fields":{"batch_id":"uuid","kind":"closed_kind","cutoff_at":"utc_millis","policy_revision":"positive_integer","rows":"sorted_exact_affected_row_members"}},
+    {"form":"sweep","kinds":["history.retention","audit.retention","job_run.retention","latency.retention","ops_event.retention","ops_global_event.retention","operator_audit.retention","oidc_interaction.expire","mcp_interaction.expire","mcp_central_interaction.expire","mcp_client.expire","mcp_central_client.expire","console_interaction.expire","console_code.expire","waitlist.retention"],"fields":{"batch_id":"uuid","kind":"closed_kind","cutoff_at":"utc_millis","policy_revision":"positive_integer","rows":"sorted_exact_affected_row_members"}},
     {"form":"explicit_set","kinds":["history.slug_delete","robot_assets.clear"],"fields":{"batch_id":"uuid","kind":"closed_kind","rows":"sorted_exact_affected_row_members"}}
   ],
   "invariants": [

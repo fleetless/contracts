@@ -1103,6 +1103,50 @@
             },
             "kind": {
               "type": "string",
+              "const": "waitlist.retention"
+            },
+            "ids": {
+              "type": "object",
+              "properties": {
+                "batch_id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                "cutoff_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+                },
+                "policy_revision": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "batch_id",
+                "cutoff_at",
+                "policy_revision"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "operation_id",
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "kind": {
+              "type": "string",
               "const": "oidc_interaction.expire"
             },
             "ids": {
@@ -1567,6 +1611,19 @@
               "properties": {
                 "kind": {
                   "type": "string",
+                  "const": "waitlist"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
                   "const": "subject"
                 },
                 "subject_kind": {
@@ -1725,7 +1782,13 @@
                       "oidc_interactions",
                       "organization_exports",
                       "ops_notification_jobs",
-                      "console_oauth_codes"
+                      "console_oauth_codes",
+                      "waitlist",
+                      "waitlist_invitations",
+                      "waitlist_invitation_proofs",
+                      "waitlist_consents",
+                      "operator_effect_outbox",
+                      "operator_effect_mail_deliveries"
                     ]
                   },
                   "id": {
@@ -2375,7 +2438,8 @@
                       "mcp_client.expire",
                       "mcp_central_client.expire",
                       "console_interaction.expire",
-                      "console_code.expire"
+                      "console_code.expire",
+                      "waitlist.retention"
                     ]
                   },
                   "cutoff_at": {
@@ -2416,7 +2480,13 @@
                                 "oidc_interactions",
                                 "organization_exports",
                                 "ops_notification_jobs",
-                                "console_oauth_codes"
+                                "console_oauth_codes",
+                                "waitlist",
+                                "waitlist_invitations",
+                                "waitlist_invitation_proofs",
+                                "waitlist_consents",
+                                "operator_effect_outbox",
+                                "operator_effect_mail_deliveries"
                               ]
                             },
                             "id": {
@@ -3091,7 +3161,13 @@
                                 "oidc_interactions",
                                 "organization_exports",
                                 "ops_notification_jobs",
-                                "console_oauth_codes"
+                                "console_oauth_codes",
+                                "waitlist",
+                                "waitlist_invitations",
+                                "waitlist_invitation_proofs",
+                                "waitlist_consents",
+                                "operator_effect_outbox",
+                                "operator_effect_mail_deliveries"
                               ]
                             },
                             "id": {

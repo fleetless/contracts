@@ -110,6 +110,19 @@
       "properties": {
         "kind": {
           "type": "string",
+          "const": "waitlist"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
           "const": "subject"
         },
         "subject_kind": {

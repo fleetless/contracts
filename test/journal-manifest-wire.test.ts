@@ -78,6 +78,31 @@ describe('package 3 protected manifest wire', () => {
     }
   })
 
+  it('binds a waiting-list retention batch to the waitlist scope and its tables only (fleetless/fleetless#1082)', () => {
+    const binding = (contracts as any).journalManifestBinding
+    const validateBinding = validateArtifact('journal-manifest-binding')
+    const row = (table: string, id: string) => ({ type: 'uuid_row', table, id, row_generation: id, membership_kind: 'affected' })
+    const ids = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333',
+      '44444444-4444-4444-8444-444444444444', '55555555-5555-4555-8555-555555555555', '66666666-6666-4666-8666-666666666666']
+    const tables = ['operator_effect_mail_deliveries', 'operator_effect_outbox', 'waitlist', 'waitlist_consents',
+      'waitlist_invitation_proofs', 'waitlist_invitations']
+    const rows = tables.map((table, index) => row(table, ids[index]!))
+    const make = (scope: unknown, members: unknown[], intentIds: Record<string, unknown> = { batch_id: uuid, cutoff_at: at, policy_revision: 1 }) => ({
+      intent: { operation_id: uuid, kind: 'waitlist.retention', ids: intentIds },
+      manifest: { schema: 'fleetless.deletion-manifest.v1', environment: 'production', generation: 1, operation_id: uuid, manifest_id: uuid,
+        scope, entries: [], rows: members,
+        batches: [{ batch_id: uuid, kind: 'waitlist.retention', cutoff_at: at, policy_revision: 1, rows: members }] },
+    })
+    const valid = make({ kind: 'waitlist' }, rows)
+    expect(binding.safeParse(valid).success, JSON.stringify(binding.safeParse(valid).error?.issues)).toBe(true)
+    expect(validateBinding(valid)).toBe(true)
+    // A table outside the waiting list, an organization scope or an organization in the ids is refused.
+    expect(binding.safeParse(make({ kind: 'waitlist' }, [...rows.slice(0, 2), row('job_runs', ids[2]!)])).success).toBe(false)
+    expect(binding.safeParse(make({ kind: 'organization', org_id: uuid }, rows)).success).toBe(false)
+    expect(binding.safeParse(make({ kind: 'waitlist' }, rows, { org_id: uuid, batch_id: uuid, cutoff_at: at, policy_revision: 1 })).success).toBe(false)
+    expect((contracts as any).journalManifestScope.safeParse({ kind: 'waitlist', org_id: uuid }).success).toBe(false)
+  })
+
   it('rejects all ten broken Cloud manifest bindings and structural owner/shape drift', () => {
     const binding = (contracts as any).journalManifestBinding
     for (const fixture of fixtures.negative) {
