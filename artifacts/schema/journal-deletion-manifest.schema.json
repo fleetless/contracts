@@ -312,9 +312,7 @@
                   "waitlist",
                   "waitlist_invitations",
                   "waitlist_invitation_proofs",
-                  "waitlist_consents",
-                  "operator_effect_outbox",
-                  "operator_effect_mail_deliveries"
+                  "waitlist_consents"
                 ]
               },
               "id": {
@@ -866,6 +864,91 @@
           {
             "type": "object",
             "properties": {
+              "membership_kind": {
+                "type": "string",
+                "enum": [
+                  "affected",
+                  "unaffected"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "waitlist_mail_effect"
+              },
+              "effect_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "source_action": {
+                "type": "string",
+                "enum": [
+                  "waitlist_invite",
+                  "waitlist_reinvite",
+                  "waitlist_decline",
+                  "waitlist_confirm"
+                ],
+                "description": "The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it."
+              }
+            },
+            "required": [
+              "membership_kind",
+              "type",
+              "effect_id",
+              "source_action"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "membership_kind": {
+                "type": "string",
+                "enum": [
+                  "affected",
+                  "unaffected"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "waitlist_mail_delivery"
+              },
+              "delivery_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "effect_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "entry_id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "description": "The waiting-list entry the delivery was addressed for (its target); the entry itself may already be gone."
+              },
+              "source_action": {
+                "type": "string",
+                "enum": [
+                  "waitlist_invite",
+                  "waitlist_reinvite",
+                  "waitlist_decline",
+                  "waitlist_confirm"
+                ],
+                "description": "The source action of the delivery's effect when it was frozen; replay deletes the delivery only if its effect still has it."
+              }
+            },
+            "required": [
+              "membership_kind",
+              "type",
+              "delivery_id",
+              "effect_id",
+              "entry_id",
+              "source_action"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": {
                 "type": "string",
                 "const": "retention_range"
@@ -1010,9 +1093,7 @@
                             "waitlist",
                             "waitlist_invitations",
                             "waitlist_invitation_proofs",
-                            "waitlist_consents",
-                            "operator_effect_outbox",
-                            "operator_effect_mail_deliveries"
+                            "waitlist_consents"
                           ]
                         },
                         "id": {
@@ -1558,6 +1639,91 @@
                         "membership_kind",
                         "type",
                         "audit_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "membership_kind": {
+                          "type": "string",
+                          "enum": [
+                            "affected",
+                            "unaffected"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "waitlist_mail_effect"
+                        },
+                        "effect_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "source_action": {
+                          "type": "string",
+                          "enum": [
+                            "waitlist_invite",
+                            "waitlist_reinvite",
+                            "waitlist_decline",
+                            "waitlist_confirm"
+                          ],
+                          "description": "The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it."
+                        }
+                      },
+                      "required": [
+                        "membership_kind",
+                        "type",
+                        "effect_id",
+                        "source_action"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "membership_kind": {
+                          "type": "string",
+                          "enum": [
+                            "affected",
+                            "unaffected"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "waitlist_mail_delivery"
+                        },
+                        "delivery_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "effect_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "entry_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "description": "The waiting-list entry the delivery was addressed for (its target); the entry itself may already be gone."
+                        },
+                        "source_action": {
+                          "type": "string",
+                          "enum": [
+                            "waitlist_invite",
+                            "waitlist_reinvite",
+                            "waitlist_decline",
+                            "waitlist_confirm"
+                          ],
+                          "description": "The source action of the delivery's effect when it was frozen; replay deletes the delivery only if its effect still has it."
+                        }
+                      },
+                      "required": [
+                        "membership_kind",
+                        "type",
+                        "delivery_id",
+                        "effect_id",
+                        "entry_id",
+                        "source_action"
                       ],
                       "additionalProperties": false
                     },
@@ -1691,9 +1857,7 @@
                             "waitlist",
                             "waitlist_invitations",
                             "waitlist_invitation_proofs",
-                            "waitlist_consents",
-                            "operator_effect_outbox",
-                            "operator_effect_mail_deliveries"
+                            "waitlist_consents"
                           ]
                         },
                         "id": {
@@ -2239,6 +2403,91 @@
                         "membership_kind",
                         "type",
                         "audit_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "membership_kind": {
+                          "type": "string",
+                          "enum": [
+                            "affected",
+                            "unaffected"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "waitlist_mail_effect"
+                        },
+                        "effect_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "source_action": {
+                          "type": "string",
+                          "enum": [
+                            "waitlist_invite",
+                            "waitlist_reinvite",
+                            "waitlist_decline",
+                            "waitlist_confirm"
+                          ],
+                          "description": "The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it."
+                        }
+                      },
+                      "required": [
+                        "membership_kind",
+                        "type",
+                        "effect_id",
+                        "source_action"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "membership_kind": {
+                          "type": "string",
+                          "enum": [
+                            "affected",
+                            "unaffected"
+                          ]
+                        },
+                        "type": {
+                          "type": "string",
+                          "const": "waitlist_mail_delivery"
+                        },
+                        "delivery_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "effect_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        },
+                        "entry_id": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "description": "The waiting-list entry the delivery was addressed for (its target); the entry itself may already be gone."
+                        },
+                        "source_action": {
+                          "type": "string",
+                          "enum": [
+                            "waitlist_invite",
+                            "waitlist_reinvite",
+                            "waitlist_decline",
+                            "waitlist_confirm"
+                          ],
+                          "description": "The source action of the delivery's effect when it was frozen; replay deletes the delivery only if its effect still has it."
+                        }
+                      },
+                      "required": [
+                        "membership_kind",
+                        "type",
+                        "delivery_id",
+                        "effect_id",
+                        "entry_id",
+                        "source_action"
                       ],
                       "additionalProperties": false
                     },

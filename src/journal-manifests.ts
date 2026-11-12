@@ -28,8 +28,14 @@ const uuidRowTable = z.enum([
   'assets', 'audit_events', 'job_runs', 'oidc_interactions',
   'organization_exports', 'ops_notification_jobs', 'console_oauth_codes',
   'waitlist', 'waitlist_invitations', 'waitlist_invitation_proofs', 'waitlist_consents',
-  'operator_effect_outbox', 'operator_effect_mail_deliveries',
 ])
+/**
+ * The operator mail effects that concern the waiting list. The outbox and its
+ * deliveries are shared with billing and plan-change effects, so a waiting-list
+ * member names the effect's source action and replay deletes a row only when
+ * it still has it: no manifest can make a restore delete another effect.
+ */
+const waitlistMailAction = z.enum(['waitlist_invite', 'waitlist_reinvite', 'waitlist_decline', 'waitlist_confirm'])
 const member = { membership_kind: membership }
 // Retention sweeps name an expired time range instead of every deleted row.
 const retentionRangeTable = z.enum(['datapoint_series_samples', 'bridge_latency_buckets'])
@@ -53,6 +59,15 @@ export const journalManifestRow = z.union([
   z.strictObject({ ...member, type: z.literal('global_ops_event'), event_id: uuid }),
   z.strictObject({ ...member, type: z.literal('org_operator_audit'), org_id: uuid, audit_id: uuid }),
   z.strictObject({ ...member, type: z.literal('global_operator_audit'), audit_id: uuid }),
+  z.strictObject({
+    ...member, type: z.literal('waitlist_mail_effect'), effect_id: uuid,
+    source_action: waitlistMailAction.meta({ description: 'The source action the operator_effect_outbox row had when it was frozen; replay deletes the row only if it still has it.' }),
+  }),
+  z.strictObject({
+    ...member, type: z.literal('waitlist_mail_delivery'), delivery_id: uuid, effect_id: uuid,
+    entry_id: uuid.meta({ description: 'The waiting-list entry the delivery was addressed for (its target); the entry itself may already be gone.' }),
+    source_action: waitlistMailAction.meta({ description: 'The source action of the delivery\'s effect when it was frozen; replay deletes the delivery only if its effect still has it.' }),
+  }),
   z.strictObject({
     type: z.literal('retention_range'),
     membership_kind: z.literal('affected'),
@@ -119,6 +134,8 @@ function rowKey(row: JournalManifestRow) {
     case 'console_interaction': return JSON.stringify(['console_oauth_interactions', row.interaction_id])
     case 'org_ops_event': case 'global_ops_event': return JSON.stringify(['ops_events', row.event_id])
     case 'org_operator_audit': case 'global_operator_audit': return JSON.stringify(['operator_audit', row.audit_id])
+    case 'waitlist_mail_effect': return JSON.stringify(['operator_effect_outbox', row.effect_id])
+    case 'waitlist_mail_delivery': return JSON.stringify(['operator_effect_mail_deliveries', row.delivery_id])
     case 'retention_range': return JSON.stringify([row.table, 'range', row.robot_id, row.series_id ?? null, row.from])
   }
 }
@@ -150,11 +167,10 @@ export const journalManifestIntentProjection = z.union(backedBranches.map((branc
 })) as unknown as [z.ZodType<ManifestIntentProjection>, ...z.ZodType<ManifestIntentProjection>[]])
 export type JournalManifestIntentProjection = z.infer<typeof journalManifestIntentProjection>
 
-/** What a waiting-list retention batch may name: the entries, what hangs off them, and the mail rows that carry their addresses. */
-const waitlistTables: ReadonlySet<string> = new Set([
-  'waitlist', 'waitlist_invitations', 'waitlist_invitation_proofs', 'waitlist_consents',
-  'operator_effect_outbox', 'operator_effect_mail_deliveries',
-])
+/** The waiting list's own tables. Their rows, and the waiting-list mail members, belong to the `waitlist` scope and to no other. */
+const waitlistTables: ReadonlySet<string> = new Set(['waitlist', 'waitlist_invitations', 'waitlist_invitation_proofs', 'waitlist_consents'])
+const isWaitlistMember = (row: JournalManifestRow) => (row.type === 'uuid_row' && waitlistTables.has(row.table))
+  || row.type === 'waitlist_mail_effect' || row.type === 'waitlist_mail_delivery'
 
 const nonOrganizationScope: Record<string, JournalManifestScope['kind']> = {
   'mcp_central_client.revoke': 'central_mcp',
@@ -165,6 +181,7 @@ const nonOrganizationScope: Record<string, JournalManifestScope['kind']> = {
   'ops_global_event.retention': 'global_ops_event',
   'operator_audit.retention': 'operator_audit',
   'waitlist.retention': 'waitlist',
+  'waitlist.withdrawal': 'waitlist',
   'auth_factor.remove': 'subject',
 }
 
@@ -237,10 +254,26 @@ export const journalManifestBinding = z.strictObject({
     console_oauth: (row) => row.type === 'console_interaction' || (row.type === 'uuid_row' && row.table === 'console_oauth_codes'),
     global_ops_event: (row) => row.type === 'global_ops_event' || (row.type === 'uuid_row' && row.table === 'ops_notification_jobs'),
     operator_audit: (row) => row.type === 'global_operator_audit' || row.type === 'org_operator_audit',
-    waitlist: (row) => row.type === 'uuid_row' && waitlistTables.has(row.table),
+    waitlist: isWaitlistMember,
   }
   const allows = allowedRows[manifest.scope.kind]
   if (allows && !manifest.rows.every(allows)) problem('Row outside closed source scope', ['manifest', 'rows'])
+  if (manifest.scope.kind !== 'waitlist' && manifest.rows.some(isWaitlistMember)) problem('Waiting-list row outside the waitlist scope', ['manifest', 'rows'])
+  if (manifest.scope.kind === 'waitlist') {
+    // The waiting list has no objects: no mapping, so no free string can carry an address into this manifest.
+    if (manifest.entries.length !== 0) problem('A waitlist manifest has no object entries', ['manifest', 'entries'])
+    if (intent.kind === 'waitlist.withdrawal') {
+      // One entry: exactly its own row, and mail deliveries addressed for it alone.
+      const entries = manifest.rows.filter((row) => row.type === 'uuid_row' && row.table === 'waitlist')
+      const only = entries[0]
+      if (entries.length !== 1 || only?.type !== 'uuid_row' || only.id !== ids.entry_id || only.membership_kind !== 'affected') {
+        problem('A withdrawal names exactly its own entry', ['manifest', 'rows'])
+      }
+      if (manifest.rows.some((row) => row.type === 'waitlist_mail_delivery' && row.entry_id !== ids.entry_id)) {
+        problem('A withdrawal deletes only its own entry\'s deliveries', ['manifest', 'rows'])
+      }
+    }
+  }
   const ranges = manifest.rows.filter((row): row is RetentionRange => row.type === 'retention_range')
   if (ranges.length > 0) for (const message of new Set(retentionRangeProblems(intent.kind, ids, ranges))) problem(message, ['manifest', 'rows'])
   const isSweep = sweepKinds.some((kind) => kind === intent.kind)

@@ -96,10 +96,7 @@ implementation work; it does not require another general spec approval.
 Cloud `fb438e6` adds a machine-readable matrix: 48 branches for 45 kinds.
 The additional `ops_global_event.retention` branch captures an exact protected
 batch without an invented organization ID; `ops_event.retention` still requires
-its organization. `waitlist.retention` (fleetless/fleetless#1082) is shaped the
-same way: batch-only ids, its own `waitlist` scope, and only `uuid_row` members
-of the waiting-list tables and the operator mail rows that carry their
-addresses. This delta is implemented, and the corrected Cloud template
+its organization. This delta is implemented, and the corrected Cloud template
 enum now agrees with Contracts. Registry source paths stay outside intent IDs.
 
 Cloud `c76fbeb1913b737b6f51c0edf0015870687b8bdd` closes the protected
@@ -132,6 +129,29 @@ timestamp inside the range is therefore inside the deletion; a row at or after
 `cutoff` is never touched. The exact-generation guarantee ("a newly written row
 survives") no longer holds for these two tables, by decision. The per-row
 members stay valid for journals written earlier.
+
+Waiting list (2026-11-12, fleetless/fleetless#1082): the waiting list has no
+organization, and two kinds delete it under a scope of its own, `waitlist`.
+`waitlist.retention` is a cutoff sweep with batch-only ids (`org_id` is
+refused). Its periods run from events (30 days after a decline or a sign-up,
+otherwise 12 months after the last mail or the request), so one `cutoff_at`
+cannot be an age threshold: it is the instant the entries' periods were
+evaluated, and replay deletes exactly the frozen rows. `waitlist.withdrawal`
+deletes one entry on the person's request; its ids name the entry by its id,
+never its address, and its manifest names exactly that entry's row and only
+deliveries addressed for it, with no batch. The four waiting-list tables
+(`waitlist`, `waitlist_invitations`, `waitlist_invitation_proofs`,
+`waitlist_consents`) join the `uuid_row` table list. The operator mail tables
+they need are shared with billing and plan-change effects, so they do not:
+two members of their own, `waitlist_mail_effect` and `waitlist_mail_delivery`,
+carry the effect's `source_action` (a closed enum of the four waiting-list
+actions) and, for a delivery, its entry; replay deletes a row only while it
+still has them. Waiting-list rows and members are refused under every other
+scope, and a `waitlist` manifest carries no object entries, the only place a
+free string could hold an address. The closed manifest now has eight scope
+arms, 21 row members and 15 cutoff sweeps. The local membership-matrix fixture
+carries these additions ahead of the Cloud matrix, which gets them with the
+Cloud change for #1082.
 
 Ops `9e5fcbc3d231b3d96be9fb9cf1bd2789542daa24` closes the earlier
 failed-scope, mirror and evidence-binding questions. The test fixture is copied

@@ -78,8 +78,10 @@ const branches = [
   captured('ops_event.retention', z.strictObject({ ...org, ...batch })),
   captured('ops_global_event.retention', z.strictObject(batch)),
   captured('operator_audit.retention', z.strictObject(batch)),
-  // The waiting list has no organization: entries are deleted by their own retention period.
+  // The waiting list has no organization: entries are deleted when their own period ends
+  // (a sweep), or when the person withdraws (one entry, named by its id, never its address).
   captured('waitlist.retention', z.strictObject(batch)),
+  captured('waitlist.withdrawal', z.strictObject({ entry_id: uuid })),
   plain('org_note_text.remove', z.strictObject({ ...org, old_note_generation: uuid })),
   plain('org_note_text.replace', z.strictObject({ ...org, old_note_generation: uuid })),
   captured('oidc_interaction.expire', z.strictObject({ ...org, ...batch })),
