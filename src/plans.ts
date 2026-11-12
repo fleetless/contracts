@@ -172,7 +172,9 @@ export function pricesFromEurMonth(eurMonthCents: number): PlanPrices {
 }
 
 /**
- * The catalogue, exactly as the decision table (2026-09-30) states it.
+ * The catalogue: limits, prices and features as the decision table
+ * (2026-09-30) states them, except that the audit export is on every plan,
+ * as the developer docs (`plans-and-limits.md`) and the cloud have it.
  * Live video is in milliseconds, asset storage in decimal bytes per robot;
  * Enterprise's limits and features are `null` / `true` throughout because
  * they are set by contract, not read off this table.
