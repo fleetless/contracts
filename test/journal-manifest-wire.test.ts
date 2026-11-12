@@ -135,6 +135,10 @@ describe('package 3 protected manifest wire', () => {
       expect((contracts as any).journalManifestScope.safeParse({ kind: 'waitlist', org_id: uuid }).success).toBe(false)
     })
 
+    it('keeps a delivery and its effect on one source action', () => {
+      refused(retention({ kind: 'waitlist' }, [mailDelivery(entry!), { ...mailEffect, source_action: 'waitlist_decline' }, ...rows.slice(2)]))
+    })
+
     it('carries no object entry, the only place a free string could hold an address', () => {
       const asset = { kind: 'asset_blob', mapping_id: uuid, source_project_id: 'project', source_bucket: 'bucket',
         old_key: 'waitlist/someone', version_ids: ['version-1'], membership_kind: 'affected' }
@@ -146,6 +150,11 @@ describe('package 3 protected manifest wire', () => {
       refused(withdrawal([mailDelivery(other!), ...rows.slice(1)]))
       refused(withdrawal(rows.filter((member: any) => member.table !== 'waitlist')))
       refused(withdrawal([...rows.slice(0, 2), row('waitlist', entry!), row('waitlist', other!), ...rows.slice(3)].sort(() => 0)))
+      // An effect only as the parent of the withdrawal's own delivery, with the same source action.
+      const foreignEffect = { ...mailEffect, effect_id: other }
+      refused(withdrawal([mailDelivery(entry!), mailEffect, foreignEffect, ...rows.slice(2)]))
+      refused(withdrawal([mailEffect, ...rows.slice(2)]))
+      refused(withdrawal([mailDelivery(entry!), { ...mailEffect, source_action: 'waitlist_invite' }, ...rows.slice(2)]))
       // A withdrawal is no sweep: no batch.
       const batched = withdrawal(rows)
       refused({ ...batched, manifest: { ...batched.manifest, batches: [{ batch_id: uuid, kind: 'waitlist.retention', cutoff_at: at, policy_revision: 1, rows }] } })

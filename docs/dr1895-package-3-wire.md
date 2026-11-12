@@ -146,7 +146,14 @@ they need are shared with billing and plan-change effects, so they do not:
 two members of their own, `waitlist_mail_effect` and `waitlist_mail_delivery`,
 carry the effect's `source_action` (a closed enum of the four waiting-list
 actions) and, for a delivery, its entry; replay deletes a row only while it
-still has them. Waiting-list rows and members are refused under every other
+still has them, and an effect only once it has no delivery left (an invitation
+effect carries the deliveries of many entries, and its delete cascades). A
+delivery and its effect member agree on the source action, and a withdrawal
+names an effect only as the parent of one of its own deliveries. A
+withdrawal's invitation, proof and consent rows are `uuid_row` members, which
+do not carry their entry: the binding cannot see that they are its own, so the
+Cloud's replay deletes them only while they still belong to the intent's
+entry and refuses otherwise. Waiting-list rows and members are refused under every other
 scope, and a `waitlist` manifest carries no object entries, the only place a
 free string could hold an address. The closed manifest now has eight scope
 arms, 21 row members and 15 cutoff sweeps. The local membership-matrix fixture
