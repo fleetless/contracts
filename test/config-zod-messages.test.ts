@@ -472,6 +472,7 @@ const EXAMPLED = [
   '.cameras.<slug>.source#2.url',
   '.cameras.<slug>.source#2.credentials.username',
   '.cameras.<slug>.source#3.device',
+  '.live.max_packet_bytes',
 ]
 
 describe('every example the editor offers', () => {

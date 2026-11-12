@@ -71,7 +71,7 @@ import {
   liveSessionResponse,
   snapshotMetaResponse,
 } from '../src/rest.js'
-import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS } from '../src/config.js'
+import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS, LIVE_DEFAULTS } from '../src/config.js'
 import { AUDIT_RETENTION_DAYS } from '../src/audit.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
@@ -1112,6 +1112,13 @@ export const exportedConstants = {
    * thresholds the moment one of them moved.
    */
   LOW_BANDWIDTH_DEFAULTS,
+
+  /**
+   * The live-video defaults, for the same reason: the bridge declares its ROS
+   * parameter with this number and caps its RTP packets at it when nobody
+   * says otherwise.
+   */
+  LIVE_DEFAULTS,
 } as const
 
 /**

@@ -2019,6 +2019,40 @@ export const lowBandwidthSection = strictObject({
 export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
 
 /**
+ * What the bridge falls back to for live video when neither the document nor
+ * a ROS parameter names a setting. Exported into `constants.json` for
+ * `LOW_BANDWIDTH_DEFAULTS`' reason: the bridge reads the number rather than
+ * carrying a second copy.
+ *
+ * 1200 is what browsers send, and it fits the smallest MTU IPv6 guarantees:
+ * 1200 + 16 (header extensions an SFU may add) + 10 (SRTP tag) + 8 (UDP) + 40
+ * (IPv6) + 4 (TURN ChannelData) = 1278, under 1280.
+ */
+export const LIVE_DEFAULTS = {
+  max_packet_bytes: 1200,
+} as const
+
+/**
+ * How the bridge sends live video: settings of the transport, which hold for
+ * the whole robot and not for one camera. Every key is optional and layered
+ * as in `lowBandwidthSection`: a key present here overrides the bridge's ROS
+ * parameter of the same name, an absent key falls through to it, and the
+ * parameter falls through to `LIVE_DEFAULTS`.
+ *
+ * Strict here, lenient on the robot. An unknown key is refused when the
+ * document is saved, so a typo is not a setting that silently does nothing;
+ * the bridge reads the section whole and ignores a key it does not know, so
+ * a cloud that learns a newer key does not take an older bridge off the air.
+ */
+export const liveSection = strictObject({
+  max_packet_bytes: z.number().int().min(576).max(1400).optional().meta({
+    description: 'The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is up to 78 bytes longer: header extensions the media server may add (16), the SRTP tag (10), UDP (8), IPv6 (40) and TURN (4). Lower it when a viewer\'s path carries less than that, such as a tunnel inside a tunnel. Overrides the bridge\'s ROS parameter `live.max_packet_bytes`; without either, the bridge sends 1200. A change holds from the next frame, for running streams too.',
+    examples: [LIVE_DEFAULTS.max_packet_bytes],
+  }),
+})
+export type LiveSection = z.infer<typeof liveSection>
+
+/**
  * The format version of a `fleetless.yaml`. Deliberately not called
  * `version`: the console counts published states with "v12 → v13", and two
  * numbers called version would be the likeliest confusion in the format.
@@ -2163,6 +2197,20 @@ export const robotConfigDoc = strictObject({
       label: 'low-bandwidth mode, tuned',
       description: 'Enters after ten seconds above two seconds of lag, caps every datapoint to 1 Hz and lets running streams continue at a reduced bitrate.',
       body: { enter_lag_ms: 2000, datapoint_max_hz: 1, camera: 'reduce' },
+    }],
+  }),
+  live: liveSection.optional().meta({
+    description: 'How the bridge sends live video, for every camera of the robot. Each key overrides the bridge\'s ROS parameter of the same name; an absent key leaves the parameter alone.',
+    /**
+     * The default, spelled out. A developer who opens this section came to
+     * lower the number, and the value to start from is the one in force. A
+     * plain number and no tab stop, as in `low_bandwidth`: a placeholder is a
+     * string, and the body has to be a document the format accepts.
+     */
+    defaultSnippets: [{
+      label: 'live video, packet size',
+      description: 'Caps every RTP packet the bridge sends. 1200 is the default; lower it for viewers behind a tunnel inside a tunnel.',
+      body: { max_packet_bytes: LIVE_DEFAULTS.max_packet_bytes },
     }],
   }),
 })

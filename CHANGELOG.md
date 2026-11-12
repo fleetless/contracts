@@ -9,6 +9,18 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **The `live` section of the configuration document**
+  (fleetless/fleetless#1115). `robotConfigDoc.live` is optional and strict;
+  its one key, `max_packet_bytes`, is an optional integer from 576 to 1400:
+  the largest RTP packet the bridge sends, before SRTP, retransmissions
+  included. A key present overrides the bridge's ROS parameter
+  `live.max_packet_bytes`. `liveSection` and the type `LiveSection` are
+  exported.
+- `LIVE_DEFAULTS` (`{ max_packet_bytes: 1200 }`), exported and written into
+  `constants.json` for the bridge.
+
 ## [15.1.0] — 2026-11-12
 
 ### Added
