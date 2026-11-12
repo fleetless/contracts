@@ -23,8 +23,8 @@ describe('the plan catalogue matches the decision table (2026-09-30)', () => {
     expect(Object.values(PLANS.enterprise.limits).every((v) => v === null)).toBe(true)
   })
   it('features', () => {
-    expect(PLANS.basic.features).toEqual({ app_mcp: false, two_factor: false, require_two_factor: false, app_oidc: false, hosted_logo: false, audit_export: false, addons: false })
-    expect(PLANS.plus.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: false, app_oidc: true, hosted_logo: true, audit_export: false, addons: false })
+    expect(PLANS.basic.features).toEqual({ app_mcp: false, two_factor: false, require_two_factor: false, app_oidc: false, hosted_logo: false, audit_export: true, addons: false })
+    expect(PLANS.plus.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: false, app_oidc: true, hosted_logo: true, audit_export: true, addons: false })
     expect(PLANS.pro.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: true, app_oidc: true, hosted_logo: true, audit_export: true, addons: true })
     expect(Object.values(PLANS.enterprise.features).every(Boolean)).toBe(true)
   })
@@ -60,7 +60,8 @@ describe('helpers', () => {
     expect(PLAN_ORDER).toEqual(['basic', 'plus', 'pro', 'enterprise'])
     expect(requiredPlanFor('app_mcp')).toBe('plus')
     expect(requiredPlanFor('require_two_factor')).toBe('pro')
-    expect(requiredPlanFor('audit_export')).toBe('pro')
+    expect(requiredPlanFor('audit_export')).toBe('basic')
+    expect(PLAN_ORDER.every((plan) => PLANS[plan].features.audit_export)).toBe(true)
   })
   it('the next plan that raises a limit', () => {
     expect(nextPlanRaising('basic', 'robots')).toBe('plus')
