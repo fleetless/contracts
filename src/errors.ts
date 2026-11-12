@@ -1149,8 +1149,8 @@ export const ERROR_CODES = [
   /**
    * `403`: the feature the caller reached for is not on the org's plan — an
    * app's MCP endpoint, two-factor for a developer, a two-factor requirement
-   * for the org, an app's OIDC federation, a hosted logo, the audit export,
-   * or add-ons themselves. `details` is `planRequiredDetails`:
+   * for the org, an app's OIDC federation, a hosted logo, or add-ons
+   * themselves. `details` is `planRequiredDetails`:
    * the feature, the org's own plan, and the cheapest plan that has it, so
    * the console can offer the upgrade in the same breath as the refusal.
    */
