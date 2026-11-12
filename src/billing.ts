@@ -601,7 +601,12 @@ const intentIdentity = {
   intent_id: z.uuid().meta({ description: 'Opaque persisted purchase intent identity.' }),
   operation_key: purchaseOperationKey,
   operation: chargeOperation,
-  invoice_id: z.uuid().optional().meta({ description: 'The due charge or issued invoice, for invoice-paying operations.' }),
+  invoice_id: z.uuid().optional().meta({
+    description:
+      'For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with ' +
+      'payment_started, the charge or invoice created for that decision; with a Lexware issuer, it identifies the ' +
+      'matching billing.charges[].id. Absent for open and accepted_no_payment paid changes.',
+  }),
 }
 export const purchaseHoldReason = z.enum([
   'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved',
@@ -1180,7 +1185,11 @@ export type BillingDocumentFileQuery = z.infer<typeof billingDocumentFileQuery>
 /** Accepted paid changes retain their provider identity; accepted no-payment changes have none. */
 const acceptedBillingFields = {
   billing: billingView.meta({ description: 'The billing view after the change.' }),
-  charged: billingInvoice.nullable().meta({ description: 'The invoice charged now, or `null` when the change was only scheduled for the period\'s end.' }),
+  charged: billingInvoice.nullable().meta({
+    description:
+      'The Fleetless invoice charged now, or `null` when the change was only scheduled for the period\'s end or was ' +
+      'charged through Lexware (then the charge is in `billing.charges`).',
+  }),
 }
 const acceptedPaidChange = z.object({
   ...acceptedBillingFields,
