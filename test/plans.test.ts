@@ -6,7 +6,7 @@ import { ERROR_CODES, planLimitDetails, assetPlanLimitDetails } from '../src/err
 import { liveSessionEndReason } from '../src/realtime.js'
 import { auditActor } from '../src/audit.js'
 
-describe('the plan catalogue matches the decision table (2026-09-30)', () => {
+describe('the plan catalogue matches the decision table (2026-09-30), the audit export being on every plan', () => {
   it('limits', () => {
     expect(PLANS.basic.limits).toEqual({
       seats: 1, robots: 1, apps: 1, app_users: 10, live_video_ms_per_month: 36_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 7, audit_days: 7,
