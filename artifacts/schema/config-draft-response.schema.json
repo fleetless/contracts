@@ -2066,13 +2066,13 @@
               "type": "object",
               "properties": {
                 "max_packet_bytes": {
-                  "description": "The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is up to 78 bytes longer: header extensions the media server may add (16), the SRTP tag (10), UDP (8), IPv6 (40) and TURN (4). Lower it when a viewer's path carries less than that, such as a tunnel inside a tunnel. Overrides the bridge's ROS parameter `live.max_packet_bytes`; without either, the bridge sends 1200. A change holds from the next frame, for running streams too.",
+                  "description": "The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is about 80 bytes longer. Lower it when a viewer's path carries less, such as a tunnel inside a tunnel. The ceiling is what the bridge's SRTP library protects; a larger packet is one it cannot send at all. Overrides the bridge's ROS parameter `live.max_packet_bytes`; without either, the bridge sends 1200. A change holds from the next frame, for running streams too.",
                   "examples": [
                     1200
                   ],
                   "type": "integer",
                   "minimum": 576,
-                  "maximum": 1400
+                  "maximum": 1350
                 }
               },
               "additionalProperties": false
