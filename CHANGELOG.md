@@ -9,6 +9,24 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **A hardware encoder takes no camera of odd size**
+  (fleetless/fleetless#1143). With `live.encoder` present and not
+  `software`, `robotConfigDoc` refuses every camera whose `width` or `height`
+  is odd, passthrough cameras included: one issue per odd key, at
+  `cameras.<slug>.width` or `cameras.<slug>.height`, with zod's `custom` code
+  and a sentence that names the setting, the odd value and the two ways out.
+  Such a camera was accepted before and gave no picture: H.264 as the bridge
+  sends it has no odd size, in a hardware encoder or in the software H.264 it
+  falls back to. `software` and an absent key accept an odd size as before.
+  The rule spans two sections, so it is a refinement on the document and not
+  in the JSON Schema export; it is reported beside the document's other
+  refusals.
+- The descriptions of a camera's `width` and `height` and of `live.encoder`
+  say the rule. The description of `vaapi` names three elements in the order
+  the bridge tries them: `vah264enc`, `vah264lpenc`, `vaapih264enc`.
+
 ## [15.3.0] — 2026-11-13
 
 ### Added
