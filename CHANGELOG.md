@@ -32,11 +32,13 @@ version.
   bridge's own encoder on the CPU, as before), `auto`, `nvenc`, `vaapi` or
   `v4l2`. Every value but `software` sends H.264 from a hardware encoder and
   falls back to software H.264 for the session when that encoder does not
-  start. A key present overrides the bridge's ROS parameter `live.encoder`.
-  Each value carries its own description for the editor.
+  start. A key present overrides the bridge's ROS parameter `live.encoder`;
+  an absent key leaves the parameter in force. It does not apply to a camera
+  whose H.264 source is passed through. Each value carries its own
+  description for the editor.
 - `LIVE_DEFAULTS.encoder` is `software`, and `LIVE_BOUNDS.encoder.values`
-  lists the five values in the schema's order. Both are written into
-  `constants.json` for the bridge.
+  lists the five values in the schema's order, as a read-only tuple. Both
+  are written into `constants.json` for the bridge.
 
 ## [15.2.0] — 2026-11-13
 
