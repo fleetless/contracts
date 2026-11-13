@@ -17,13 +17,13 @@ describe('the live section', () => {
   })
 
   it('accepts the bounds and what lies between them', () => {
-    for (const bytes of [576, 1200, 1400]) {
+    for (const bytes of [576, 1200, 1350]) {
       expect(liveSection.safeParse({ max_packet_bytes: bytes }).success, String(bytes)).toBe(true)
     }
   })
 
   it('refuses a value outside the bounds, a fraction and a string', () => {
-    for (const bytes of [575, 1401, 1200.5, '1200', true, null]) {
+    for (const bytes of [575, 1351, 1356, 1400, 1200.5, '1200', true, null]) {
       expect(liveSection.safeParse({ max_packet_bytes: bytes }).success, String(bytes)).toBe(false)
       // And the whole document refuses it too, not only the section on its own.
       expect(robotConfigDoc.safeParse({ ...DOC, live: { max_packet_bytes: bytes } }).success, String(bytes)).toBe(false)
@@ -51,10 +51,10 @@ describe('the live section', () => {
   it('publishes the bounds in the schema the editor and the bridge read', () => {
     const live = artifact('schema/robot-config-doc.schema.json').properties.live
     expect(live.additionalProperties).toBe(false)
-    expect(live.properties.max_packet_bytes).toMatchObject({ type: 'integer', minimum: 576, maximum: 1400 })
+    expect(live.properties.max_packet_bytes).toMatchObject({ type: 'integer', minimum: 576, maximum: 1350 })
     expect(live.required ?? []).toEqual([])
     // The frame the bridge receives carries the same document.
     const framed = artifact('schema/cloud-config.schema.json').properties.doc.properties.live
-    expect(framed.properties.max_packet_bytes).toMatchObject({ minimum: 576, maximum: 1400 })
+    expect(framed.properties.max_packet_bytes).toMatchObject({ minimum: 576, maximum: 1350 })
   })
 })

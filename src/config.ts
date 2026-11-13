@@ -2024,13 +2024,25 @@ export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
  * `LOW_BANDWIDTH_DEFAULTS`' reason: the bridge reads the number rather than
  * carrying a second copy.
  *
- * 1200 is what browsers send, and it fits the smallest MTU IPv6 guarantees:
- * 1200 + 16 (header extensions an SFU may add) + 10 (SRTP tag) + 8 (UDP) + 40
- * (IPv6) + 4 (TURN ChannelData) = 1278, under 1280.
+ * 1200 is what browsers send, which is why a path with an MTU of 1280 — the
+ * smallest IPv6 guarantees, and what WireGuard tunnels set — carries it: the
+ * bytes a packet gains on the way (header extensions an SFU may add, the SRTP
+ * tag, UDP, IP, TURN) come to about 80.
  */
 export const LIVE_DEFAULTS = {
   max_packet_bytes: 1200,
 } as const
+
+/**
+ * The largest value `live.max_packet_bytes` takes. pylibsrtp, which protects
+ * the bridge's packets, refuses an RTP packet above 1356 bytes — a 1500-byte
+ * buffer less the room it keeps for the trailer — and aiortc's sender ends
+ * its loop on that refusal: the stream stops for good. So a larger setting is
+ * not a bigger packet but no video, and it is refused here, where the
+ * configuration is saved. 1350 rather than 1356: the bound is a round number
+ * a person can remember, and nothing is lost in six bytes.
+ */
+const LIVE_MAX_PACKET_BYTES_CEILING = 1350
 
 /**
  * How the bridge sends live video: settings of the transport, which hold for
@@ -2045,8 +2057,8 @@ export const LIVE_DEFAULTS = {
  * a cloud that learns a newer key does not take an older bridge off the air.
  */
 export const liveSection = strictObject({
-  max_packet_bytes: z.number().int().min(576).max(1400).optional().meta({
-    description: 'The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is up to 78 bytes longer: header extensions the media server may add (16), the SRTP tag (10), UDP (8), IPv6 (40) and TURN (4). Lower it when a viewer\'s path carries less than that, such as a tunnel inside a tunnel. Overrides the bridge\'s ROS parameter `live.max_packet_bytes`; without either, the bridge sends 1200. A change holds from the next frame, for running streams too.',
+  max_packet_bytes: z.number().int().min(576).max(LIVE_MAX_PACKET_BYTES_CEILING).optional().meta({
+    description: `The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is about 80 bytes longer. Lower it when a viewer's path carries less, such as a tunnel inside a tunnel. The ceiling is what the bridge's SRTP library protects; a larger packet is one it cannot send at all. Overrides the bridge's ROS parameter \`live.max_packet_bytes\`; without either, the bridge sends ${LIVE_DEFAULTS.max_packet_bytes}. A change holds from the next frame, for running streams too.`,
     examples: [LIVE_DEFAULTS.max_packet_bytes],
   }),
 })
