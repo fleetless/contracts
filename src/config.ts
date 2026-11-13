@@ -53,6 +53,10 @@ import { ENTRY_KINDS, roleRef, type EntryKind } from './rights.js'
  *   the index of declared names that `messages:` and each entry's
  *   `parameters:` build together.
  *
+ * One rule across sections is decided here all the same, and carries none of
+ * the thirteen codes: a camera of odd size under a hardware `live.encoder`
+ * (`refuseOddSizes`, whose comment says why it sits on the document).
+ *
  * `nested_message_reference` is the one worth naming explicitly, because it
  * looks decidable here and is: a `messages:` entry whose whole body is
  * `'${name}'` is a nested reference, full stop. It is the cloud's anyway, so
@@ -2164,14 +2168,19 @@ const samePath = (a: readonly PropertyKey[], b: readonly PropertyKey[]): boolean
  * `live.encoder` say it in words. The issue keeps zod's own code, as
  * `low_bandwidth.exit_lag_ms` does: the format names no code for it.
  *
- * **It runs beside the document's other refusals.** Zod skips a refinement
- * once anything in the value is refused, which at the root means anywhere in
- * the file: a typo three sections away would hide this finding until it was
- * fixed. `when` lets it run whenever the document is a mapping, so the value
- * it reads may be half-parsed, and it reads it as such: nothing unless
- * `live.encoder` is one of the hardware values, nothing for a camera that is
- * not a mapping, and nothing for a key that is not an integer or already
- * carries a refusal of its own, which is then the one finding that key has.
+ * **It runs beside the document's other refusals, with one exception.** Zod
+ * skips a refinement once anything in the value is refused, which at the root
+ * means anywhere in the file: a typo three sections away would hide this
+ * finding until it was fixed. `when` lets it run whenever the document is a
+ * mapping, so the value it reads may be half-parsed, and it reads it as such:
+ * nothing unless `live.encoder` is one of the hardware values, nothing for a
+ * camera that is not a mapping, and nothing for a key that is not an integer
+ * or already carries a refusal of its own, which is then the one finding that
+ * key has. The exception is a fraction on an integer key anywhere in the
+ * document: zod treats that refusal as final and runs no `when` check after
+ * it, so this finding arrives once the fraction is fixed. Working around it
+ * would take a `preprocess` or a pipe, and `robotConfigDoc` would stop being
+ * an object schema.
  */
 function refuseOddSizes(doc: unknown, ctx: z.core.$RefinementCtx): void {
   if (!isMapping(doc) || !isMapping(doc.live) || !isMapping(doc.cameras)) return

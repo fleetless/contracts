@@ -21,8 +21,15 @@ version.
   sends it has no odd size, in a hardware encoder or in the software H.264 it
   falls back to. `software` and an absent key accept an odd size as before.
   The rule spans two sections, so it is a refinement on the document and not
-  in the JSON Schema export; it is reported beside the document's other
-  refusals.
+  in the JSON Schema export. It is reported beside the document's other
+  refusals, except a fraction on an integer key anywhere in the document,
+  which zod treats as final: the finding then arrives once the fraction is
+  fixed.
+- With that refinement on it, zod refuses to derive from `robotConfigDoc`:
+  `.pick()`, `.omit()`, `.partial()`, `.merge()` and `.extend()` of a key it
+  already has throw at runtime, and the type does not show it. `.shape`,
+  `.safeExtend()` and `.extend()` with a new key still work. The type and
+  the JSON Schema are unchanged.
 - The descriptions of a camera's `width` and `height` and of `live.encoder`
   say the rule. The description of `vaapi` names three elements in the order
   the bridge tries them: `vah264enc`, `vah264lpenc`, `vaapih264enc`.

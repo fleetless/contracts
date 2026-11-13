@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
-import { robotConfigDoc, schemaIssues, FLEETLESS_FORMAT_VERSION } from '../src/index.js'
+import { cloudConfig, robotConfigDoc, schemaIssues, FLEETLESS_FORMAT_VERSION } from '../src/index.js'
 
 /**
  * With any `live.encoder` but `software` the bridge sends H.264, which takes
@@ -75,6 +75,9 @@ describe('a hardware encoder and a camera of odd size', () => {
     const issues = issuesOf(doc({ door: camera(641, 480, source) }, { encoder: 'nvenc' }))
     expect(issues).toHaveLength(1)
     expect(issues[0]!.path).toEqual(['cameras', 'door', 'width'])
+    const height = issuesOf(doc({ door: camera(640, 481, source) }, { encoder: 'nvenc' }))
+    expect(height).toHaveLength(1)
+    expect(height[0]).toMatchObject({ path: ['cameras', 'door', 'height'], message: heightMessage('nvenc', 481) })
   })
 
   it('says it once for the one camera that is odd, not for its neighbours', () => {
@@ -91,12 +94,38 @@ describe('a hardware encoder and a camera of odd size', () => {
   })
 
   it('adds nothing to a size that is already refused for itself', () => {
-    for (const width of [641.5, 7681, -1, '641', null]) {
+    for (const width of [7681, -1, '641', null]) {
       const issues = issuesOf(doc({ front: camera(width, 480) }, { encoder: 'nvenc' }))
       expect(issues, JSON.stringify(width)).toHaveLength(1)
       expect(issues[0]!.code, JSON.stringify(width)).not.toBe('custom')
       expect(issues[0]!.path).toEqual(['cameras', 'front', 'width'])
     }
+  })
+
+  /**
+   * The one refusal the rule does not report beside. Zod treats a fraction on
+   * an integer key as final and runs no `when` check after it, so the odd
+   * size is reported once the fraction is fixed. Held here so that a zod
+   * upgrade that changes it is noticed, in either direction.
+   */
+  it('waits for a fraction on an integer key anywhere in the document', () => {
+    const rearFps = { ...camera(640, 480), fps: 7.5 }
+    const issues = issuesOf(doc({ front: camera(641, 480), rear: rearFps }, { encoder: 'nvenc' }))
+    expect(issues.map((i) => [i.code, i.path])).toEqual([['invalid_type', ['cameras', 'rear', 'fps']]])
+    // The odd key's own fraction: that key's refusal alone, here as everywhere.
+    const own = issuesOf(doc({ front: camera(641.5, 481) }, { encoder: 'nvenc' }))
+    expect(own.map((i) => [i.code, i.path])).toEqual([['invalid_type', ['cameras', 'front', 'width']]])
+    // With the fraction fixed, the finding arrives.
+    const fixed = issuesOf(doc({ front: camera(641, 480), rear: { ...rearFps, fps: 7 } }, { encoder: 'nvenc' }))
+    expect(fixed.map((i) => i.path)).toEqual([['cameras', 'front', 'width']])
+  })
+
+  it('lands inside the bridge frame at the camera\'s key under doc', () => {
+    const result = cloudConfig.safeParse({ type: 'config', version: 3, doc: doc({ front: camera(641, 480) }, { encoder: 'v4l2' }) })
+    expect(result.success).toBe(false)
+    const issues = result.success ? [] : result.error.issues
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toMatchObject({ code: 'custom', path: ['doc', 'cameras', 'front', 'width'], message: widthMessage('v4l2', 641) })
   })
 
   it('adds nothing when the encoder itself is refused', () => {
