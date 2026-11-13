@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.2.0] — 2026-11-13
+
 ### Added
 
 - **The `live` section of the configuration document**
