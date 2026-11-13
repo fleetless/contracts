@@ -1935,11 +1935,11 @@ export const cameraConfig = strictObject({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
   }),
   width: z.number().int().positive().max(7680).meta({
-    description: 'The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed. A passthrough camera is the exception for live video: the bridge does not scale what it does not encode, so `width` and `height` must equal the stream\'s own size.',
+    description: 'The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed. A passthrough camera is the exception for live video: the bridge does not scale what it does not encode, so `width` and `height` must equal the stream\'s own size. With any `live.encoder` but `software` the width must be even: the bridge then sends H.264, which takes no odd size, and a document with an odd one is refused.',
     examples: [1280],
   }),
   height: z.number().int().positive().max(4320).meta({
-    description: 'The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded. The live video of a passthrough camera is not scaled: `height` and `width` must equal the stream\'s own size.',
+    description: 'The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded. The live video of a passthrough camera is not scaled: `height` and `width` must equal the stream\'s own size. With any `live.encoder` but `software` the height must be even: the bridge then sends H.264, which takes no odd size, and a document with an odd one is refused.',
     examples: [720],
   }),
   fps: z.number().int().positive().max(60).meta({
@@ -2112,17 +2112,82 @@ export const liveSection = strictObject({
     examples: [LIVE_DEFAULTS.max_packet_bytes],
   }),
   encoder: liveEncoder.optional().meta({
-    description: `What encodes live video on the robot. \`software\` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log; one that did not start is not tried again until this setting changes or the bridge restarts. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. The hardware encoders are written from the documentation of their GStreamer elements and tested through a software stand-in; the reference page of this section says which have been proven on hardware. It is one setting for the robot, not one per camera: the chip is part of the computer. It does not apply to a camera whose source already delivers H.264 and is passed through: that video is forwarded, not encoded. Overrides the bridge's ROS parameter \`live.encoder\`; without either, the bridge uses \`${LIVE_DEFAULTS.encoder}\`. A change holds from the next live start; a running stream keeps its encoder.`,
+    description: `What encodes live video on the robot. \`software\` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. H.264 takes no odd size, so with any value but \`software\` every camera's \`width\` and \`height\` must be even, passthrough cameras included, and a document with an odd one is refused. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log; one that did not start is not tried again until this setting changes or the bridge restarts. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. The hardware encoders are written from the documentation of their GStreamer elements and tested through a software stand-in; the reference page of this section says which have been proven on hardware. It is one setting for the robot, not one per camera: the chip is part of the computer. It does not apply to a camera whose source already delivers H.264 and is passed through: that video is forwarded, not encoded. Overrides the bridge's ROS parameter \`live.encoder\`; without either, the bridge uses \`${LIVE_DEFAULTS.encoder}\`. A change holds from the next live start; a running stream keeps its encoder.`,
     enumDescriptions: describeValues(liveEncoder.options, {
       software: 'The bridge encodes on the CPU: VP8 or H.264, whichever the media server picks, as every robot did before the setting existed.',
       auto: 'Tries `nvenc`, then `vaapi`, then `v4l2`, and uses the first that starts. With none of them, software H.264.',
       nvenc: 'NVIDIA. On a Jetson the board\'s encoder (`nvv4l2h264enc`); a Jetson Orin Nano has none and ends on software. On a desktop card `nvh264enc`.',
-      vaapi: 'Intel and AMD graphics through VA-API: `vah264enc` where the installed GStreamer has it, else `vaapih264enc`.',
+      vaapi: 'Intel and AMD graphics through VA-API: `vah264enc`, then `vah264lpenc`, then `vaapih264enc`, the first that starts. `vah264lpenc` is the low-power encoder, the only one some Intel chips encode H.264 with.',
       v4l2: 'A V4L2 encoder (`v4l2h264enc`), as on a Raspberry Pi 4. A Raspberry Pi 5 has no hardware encoder and ends on software.',
     }),
   }),
 })
 export type LiveSection = z.infer<typeof liveSection>
+
+/**
+ * The values of `live.encoder` that send H.264 and nothing else: every one
+ * but `software`. Read from the tuple, so a sixth hardware name is covered by
+ * the rule below the moment it is in the enum.
+ */
+const H264_ONLY_ENCODERS: ReadonlySet<string> = new Set(LIVE_ENCODERS.filter((encoder) => encoder !== 'software'))
+
+/**
+ * The refusal for one odd key, in one sentence: the setting, the odd value
+ * and the two ways out. A bridge that meets the same camera through its ROS
+ * parameter refuses the live start in the same words, of the whole size.
+ */
+const oddSizeMessage = (encoder: string, key: 'width' | 'height', value: number): string =>
+  `With live.encoder: ${encoder} the bridge sends H.264, which takes no odd ${key}: set an even ${key} instead of ${value}, or live.encoder: software.`
+
+const isMapping = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const samePath = (a: readonly PropertyKey[], b: readonly PropertyKey[]): boolean =>
+  a.length === b.length && a.every((segment, index) => segment === b[index])
+
+/**
+ * **A hardware encoder takes no camera of odd size.** With any `live.encoder`
+ * but `software` the bridge offers H.264 alone, from the chip or from the
+ * software H.264 it falls back to, and H.264 as the bridge sends it (4:2:0)
+ * has no odd width or height. Such a camera used to be accepted, failed in
+ * every chain and in the fallback, and gave its viewer no picture.
+ *
+ * One issue per odd key, at `cameras.<slug>.width` or `.height`. Every camera
+ * counts, passthrough ones included: a passthrough camera's size must equal
+ * its stream's, and a 4:2:0 H.264 stream has no odd size either, so one rule
+ * without an exception says the same thing. `software` and an absent key
+ * change nothing; the media server may pick VP8 there.
+ *
+ * **It spans two sections, so it is on the document**, and like every
+ * `superRefine` it is not in the JSON Schema export: an editor learns it from
+ * the findings of a validation, and the descriptions of `width`, `height` and
+ * `live.encoder` say it in words. The issue keeps zod's own code, as
+ * `low_bandwidth.exit_lag_ms` does: the format names no code for it.
+ *
+ * **It runs beside the document's other refusals.** Zod skips a refinement
+ * once anything in the value is refused, which at the root means anywhere in
+ * the file: a typo three sections away would hide this finding until it was
+ * fixed. `when` lets it run whenever the document is a mapping, so the value
+ * it reads may be half-parsed, and it reads it as such: nothing unless
+ * `live.encoder` is one of the hardware values, nothing for a camera that is
+ * not a mapping, and nothing for a key that is not an integer or already
+ * carries a refusal of its own, which is then the one finding that key has.
+ */
+function refuseOddSizes(doc: unknown, ctx: z.core.$RefinementCtx): void {
+  if (!isMapping(doc) || !isMapping(doc.live) || !isMapping(doc.cameras)) return
+  const encoder = doc.live.encoder
+  if (typeof encoder !== 'string' || !H264_ONLY_ENCODERS.has(encoder)) return
+  for (const [slug, camera] of Object.entries(doc.cameras)) {
+    if (!isMapping(camera)) continue
+    for (const key of ['width', 'height'] as const) {
+      const value = camera[key]
+      const path = ['cameras', slug, key]
+      if (typeof value !== 'number' || !Number.isInteger(value) || value % 2 === 0) continue
+      if (ctx.issues.some((issue) => samePath(issue.path ?? [], path))) continue
+      ctx.addIssue({ code: 'custom', path, message: oddSizeMessage(encoder, key, value) })
+    }
+  }
+}
 
 /**
  * The format version of a `fleetless.yaml`. Deliberately not called
@@ -2285,7 +2350,7 @@ export const robotConfigDoc = strictObject({
       body: { max_packet_bytes: LIVE_DEFAULTS.max_packet_bytes },
     }],
   }),
-})
+}).superRefine(refuseOddSizes, { when: (payload) => isMapping(payload.value) })
 export type RobotConfigDoc = z.infer<typeof robotConfigDoc>
 
 
