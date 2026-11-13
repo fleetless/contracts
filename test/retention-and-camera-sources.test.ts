@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import {
   cameraConfig,
   cameraSource,
@@ -74,6 +75,63 @@ describe('camera sources', () => {
     })
     expect(parsed).toMatchObject({ credentials: { username: 'admin', password: 'hunter2' } })
     expect(cameraSource.safeParse({ kind: 'mjpeg', url: 'http://cam/s.mjpg', credentials_ref: 'site-nvr' }).success).toBe(false)
+  })
+})
+
+describe('H.264 passthrough (fleetless/fleetless#1117)', () => {
+  const RTSP = { kind: 'rtsp', url: 'rtsp://cam.local/s' } as const
+
+  it('accepts passthrough on an RTSP source, and leaves it unset when nobody wrote it', () => {
+    expect(cameraSource.parse({ ...RTSP, passthrough: true })).toMatchObject({ passthrough: true })
+    expect(cameraSource.parse({ ...RTSP, passthrough: false })).toMatchObject({ passthrough: false })
+    // Absent is not a second spelling of `false`: an existing document stays
+    // byte-identical through a parse, and the bridge reads absent as off.
+    expect(cameraSource.parse(RTSP)).not.toHaveProperty('passthrough')
+    expect(cameraConfig.safeParse({ ...CAM, source: { ...RTSP, passthrough: true } }).success).toBe(true)
+  })
+
+  it('refuses a passthrough that is not a boolean', () => {
+    for (const passthrough of ['true', 1, null, 'h264']) {
+      expect(cameraSource.safeParse({ ...RTSP, passthrough }).success).toBe(false)
+    }
+  })
+
+  it('refuses passthrough on every other source kind', () => {
+    // A ROS topic is passed through by what it carries, not by a switch; MJPEG
+    // and V4L2 are never passed through.
+    for (const source of [
+      { ...ROS, passthrough: true },
+      { kind: 'mjpeg', url: 'http://cam.local/stream.mjpg', passthrough: true },
+      { kind: 'v4l2', device: '/dev/video0', passthrough: true },
+    ]) {
+      expect(cameraSource.safeParse(source).success).toBe(false)
+    }
+  })
+
+  it('accepts the third ROS type by its name', () => {
+    const parsed = cameraSource.safeParse({ kind: 'ros', topic: '/camera/h264', type: 'foxglove_msgs/msg/CompressedVideo' })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('says in the descriptions what passthrough changes', () => {
+    const schema = z.toJSONSchema(cameraConfig, { io: 'input' }) as any
+    const branches: any[] = schema.properties.source.oneOf ?? schema.properties.source.anyOf
+    const branch = (kind: string) => branches.find((b) => b.properties.kind.const === kind)
+
+    const passthrough: string = branch('rtsp').properties.passthrough.description
+    // What must match (the size), what stops applying (fps, bitrate), and
+    // the two things the stream itself has to bring.
+    for (const word of ['`width`', '`height`', '`fps`', '`bitrate_kbps`', 'H.264', 'B-frames', 'keyframe']) {
+      expect(passthrough, word).toContain(word)
+    }
+
+    const rosType: string = branch('ros').properties.type.description
+    expect(rosType).toContain('foxglove_msgs/msg/CompressedVideo')
+    expect(rosType).toContain('h264')
+
+    for (const key of ['fps', 'bitrate_kbps']) {
+      expect(schema.properties[key].description, key).toContain('passthrough')
+    }
   })
 })
 

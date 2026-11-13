@@ -9,6 +9,22 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **`passthrough` on the RTSP camera source** (fleetless/fleetless#1117).
+  `cameraSource`'s `rtsp` member takes an optional boolean `passthrough`.
+  With `true` the bridge forwards the camera's H.264 to live viewers and
+  neither decodes nor encodes video; absent means `false`, today's decode and
+  re-encode. The other three source kinds refuse the key.
+- The description of the ROS source's `type` names a third type,
+  `foxglove_msgs/msg/CompressedVideo`, and says when a
+  `sensor_msgs/msg/CompressedImage` is passed through (its `format` contains
+  `h264`). The schema accepted any ROS type name before and still does; the
+  editor snippet now offers all three.
+- The descriptions of `fps` and `bitrate_kbps` say what they mean for a
+  passthrough camera: neither is enforced, `fps` bounds how often a snapshot
+  is taken, `bitrate_kbps` is what the track declares.
+
 ## [15.2.0] — 2026-11-13
 
 ### Added

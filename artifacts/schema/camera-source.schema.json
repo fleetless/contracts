@@ -23,7 +23,7 @@
           "type": "string",
           "maxLength": 255,
           "pattern": "^[a-z][a-z0-9_]*\\/(?:msg|srv|action)\\/[A-Za-z][A-Za-z0-9]*$",
-          "description": "The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.",
+          "description": "The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes, `foxglove_msgs/msg/CompressedVideo` for a topic that carries H.264. H.264 is passed through to live viewers without the bridge decoding or encoding it: always for `CompressedVideo`, and for a `CompressedImage` whose `format` contains `h264`. A `CompressedImage` that carries JPEG stays a picture source. The bridge does not depend on `foxglove_msgs`; a robot without the package reports `unknown type` for that one camera. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.",
           "patternErrorMessage": "A ROS 2 type name has three segments: the package, then `msg`, `srv` or `action`, then the type — `sensor_msgs/msg/BatteryState`, `std_srvs/srv/Trigger`, `nav2_msgs/action/NavigateToPose`. The middle segment is the one usually left out. The package is lower-case with underscores; the type itself is letters and digits, conventionally CamelCase.",
           "examples": [
             "sensor_msgs/msg/Image"
@@ -44,7 +44,7 @@
           "body": {
             "kind": "ros",
             "topic": "${1:/camera/image_raw}",
-            "type": "${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage|}"
+            "type": "${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage,foxglove_msgs/msg/CompressedVideo|}"
           }
         }
       ]
@@ -55,7 +55,7 @@
         "kind": {
           "type": "string",
           "const": "rtsp",
-          "description": "Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`."
+          "description": "Selects the RTSP source: this camera then carries `url`, and optionally `transport`, `passthrough` and `credentials`."
         },
         "url": {
           "type": "string",
@@ -79,6 +79,10 @@
             "tcp",
             "udp"
           ]
+        },
+        "passthrough": {
+          "description": "Passes the camera's own H.264 through to live viewers: the bridge forwards the access units it receives and neither decodes nor encodes video. Omitted means `false`: the stream is decoded and encoded again, and `fps` and `bitrate_kbps` are enforced. With `true`, `width` and `height` must equal the stream's own size, or the camera reports an error naming both and publishes nothing. `fps` and `bitrate_kbps` are not enforced then: the bridge cannot drop or shrink frames it does not encode, so both are set at the camera. The stream must be H.264 without B-frames; anything else is refused with a camera error. A new viewer waits for the camera's next keyframe, so set its keyframe interval to one to two seconds.",
+          "type": "boolean"
         },
         "credentials": {
           "type": "object",

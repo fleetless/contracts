@@ -1692,7 +1692,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       examples: ['/camera/image_raw'],
     }),
     type: rosTypeName.meta({
-      description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
+      description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes, `foxglove_msgs/msg/CompressedVideo` for a topic that carries H.264. H.264 is passed through to live viewers without the bridge decoding or encoding it: always for `CompressedVideo`, and for a `CompressedImage` whose `format` contains `h264`. A `CompressedImage` that carries JPEG stays a picture source. The bridge does not depend on `foxglove_msgs`; a robot without the package reports `unknown type` for that one camera. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
       patternErrorMessage: ROS_TYPE_NAME_RULE,
       examples: ['sensor_msgs/msg/Image'],
     }),
@@ -1704,11 +1704,12 @@ export const cameraSource = z.discriminatedUnion('kind', [
       /**
        * `type` is a **choice**, not a literal, and that is a correction: it was
        * written out on the rule that a field the format fixes is written out,
-       * and `type` is not such a field. Its own description names two values
+       * and `type` is not such a field. Its own description names three values
        * and says which applies when — `Image` for raw frames,
-       * `CompressedImage` for a camera that encodes itself. A snippet that
-       * picks one picks wrong for half the cameras, and picks it invisibly:
-       * `rosTypeName` accepts either, publish accepts either, no diagnostic
+       * `CompressedImage` for a camera that encodes itself, `CompressedVideo`
+       * for a topic that carries H.264. A snippet that
+       * picks one picks wrong for most cameras, and picks it invisibly:
+       * `rosTypeName` accepts any of them, publish accepts any, no diagnostic
        * fires anywhere, and the bridge then subscribes with the wrong type and
        * delivers no frames. A snippet supplying a wrong answer where it could
        * have supplied a question is a defect arriving through a hint the
@@ -1719,22 +1720,22 @@ export const cameraSource = z.discriminatedUnion('kind', [
        * Choice syntax is the one construct here that three layers must each
        * pass through unharmed: yaml-language-server's `stringifyObject` emits
        * the body verbatim, and monaco-editor's `SnippetParser` parses
-       * `${2|a,b|}` into a placeholder carrying both options whose
+       * `${2|a,b,c|}` into a placeholder carrying every option whose
        * `toString()` — the text on the buffer before anyone chooses — is the
        * first one. So a developer who tabs past this gets a document
        * byte-identical to the literal it replaced, and one who opens the
-       * picker gets `CompressedImage`; both parse.
+       * picker gets `CompressedImage` or `CompressedVideo`; all three parse.
        */
       body: {
         kind: 'ros',
         topic: '${1:/camera/image_raw}',
-        type: '${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage|}',
+        type: '${2|sensor_msgs/msg/Image,sensor_msgs/msg/CompressedImage,foxglove_msgs/msg/CompressedVideo|}',
       },
     }],
   }),
   strictObject({
     kind: z.literal('rtsp').meta({
-      description: 'Selects the RTSP source: this camera then carries `url`, and optionally `transport` and `credentials`.',
+      description: 'Selects the RTSP source: this camera then carries `url`, and optionally `transport`, `passthrough` and `credentials`.',
     }),
     /**
      * Scheme-constrained deliberately. The bridge opens these with libraries
@@ -1761,6 +1762,19 @@ export const cameraSource = z.discriminatedUnion('kind', [
         tcp: 'The frames are interleaved into the RTSP connection itself, which is what a congested or lossy link needs — nothing is dropped on the way. This is what an omitted `transport` means.',
         udp: 'The frames travel in their own UDP stream: lower latency on a quiet network, and silent frame loss on any other.',
       }),
+    }),
+    /**
+     * Opt-in, and absent rather than defaulted: an RTSP camera that exists
+     * today is decoded and encoded again after an upgrade exactly as before,
+     * and a parse writes no `false` into a document nobody put one in. The
+     * bridge reads absent as off (fleetless/fleetless#1117).
+     *
+     * RTSP is the one source that carries this switch. A ROS topic is passed
+     * through by what it carries, see `type` on the `ros` member; MJPEG and
+     * V4L2 are never passed through.
+     */
+    passthrough: z.boolean().optional().meta({
+      description: 'Passes the camera\'s own H.264 through to live viewers: the bridge forwards the access units it receives and neither decodes nor encodes video. Omitted means `false`: the stream is decoded and encoded again, and `fps` and `bitrate_kbps` are enforced. With `true`, `width` and `height` must equal the stream\'s own size, or the camera reports an error naming both and publishes nothing. `fps` and `bitrate_kbps` are not enforced then: the bridge cannot drop or shrink frames it does not encode, so both are set at the camera. The stream must be H.264 without B-frames; anything else is refused with a camera error. A new viewer waits for the camera\'s next keyframe, so set its keyframe interval to one to two seconds.',
     }),
     credentials: cameraCredentials.optional(),
   }).meta({
@@ -1929,11 +1943,11 @@ export const cameraConfig = strictObject({
     examples: [720],
   }),
   fps: z.number().int().positive().max(60).meta({
-    description: 'How many frames a second the bridge forwards, at most. It is a ceiling, not a clock: a camera that delivers ten frames a second stays at ten. Both modes read the same throttled pipeline, so this also bounds how fresh a snapshot can be.',
+    description: 'How many frames a second the bridge forwards, at most. It is a ceiling, not a clock: a camera that delivers ten frames a second stays at ten. Both modes read the same throttled pipeline, so this also bounds how fresh a snapshot can be. A passthrough camera is the exception: the bridge forwards its H.264 at the rate the source sends it, and `fps` only bounds how often a snapshot is taken.',
     examples: [15],
   }),
   bitrate_kbps: z.number().int().positive().max(50_000).meta({
-    description: 'The ceiling for the **live** encoding, in kilobits per second — this is what bounds a watched camera against the robot\'s uplink. Snapshots are not covered by it: they are JPEGs under their own byte ceiling. Raising `width`, `height` or `fps` against a fixed bitrate buys blur, not detail.',
+    description: 'The ceiling for the **live** encoding, in kilobits per second — this is what bounds a watched camera against the robot\'s uplink. Snapshots are not covered by it: they are JPEGs under their own byte ceiling. Raising `width`, `height` or `fps` against a fixed bitrate buys blur, not detail. A passthrough camera is not encoded by the bridge, so nothing enforces this number there: the bitrate is set at the source, and this value is only what the track declares to the media server.',
     examples: [2000],
   }),
   snapshot_interval_seconds: snapshotIntervalSeconds.meta({
