@@ -71,7 +71,7 @@ import {
   liveSessionResponse,
   snapshotMetaResponse,
 } from '../src/rest.js'
-import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS, LIVE_DEFAULTS } from '../src/config.js'
+import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS, LIVE_DEFAULTS, LIVE_BOUNDS } from '../src/config.js'
 import { AUDIT_RETENTION_DAYS } from '../src/audit.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
@@ -1119,6 +1119,12 @@ export const exportedConstants = {
    * says otherwise.
    */
   LIVE_DEFAULTS,
+
+  /**
+   * And their bounds, so the bridge's parameter callback refuses exactly what
+   * the schema refuses.
+   */
+  LIVE_BOUNDS,
 } as const
 
 /**

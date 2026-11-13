@@ -2025,24 +2025,30 @@ export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
  * carrying a second copy.
  *
  * 1200 is what browsers send, which is why a path with an MTU of 1280 — the
- * smallest IPv6 guarantees, and what WireGuard tunnels set — carries it: the
- * bytes a packet gains on the way (header extensions an SFU may add, the SRTP
- * tag, UDP, IP, TURN) come to about 80.
+ * smallest IPv6 guarantees, and what NetBird and Tailscale set — carries it:
+ * the bytes a packet gains on the way (header extensions an SFU may add, the
+ * SRTP tag, UDP, IP, TURN) come to about 80 at most.
  */
 export const LIVE_DEFAULTS = {
   max_packet_bytes: 1200,
 } as const
 
 /**
- * The largest value `live.max_packet_bytes` takes. pylibsrtp, which protects
- * the bridge's packets, refuses an RTP packet above 1356 bytes — a 1500-byte
- * buffer less the room it keeps for the trailer — and aiortc's sender ends
- * its loop on that refusal: the stream stops for good. So a larger setting is
- * not a bigger packet but no video, and it is refused here, where the
- * configuration is saved. 1350 rather than 1356: the bound is a round number
- * a person can remember, and nothing is lost in six bytes.
+ * The bounds of the `live` settings, exported into `constants.json` beside the
+ * defaults: the bridge refuses a ROS parameter outside them with the same
+ * numbers this schema refuses a document with, read rather than copied.
+ *
+ * The upper bound of `max_packet_bytes` is not a taste. pylibsrtp, which
+ * protects the bridge's packets, refuses an RTP packet above 1356 bytes — a
+ * 1500-byte buffer less the room it keeps for the trailer — and aiortc's
+ * sender ends its loop on that refusal: live video stops for good. So a
+ * larger setting is not a bigger packet but no video, and it is refused where
+ * the configuration is saved. 1350 rather than 1356: a number a person can
+ * remember, and nothing is lost in six bytes.
  */
-const LIVE_MAX_PACKET_BYTES_CEILING = 1350
+export const LIVE_BOUNDS = {
+  max_packet_bytes: { min: 576, max: 1350 },
+} as const
 
 /**
  * How the bridge sends live video: settings of the transport, which hold for
@@ -2057,8 +2063,8 @@ const LIVE_MAX_PACKET_BYTES_CEILING = 1350
  * a cloud that learns a newer key does not take an older bridge off the air.
  */
 export const liveSection = strictObject({
-  max_packet_bytes: z.number().int().min(576).max(LIVE_MAX_PACKET_BYTES_CEILING).optional().meta({
-    description: `The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is about 80 bytes longer. Lower it when a viewer's path carries less, such as a tunnel inside a tunnel. The ceiling is what the bridge's SRTP library protects; a larger packet is one it cannot send at all. Overrides the bridge's ROS parameter \`live.max_packet_bytes\`; without either, the bridge sends ${LIVE_DEFAULTS.max_packet_bytes}. A change holds from the next frame, for running streams too.`,
+  max_packet_bytes: z.number().int().min(LIVE_BOUNDS.max_packet_bytes.min).max(LIVE_BOUNDS.max_packet_bytes.max).optional().meta({
+    description: `The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is up to about 80 bytes longer. Lower it when a viewer's path carries less, such as a tunnel inside a tunnel. The ceiling sits just under what the bridge's SRTP library protects (1356 bytes); past that, live video stops. Overrides the bridge's ROS parameter \`live.max_packet_bytes\`; without either, the bridge sends ${LIVE_DEFAULTS.max_packet_bytes}. A change holds from the next frame, for running streams too.`,
     examples: [LIVE_DEFAULTS.max_packet_bytes],
   }),
 })
@@ -2221,7 +2227,7 @@ export const robotConfigDoc = strictObject({
      */
     defaultSnippets: [{
       label: 'live video, packet size',
-      description: 'Caps every RTP packet the bridge sends. 1200 is the default; lower it for viewers behind a tunnel inside a tunnel.',
+      description: `Caps every RTP packet the bridge sends. ${LIVE_DEFAULTS.max_packet_bytes} is the default; lower it for viewers behind a tunnel inside a tunnel.`,
       body: { max_packet_bytes: LIVE_DEFAULTS.max_packet_bytes },
     }],
   }),
