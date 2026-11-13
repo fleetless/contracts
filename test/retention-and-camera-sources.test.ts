@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
   cameraConfig,
   cameraSource,
+  lowBandwidthSection,
   historyBucketsResponse,
   historyQuery,
   historySamplesResponse,
@@ -132,6 +133,32 @@ describe('H.264 passthrough (fleetless/fleetless#1117)', () => {
     for (const key of ['fps', 'bitrate_kbps']) {
       expect(schema.properties[key].description, key).toContain('passthrough')
     }
+
+    // The live path is what is not decoded; a snapshot is.
+    expect(passthrough).toContain('live video')
+    expect(passthrough).toContain('snapshot')
+    // The rules hold for a ROS topic too, and that description says so.
+    for (const word of ['in any case', '`width`', 'B-frames', 'keyframe', 'low-bandwidth']) {
+      expect(rosType, word).toContain(word)
+    }
+  })
+
+  it('says that low-bandwidth mode ends a passthrough stream, under reduce too', () => {
+    // `reduce` promises a picture that keeps running. For a passthrough
+    // camera there is no encoder to re-target, so the promise has an
+    // exception, and it is written where the promise is.
+    const source = z.toJSONSchema(cameraConfig, { io: 'input' }) as any
+    const rtsp = (source.properties.source.oneOf ?? source.properties.source.anyOf)
+      .find((b: any) => b.properties.kind.const === 'rtsp')
+    expect(rtsp.properties.passthrough.description).toContain('Low-bandwidth mode ends such a stream')
+    expect(rtsp.properties.passthrough.description).toContain('`camera: reduce`')
+
+    const section = z.toJSONSchema(lowBandwidthSection, { io: 'input' }) as any
+    const camera = section.properties.camera
+    const reduce: string = camera.enumDescriptions[camera.enum.indexOf('reduce')]
+    expect(reduce).toContain('passthrough')
+    expect(reduce).toContain('ends')
+    expect(section.properties.camera_bitrate_kbps.description).toContain('passthrough')
   })
 })
 
