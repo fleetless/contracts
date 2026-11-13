@@ -2054,14 +2054,22 @@ export const LIVE_DEFAULTS = {
 } as const
 
 /**
- * What may encode live video. Named rather than inlined, for `chartStyle`'s
- * reason: `describeValues` reads `.options`, and so does `LIVE_BOUNDS`.
+ * What may encode live video, declared once as a tuple: the enum is built
+ * from it and `LIVE_BOUNDS` exports it. Its own array and `readonly` in the
+ * type, so a consumer that sorted the exported list could not reorder the
+ * enum's options with it.
  *
  * `auto` tries the three hardware names in the order they stand here. The
  * vendor-specific ones come before the generic `v4l2`, which on some boards
  * finds a device it cannot drive.
  */
-const liveEncoder = z.enum(['software', 'auto', 'nvenc', 'vaapi', 'v4l2'])
+const LIVE_ENCODERS = ['software', 'auto', 'nvenc', 'vaapi', 'v4l2'] as const
+
+/**
+ * Named rather than inlined, for `chartStyle`'s reason: `describeValues`
+ * reads `.options`, and the per-value sentences are then keyed by value.
+ */
+const liveEncoder = z.enum(LIVE_ENCODERS)
 
 /**
  * The bounds of the `live` settings, exported into `constants.json` beside the
@@ -2082,7 +2090,7 @@ const liveEncoder = z.enum(['software', 'auto', 'nvenc', 'vaapi', 'v4l2'])
  */
 export const LIVE_BOUNDS = {
   max_packet_bytes: { min: 576, max: 1350 },
-  encoder: { values: liveEncoder.options },
+  encoder: { values: LIVE_ENCODERS },
 } as const
 
 /**
@@ -2104,13 +2112,13 @@ export const liveSection = strictObject({
     examples: [LIVE_DEFAULTS.max_packet_bytes],
   }),
   encoder: liveEncoder.optional().meta({
-    description: `What encodes live video on the robot. \`${LIVE_DEFAULTS.encoder}\` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. It is one setting for the robot, not one per camera: the chip is part of the computer. Overrides the bridge's ROS parameter \`live.encoder\`; without either, the bridge uses \`${LIVE_DEFAULTS.encoder}\`. A change holds from the next live start; a running stream keeps its encoder.`,
+    description: `What encodes live video on the robot. \`software\` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log; one that did not start is not tried again until this setting changes or the bridge restarts. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. The hardware encoders are written from the documentation of their GStreamer elements and tested through a software stand-in; the reference page of this section says which have been proven on hardware. It is one setting for the robot, not one per camera: the chip is part of the computer. It does not apply to a camera whose source already delivers H.264 and is passed through: that video is forwarded, not encoded. Overrides the bridge's ROS parameter \`live.encoder\`; without either, the bridge uses \`${LIVE_DEFAULTS.encoder}\`. A change holds from the next live start; a running stream keeps its encoder.`,
     enumDescriptions: describeValues(liveEncoder.options, {
-      software: 'The bridge encodes on the CPU: VP8 or H.264, whichever the media server picks. This is what an omitted `encoder` means, and what every robot did before the setting existed.',
+      software: 'The bridge encodes on the CPU: VP8 or H.264, whichever the media server picks, as every robot did before the setting existed.',
       auto: 'Tries `nvenc`, then `vaapi`, then `v4l2`, and uses the first that starts. With none of them, software H.264.',
-      nvenc: 'NVIDIA. On a Jetson the board\'s encoder (`nvv4l2h264enc`), on a desktop card `nvh264enc`. The Jetson chain is the one proven on a robot.',
-      vaapi: 'Intel and AMD graphics through VA-API: `vah264enc` where the installed GStreamer has it, else `vaapih264enc`. Built from the documentation of the element, not yet proven on hardware.',
-      v4l2: 'A V4L2 encoder (`v4l2h264enc`), as on a Raspberry Pi 4. A Raspberry Pi 5 and a Jetson Orin Nano have no hardware encoder and end on software. Built from the documentation of the element, not yet proven on hardware.',
+      nvenc: 'NVIDIA. On a Jetson the board\'s encoder (`nvv4l2h264enc`); a Jetson Orin Nano has none and ends on software. On a desktop card `nvh264enc`.',
+      vaapi: 'Intel and AMD graphics through VA-API: `vah264enc` where the installed GStreamer has it, else `vaapih264enc`.',
+      v4l2: 'A V4L2 encoder (`v4l2h264enc`), as on a Raspberry Pi 4. A Raspberry Pi 5 has no hardware encoder and ends on software.',
     }),
   }),
 })

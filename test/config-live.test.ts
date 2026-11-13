@@ -108,4 +108,42 @@ describe('the live section', () => {
     expect(by.v4l2).toContain('v4l2h264enc')
     expect(published.description).toContain('`live.encoder`')
   })
+
+  it('does not say in a value what only the three layers decide', () => {
+    // An omitted key falls through to the ROS parameter and only then to
+    // the default. The key's description says so; the description of the
+    // value `software` must not say that omitting the key means software,
+    // or a robot whose launch file sets `nvenc` is described wrongly to the
+    // person editing its document.
+    const published = artifact('schema/robot-config-doc.schema.json').properties.live.properties.encoder
+    const software = published.enumDescriptions[published.enum.indexOf('software')]
+    expect(software).not.toMatch(/omitted|absent|default/i)
+    expect(published.description).toContain('Overrides the bridge\'s ROS parameter `live.encoder`; without either, the bridge uses `software`.')
+    // `software` is named as itself where the sentence is about that value,
+    // and through the default only where the sentence is about the default.
+    expect(published.description.startsWith('What encodes live video on the robot. `software` is the bridge\'s own encoder on the CPU.')).toBe(true)
+  })
+
+  it('says where the setting does not reach, and claims no proof on hardware', () => {
+    const published = artifact('schema/robot-config-doc.schema.json').properties.live.properties.encoder
+    expect(published.description).toContain('does not apply to a camera whose source already delivers H.264')
+    expect(published.description).toContain('one that did not start is not tried again until this setting changes or the bridge restarts')
+    // Which chain is proven on hardware changes without a contracts release:
+    // the text points at the reference page and names no chain as proven.
+    expect(published.description).toContain('the reference page of this section says which have been proven on hardware')
+    for (const sentence of published.enumDescriptions) expect(sentence).not.toMatch(/proven/i)
+    const nvenc = published.enumDescriptions[published.enum.indexOf('nvenc')]
+    expect(nvenc).toContain('a Jetson Orin Nano has none')
+  })
+
+  it('exports the encoder names as their own read-only list', () => {
+    // Not the enum's own options array: a consumer that sorted the exported
+    // list would otherwise reorder the options with it.
+    expect(LIVE_BOUNDS.encoder.values).toEqual(['software', 'auto', 'nvenc', 'vaapi', 'v4l2'])
+    expect(LIVE_BOUNDS.encoder.values).not.toBe(liveSection.shape.encoder.unwrap().options)
+    // @ts-expect-error the exported list is a readonly tuple: it has no `sort`
+    void LIVE_BOUNDS.encoder.values.sort
+    const first: 'software' = LIVE_BOUNDS.encoder.values[0]
+    expect(first).toBe('software')
+  })
 })
