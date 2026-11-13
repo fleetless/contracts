@@ -1692,7 +1692,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
       examples: ['/camera/image_raw'],
     }),
     type: rosTypeName.meta({
-      description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes, `foxglove_msgs/msg/CompressedVideo` for a topic that carries H.264. H.264 is passed through to live viewers without the bridge decoding or encoding it: always for `CompressedVideo`, and for a `CompressedImage` whose `format` contains `h264`. A `CompressedImage` that carries JPEG stays a picture source. The bridge does not depend on `foxglove_msgs`; a robot without the package reports `unknown type` for that one camera. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
+      description: 'The message type of `topic`: `sensor_msgs/msg/Image` for raw frames, `sensor_msgs/msg/CompressedImage` for a camera that already encodes, `foxglove_msgs/msg/CompressedVideo` for a topic that carries H.264. H.264 is passed through to live viewers without the bridge decoding or encoding it: always for `CompressedVideo`, and for a `CompressedImage` whose `format` contains `h264`, in any case. A `CompressedImage` that carries JPEG stays a picture source. A camera that is passed through follows what `passthrough` says on an RTSP source: `width` and `height` must equal the stream\'s size, B-frames are refused, a new viewer waits for the next keyframe, and low-bandwidth mode ends its stream. The bridge does not depend on `foxglove_msgs`; a robot without the package reports `unknown type` for that one camera. Declared here rather than introspected, so a camera can be configured for a robot that has never connected.',
       patternErrorMessage: ROS_TYPE_NAME_RULE,
       examples: ['sensor_msgs/msg/Image'],
     }),
@@ -1774,7 +1774,7 @@ export const cameraSource = z.discriminatedUnion('kind', [
      * V4L2 are never passed through.
      */
     passthrough: z.boolean().optional().meta({
-      description: 'Passes the camera\'s own H.264 through to live viewers: the bridge forwards the access units it receives and neither decodes nor encodes video. Omitted means `false`: the stream is decoded and encoded again, and `fps` and `bitrate_kbps` are enforced. With `true`, `width` and `height` must equal the stream\'s own size, or the camera reports an error naming both and publishes nothing. `fps` and `bitrate_kbps` are not enforced then: the bridge cannot drop or shrink frames it does not encode, so both are set at the camera. The stream must be H.264 without B-frames; anything else is refused with a camera error. A new viewer waits for the camera\'s next keyframe, so set its keyframe interval to one to two seconds.',
+      description: 'Passes the camera\'s own H.264 through to live viewers: the bridge forwards the access units it receives and neither decodes nor encodes the live video. A snapshot is decoded from the newest keyframe, so it is at most one keyframe interval old. Omitted means `false`: the stream is decoded and encoded again, and `fps` and `bitrate_kbps` are enforced. With `true`, `width` and `height` must equal the stream\'s own size, or the camera reports an error naming both and publishes nothing. `fps` and `bitrate_kbps` are not enforced then: the bridge cannot drop or shrink frames it does not encode, so both are set at the camera. The stream must be H.264 without B-frames; anything else is refused with a camera error. A new viewer waits for the camera\'s next keyframe, so set its keyframe interval to one to two seconds. Low-bandwidth mode ends such a stream, under `camera: reduce` as under `stop`: there is no bitrate to lower.',
     }),
     credentials: cameraCredentials.optional(),
   }).meta({
@@ -2020,11 +2020,11 @@ export const lowBandwidthSection = strictObject({
   camera: lowBandwidthCamera.optional().meta({
     description: 'What happens to a running stream in the mode. New streams are refused either way.',
     enumDescriptions: describeValues(lowBandwidthCamera.options, {
-      reduce: 'A running stream is re-encoded at `camera_bitrate_kbps` and keeps running. A viewer sees a worse picture rather than none.',
+      reduce: 'A running stream is re-encoded at `camera_bitrate_kbps` and keeps running. A viewer sees a worse picture rather than none. A passthrough camera is the exception: the bridge does not encode it, so its stream ends as under `stop`.',
       stop: 'A running stream ends and the viewer is told why. The uplink is then free for datapoints, which is the right trade where video is the nice-to-have.',
     }),
   }),
-  camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`.' }),
+  camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`. A passthrough stream has none to apply it to and ends.' }),
 })
   .superRefine((s, ctx) => {
     if (s.enter_lag_ms !== undefined && s.exit_lag_ms !== undefined && s.exit_lag_ms > s.enter_lag_ms)
