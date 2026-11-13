@@ -70,12 +70,12 @@ describe('the format explains its own rules', () => {
   // The counts are the measurement of 2026-09-03, moved by the roles: a role key
   // is a pattern at both its spellings (one key, a list of keys) on each of the
   // nine places a role is written, the rule's `match` is one more, and a rule's
-  // `kinds` is an enum. They are here so that a node ADDED later without a
-  // sentence fails loudly rather than sliding under an `.every()` over whatever
-  // is there.
+  // `kinds` is an enum. `live.encoder` is the tenth enum. They are here so that
+  // a node ADDED later without a sentence fails loudly rather than sliding
+  // under an `.every()` over whatever is there.
   it('finds the patterns and enums this document has', () => {
     expect(found.patterns.length).toBe(41)
-    expect(found.enums.length).toBe(9)
+    expect(found.enums.length).toBe(10)
   })
 
   it('the keyword walker reached every one of them', () => {

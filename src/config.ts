@@ -2042,10 +2042,26 @@ export type LowBandwidthSection = z.infer<typeof lowBandwidthSection>
  * smallest IPv6 guarantees, and what NetBird and Tailscale set — carries it:
  * the bytes a packet gains on the way (header extensions an SFU may add, the
  * SRTP tag, UDP, IP, TURN) come to about 80 at most.
+ *
+ * `software` is the encoder the bridge has always had, so a bridge upgrade
+ * changes no robot. Hardware is opt-in for a reason the fallback cannot
+ * cover: it catches an encoder that does not start, not one that starts and
+ * draws the wrong picture.
  */
 export const LIVE_DEFAULTS = {
   max_packet_bytes: 1200,
+  encoder: 'software',
 } as const
+
+/**
+ * What may encode live video. Named rather than inlined, for `chartStyle`'s
+ * reason: `describeValues` reads `.options`, and so does `LIVE_BOUNDS`.
+ *
+ * `auto` tries the three hardware names in the order they stand here. The
+ * vendor-specific ones come before the generic `v4l2`, which on some boards
+ * finds a device it cannot drive.
+ */
+const liveEncoder = z.enum(['software', 'auto', 'nvenc', 'vaapi', 'v4l2'])
 
 /**
  * The bounds of the `live` settings, exported into `constants.json` beside the
@@ -2059,14 +2075,20 @@ export const LIVE_DEFAULTS = {
  * larger setting is not a bigger packet but no video, and it is refused where
  * the configuration is saved. 1350 rather than 1356: a number a person can
  * remember, and nothing is lost in six bytes.
+ *
+ * An enum's bounds are its values: `encoder.values` is the list the schema
+ * accepts, in the schema's order, so the bridge's parameter callback refuses
+ * a sixth name with the list the cloud refuses it with.
  */
 export const LIVE_BOUNDS = {
   max_packet_bytes: { min: 576, max: 1350 },
+  encoder: { values: liveEncoder.options },
 } as const
 
 /**
- * How the bridge sends live video: settings of the transport, which hold for
- * the whole robot and not for one camera. Every key is optional and layered
+ * How the bridge sends live video: settings of the transport and of the
+ * encoder, which hold for the whole robot and not for one camera — the path
+ * and the chip belong to the computer. Every key is optional and layered
  * as in `lowBandwidthSection`: a key present here overrides the bridge's ROS
  * parameter of the same name, an absent key falls through to it, and the
  * parameter falls through to `LIVE_DEFAULTS`.
@@ -2080,6 +2102,16 @@ export const liveSection = strictObject({
   max_packet_bytes: z.number().int().min(LIVE_BOUNDS.max_packet_bytes.min).max(LIVE_BOUNDS.max_packet_bytes.max).optional().meta({
     description: `The largest RTP packet the bridge sends, in bytes: fixed header, header extensions and payload, before SRTP adds its tag, retransmissions included. It is not an MTU: the MTU belongs to the path to each viewer, which the robot does not know. On the wire a packet is up to about 80 bytes longer. Lower it when a viewer's path carries less, such as a tunnel inside a tunnel. The ceiling sits just under what the bridge's SRTP library protects (1356 bytes); past that, live video stops. Overrides the bridge's ROS parameter \`live.max_packet_bytes\`; without either, the bridge sends ${LIVE_DEFAULTS.max_packet_bytes}. A change holds from the next frame, for running streams too.`,
     examples: [LIVE_DEFAULTS.max_packet_bytes],
+  }),
+  encoder: liveEncoder.optional().meta({
+    description: `What encodes live video on the robot. \`${LIVE_DEFAULTS.encoder}\` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. It is one setting for the robot, not one per camera: the chip is part of the computer. Overrides the bridge's ROS parameter \`live.encoder\`; without either, the bridge uses \`${LIVE_DEFAULTS.encoder}\`. A change holds from the next live start; a running stream keeps its encoder.`,
+    enumDescriptions: describeValues(liveEncoder.options, {
+      software: 'The bridge encodes on the CPU: VP8 or H.264, whichever the media server picks. This is what an omitted `encoder` means, and what every robot did before the setting existed.',
+      auto: 'Tries `nvenc`, then `vaapi`, then `v4l2`, and uses the first that starts. With none of them, software H.264.',
+      nvenc: 'NVIDIA. On a Jetson the board\'s encoder (`nvv4l2h264enc`), on a desktop card `nvh264enc`. The Jetson chain is the one proven on a robot.',
+      vaapi: 'Intel and AMD graphics through VA-API: `vah264enc` where the installed GStreamer has it, else `vaapih264enc`. Built from the documentation of the element, not yet proven on hardware.',
+      v4l2: 'A V4L2 encoder (`v4l2h264enc`), as on a Raspberry Pi 4. A Raspberry Pi 5 and a Jetson Orin Nano have no hardware encoder and end on software. Built from the documentation of the element, not yet proven on hardware.',
+    }),
   }),
 })
 export type LiveSection = z.infer<typeof liveSection>
