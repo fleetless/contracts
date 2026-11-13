@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.4.0] — 2026-11-13
+
 ### Changed
 
 - **A hardware encoder takes no camera of odd size**
