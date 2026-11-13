@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.3.0] — 2026-11-13
+
 ### Added
 
 - **`passthrough` on the RTSP camera source** (fleetless/fleetless#1117).
