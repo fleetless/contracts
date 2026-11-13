@@ -1935,11 +1935,11 @@ export const cameraConfig = strictObject({
     description: 'Where this camera\'s frames come from. `kind` picks one of four sources and fixes which other fields the source may carry, so an impossible camera is unrepresentable rather than merely invalid — there is no way to write an RTSP camera with a ROS topic.',
   }),
   width: z.number().int().positive().max(7680).meta({
-    description: 'The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed.',
+    description: 'The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer\'s request, so no client can make the robot encode a larger frame than the developer allowed. A passthrough camera is the exception for live video: the bridge does not scale what it does not encode, so `width` and `height` must equal the stream\'s own size.',
     examples: [1280],
   }),
   height: z.number().int().positive().max(4320).meta({
-    description: 'The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded.',
+    description: 'The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded. The live video of a passthrough camera is not scaled: `height` and `width` must equal the stream\'s own size.',
     examples: [720],
   }),
   fps: z.number().int().positive().max(60).meta({
@@ -2024,7 +2024,7 @@ export const lowBandwidthSection = strictObject({
       stop: 'A running stream ends and the viewer is told why. The uplink is then free for datapoints, which is the right trade where video is the nice-to-have.',
     }),
   }),
-  camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`. A passthrough stream has none to apply it to and ends.' }),
+  camera_bitrate_kbps: z.number().int().min(50).max(20000).optional().meta({ description: 'Bitrate applied to running streams under `reduce`. A passthrough stream is not encoded by the bridge, so there is no bitrate to reduce and the stream ends.' }),
 })
   .superRefine((s, ctx) => {
     if (s.enter_lag_ms !== undefined && s.exit_lag_ms !== undefined && s.exit_lag_ms > s.enter_lag_ms)

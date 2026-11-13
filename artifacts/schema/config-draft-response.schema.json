@@ -1661,7 +1661,7 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 7680,
-                    "description": "The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer's request, so no client can make the robot encode a larger frame than the developer allowed.",
+                    "description": "The width the bridge scales frames to before sending, in pixels — what the bridge produces, not what the sensor captures; a snapshot can arrive narrower, since the bridge reduces both dimensions together to fit its JPEG byte ceiling. It stands in the configuration and never in a viewer's request, so no client can make the robot encode a larger frame than the developer allowed. A passthrough camera is the exception for live video: the bridge does not scale what it does not encode, so `width` and `height` must equal the stream's own size.",
                     "examples": [
                       1280
                     ]
@@ -1670,7 +1670,7 @@
                     "type": "integer",
                     "exclusiveMinimum": 0,
                     "maximum": 4320,
-                    "description": "The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded.",
+                    "description": "The height the bridge scales every frame to, in pixels; with `width` it is the size the live stream carries. A snapshot can arrive **smaller** than this — its JPEG has a byte ceiling, and the bridge gives up quality first and then resolution to fit, reporting the size it actually encoded. The live video of a passthrough camera is not scaled: `height` and `width` must equal the stream's own size.",
                     "examples": [
                       720
                     ]
@@ -2048,7 +2048,7 @@
                   ]
                 },
                 "camera_bitrate_kbps": {
-                  "description": "Bitrate applied to running streams under `reduce`. A passthrough stream has none to apply it to and ends.",
+                  "description": "Bitrate applied to running streams under `reduce`. A passthrough stream is not encoded by the bridge, so there is no bitrate to reduce and the stream ends.",
                   "type": "integer",
                   "minimum": 50,
                   "maximum": 20000

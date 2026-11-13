@@ -19,11 +19,13 @@ version.
 - The description of the ROS source's `type` names a third type,
   `foxglove_msgs/msg/CompressedVideo`, and says when a
   `sensor_msgs/msg/CompressedImage` is passed through (its `format` contains
-  `h264`). The schema accepted any ROS type name before and still does; the
-  editor snippet now offers all three.
-- The descriptions of `fps` and `bitrate_kbps` say what they mean for a
-  passthrough camera: neither is enforced, `fps` bounds how often a snapshot
-  is taken, `bitrate_kbps` is what the track declares.
+  `h264`, in any case). The schema accepted any ROS type name before and
+  still does; the editor snippet now offers all three.
+- The descriptions of `width`, `height`, `fps` and `bitrate_kbps` say what
+  they mean for a passthrough camera: its live video is not scaled, so
+  `width` and `height` must equal the stream's own size; `fps` and
+  `bitrate_kbps` are not enforced, `fps` bounds how often a snapshot is
+  taken, `bitrate_kbps` is what the track declares.
 - The description of `low_bandwidth.camera: reduce` names its exception: a
   passthrough stream is not encoded by the bridge, so it ends as under
   `stop`. `camera_bitrate_kbps` and `passthrough` say the same.
