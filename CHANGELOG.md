@@ -27,6 +27,16 @@ version.
 - The description of `low_bandwidth.camera: reduce` names its exception: a
   passthrough stream is not encoded by the bridge, so it ends as under
   `stop`. `camera_bitrate_kbps` and `passthrough` say the same.
+- **`live.encoder`** (fleetless/fleetless#894). An optional key of the `live`
+  section that names what encodes live video on the robot: `software` (the
+  bridge's own encoder on the CPU, as before), `auto`, `nvenc`, `vaapi` or
+  `v4l2`. Every value but `software` sends H.264 from a hardware encoder and
+  falls back to software H.264 for the session when that encoder does not
+  start. A key present overrides the bridge's ROS parameter `live.encoder`.
+  Each value carries its own description for the editor.
+- `LIVE_DEFAULTS.encoder` is `software`, and `LIVE_BOUNDS.encoder.values`
+  lists the five values in the schema's order. Both are written into
+  `constants.json` for the bridge.
 
 ## [15.2.0] — 2026-11-13
 

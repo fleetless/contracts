@@ -32563,6 +32563,17 @@
                         "type": "integer",
                         "minimum": 576,
                         "maximum": 1350
+                      },
+                      "encoder": {
+                        "description": "What encodes live video on the robot. `software` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. It is one setting for the robot, not one per camera: the chip is part of the computer. Overrides the bridge's ROS parameter `live.encoder`; without either, the bridge uses `software`. A change holds from the next live start; a running stream keeps its encoder.",
+                        "type": "string",
+                        "enum": [
+                          "software",
+                          "auto",
+                          "nvenc",
+                          "vaapi",
+                          "v4l2"
+                        ]
                       }
                     },
                     "additionalProperties": false
@@ -33991,6 +34002,17 @@
                     "type": "integer",
                     "minimum": 576,
                     "maximum": 1350
+                  },
+                  "encoder": {
+                    "description": "What encodes live video on the robot. `software` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. It is one setting for the robot, not one per camera: the chip is part of the computer. Overrides the bridge's ROS parameter `live.encoder`; without either, the bridge uses `software`. A change holds from the next live start; a running stream keeps its encoder.",
+                    "type": "string",
+                    "enum": [
+                      "software",
+                      "auto",
+                      "nvenc",
+                      "vaapi",
+                      "v4l2"
+                    ]
                   }
                 },
                 "additionalProperties": false

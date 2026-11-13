@@ -2077,6 +2077,24 @@
                   "type": "integer",
                   "minimum": 576,
                   "maximum": 1350
+                },
+                "encoder": {
+                  "description": "What encodes live video on the robot. `software` is the bridge's own encoder on the CPU. Every other value sends H.264 from a hardware encoder, reached through GStreamer, which the robot has to have installed. An encoder that does not start, or stops delivering, is replaced by software H.264 for the rest of that session, with one warning in the bridge's log. The fallback catches an encoder that fails, not one that draws a wrong picture, so look at the stream once after choosing one. It is one setting for the robot, not one per camera: the chip is part of the computer. Overrides the bridge's ROS parameter `live.encoder`; without either, the bridge uses `software`. A change holds from the next live start; a running stream keeps its encoder.",
+                  "enumDescriptions": [
+                    "The bridge encodes on the CPU: VP8 or H.264, whichever the media server picks. This is what an omitted `encoder` means, and what every robot did before the setting existed.",
+                    "Tries `nvenc`, then `vaapi`, then `v4l2`, and uses the first that starts. With none of them, software H.264.",
+                    "NVIDIA. On a Jetson the board's encoder (`nvv4l2h264enc`), on a desktop card `nvh264enc`. The Jetson chain is the one proven on a robot.",
+                    "Intel and AMD graphics through VA-API: `vah264enc` where the installed GStreamer has it, else `vaapih264enc`. Built from the documentation of the element, not yet proven on hardware.",
+                    "A V4L2 encoder (`v4l2h264enc`), as on a Raspberry Pi 4. A Raspberry Pi 5 and a Jetson Orin Nano have no hardware encoder and end on software. Built from the documentation of the element, not yet proven on hardware."
+                  ],
+                  "type": "string",
+                  "enum": [
+                    "software",
+                    "auto",
+                    "nvenc",
+                    "vaapi",
+                    "v4l2"
+                  ]
                 }
               },
               "additionalProperties": false
