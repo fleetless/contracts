@@ -48,5 +48,11 @@
   },
   "LIVE_DEFAULTS": {
     "max_packet_bytes": 1200
+  },
+  "LIVE_BOUNDS": {
+    "max_packet_bytes": {
+      "min": 576,
+      "max": 1350
+    }
   }
 }

@@ -19,8 +19,9 @@ version.
   no packet above 1356 bytes. A key present overrides the bridge's ROS parameter
   `live.max_packet_bytes`. `liveSection` and the type `LiveSection` are
   exported.
-- `LIVE_DEFAULTS` (`{ max_packet_bytes: 1200 }`), exported and written into
-  `constants.json` for the bridge.
+- `LIVE_DEFAULTS` (`{ max_packet_bytes: 1200 }`) and `LIVE_BOUNDS`
+  (`{ max_packet_bytes: { min: 576, max: 1350 } }`), exported and written
+  into `constants.json` for the bridge.
 
 ## [15.1.0] — 2026-11-12
 

@@ -221,6 +221,7 @@ export {
   LOW_BANDWIDTH_DEFAULTS,
   liveSection,
   LIVE_DEFAULTS,
+  LIVE_BOUNDS,
   robotConfigDoc,
   accessRule,
   accessSection,

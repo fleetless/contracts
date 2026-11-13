@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { robotConfigDoc, liveSection, LIVE_DEFAULTS, FLEETLESS_FORMAT_VERSION } from '../src/index.js'
+import { robotConfigDoc, liveSection, LIVE_DEFAULTS, LIVE_BOUNDS, FLEETLESS_FORMAT_VERSION } from '../src/index.js'
 
 const DOC = { fleetless: FLEETLESS_FORMAT_VERSION, datapoints: { battery: { topic: '/battery', type: 'sensor_msgs/msg/BatteryState', field: 'percentage' } } }
 
@@ -46,6 +46,13 @@ describe('the live section', () => {
     expect(artifact('constants.json').LIVE_DEFAULTS).toEqual(LIVE_DEFAULTS)
     expect(LIVE_DEFAULTS).toEqual({ max_packet_bytes: 1200 })
     expect(liveSection.safeParse(LIVE_DEFAULTS).success).toBe(true)
+  })
+
+  it('ships the bounds to constants.json too, and the schema states the same numbers', () => {
+    expect(artifact('constants.json').LIVE_BOUNDS).toEqual(LIVE_BOUNDS)
+    expect(LIVE_BOUNDS).toEqual({ max_packet_bytes: { min: 576, max: 1350 } })
+    const published = artifact('schema/robot-config-doc.schema.json').properties.live.properties.max_packet_bytes
+    expect({ min: published.minimum, max: published.maximum }).toEqual(LIVE_BOUNDS.max_packet_bytes)
   })
 
   it('publishes the bounds in the schema the editor and the bridge read', () => {
