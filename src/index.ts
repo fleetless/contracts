@@ -806,6 +806,7 @@ export {
   mailTemplateProblemDetails,
   mailOutcome,
 } from './app-users.js'
+export { DEFAULT_MAIL_HTML } from './app-mail-html.js'
 export type {
   AppUserStatus,
   AppUser,

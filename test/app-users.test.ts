@@ -49,6 +49,7 @@ import {
   putAppAuthUrlsRequest,
   putAppMailTemplateRequest,
 } from '../src/app-users.js'
+import { DEFAULT_MAIL_HTML } from '../src/app-mail-html.js'
 import { clientIdentity, clientOidcErrorCode, clientOidcStartQuery } from '../src/client-auth.js'
 
 const UUID = '11111111-1111-4111-8111-111111111111'
@@ -249,7 +250,7 @@ describe('the enums, by arity AND content', () => {
     expect(clientOidcErrorCode.parse('plan_limit')).toBe('plan_limit')
   })
 
-  it('MAIL_TEMPLATE_VARIABLES is exactly what a Liquid template may name', () => {
+  it('MAIL_TEMPLATE_VARIABLES is exactly what a Liquid template may name, sixteen names', () => {
     expect([...MAIL_TEMPLATE_VARIABLES]).toEqual([
       'app.name',
       'org.name',
@@ -262,7 +263,14 @@ describe('the enums, by arity AND content', () => {
       'expires_in_minutes',
       'app.operator_info_url',
       'app.privacy_policy_url',
+      // The app's brand (fleetless/fleetless#1155), in this order.
+      'app.accent',
+      'app.on_accent',
+      'app.initials',
+      'app.logo_src',
+      'app.logo_shape',
     ])
+    expect(MAIL_TEMPLATE_VARIABLES).toHaveLength(16)
   })
 
   /**
@@ -279,7 +287,7 @@ describe('the enums, by arity AND content', () => {
    * weaker copy of what actually sends mail. The cloud asserts the exact
    * text it sends for each kind.
    */
-  it('DEFAULT_MAIL_TEMPLATES covers every kind, text-only, with nothing empty', () => {
+  it('DEFAULT_MAIL_TEMPLATES covers every kind, with HTML, with nothing empty', () => {
     expect(Object.keys(DEFAULT_MAIL_TEMPLATES).sort()).toEqual([...mailTemplateKind.options].sort())
 
     for (const kind of mailTemplateKind.options) {
@@ -288,18 +296,31 @@ describe('the enums, by arity AND content', () => {
       // there" while shipping a mail with no subject line.
       expect(template.subject.length, `${kind} subject`).toBeGreaterThan(0)
       expect(template.text.length, `${kind} text`).toBeGreaterThan(0)
-      // Text-only by construction — markup here would make every app that
-      // never opens the Mails tab send Fleetless-styled HTML on someone
-      // else's behalf.
-      expect(template.html, `${kind} html`).toBeNull()
+      // An HTML part with the app's brand (fleetless/fleetless#1155), the
+      // generated string and not a copy of it.
+      expect(typeof template.html, `${kind} html`).toBe('string')
+      expect(template.html.length, `${kind} html`).toBeGreaterThan(0)
+      expect(template.html, `${kind} html`).toBe(DEFAULT_MAIL_HTML[kind])
       // A real template, not three copies of one: the body must satisfy the
-      // same bounds the PUT enforces on a custom one.
+      // same bounds the PUT enforces on a custom one, HTML's 100 000
+      // characters included.
       expect(putAppMailTemplateRequest.safeParse(template).success, `${kind} within the request bounds`).toBe(true)
     }
 
     // Four distinct subjects — arity alone would pass four copies of one
     // line.
     expect(new Set(mailTemplateKind.options.map(kind => DEFAULT_MAIL_TEMPLATES[kind].subject)).size).toBe(4)
+  })
+
+  it('every HTML default is light only, with no second palette', () => {
+    // Like every mail with a layout: the `color-scheme` and
+    // `supported-color-schemes` metas both say `light only`, and no rule
+    // switches on the reader's system setting.
+    for (const kind of mailTemplateKind.options) {
+      const html = DEFAULT_MAIL_TEMPLATES[kind].html
+      expect(html.match(/light only/g), kind).toHaveLength(2)
+      expect(html, kind).not.toContain('prefers-color-scheme')
+    }
   })
 
   it('puts the whole D.2 footer behind both app legal links in every default', () => {
