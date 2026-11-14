@@ -5,13 +5,15 @@
  *
  *     pnpm --dir <cloud> exec tsx scripts/print-app-mail-defaults.ts \
  *       | pnpm exec tsx scripts/write-app-mail-html.ts \
- *           --cloud-branch <branch> --cloud-commit <sha>
+ *           --cloud-branch <branch> --cloud-pr <owner/repo#number>
  *
  * stdin is the printer's JSON, `{"invite": "<html>", "verify": "…", "reset": "…",
  * "login_code": "…"}`. It goes into the file unchanged, after a header that
- * names the cloud script, branch and commit it came from. Branch and commit
- * are arguments because stdin carries neither, and a header that guessed
- * them would name a source nobody can find again.
+ * names the cloud script, branch and pull request it came from. Branch and
+ * pull request are arguments because stdin carries neither, and a header that
+ * guessed them would name a source nobody can find again. No commit: the
+ * cloud merges by rebase, so a commit of the branch names nothing once the
+ * pull request is merged, and the pull request keeps its number.
  *
  * Refused before anything is written: input that is not JSON, a key set that
  * is not exactly the four kinds, a value that is not a non-empty string or is
@@ -38,8 +40,8 @@ function arg(name: string): string {
 }
 
 const branch = arg('--cloud-branch')
-const commit = arg('--cloud-commit')
-if (!/^[0-9a-f]{7,40}$/.test(commit)) fail(`--cloud-commit is not a commit: ${commit}`)
+const pr = arg('--cloud-pr')
+if (!/^[\w.-]+\/[\w.-]+#\d+$/.test(pr)) fail(`--cloud-pr is not a pull request (owner/repo#number): ${pr}`)
 
 const raw = readFileSync(0, 'utf8')
 let parsed: unknown
@@ -69,7 +71,7 @@ writeFileSync(OUT, `// SPDX-License-Identifier: Apache-2.0
  * The default HTML of the four app mails, as the cloud's
  * \`${SCRIPT}\` prints it on cloud branch
  * \`${branch}\`,
- * commit ${commit}.
+ * pull request ${pr}.
  * Written by \`scripts/write-app-mail-html.ts\`, which says how to regenerate
  * it.
  *
@@ -83,4 +85,4 @@ import type { MailTemplateKind } from './app-users.js'
 
 export const DEFAULT_MAIL_HTML: Record<MailTemplateKind, string> = ${body}`)
 
-process.stdout.write(`write-app-mail-html: wrote src/app-mail-html.ts from ${branch} ${commit}\n`)
+process.stdout.write(`write-app-mail-html: wrote src/app-mail-html.ts from ${branch} (${pr})\n`)
