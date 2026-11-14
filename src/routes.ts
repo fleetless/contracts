@@ -1697,15 +1697,20 @@ export const ROUTES: readonly RouteEntry[] = [
   {
     method: 'PUT', path: '/api/apps/:id/auth-config/logo', section: 'apps',
     summary: "Stores the logo the hosted pages show above the app's name.",
-    audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: false, status: 200,
+    audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: false, status: 200,
     params: [{ name: 'id', description: 'The app\'s uuid, as returned by `POST /api/apps` or listed by `GET /api/apps`.' }],
     query: null, request: null, response: appAuthConfig,
-    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type', 'rate_limited', 'logo_draw_unavailable'],
+    transport: 'http',
     notes:
       'The body is the **raw image**, not JSON, so it has no request schema: `Content-Type` is one of `HOSTED_LOGO_TYPES` (`image/png`, ' +
       '`image/svg+xml`) and anything else is `415 unsupported_media_type`. At most `HOSTED_LOGO_MAX_BYTES` (512 KB); a larger body, or one ' +
       'that is not the image its type names, is `400 validation_error`. A new logo replaces the stored one. The hosted pages load it from ' +
-      '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs.',
+      '`hosted_logo_url` as an image only, and the cloud serves an SVG sandboxed, so a script inside one never runs. \n\n**Each upload is ' +
+      'also drawn once**, into the small picture the app\'s mails show, and a logo that cannot be drawn is `400 validation_error`. Drawing ' +
+      'costs the server, so uploads are limited per organization: five at once, then one a minute, answering `429 rate_limited` with ' +
+      '`retry_after_ms`. When too many logos already wait to be drawn on the server, or the drawing itself fails, the answer is ' +
+      '`503 logo_draw_unavailable`: nothing was stored, the logo in place stays, and retrying shortly may work.',
   },
   {
     method: 'DELETE', path: '/api/apps/:id/auth-config/logo', section: 'apps',
