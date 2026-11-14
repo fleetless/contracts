@@ -5,7 +5,7 @@
  * The default HTML of the four app mails, as the cloud's
  * `scripts/print-app-mail-defaults.ts` prints it on cloud branch
  * `feat/1155-mails-have-no-layout`,
- * commit 4b88972f02775404f5fae008789a9d8fb7c3c4de.
+ * pull request fleetless/cloud#246.
  * Written by `scripts/write-app-mail-html.ts`, which says how to regenerate
  * it.
  *
