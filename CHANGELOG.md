@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.5.0] — 2026-11-14
+
 ### Changed
 
 - **The default app mails carry an HTML part with the app's brand**
