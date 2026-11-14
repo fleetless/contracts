@@ -9,6 +9,30 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **The default app mails carry an HTML part with the app's brand**
+  (fleetless/fleetless#1155). `DEFAULT_MAIL_TEMPLATES[kind].html` is a
+  string now, typed `string` and no longer `null`: a Liquid template that
+  lays out the same words as the text part, with the app's name, logo or
+  initials and accent at the head, as the hosted pages show them, and under
+  the sheet the app's legal links when both are set and `Secured by
+  Fleetless`. Light only: both colour-scheme metas say `light only` and no
+  rule follows the reader's system. The four strings are generated from the
+  cloud's mail layout into `src/app-mail-html.ts`, exported as
+  `DEFAULT_MAIL_HTML`; `scripts/write-app-mail-html.ts` writes that file
+  from the cloud's printer. Subjects and text do not change. A custom
+  template is sent exactly as written, with or without HTML.
+- `MAIL_TEMPLATE_VARIABLES` gains five names after the eleven, in this
+  order: `app.accent` (`#rrggbb`, the app's accent where its plan includes
+  `hosted_logo`, otherwise `#161616`), `app.on_accent` (`#000000` or
+  `#ffffff`, whichever reads better on it), `app.initials` (one or two
+  letters, as on the hosted pages), `app.logo_src` (what to put into an
+  `<img src>`, or null when the app has no logo to show in a mail) and
+  `app.logo_shape` (`square`, `wide` or null). Sixteen in all. A consumer
+  that checks a template against the list accepts them; one that typed
+  `html` as `null` reads a string.
+
 ## [15.4.0] — 2026-11-13
 
 ### Changed

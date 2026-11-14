@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
 import { idpIssuer, mailStatus, password } from './identity.js'
+import { DEFAULT_MAIL_HTML } from './app-mail-html.js'
 import { httpsLegalUrl } from './legal.js'
 import { roleKey } from './rights.js'
 
@@ -745,6 +746,21 @@ export type MailTemplateKind = z.infer<typeof mailTemplateKind>
  *
  * `role.name` is the display name of the organization role the invitee will
  * hold, not its key.
+ *
+ * **The last five are the app's brand** (fleetless/fleetless#1155), the same
+ * one its hosted pages show, so a template can lay a mail out the way the
+ * default HTML does:
+ *
+ * - `app.accent`: `#rrggbb`, the app's accent where its plan includes
+ *   `hosted_logo`, otherwise `#161616`.
+ * - `app.on_accent`: `#000000` or `#ffffff`, whichever reads better on the
+ *   accent.
+ * - `app.initials`: one or two letters, as on the hosted pages.
+ * - `app.logo_src`: what to put into an `<img src>`, or null when the app has
+ *   no logo to show in a mail. In a sent mail it is an inline image
+ *   (`cid:`), in a preview a `data:` address of the same picture.
+ * - `app.logo_shape`: `square`, `wide` or null. A square logo sits beside the
+ *   app's name, a wide one replaces it.
  */
 export const MAIL_TEMPLATE_VARIABLES = [
   'app.name',
@@ -758,6 +774,11 @@ export const MAIL_TEMPLATE_VARIABLES = [
   'expires_in_minutes',
   'app.operator_info_url',
   'app.privacy_policy_url',
+  'app.accent',
+  'app.on_accent',
+  'app.initials',
+  'app.logo_src',
+  'app.logo_shape',
 ] as const
 
 /** Omit the entire D.2 line while a legacy app has either legal link unset. */
@@ -781,9 +802,15 @@ const APP_LEGAL_MAIL_FOOTER = `{% if app.operator_info_url and app.privacy_polic
  * same renderer, the same bounds — so the cloud's fallback path cannot become
  * a second, weaker mechanism that merely looks like the real one.
  *
- * **Text-only (`html: null`).** A text part is a complete mail, and a default
- * that shipped markup would make every app that never opens the Mails tab send
- * Fleetless-styled HTML on behalf of a product that is not Fleetless.
+ * **The HTML part carries the app's brand** (fleetless/fleetless#1155).
+ * `html` is `DEFAULT_MAIL_HTML[kind]`, which the cloud's mail layout prints:
+ * the app's name, logo or initials and accent at the head, as the hosted
+ * pages show them, the same words as the text below, and under the sheet the
+ * app's legal links when both are set and `Secured by Fleetless`. It is the
+ * app's mail, not a Fleetless-styled one, so an app that never opens the
+ * Mails tab sends it on its own behalf. The text part stays a complete mail
+ * and does not change. A custom template is sent exactly as written, with or
+ * without HTML: a default never wraps or completes it.
  *
  * The voice is plain and short, names the app rather than this platform, and
  * says what the link does, how long it lasts, and what to do if it was not
@@ -815,9 +842,10 @@ const APP_LEGAL_MAIL_FOOTER = `{% if app.operator_info_url and app.privacy_polic
  * is the cloud's business — contracts has no renderer and adding one to check
  * its own constant would be a second, weaker copy of the thing that actually
  * sends mail. Here they are pinned as a complete, non-empty set; the cloud
- * asserts that the mail it sends for each kind is this exact text.
+ * asserts that the mail it sends for each kind is this exact text, and that
+ * each HTML default is what its layout prints.
  */
-export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKind, { subject: string, text: string, html: null }> = {
+export const DEFAULT_MAIL_TEMPLATES: Record<MailTemplateKind, { subject: string, text: string, html: string }> = {
   invite: {
     subject: "You're invited to {{ app.name }}",
     text: `Hello {{ user.display_name | default: user.email }},
@@ -830,7 +858,7 @@ Accept the invitation:
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you were not expecting this invitation, ignore this mail — no account is created until you accept.
 ${APP_LEGAL_MAIL_FOOTER}
 `,
-    html: null,
+    html: DEFAULT_MAIL_HTML.invite,
   },
   verify: {
     subject: 'Confirm your email for {{ app.name }}',
@@ -842,7 +870,7 @@ Confirm this address so you can sign in to {{ app.name }}:
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If you did not create this account, ignore this mail — the account stays unconfirmed and cannot be used.
 ${APP_LEGAL_MAIL_FOOTER}
 `,
-    html: null,
+    html: DEFAULT_MAIL_HTML.verify,
   },
   reset: {
     subject: 'Reset your {{ app.name }} password',
@@ -856,7 +884,7 @@ Choose a new password:
 The link works for the next {% if expires_in_hours >= 48 %}{{ expires_in_hours | divided_by: 24 }} days{% elsif expires_in_hours == 1 %}1 hour{% else %}{{ expires_in_hours }} hours{% endif %}. If it was not you, ignore this mail — your current password keeps working and nothing changes.
 ${APP_LEGAL_MAIL_FOOTER}
 `,
-    html: null,
+    html: DEFAULT_MAIL_HTML.reset,
   },
   login_code: {
     subject: 'Your {{ app.name }} sign-in code',
@@ -865,7 +893,7 @@ ${APP_LEGAL_MAIL_FOOTER}
 It works once, for {{ expires_in_minutes }} minutes. If you did not ask for it, ignore this mail.
 
 ${APP_LEGAL_MAIL_FOOTER}`,
-    html: null,
+    html: DEFAULT_MAIL_HTML.login_code,
   },
 }
 
