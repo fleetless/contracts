@@ -32,6 +32,17 @@ version.
   `app.logo_shape` (`square`, `wide` or null). Sixteen in all. A consumer
   that checks a template against the list accepts them; one that typed
   `html` as `null` reads a string.
+- **The logo upload declares its 429 and 503**
+  (fleetless/fleetless#1155). `PUT /api/apps/:id/auth-config/logo` is
+  `rateLimited: true` and lists `rate_limited` and a new code,
+  `logo_draw_unavailable`. The cloud now draws each uploaded logo once into
+  the small picture the app's mails show; uploads are limited per
+  organization, five at once and then one a minute, answering
+  `429 rate_limited` with `retry_after_ms`. `logo_draw_unavailable` is `503`
+  when too many logos already wait to be drawn on the server or the drawing
+  itself fails: nothing was stored, the logo in place stays, retrying
+  shortly may work, and there is no details payload. A logo that cannot be
+  drawn because of its content stays `400 validation_error`.
 
 ## [15.4.0] — 2026-11-13
 

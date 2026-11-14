@@ -1261,6 +1261,25 @@ export const ERROR_CODES = [
    */
   'support_forbidden',
 
+  // 2026-11-14 — a layout for every mail (fleetless/fleetless#1155). Before the
+  // collections, whose codes a test holds to be the last of the list.
+  /**
+   * `503` from `PUT /api/apps/:id/auth-config/logo`: the cloud could not draw
+   * the small picture of the logo that mails show, for a reason that is the
+   * server's and not the file's. Either too many logos already wait to be
+   * drawn on this server, or the drawing itself failed. Nothing was stored,
+   * the logo in place stays, and retrying shortly may work. No details
+   * payload.
+   *
+   * One code for both: the caller's remedy is the same, and which of the two
+   * it was belongs in the server's log. A logo that cannot be drawn because
+   * of what is in it is `400 validation_error`, never this. Not `busy`,
+   * which is the command path's one-job-per-slug refusal with its
+   * `busyDetails`; not `internal_error`, which is the `500` of a handler
+   * that threw something unmapped.
+   */
+  'logo_draw_unavailable',
+
   // 2026-11-04 — app collections.
   /**
    * `409`: the record cannot be deleted, or an import cannot delete it,

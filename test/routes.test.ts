@@ -789,6 +789,26 @@ describe('the app-user auth surface', () => {
     expect(ROUTES.find((r) => key(r) === 'DELETE /api/apps/:id/auth-config/logo')?.response).toBe(appAuthConfig)
   })
 
+  /**
+   * **Pinned whole, not with `toContain`** (fleetless/fleetless#1155). The
+   * cloud began answering this route with `429` and two `503`s while the entry
+   * still said `rateLimited: false` and listed neither, and nothing here could
+   * see it: a manifest test checks that a declared code exists, never that a
+   * code the cloud answers is declared, because contracts does not see the
+   * cloud. The list as a whole is what a change to the route has to touch.
+   */
+  it('declares every answer of the logo upload, the 429 and the 503 included', () => {
+    const put = ROUTES.find((r) => key(r) === 'PUT /api/apps/:id/auth-config/logo')!
+    expect(put.rateLimited).toBe(true)
+    expect(put.errors).toEqual([
+      'unauthorized', 'token_expired', 'token_revoked',
+      'invalid_uuid', 'validation_error', 'not_found', 'unsupported_media_type', 'rate_limited', 'logo_draw_unavailable',
+    ])
+    expect(put.notes ?? '').toContain('`429 rate_limited` with `retry_after_ms`')
+    expect(put.notes ?? '').toContain('`503 logo_draw_unavailable`')
+    expect(ERROR_CODES).toContain('logo_draw_unavailable')
+  })
+
   it('still reads the whole document in one GET', () => {
     expect(ROUTES.find((r) => r.method === 'GET' && r.path === '/api/apps/:id/auth-config')).toBeDefined()
   })
