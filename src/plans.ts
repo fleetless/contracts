@@ -514,6 +514,12 @@ export const orgPlan = z.object({
     })
     .nullable()
     .meta({ description: 'Set only while the org is still on the beta; `null` for every other org.' }),
+  paid_plans: z.enum(['open', 'closed']).meta({
+    description:
+      'Whether this org may buy a paid plan. `open` when this cloud sells paid plans to every org, or Fleetless has unlocked this ' +
+      'one; `closed` otherwise, and then starting, displaying or confirming a purchase or a paid change, and a plan change to ' +
+      'anything but Basic, answer `403 plan_purchase_closed`. The plans and their prices stay readable either way.',
+  }),
 })
 export type OrgPlan = z.infer<typeof orgPlan>
 

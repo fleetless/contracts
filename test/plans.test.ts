@@ -120,7 +120,7 @@ describe("the organization's plan: changes, the admin request and plan errors (2
       addons: { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 },
       limits: PLANS.basic.limits, features: PLANS.basic.features,
       usage: { seats: 1, robots: 0, apps: 0, app_users: 0, live_video_ms_this_month: 0, asset_bytes: 0 },
-      pending_change: null, lock: null, switch: null,
+      pending_change: null, lock: null, switch: null, paid_plans: 'open',
     }
     expect(planChangeDecisionStatusResponse.safeParse({ state: 'accepted', change_id: id, result }).success).toBe(true)
   })

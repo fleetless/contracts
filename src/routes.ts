@@ -3707,7 +3707,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: 'Prepares a nonbinding downward-plan decision and its C.4 display.',
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: planChangePrepareRequest, response: planChangePrepareResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'plan_purchase_closed'], transport: 'http',
     notes: 'Owner only. Persists a prepared change reference and a short-lived display, without mutating the plan, pending_change, or legal acceptance. A same-key, same-input retry while undecided returns the same change_id with a fresh display. A Basic cancellation reason belongs only in the final PUT.',
   },
   {
@@ -3715,7 +3715,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Confirms a prepared downward-plan decision with its C.4 proof.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: planChangeRequest, response: orgPlan,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'plan_purchase_closed'], transport: 'http',
     notes:
       'Owner tier, and **downward only**: a prior prepare returns change_id and a displayed snapshot; this final PUT requires its confirmation_proof and the same operation_key, target_plan and keep. Only Basic permits cancellation_reason (at most 500 input characters). The reason is final idempotency metadata, not price or legal evidence. An exact replay returns the original result; a changed reason with the same key conflicts before effect. The decision and legal acceptance commit together. This route moves the org to a lower plan or cancels it outright to Basic. It never moves the org ' +
       'up — an upgrade or an add-on goes through the billing routes instead (`POST /api/billing/checkout`, `POST /api/billing/change`). ' +
@@ -3791,14 +3791,18 @@ export const ROUTES: readonly RouteEntry[] = [
       '`available: false` when `MOLLIE_API_KEY` is not configured — this cloud takes no payments, and every billing route that ' +
       'charges or opens a Mollie checkout answers `503 billing_unavailable` instead of acting; plan-change prepare, resume, the details and the ' +
       'VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan ' +
-      'and its limits still come from `GET /api/org/plan` (fleetless/fleetless issue 103) and are not repeated here.',
+      'and its limits still come from `GET /api/org/plan` (fleetless/fleetless issue 103) and are not repeated here. ' +
+      'Where this cloud sells paid plans only to organizations Fleetless has unlocked, an org that is not unlocked reads ' +
+      '`paid_plans: closed` there, and checkout, the decision display and confirm, `POST /api/billing/change`, and a plan-change ' +
+      'prepare or final PUT whose target is not Basic answer `403 plan_purchase_closed`; this read, the checkout poll, cancel, ' +
+      'resume, the details, the payment method, invoices and charges, the documents and a Basic target are never refused by it.',
   },
   {
     method: 'POST', path: '/api/billing/checkout', section: 'billing',
     summary: "Records a company purchase intent for the first paid plan.",
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
     params: [], query: null, request: checkoutRequest, response: checkoutResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'rate_limited', 'plan_purchase_closed', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
     notes: "Basic stays free for every payer. This start creates only a nonbinding draft; accept_terms is deprecated and cannot confirm an order. Current company, buyer, VIES and EUR quote checks still apply. Persist operation_key before POST; the same key and input return 200 with the existing intent (and its hosted checkout when payment_started), without another Mollie payment; changed input conflicts. A different operation_key while a first payment is open returns 409 target_state_conflict with rule checkout_open and details expires_at: null. An eligible Owner obtains a no-store C.4 display, then explicitly confirms with its proof. No payment or acceptance occurs at start. Hosted payment later offers card, PayPal or Apple Pay; its return is <console>/settings/billing?checkout=<checkout_id>. An active/past_due account uses billing/change.",
   },
@@ -3816,7 +3820,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The eligible intent ID returned by checkout or billing change.' }],
     query: null, request: billingDecisionDisplayRequest, response: billingDecisionDisplayResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict'], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict', 'plan_purchase_closed'], transport: 'http',
     notes: 'Owner only, Cache-Control: no-store. Cloud persists the snapshot and proof hash for an eligible current checkout or paid-change intent of this Owner and org. Pending, held, refused or accepted intents cannot mint a new proof. The proof never appears in lookup, billing views or logs.',
   },
   {
@@ -3825,7 +3829,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 200,
     params: [{ name: 'id', description: 'The intent ID returned by the start or lookup response.' }],
     query: null, request: purchaseIntentConfirmRequest, response: purchaseIntentResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict', 'plan_limit', 'rate_limited', ...BILLING_OFF, ...MOLLIE], transport: 'http',
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'target_state_conflict', 'plan_limit', 'rate_limited', 'plan_purchase_closed', ...BILLING_OFF, ...MOLLIE], transport: 'http',
     notes: 'Checkout and paid-change decisions require confirmation_proof along with the operation key, quote revision and buyer fingerprint shown in the persisted C.4 display. Cloud rechecks buyer, quote, selection, legal references, period and current state under the org lock; stale or spent proof conflicts without effect. One decision and one legal acceptance commit together. An exact same-key replay returns the original result without another payment or acceptance. A paid change can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; it does not start another charge. Foreign ownership answers 404 without disclosure; pending or held cannot charge.',
   },
   {
@@ -3862,7 +3866,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Records a nonbinding paid-change intent for a plan, cycle or add-on target.",
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: billingChangeRequest, response: billingChangeResponse,
-    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', ...BILLING_OFF, ...MOLLIE],
+    errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'plan_purchase_closed', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
     notes: "The request names an absolute plan/cycle/add-on target and a stable operation_key. Start is nonbinding for every change, including zero-charge, scheduled and formerly immediate decreases: it neither changes the plan nor writes legal acceptance. An eligible Owner obtains a C.4 display and explicitly confirms with its proof. Confirmation may return accepted_no_payment with charged: null and no provider payment or redirect, or payment_started for a charged change. Exact-key lookup recovers the accepted result. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain. A later paid-change confirmation can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; no second charge starts.",
   },
