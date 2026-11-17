@@ -1280,6 +1280,20 @@ export const ERROR_CODES = [
    */
   'logo_draw_unavailable',
 
+  // 2026-11-17 — open beta (fleetless/fleetless#1163). Before the collections,
+  // whose codes a test holds to be the last of the list.
+  /**
+   * `403`: this cloud sells paid plans only to organizations Fleetless has
+   * unlocked for them, and this one is not unlocked. Answered by the routes
+   * that start, display or confirm a paid purchase or a paid change, and by a
+   * plan change whose target is not Basic. Not `forbidden`: nothing about the
+   * caller's role is refused, the Owner of this organization gets the same
+   * answer. The message names the address to write to. `GET /api/org/plan`
+   * says it in advance: `paid_plans` is `closed` exactly when these routes
+   * answer this. Retrying does not help until the organization is unlocked.
+   */
+  'plan_purchase_closed',
+
   // 2026-11-04 — app collections.
   /**
    * `409`: the record cannot be deleted, or an import cannot delete it,
