@@ -16,11 +16,12 @@ version.
   organizations Fleetless has unlocked for them. A new `403` code,
   `plan_purchase_closed`, is listed on the six routes that refuse an org
   that is not unlocked: `POST /api/billing/checkout`,
-  `POST /api/billing/intents/:id/display` and `/confirm`,
+  `POST /api/billing/intents/:id/display`, `/confirm` of a checkout or paid
+  change,
   `POST /api/billing/change`, and `POST /api/org/plan/change/prepare` and
   `PUT /api/org/plan/change` when the target is not Basic. Cancel, resume,
-  the details, the payment method, invoices, charges, the documents, the
-  checkout poll and `DELETE /api/org/plan/change` never answer it.
+  the details, the payment method, invoices, charges (their confirm
+  included), the documents, the checkout poll and `DELETE /api/org/plan/change` never answer it.
 - `orgPlan.paid_plans`, required, `open` or `closed`: `closed` exactly when
   those routes answer `plan_purchase_closed` for this org. A consumer that
   builds an `orgPlan` by hand adds the field; one that parses the cloud's
