@@ -2258,7 +2258,7 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
   it('the billing routes', () => {
     const r = (m: string, p: string) => ROUTES.find((x) => x.method === m && x.path === p)
     const billing = ROUTES.filter((x) => x.section === 'billing')
-    expect(billing).toHaveLength(19)
+    expect(billing).toHaveLength(20)
     expect(billing.filter((x) => x.path !== '/api/billing/mollie/webhook').every((x) => x.ownerTier && x.auth === 'developer' && x.errors.includes('tier_required'))).toBe(true)
     expect(r('POST', '/api/billing/mollie/webhook')).toMatchObject({ audience: 'internal', auth: 'none', ownerTier: false, status: 200, rateLimited: true })
     expect(r('GET', '/api/billing/invoices/:id/pdf')).toMatchObject({ contentType: 'application/pdf', response: null })

@@ -24,6 +24,25 @@
       "properties": {
         "field": {
           "type": "string",
+          "const": "confirmation_proof"
+        },
+        "rule": {
+          "type": "string",
+          "const": "display_stale"
+        }
+      },
+      "required": [
+        "field",
+        "rule"
+      ],
+      "additionalProperties": false,
+      "description": "The display was spent, expired or no longer matches: fetch a fresh one and press again."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
           "const": "intent"
         },
         "rule": {
@@ -236,10 +255,7 @@
                     "legacy_usd_invoice",
                     "legacy_payer_unresolved",
                     "mandate_policy_unresolved",
-                    "lexware_contact_pending",
-                    "lexware_contact_changed",
-                    "issuer_cutover_in_progress",
-                    "lexware_issuance_paused"
+                    "issuer_cutover_in_progress"
                   ]
                 },
                 "original_amount": {

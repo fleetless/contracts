@@ -409,7 +409,7 @@ export const purchaseBillingDetails = billingDetails.options[0].superRefine((pay
 }).meta({ description: 'New company purchase. Other EU countries require VAT ID; non-EU requires Tax ID; US requires two-letter state. Cloud additionally checks the versioned public-email policy and current VIES evidence.' })
 export type PurchaseBillingDetails = z.infer<typeof purchaseBillingDetails>
 
-/** Generate before POST, persist across reloads; unique within the authenticated org. */
+/** Generate before POST; unique within the authenticated org. A checkout or paid change takes a fresh key per press. */
 export const purchaseOperation = z.enum(['checkout', 'paid_change', 'invoice_payment', 'payment_method_invoice', 'mandate_setup'])
 export type PurchaseOperation = z.infer<typeof purchaseOperation>
 const chargeOperation = purchaseOperation.exclude(['mandate_setup'])
@@ -530,14 +530,160 @@ const firstPaymentPeriod = z.discriminatedUnion('cycle', [
 export const billingDecisionPeriod = z.union([existingBillingPeriod, firstPaymentPeriod])
 export type BillingDecisionPeriod = z.infer<typeof billingDecisionPeriod>
 
-const declaration = z.object({
-  text_id: z.literal('DR-1374-draft-3-C.4'),
-  text: z.string().min(1),
-  terms: legalDocumentReference,
-  dpa: legalDocumentReference,
-}).strict().superRefine((value, ctx) => {
+/*
+ * ---------------------------------------------------------------------------
+ * The C.4 declaration: one consent sentence and one button label per action
+ * (2026-11-18, fleetless/fleetless#1168).
+ *
+ * A decision display names what the button above it does. The sentence and
+ * the label are built here from the snapshot's own amounts, plan, cycle and
+ * organization, so the cloud that issues a display and every client that
+ * renders one write the same words, and a snapshot whose words do not match
+ * its decision does not parse.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * Euro cents the way the console writes money: `de-DE` digits, whole euros
+ * without `,00`, a plain space before the sign — `34,51 €`, `29 €`,
+ * `1.234,56 €`. Throws for anything but a safe integer.
+ */
+export function formatEur(cents: number): string {
+  if (!Number.isSafeInteger(cents)) throw new Error(`formatEur: ${cents} is not a whole number of cents`)
+  const abs = Math.abs(cents)
+  const euros = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  const rest = abs % 100
+  return `${cents < 0 ? '-' : ''}${euros}${rest === 0 ? '' : `,${String(rest).padStart(2, '0')}`} €`
+}
+
+/**
+ * What the owner's one click does: buy a first plan, pay now and switch,
+ * switch at no charge, switch from yearly to monthly at the period end,
+ * schedule a lower plan (or fewer add-ons), or cancel to Basic.
+ */
+export const C4_ACTIONS = ['checkout', 'pay_and_switch', 'switch', 'schedule_switch', 'schedule_downgrade', 'cancel'] as const
+export type C4Action = (typeof C4_ACTIONS)[number]
+
+/** The approved sentence of each action, by id, in the order of `C4_ACTIONS`. */
+export const C4_TEXT_IDS = [
+  'C4-1168-checkout', 'C4-1168-pay-and-switch', 'C4-1168-switch', 'C4-1168-schedule-switch', 'C4-1168-schedule-downgrade', 'C4-1168-cancel',
+] as const
+export type C4TextId = (typeof C4_TEXT_IDS)[number]
+
+/** The single sentence and button of the displays issued before one existed per action. Readable in stored snapshots only. */
+const LEGACY_C4_TEXT_ID = 'DR-1374-draft-3-C.4'
+const legacyC4Text = (org: string) => `By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for ${org}.`
+
+/** The words of one decision display. */
+export interface C4DeclarationText {
+  text_id: C4TextId
+  text: string
+  action_label: string
+}
+
+/** What a sentence is written from: the organization, the plan it names, the amount due now, the period's gross and its cycle. */
+export interface C4DeclarationValues {
+  org: string
+  /** The plan ordered; for `cancel`, the plan cancelled. */
+  plan: PlanId
+  dueCents: number
+  periodGrossCents: number
+  cycle: BillingCycle
+}
+
+/** The consent sentence, the button label and the text id of `action`. Money is `formatEur`. */
+export function c4Declaration(action: C4Action, v: C4DeclarationValues): C4DeclarationText {
+  const plan = PLANS[v.plan].name
+  const due = formatEur(v.dueCents)
+  const gross = formatEur(v.periodGrossCents)
+  const period = v.cycle === 'monthly' ? 'month' : 'year'
+  const legal = 'agree to the Terms of Service and the Data Processing Agreement'
+  const [label, rest] = ((): [string, string] => {
+    switch (action) {
+      case 'checkout':
+        return [`Pay ${due} with Mollie`, `you order ${plan} for ${v.org} as a business, ${legal}, and authorise Fleetless to charge ${gross} every ${period} until you cancel.`]
+      case 'pay_and_switch':
+        return [`Pay ${due} and switch`, `you order ${plan} for ${v.org} as a business from today, ${legal}, and authorise Fleetless to charge ${due} now and ${gross} every ${period} after that until you cancel.`]
+      case 'switch':
+        return [`Switch to ${plan}`, `you order ${plan} for ${v.org} as a business from today, ${legal}, and authorise Fleetless to charge ${gross} every ${period} from the next renewal until you cancel.`]
+      case 'schedule_switch':
+        return ['Switch to monthly at period end', `you order ${plan} monthly for ${v.org} as a business from the end of the current period, ${legal}, and authorise Fleetless to charge ${gross} every month from then until you cancel.`]
+      case 'schedule_downgrade':
+        return [`Schedule downgrade to ${plan}`, `you order ${plan} for ${v.org} as a business from the end of the current period, ${legal}, and authorise Fleetless to charge ${gross} every ${period} from then until you cancel.`]
+      case 'cancel':
+        return ['Cancel at period end', `you cancel ${plan} for ${v.org} at the end of the current period; ${v.org} then stays on Basic under the Terms of Service and the Data Processing Agreement, and nothing more is charged.`]
+    }
+  })()
+  return { text_id: C4_TEXT_IDS[C4_ACTIONS.indexOf(action)]!, text: `By selecting “${label}”, ${rest}`, action_label: label }
+}
+
+/** The parts of a decision snapshot its action is read from. */
+export interface C4Decision {
+  decision_kind: 'checkout' | 'paid_change' | 'plan_change'
+  amounts: { due_today_gross_cents: number }
+  period: { anchor: 'existing_period'; effective: { mode: 'on_confirmation' | 'scheduled' } } | { anchor: 'on_first_successful_payment' }
+  selection: { plan: PlanId; cycle: BillingCycle }
+}
+
+/** Where the org stands before the decision: its plan, and its cycle where known. */
+export type C4From = PlanId | { plan: PlanId; cycle?: BillingCycle }
+
+/**
+ * The action of a decision. `checkout` for a first purchase; a paid change
+ * charging now is `pay_and_switch`, one taking effect now at no charge
+ * `switch`; a plan change to Basic is `cancel`, to another plan
+ * `schedule_downgrade`. A scheduled paid change is `schedule_downgrade` for a
+ * lower plan or fewer add-ons and `schedule_switch` for yearly to monthly on
+ * the same plan: that needs `from` when the target is monthly, and throws
+ * without it.
+ */
+export function c4ActionOf(s: C4Decision, from?: C4From): C4Action {
+  if (s.decision_kind === 'checkout') return 'checkout'
+  if (s.decision_kind === 'plan_change') return s.selection.plan === 'basic' ? 'cancel' : 'schedule_downgrade'
+  if (s.amounts.due_today_gross_cents > 0) return 'pay_and_switch'
+  if (s.period.anchor !== 'existing_period' || s.period.effective.mode === 'on_confirmation') return 'switch'
+  if (s.selection.cycle === 'yearly') return 'schedule_downgrade'
+  if (from === undefined) throw new Error('c4ActionOf: a scheduled monthly paid change needs the current plan to tell a downgrade from a cycle switch')
+  const current = typeof from === 'string' ? { plan: from } : from
+  if (PLAN_ORDER.indexOf(s.selection.plan) < PLAN_ORDER.indexOf(current.plan)) return 'schedule_downgrade'
+  return current.cycle === 'monthly' ? 'schedule_downgrade' : 'schedule_switch'
+}
+
+/** Every action a snapshot can carry when the plan it starts from is not known. */
+function c4ActionsOf(s: C4Decision): C4Action[] {
+  if (s.decision_kind !== 'paid_change' || s.amounts.due_today_gross_cents > 0
+    || s.period.anchor !== 'existing_period' || s.period.effective.mode === 'on_confirmation') return [c4ActionOf(s)]
+  return s.selection.cycle === 'monthly' ? ['schedule_switch', 'schedule_downgrade'] : ['schedule_downgrade']
+}
+
+const separateLegalLinks = (value: { terms: { url: string }; dpa: { url: string } }, ctx: z.RefinementCtx) => {
   if (value.terms.url === value.dpa.url) ctx.addIssue({ code: 'custom', path: ['dpa'], message: 'Terms and DPA require separate version URLs.' })
+}
+const legalLinks = { terms: legalDocumentReference, dpa: legalDocumentReference }
+const labelRules: Record<C4TextId, object> = {
+  'C4-1168-checkout': { pattern: '^Pay \\S.* with Mollie$' },
+  'C4-1168-pay-and-switch': { pattern: '^Pay \\S.* and switch$' },
+  'C4-1168-switch': { pattern: '^Switch to \\S.*$' },
+  'C4-1168-schedule-switch': { const: 'Switch to monthly at period end' },
+  'C4-1168-schedule-downgrade': { pattern: '^Schedule downgrade to \\S.*$' },
+  'C4-1168-cancel': { const: 'Cancel at period end' },
+}
+const declaration = z.object({
+  text_id: z.enum(C4_TEXT_IDS).meta({ description: 'The approved sentence this display shows, one per action.' }),
+  text: z.string().min(1).regex(/^By selecting “/).meta({ description: 'The consent sentence shown directly above the button, naming the button.' }),
+  action_label: z.string().min(1).meta({ description: 'The label of the one button that confirms this decision.' }),
+  ...legalLinks,
+}).strict().superRefine(separateLegalLinks).meta({
+  allOf: C4_TEXT_IDS.map(textId => ({
+    if: { properties: { text_id: { const: textId } }, required: ['text_id'] },
+    then: { properties: { action_label: labelRules[textId] } },
+  })),
 })
+const legacyDeclaration = z.object({
+  text_id: z.literal(LEGACY_C4_TEXT_ID),
+  text: z.string().min(1),
+  ...legalLinks,
+}).strict().superRefine(separateLegalLinks)
 
 const snapshotBase = z.object({
   snapshot_id: z.uuid(),
@@ -553,16 +699,47 @@ const snapshotBase = z.object({
   declaration,
   expires_at: utcInstant,
 }).strict()
-export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
+const snapshotVariants = [
   snapshotBase.extend({ decision_kind: z.literal('checkout'), selection: purchaseSelection }).strict(),
   snapshotBase.extend({ decision_kind: z.literal('paid_change'), selection: purchaseSelection, period: existingBillingPeriod }).strict(),
   snapshotBase.extend({ decision_kind: z.literal('plan_change'), selection: planChangeSelection, period: existingBillingPeriod }).strict(),
-]).superRefine((value, ctx) => {
+] as const
+const storedDeclaration = z.union([declaration, legacyDeclaration])
+const storedSnapshotVariants = z.discriminatedUnion('decision_kind', [
+  snapshotVariants[0].extend({ declaration: storedDeclaration }).strict(),
+  snapshotVariants[1].extend({ declaration: storedDeclaration }).strict(),
+  snapshotVariants[2].extend({ declaration: storedDeclaration }).strict(),
+])
+type StoredSnapshotShape = z.infer<typeof storedSnapshotVariants>
+
+/** The declaration must be the one its decision, amounts, plan and organization write; a legacy one only its own sentence. */
+function checkDeclaration(value: StoredSnapshotShape, ctx: z.RefinementCtx) {
+  const declared = value.declaration
+  if (declared.text_id === LEGACY_C4_TEXT_ID) {
+    if (declared.text !== legacyC4Text(value.organization_name)) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved C.4 sentence and organization.' })
+    return
+  }
+  const action = C4_ACTIONS[C4_TEXT_IDS.indexOf(declared.text_id)]!
+  if (!c4ActionsOf(value).includes(action)) {
+    ctx.addIssue({ code: 'custom', path: ['declaration', 'text_id'], message: 'Declaration must be the sentence of the action this decision is.' })
+    return
+  }
+  const plans: PlanId[] = action === 'cancel' ? ['plus', 'pro'] : [value.selection.plan]
+  const matches = plans.some(plan => {
+    const expected = c4Declaration(action, {
+      org: value.organization_name, plan, cycle: value.selection.cycle,
+      dueCents: value.amounts.due_today_gross_cents, periodGrossCents: value.amounts.period_gross_cents,
+    })
+    return expected.text === declared.text && expected.action_label === declared.action_label
+  })
+  if (!matches) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved sentence and button of its action, amounts, plan and organization.' })
+}
+
+function refineSnapshot(value: StoredSnapshotShape, ctx: z.RefinementCtx) {
   if (value.period.anchor === 'on_first_successful_payment' && value.period.cycle !== value.selection.cycle) {
     ctx.addIssue({ code: 'custom', path: ['period', 'cycle'], message: 'First-payment period must match the selected cycle.' })
   }
-  const expected = `By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for ${value.organization_name}.`
-  if (value.declaration.text !== expected) ctx.addIssue({ code: 'custom', path: ['declaration', 'text'], message: 'Declaration must match the approved C.4 sentence and organization.' })
+  checkDeclaration(value, ctx)
   if (value.amounts.vat_treatment === 'de_standard') {
     const euro = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(cents / 100)
     const period = value.selection.cycle === 'monthly' ? 'month' : 'year'
@@ -572,11 +749,23 @@ export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', [
   const lines = value.amounts.addon_lines
   const expectedAddons = addonKey.options.filter((key) => value.selection.addons[key] > 0)
   if (lines.length !== expectedAddons.length || lines.some((line, i) => line.addon !== expectedAddons[i] || line.quantity !== value.selection.addons[line.addon])) ctx.addIssue({ code: 'custom', path: ['amounts', 'addon_lines'], message: 'Add-on lines must match absolute selection in catalogue order.' })
-}).meta({ allOf: ['monthly', 'yearly'].map(cycle => ({
+}
+const snapshotRules = { allOf: ['monthly', 'yearly'].map(cycle => ({
   if: { properties: { period: { properties: { anchor: { const: 'on_first_successful_payment' }, cycle: { const: cycle } }, required: ['anchor', 'cycle'] } }, required: ['period'] },
   then: { properties: { selection: { properties: { cycle: { const: cycle } }, required: ['cycle'] } }, required: ['selection'] },
-})) })
+})) }
+
+/** What a C.4 display shows the owner. The declaration is the sentence and button of the decision's own action. */
+export const billingDecisionSnapshot = z.discriminatedUnion('decision_kind', snapshotVariants).superRefine(refineSnapshot).meta(snapshotRules)
 export type BillingDecisionSnapshot = z.infer<typeof billingDecisionSnapshot>
+
+/**
+ * A snapshot as the cloud stored it: also a display issued before each action
+ * had its own sentence, with the single legacy declaration and no button label.
+ * Never issued anew; for reading and replaying stored decisions only.
+ */
+export const storedBillingDecisionSnapshot = storedSnapshotVariants.superRefine(refineSnapshot).meta(snapshotRules)
+export type StoredBillingDecisionSnapshot = z.infer<typeof storedBillingDecisionSnapshot>
 
 export const billingDecisionDisplayResponse = z.object({
   confirmation_proof: confirmationProof,
@@ -608,12 +797,13 @@ const intentIdentity = {
       '(`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.',
   }),
 }
+/**
+ * Why an intent is held. Lexware never holds a purchase: its contact and
+ * invoice follow the payment. A checkout or paid change is held only while an
+ * issuer cutover runs (`issuer_cutover_in_progress`, minutes, then try again).
+ */
 export const purchaseHoldReason = z.enum([
-  'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved',
-  // The Lexware issuer cutover (2026-10-19, fleetless/fleetless#327): holds
-  // during and after the move from Cloud-issued invoices to charges billed
-  // through Lexware.
-  'lexware_contact_pending', 'lexware_contact_changed', 'issuer_cutover_in_progress', 'lexware_issuance_paused',
+  'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved', 'issuer_cutover_in_progress',
 ])
 export const purchaseRefusalRule = z.enum(['company_required', 'vat_id_required', 'vat_id_invalid', 'tax_id_required', 'us_state_required', 'public_email_domain', 'invoice_not_open'])
 
@@ -679,7 +869,7 @@ export const purchaseIntent = z.discriminatedUnion('state', [
 ]).superRefine(validateIntent).meta({ allOf: intentRules })
 export type PurchaseIntent = z.infer<typeof purchaseIntent>
 
-/** Shared by checkout, invoice payment and method change. Paid changes use their own response. */
+/** Shared by invoice payment and method change. A checkout start answers `checkoutStartResponse`, a paid change its own response. */
 const nonChangeOperation = purchaseOperation.exclude(['paid_change'])
 const nonChangeChargeOperation = chargeOperation.exclude(['paid_change'])
 const nonChangeDraft = z.discriminatedUnion('state', [
@@ -693,8 +883,8 @@ const nonChangePaymentStarted = paymentStartedVariant
   .safeExtend({ operation: nonChangeChargeOperation })
   .superRefine(validateIntent).meta({ allOf: intentRules })
 const paidChangeOperation = z.literal('paid_change')
+// A paid change is decided in its request: it never waits for VIES.
 const paidChangeDraft = z.discriminatedUnion('state', [
-  draftVariants[0].safeExtend({ operation: paidChangeOperation }),
   draftVariants[1].safeExtend({ operation: paidChangeOperation }),
   draftVariants[2].safeExtend({ operation: paidChangeOperation }),
   draftVariants[3].safeExtend({ operation: paidChangeOperation }),
@@ -702,6 +892,96 @@ const paidChangeDraft = z.discriminatedUnion('state', [
 ]).superRefine(validateIntent).meta({ allOf: intentRules })
 export const checkoutResponse = z.union([nonChangeDraft, nonChangePaymentStarted])
 export type CheckoutResponse = z.infer<typeof checkoutResponse>
+
+const checkoutIntentIdentity = {
+  intent_id: z.uuid().meta({ description: 'The persisted checkout intent; confirm it with `POST /api/billing/intents/:id/confirm`.' }),
+  operation_key: purchaseOperationKey,
+  operation: z.literal('checkout'),
+}
+const vatIdField = z.literal('billing.vat_id')
+
+/**
+ * `POST /api/billing/checkout`'s answer. The start decides in the request:
+ * `eligible` carries the frozen quote and its C.4 display, whose proof the
+ * one click on `display.snapshot.declaration.action_label` consumes;
+ * `vies_unavailable`, `invalid_vat_id` and `refused` store nothing but the
+ * checkout draft; `held` only while an issuer cutover runs; `payment_started`
+ * replays a key already confirmed.
+ */
+export const checkoutStartResponse = z.discriminatedUnion('state', [
+  z.object({
+    ...checkoutIntentIdentity, state: z.literal('eligible'), ...quoteIdentity, quote: purchaseQuote,
+    display: billingDecisionDisplayResponse,
+  }).strict().meta({ description: 'Eligible: the price is frozen and the display shown; one click on its button confirms.' }),
+  z.object({ state: z.literal('vies_unavailable'), field: vatIdField, reason: viesPendingReason }).strict()
+    .meta({ description: 'VIES did not confirm the VAT ID within its retries. Nothing is stored; check again.' }),
+  z.object({ state: z.literal('invalid_vat_id'), field: vatIdField, rule: z.literal('vat_id_invalid') }).strict()
+    .meta({ description: 'VIES says the VAT ID is invalid. Nothing is stored.' }),
+  z.object({ state: z.literal('refused'), field: z.string().min(1), rule: purchaseRefusalRule }).strict()
+    .meta({ description: 'A field the purchase cannot accept. Nothing is stored.' }),
+  z.object({ ...checkoutIntentIdentity, state: z.literal('held'), reason: z.literal('issuer_cutover_in_progress') }).strict()
+    .meta({ description: 'An issuer cutover is running; try again in a few minutes.' }),
+  z.object({
+    ...checkoutIntentIdentity, state: z.literal('payment_started'), payment_id: z.uuid(),
+    payment: z.object({ kind: z.literal('hosted'), checkout_id: z.uuid(), checkout_url: z.url() }).strict(),
+  }).strict().meta({ description: 'The key was already confirmed: the hosted payment it started.' }),
+]).superRefine((value, ctx) => {
+  if (value.state !== 'eligible') return
+  const snapshot = value.display.snapshot
+  const invalid = (path: (string | number)[], message: string) => ctx.addIssue({ code: 'custom', path, message })
+  if (snapshot.decision_kind !== 'checkout') invalid(['display', 'snapshot', 'decision_kind'], 'A checkout start displays a checkout decision.')
+  if (snapshot.decision_id !== value.intent_id) invalid(['display', 'snapshot', 'decision_id'], 'The display must refer to this intent.')
+  if (snapshot.operation_key !== value.operation_key) invalid(['display', 'snapshot', 'operation_key'], 'The display must carry this operation key.')
+  if (snapshot.quote_revision !== value.quote_revision || snapshot.buyer_fingerprint !== value.buyer_fingerprint) {
+    invalid(['display', 'snapshot', 'quote_revision'], 'The display must show this quote revision and buyer.')
+  }
+  const quote = snapshot.amounts.quote
+  if ((Object.keys(value.quote) as (keyof PurchaseQuote)[]).some(key => quote[key] !== value.quote[key])) {
+    invalid(['quote'], 'The quote must be the one the display shows.')
+  }
+}).meta({ allOf: [{
+  if: { properties: { state: { const: 'eligible' } }, required: ['state'] },
+  then: { properties: { display: { properties: { snapshot: { properties: { decision_kind: { const: 'checkout' } } } } } } },
+}] })
+export type CheckoutStartResponse = z.infer<typeof checkoutStartResponse>
+
+const checkoutDraft = z.object({
+  plan: z.enum(['plus', 'pro']).meta({ description: 'The plan last chosen on the checkout page.' }),
+  cycle: billingCycle.meta({ description: 'The cycle last chosen.' }),
+  billing: purchaseBillingDetails.meta({ description: 'The company details last sent to the checkout start.' }),
+  updated_at: z.iso.datetime().meta({ description: 'When the draft was last saved.' }),
+}).strict()
+
+/**
+ * `GET /api/billing/checkout-draft`'s answer: the details the checkout page
+ * fills its form from. `draft` is what the last checkout start received,
+ * whatever it decided; without one, `prefill` is the org's earlier billing
+ * details; both `null` for a first purchase. Never both.
+ */
+export const checkoutDraftResponse = z.object({
+  draft: checkoutDraft.nullable().meta({ description: 'The saved checkout draft, or `null`. Deleted once the checkout is paid.' }),
+  prefill: billingDetails.nullable().meta({ description: "The org's earlier billing details when there is no draft, else `null`." }),
+}).strict().superRefine((value, ctx) => {
+  if (value.draft !== null && value.prefill !== null) ctx.addIssue({ code: 'custom', path: ['prefill'], message: 'A draft answers alone; prefill is null beside it.' })
+}).meta({ not: { properties: { draft: { type: 'object' }, prefill: { type: 'object' } }, required: ['draft', 'prefill'] } })
+export type CheckoutDraftResponse = z.infer<typeof checkoutDraftResponse>
+
+/** `409 target_state_conflict` details while a first payment of the org is still open: continue it at `checkout_url`. */
+export const checkoutOpenDetails = z.object({
+  field: z.literal('billing'),
+  rule: z.literal('checkout_open'),
+  expires_at: z.iso.datetime().nullable().meta({ description: 'When the open payment expires at the provider, or `null` when unknown.' }),
+  checkout_url: z.url().nullable().meta({ description: 'Where the open payment continues, or `null` when the provider no longer offers it.' }),
+}).strict()
+export type CheckoutOpenDetails = z.infer<typeof checkoutOpenDetails>
+
+/** `409 target_state_conflict` details when a paid change needs VIES and VIES did not answer. Nothing is stored. */
+export const viesUnavailableDetails = z.object({
+  field: vatIdField,
+  rule: z.literal('vies_unavailable'),
+  reason: viesPendingReason,
+}).strict()
+export type ViesUnavailableDetails = z.infer<typeof viesUnavailableDetails>
 
 /** Lookup needs one identity, plus the expected operation; a mismatch discloses nothing. */
 export const purchaseIntentLookupQuery = z.object({
@@ -732,6 +1012,8 @@ export type PurchaseIntentConfirmRequest = z.infer<typeof purchaseIntentConfirmR
 /** `409 target_state_conflict` details. Stale confirmation returns the new owner-visible intent. */
 export const purchaseConflictDetails = z.discriminatedUnion('rule', [
   z.object({ field: z.literal('operation_key'), rule: z.literal('operation_key_reused') }).strict(),
+  z.object({ field: z.literal('confirmation_proof'), rule: z.literal('display_stale') }).strict()
+    .meta({ description: 'The display was spent, expired or no longer matches: fetch a fresh one and press again.' }),
   z.object({ field: z.literal('intent'), rule: z.enum(['stale_quote', 'buyer_changed', 'not_eligible', 'invoice_not_open']), current_intent: purchaseIntent }).strict(),
 ])
 export type PurchaseConflictDetails = z.infer<typeof purchaseConflictDetails>

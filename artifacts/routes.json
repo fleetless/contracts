@@ -6846,7 +6846,7 @@
       "method": "POST",
       "path": "/api/billing/checkout",
       "section": "billing",
-      "summary": "Records a company purchase intent for the first paid plan.",
+      "summary": "Decides a company's first paid plan and returns its order summary to confirm.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -6855,7 +6855,7 @@
       "params": [],
       "query": null,
       "request": "checkout-request",
-      "response": "checkout-response",
+      "response": "checkout-start-response",
       "errors": [
         "unauthorized",
         "token_expired",
@@ -6870,7 +6870,30 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Basic stays free for every payer. This start creates only a nonbinding draft; accept_terms is deprecated and cannot confirm an order. Current company, buyer, VIES and EUR quote checks still apply. Persist operation_key before POST; the same key and input return 200 with the existing intent (and its hosted checkout when payment_started), without another Mollie payment; changed input conflicts. A different operation_key while a first payment is open returns 409 target_state_conflict with rule checkout_open and details expires_at: null. An eligible Owner obtains a no-store C.4 display, then explicitly confirms with its proof. No payment or acceptance occurs at start. Hosted payment later offers card, PayPal or Apple Pay; its return is <console>/settings/billing?checkout=<checkout_id>. An active/past_due account uses billing/change."
+      "notes": "Basic stays free for every payer. The start decides in this request, VIES included: a busy VIES is retried for up to 15 seconds before the answer. The body is first saved as the org's checkout draft (`GET /api/billing/checkout-draft`), whatever the answer. `eligible` (201) records the pending billing account and a checkout intent, freezes the EUR quote and carries its C.4 display, Cache-Control: no-store: show `display.snapshot.declaration.text` directly above one button labelled `action_label`; that one click is `POST /api/billing/intents/:id/confirm` with the display's `confirmation_proof`. `vies_unavailable`, `invalid_vat_id` and `refused` answer 200 and nothing is stored but the draft: no intent, no account, no retry in the background; check again. `held` (`issuer_cutover_in_progress`) only while an issuer cutover runs, for minutes; try again. Lexware never holds a checkout: its contact and invoice follow the payment. Use a fresh operation_key per press; the same key and input answer 200 with the same intent (`payment_started` with its hosted checkout once confirmed), without another Mollie payment; changed input conflicts. While another first payment of the org is open, 409 target_state_conflict with `checkoutOpenDetails` (rule `checkout_open`): continue it at `checkout_url`. No payment or acceptance occurs at start, and the deprecated `accept_terms` confirms nothing. Hosted payment offers card, PayPal or Apple Pay; its return is <console>/settings/billing?checkout=<checkout_id>. Rate limited on billing.checkout_start. An active/past_due account uses billing/change."
+    },
+    {
+      "method": "GET",
+      "path": "/api/billing/checkout-draft",
+      "section": "billing",
+      "summary": "Reads the checkout draft, or the org's earlier billing details, to fill the checkout page.",
+      "audience": "developer",
+      "auth": "developer",
+      "rateLimited": false,
+      "ownerTier": true,
+      "status": 200,
+      "params": [],
+      "query": null,
+      "request": null,
+      "response": "checkout-draft-response",
+      "errors": [
+        "unauthorized",
+        "token_expired",
+        "token_revoked",
+        "tier_required"
+      ],
+      "transport": "http",
+      "notes": "`draft` is what the last `POST /api/billing/checkout` received, saved whatever it decided, and deleted once the checkout is paid. Without one, `prefill` carries the org's earlier billing details; both are `null` for a first purchase, never both set. A reload, a new tab or a return from Mollie fills the form from here. Reading changes nothing."
     },
     {
       "method": "GET",
@@ -6927,7 +6950,7 @@
         "plan_purchase_closed"
       ],
       "transport": "http",
-      "notes": "Owner only, Cache-Control: no-store. Cloud persists the snapshot and proof hash for an eligible current checkout or paid-change intent of this Owner and org. Pending, held, refused or accepted intents cannot mint a new proof. The proof never appears in lookup, billing views or logs."
+      "notes": "Owner only, Cache-Control: no-store. Cloud persists the snapshot and proof hash for an eligible current checkout or paid-change intent of this Owner and org. A checkout start already returns its display; this route issues one for a paid change, and a fresh one for an intent that is still eligible. `snapshot.declaration` carries the approved sentence of the decision's action (`text_id`, `text`) and the label of its one button (`action_label`): `Pay 34,51 € with Mollie`, `Pay 95 € and switch`, `Switch to Pro`, `Switch to monthly at period end`, `Schedule downgrade to Plus` or `Cancel at period end`. Render both as sent. Pending, held, refused or accepted intents cannot mint a new proof. The proof never appears in lookup, billing views or logs."
     },
     {
       "method": "POST",
@@ -6963,7 +6986,7 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Checkout and paid-change decisions require confirmation_proof along with the operation key, quote revision and buyer fingerprint shown in the persisted C.4 display. Cloud rechecks buyer, quote, selection, legal references, period and current state under the org lock; stale or spent proof conflicts without effect. One decision and one legal acceptance commit together. An exact same-key replay returns the original result without another payment or acceptance. A paid change can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; it does not start another charge. Foreign ownership answers 404 without disclosure; pending or held cannot charge."
+      "notes": "Checkout and paid-change decisions require confirmation_proof along with the operation key, quote revision and buyer fingerprint shown in the persisted C.4 display. Cloud rechecks buyer, quote, selection, legal references, period and current state under the org lock. A spent, expired or stale proof answers 409 target_state_conflict with `{ field: confirmation_proof, rule: display_stale }` and changes nothing: fetch a fresh display (for a checkout, a new start with a new key) and press again; never resend the click. One decision, one legal acceptance and, for a charge, the hosted payment commit in this one request. An exact same-key replay returns the original result without another payment or acceptance. After 502 payment_provider_unavailable the same key and proof may be sent again: the payment is created with the same idempotency key, so at most one exists. While another first payment of the org is open, a checkout answers 409 target_state_conflict with `checkoutOpenDetails` (rule `checkout_open`): continue it at `checkout_url`. A paid change can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; it does not start another charge. Foreign ownership answers 404 without disclosure; held cannot charge."
     },
     {
       "method": "GET",
@@ -6978,7 +7001,7 @@
       "params": [
         {
           "name": "id",
-          "description": "The checkout id from `checkoutResponse.checkout_id`, carried on the return URL."
+          "description": "The checkout id from a started payment's `payment.checkout_id`, carried on the return URL."
         }
       ],
       "query": null,
@@ -7071,7 +7094,7 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "The request names an absolute plan/cycle/add-on target and a stable operation_key. Start is nonbinding for every change, including zero-charge, scheduled and formerly immediate decreases: it neither changes the plan nor writes legal acceptance. An eligible Owner obtains a C.4 display and explicitly confirms with its proof. Confirmation may return accepted_no_payment with charged: null and no provider payment or redirect, or payment_started for a charged change. Exact-key lookup recovers the accepted result. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain. A later paid-change confirmation can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; no second charge starts."
+      "notes": "The request names an absolute plan/cycle/add-on target and a fresh operation_key per selection. Start is nonbinding for every change, including zero-charge, scheduled and formerly immediate decreases: it neither changes the plan nor writes legal acceptance. The change is decided in the request and never waits: no `awaiting_vies`, and Lexware never holds it; `held` (`issuer_cutover_in_progress`) only while an issuer cutover runs. VIES runs only when the billing details changed since the last decision or the recorded VAT treatment is blocked, and a change that charges nothing never calls it. When VIES does not answer: 409 target_state_conflict with `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`), nothing stored. A change charging nothing while the recorded VAT treatment is unresolved: 409 target_state_conflict with `{ field: billing.vat_id, rule: purchase_eligibility_pending }`. An eligible Owner obtains a C.4 display (`POST /api/billing/intents/:id/display`) and confirms with one click on its `action_label`. Confirmation may return accepted_no_payment with charged: null and no provider payment or redirect, or payment_started for a charged change. Exact-key lookup recovers the accepted result. Existing no_account, past_due, no_valid_mandate and plan_limit conflicts remain. A later paid-change confirmation can return 409 target_state_conflict with field billing and rule charge_in_progress while an earlier charge is unresolved; no second charge starts."
     },
     {
       "method": "POST",

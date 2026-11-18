@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "field": {
+      "type": "string",
+      "const": "billing.vat_id"
+    },
+    "rule": {
+      "type": "string",
+      "const": "vies_unavailable"
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "vies_unavailable",
+        "vies_unverified",
+        "vies_identifier_missing"
+      ]
+    }
+  },
+  "required": [
+    "field",
+    "rule",
+    "reason"
+  ],
+  "additionalProperties": false
+}

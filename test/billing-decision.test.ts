@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
-import { billingDecisionDisplayRequest, billingDecisionDisplayResponse, planChangePrepareResponse } from '../src/billing.js'
+import { billingDecisionDisplayRequest, billingDecisionDisplayResponse, c4Declaration, planChangePrepareResponse } from '../src/billing.js'
 
 const key = '0c15bc92-c26c-4a56-aac8-0046ff758391'
 const id = '039172ce-712c-4ec8-897c-15492a7eeb76'
@@ -40,14 +40,17 @@ const snapshot = {
     effective: { mode: 'scheduled', at: '2026-10-25T01:30:00Z', at_period_end: true },
   },
   declaration: {
-    text_id: 'DR-1374-draft-3-C.4',
-    text: 'By selecting “Order and pay”, you agree to the Terms of Service and the Data Processing Agreement for Acme Robotics.',
+    ...c4Declaration('schedule_downgrade', { org: 'Acme Robotics', plan: 'plus', dueCents: 0, periodGrossCents: 3451, cycle: 'monthly' }),
     terms, dpa,
   },
   future_price_replacement: null,
   expires_at: '2026-10-25T01:20:00Z',
 }
 const display = { confirmation_proof: proof, expires_at: snapshot.expires_at, snapshot }
+// A first purchase names its own button; the plan-change sentence above is not its sentence.
+const checkoutDeclaration = (cycle: 'monthly' | 'yearly') => ({
+  ...c4Declaration('checkout', { org: 'Acme Robotics', plan: 'plus', dueCents: 0, periodGrossCents: 3451, cycle }), terms, dpa,
+})
 
 describe('C.4 billing decision display', () => {
   it('preserves conditional cycle, date exclusion and replacement requirements in the published schema', () => {
@@ -58,7 +61,7 @@ describe('C.4 billing decision display', () => {
       const period = { anchor: 'on_first_successful_payment', cycle,
         start_statement: 'Starts when your first payment succeeds',
         period_statement: `First billing period: one full ${periodName} from successful payment; renews at the end of that period` }
-      const first = { ...snapshot, decision_kind: 'checkout', selection: { ...selection, cycle }, period,
+      const first = { ...snapshot, decision_kind: 'checkout', selection: { ...selection, cycle }, period, declaration: checkoutDeclaration(cycle as 'monthly' | 'yearly'),
         amounts: { ...snapshot.amounts, vat_treatment_line: `19% German VAT: €5.51; total €34.51 per ${periodName}` } }
       const valid = { ...display, snapshot: first }
       expect(validate(valid), ajv.errorsText(validate.errors)).toBe(true)
@@ -82,7 +85,7 @@ describe('C.4 billing decision display', () => {
     const period = { anchor: 'on_first_successful_payment', cycle: 'monthly',
       start_statement: 'Starts when your first payment succeeds',
       period_statement: 'First billing period: one full month from successful payment; renews at the end of that period' }
-    const first = { ...snapshot, decision_kind: 'checkout', selection, period }
+    const first = { ...snapshot, decision_kind: 'checkout', selection, period, declaration: checkoutDeclaration('monthly') }
     const valid = { ...display, snapshot: first }
     expect(billingDecisionDisplayResponse.safeParse(valid).success).toBe(true)
     for (const invalid of [
@@ -108,7 +111,8 @@ describe('C.4 billing decision display', () => {
     expect(planChangePrepareResponse.safeParse({ change_id: id, display }).success).toBe(false)
     for (const decision_kind of ['checkout', 'paid_change']) {
       const { keep: _keep, ...selection } = snapshot.selection
-      expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, decision_kind, selection } }).success).toBe(true)
+      const declaration = decision_kind === 'checkout' ? checkoutDeclaration('monthly') : snapshot.declaration
+      expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, decision_kind, selection, declaration } }).success).toBe(true)
     }
     expect(billingDecisionDisplayRequest.parse({ operation_key: key, operation: 'checkout' })).toEqual({ operation_key: key, operation: 'checkout' })
   })
@@ -136,8 +140,11 @@ describe('C.4 billing decision display', () => {
     const amounts = snapshot.amounts
     expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...amounts, vat_treatment: 'reverse_charge' } } }).success).toBe(false)
     const zero = { ...amounts, quote: { ...amounts.quote, rate_percent: 0 }, period_vat_cents: 0, period_gross_cents: 2900, vat_treatment: 'reverse_charge', vat_treatment_line: 'Reverse charge — VAT payable by the recipient' }
-    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: zero } }).success).toBe(true)
-    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...zero, vat_treatment: 'outside_eu' } } }).success).toBe(false)
+    // The sentence names the period's gross, so zero-rated amounts carry their own.
+    const declaration = { ...snapshot.declaration, ...c4Declaration('schedule_downgrade', { org: 'Acme Robotics', plan: 'plus', dueCents: 0, periodGrossCents: 2900, cycle: 'monthly' }) }
+    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: zero, declaration } }).success).toBe(true)
+    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: zero } }).success).toBe(false)
+    expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...zero, vat_treatment: 'outside_eu' }, declaration } }).success).toBe(false)
     expect(billingDecisionDisplayResponse.safeParse({ ...display, snapshot: { ...snapshot, amounts: { ...amounts, vat_treatment_line: '19% German VAT: €0.00; total €34.51 per month' } } }).success).toBe(false)
   })
 

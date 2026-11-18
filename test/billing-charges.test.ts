@@ -114,10 +114,11 @@ describe('the descriptions the Lexware issuer cutover requires', () => {
   })
 })
 
-describe('purchaseHoldReason gains the Lexware integration holds', () => {
-  it('accepts the four new values', () => {
-    for (const reason of ['lexware_contact_pending', 'lexware_contact_changed', 'issuer_cutover_in_progress', 'lexware_issuance_paused']) {
-      expect(purchaseHoldReason.safeParse(reason).success, reason).toBe(true)
+describe('purchaseHoldReason keeps only the issuer cutover of the Lexware holds', () => {
+  it('holds during a cutover, never for a Lexware contact or paused issuance', () => {
+    expect(purchaseHoldReason.safeParse('issuer_cutover_in_progress').success).toBe(true)
+    for (const reason of ['lexware_contact_pending', 'lexware_contact_changed', 'lexware_issuance_paused']) {
+      expect(purchaseHoldReason.safeParse(reason).success, reason).toBe(false)
     }
   })
 
