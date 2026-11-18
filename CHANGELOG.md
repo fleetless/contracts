@@ -24,7 +24,9 @@ version.
 - `orgPlan.paid_plans`, required, `open` or `closed`: `closed` exactly when
   those routes answer `plan_purchase_closed` for this org. A consumer that
   builds an `orgPlan` by hand adds the field; one that parses the cloud's
-  answer reads it.
+  answer reads it. It travels wherever `orgPlan` does: `GET`, `PUT` and
+  `DELETE /api/org/plan/change`'s answers, the accepted `result` of the
+  decision lookup, and `PATCH /api/admin/orgs/:id/plan`.
 
 ## [15.5.0] — 2026-11-14
 
