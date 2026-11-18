@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [15.6.0] — 2026-11-18
+
 ### Added
 
 - **`plan_purchase_closed`, and `paid_plans` on the org's plan**
