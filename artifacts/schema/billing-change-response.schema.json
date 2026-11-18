@@ -31,59 +31,6 @@
                   "format": "uuid",
                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                 },
-                "state": {
-                  "type": "string",
-                  "const": "awaiting_vies"
-                },
-                "reason": {
-                  "type": "string",
-                  "enum": [
-                    "vies_unavailable",
-                    "vies_unverified",
-                    "vies_identifier_missing"
-                  ]
-                },
-                "next_attempt_at": {
-                  "type": "string",
-                  "format": "date-time",
-                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                }
-              },
-              "required": [
-                "intent_id",
-                "operation_key",
-                "operation",
-                "state",
-                "reason",
-                "next_attempt_at"
-              ],
-              "additionalProperties": false
-            },
-            {
-              "type": "object",
-              "properties": {
-                "intent_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                  "description": "Opaque persisted purchase intent identity."
-                },
-                "operation_key": {
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
-                },
-                "operation": {
-                  "type": "string",
-                  "const": "paid_change"
-                },
-                "invoice_id": {
-                  "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
-                  "type": "string",
-                  "format": "uuid",
-                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                },
                 "quote_revision": {
                   "type": "string",
                   "minLength": 1,
@@ -189,10 +136,7 @@
                     "legacy_usd_invoice",
                     "legacy_payer_unresolved",
                     "mandate_policy_unresolved",
-                    "lexware_contact_pending",
-                    "lexware_contact_changed",
-                    "issuer_cutover_in_progress",
-                    "lexware_issuance_paused"
+                    "issuer_cutover_in_progress"
                   ]
                 },
                 "original_amount": {

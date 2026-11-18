@@ -435,6 +435,10 @@ import {
   billingDetails,
   checkoutRequest,
   checkoutResponse,
+  checkoutStartResponse,
+  checkoutDraftResponse,
+  checkoutOpenDetails,
+  viesUnavailableDetails,
   checkoutStatus,
   vatIdCheckRequest,
   vatIdCheckResponse,
@@ -848,6 +852,10 @@ export const exportedSchemas = {
   'billing-details-update': billingDetailsUpdate,
   'payment-method-change-request': paymentMethodChangeRequest,
   'checkout-response': checkoutResponse,
+  'checkout-start-response': checkoutStartResponse,
+  'checkout-draft-response': checkoutDraftResponse,
+  'checkout-open-details': checkoutOpenDetails,
+  'vies-unavailable-details': viesUnavailableDetails,
   'checkout-status': checkoutStatus,
   'vat-id-check-response': vatIdCheckResponse,
   'billing-view': billingView,
@@ -1383,6 +1391,9 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'purchase-intent-draft', 'purchase-intent-payment-started', 'purchase-intent-accepted-without-payment', 'vat-decision', 'vies-pending-reason',
   'billing-decision-amounts', 'billing-decision-period', 'billing-decision-snapshot', 'billing-decision-display-response', 'plan-change-prepare-response',
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
+  // The one-page checkout (2026-11-18, fleetless/fleetless#1168): the start's
+  // answer, the draft read, and two `409` details — all sent, never received.
+  'checkout-start-response', 'checkout-draft-response', 'checkout-open-details', 'vies-unavailable-details',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 
   // --- Lexware billing documents (2026-10-19, fleetless/fleetless#544) -----

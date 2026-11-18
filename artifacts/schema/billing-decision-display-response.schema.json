@@ -958,11 +958,26 @@
               "properties": {
                 "text_id": {
                   "type": "string",
-                  "const": "DR-1374-draft-3-C.4"
+                  "enum": [
+                    "C4-1168-checkout",
+                    "C4-1168-pay-and-switch",
+                    "C4-1168-switch",
+                    "C4-1168-schedule-switch",
+                    "C4-1168-schedule-downgrade",
+                    "C4-1168-cancel"
+                  ],
+                  "description": "The approved sentence this display shows, one per action."
                 },
                 "text": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^By selecting “",
+                  "description": "The consent sentence shown directly above the button, naming the button."
+                },
+                "action_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The label of the one button that confirms this decision."
                 },
                 "terms": {
                   "type": "object",
@@ -1022,10 +1037,127 @@
               "required": [
                 "text_id",
                 "text",
+                "action_label",
                 "terms",
                 "dpa"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-checkout"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* with Mollie$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-pay-and-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* and switch$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Switch to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Switch to monthly at period end"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-downgrade"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Schedule downgrade to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-cancel"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Cancel at period end"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "expires_at": {
               "type": "string",
@@ -2005,11 +2137,26 @@
               "properties": {
                 "text_id": {
                   "type": "string",
-                  "const": "DR-1374-draft-3-C.4"
+                  "enum": [
+                    "C4-1168-checkout",
+                    "C4-1168-pay-and-switch",
+                    "C4-1168-switch",
+                    "C4-1168-schedule-switch",
+                    "C4-1168-schedule-downgrade",
+                    "C4-1168-cancel"
+                  ],
+                  "description": "The approved sentence this display shows, one per action."
                 },
                 "text": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^By selecting “",
+                  "description": "The consent sentence shown directly above the button, naming the button."
+                },
+                "action_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The label of the one button that confirms this decision."
                 },
                 "terms": {
                   "type": "object",
@@ -2069,10 +2216,127 @@
               "required": [
                 "text_id",
                 "text",
+                "action_label",
                 "terms",
                 "dpa"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-checkout"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* with Mollie$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-pay-and-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* and switch$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Switch to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Switch to monthly at period end"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-downgrade"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Schedule downgrade to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-cancel"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Cancel at period end"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "expires_at": {
               "type": "string",
@@ -3052,11 +3316,26 @@
               "properties": {
                 "text_id": {
                   "type": "string",
-                  "const": "DR-1374-draft-3-C.4"
+                  "enum": [
+                    "C4-1168-checkout",
+                    "C4-1168-pay-and-switch",
+                    "C4-1168-switch",
+                    "C4-1168-schedule-switch",
+                    "C4-1168-schedule-downgrade",
+                    "C4-1168-cancel"
+                  ],
+                  "description": "The approved sentence this display shows, one per action."
                 },
                 "text": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "pattern": "^By selecting “",
+                  "description": "The consent sentence shown directly above the button, naming the button."
+                },
+                "action_label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The label of the one button that confirms this decision."
                 },
                 "terms": {
                   "type": "object",
@@ -3116,10 +3395,127 @@
               "required": [
                 "text_id",
                 "text",
+                "action_label",
                 "terms",
                 "dpa"
               ],
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-checkout"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* with Mollie$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-pay-and-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Pay \\S.* and switch$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Switch to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-switch"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Switch to monthly at period end"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-schedule-downgrade"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "pattern": "^Schedule downgrade to \\S.*$"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "text_id": {
+                        "const": "C4-1168-cancel"
+                      }
+                    },
+                    "required": [
+                      "text_id"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "action_label": {
+                        "const": "Cancel at period end"
+                      }
+                    }
+                  }
+                }
+              ]
             },
             "expires_at": {
               "type": "string",

@@ -9,6 +9,64 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: one consent sentence and one button label per C.4 action**
+  (fleetless/fleetless#1168). `billingDecisionSnapshot.declaration` gains a
+  required `action_label`, and `text_id` is one of `C4_TEXT_IDS`, one per
+  action in `C4_ACTIONS`: `checkout` (`Pay 34,51 € with Mollie`),
+  `pay_and_switch` (`Pay 95 € and switch`), `switch` (`Switch to Pro`),
+  `schedule_switch` (`Switch to monthly at period end`),
+  `schedule_downgrade` (`Schedule downgrade to Plus`) and `cancel`
+  (`Cancel at period end`). The snapshot parses only when `text` and
+  `action_label` are exactly what `c4Declaration` writes for its own action,
+  amounts, plan, cycle and organization. The single `Order and pay` sentence
+  (`DR-1374-draft-3-C.4`) no longer parses as a new display. A producer builds
+  the declaration with `c4Declaration(c4ActionOf(snapshot, from), …)`; a
+  client renders `text` above one button labelled `action_label`. A snapshot
+  stored before this release reads with `storedBillingDecisionSnapshot`.
+- **BREAKING: `POST /api/billing/checkout` answers `checkoutStartResponse`**
+  instead of `checkoutResponse`. The start decides in the request: `eligible`
+  carries the frozen quote and its C.4 display (`display`, a
+  `billingDecisionDisplayResponse` for this intent), so the one click on its
+  button confirms with the display's proof; `vies_unavailable`,
+  `invalid_vat_id` and `refused` carry no intent, since nothing is stored;
+  `held` only with `issuer_cutover_in_progress`; `payment_started` replays a
+  confirmed key, hosted only. A checkout never answers `awaiting_vies`. A
+  consumer that read `checkoutResponse` from the start reads the new union;
+  `checkoutResponse` stays the answer of the invoice, charge and
+  payment-method routes.
+- **BREAKING: `purchaseHoldReason` shrinks** to `legacy_usd_invoice`,
+  `legacy_payer_unresolved`, `mandate_policy_unresolved` and
+  `issuer_cutover_in_progress`. `lexware_contact_pending`,
+  `lexware_contact_changed` and `lexware_issuance_paused` are gone: Lexware's
+  contact and invoice follow the payment and never hold a purchase.
+- **BREAKING: a paid change never waits for VIES.** `billingChangeResponse`'s
+  draft has no `awaiting_vies` variant; when VIES does not answer, the change
+  is refused with `viesUnavailableDetails` and nothing is stored.
+- The notes of the checkout start, the display, the confirm and
+  `POST /api/billing/change` describe the one-click flow, a fresh operation
+  key per press, `display_stale`, the open payment's `checkout_url` and the
+  two VIES refusals of a paid change.
+
+### Added
+
+- **`GET /api/billing/checkout-draft`** (Owner tier) answers
+  `checkoutDraftResponse`: the last checkout start's body as `draft`, or else
+  the org's earlier billing details as `prefill`, or both `null`
+  (fleetless/fleetless#1168).
+- `formatEur(cents)`: money as the console writes it, `34,51 €` and `29 €`.
+- `c4ActionOf(snapshot, from?)` and `c4Declaration(action, values)`, with
+  the types `C4Action`, `C4TextId`, `C4DeclarationText`,
+  `C4DeclarationValues`, `C4Decision` and `C4From`.
+- `storedBillingDecisionSnapshot`: also reads the legacy declaration without
+  `action_label`, for stored displays and replays only.
+- `checkoutOpenDetails` (`409` rule `checkout_open`, now with
+  `checkout_url` to continue the open payment), `viesUnavailableDetails`
+  (`409` rule `vies_unavailable` on `POST /api/billing/change`) and
+  `purchaseConflictDetails`'s `{ field: 'confirmation_proof', rule:
+  'display_stale' }` for a spent, expired or stale display.
+
 ## [15.6.0] — 2026-11-18
 
 ### Added
