@@ -3793,9 +3793,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'VAT-ID check need no Mollie and answer normally. `account` is `null` before the org has ever checked out; the plan ' +
       'and its limits still come from `GET /api/org/plan` (fleetless/fleetless issue 103) and are not repeated here. ' +
       'Where this cloud sells paid plans only to organizations Fleetless has unlocked, an org that is not unlocked reads ' +
-      '`paid_plans: closed` there, and checkout, the decision display and confirm, `POST /api/billing/change`, and a plan-change ' +
+      '`paid_plans: closed` there, and checkout, the decision display, the confirm of a checkout or paid change, `POST /api/billing/change`, and a plan-change ' +
       'prepare or final PUT whose target is not Basic answer `403 plan_purchase_closed`; this read, the checkout poll, cancel, ' +
-      'resume, the details, the payment method, invoices and charges, the documents and a Basic target are never refused by it.',
+      'resume, the details, the payment method, invoices and charges (their confirm included), the documents and a Basic target are never refused by it.',
   },
   {
     method: 'POST', path: '/api/billing/checkout', section: 'billing',
