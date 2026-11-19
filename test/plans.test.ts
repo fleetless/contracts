@@ -6,33 +6,42 @@ import { ERROR_CODES, planLimitDetails, assetPlanLimitDetails } from '../src/err
 import { liveSessionEndReason } from '../src/realtime.js'
 import { auditActor } from '../src/audit.js'
 
-describe('the plan catalogue matches the decision table (2026-09-30), the audit export being on every plan', () => {
+describe('the plan catalogue matches the decision table (2026-09-30) as fleetless/fleetless#1175 changed it', () => {
   it('limits', () => {
     expect(PLANS.basic.limits).toEqual({
       seats: 1, robots: 1, apps: 1, app_users: 10, live_video_ms_per_month: 36_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 7, audit_days: 7,
       collection_records: 25_000, collection_bytes: 1_000_000_000,
     })
     expect(PLANS.plus.limits).toEqual({
-      seats: 3, robots: 3, apps: 3, app_users: 25, live_video_ms_per_month: 360_000_000, asset_bytes_per_robot: 2_000_000_000, history_days: 30, audit_days: 30,
+      seats: 5, robots: 3, apps: 3, app_users: 100, live_video_ms_per_month: 360_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 30, audit_days: 30,
       collection_records: 250_000, collection_bytes: 10_000_000_000,
     })
     expect(PLANS.pro.limits).toEqual({
-      seats: 5, robots: 5, apps: 5, app_users: 50, live_video_ms_per_month: 900_000_000, asset_bytes_per_robot: 3_000_000_000, history_days: 90, audit_days: 90,
+      seats: 15, robots: 10, apps: 10, app_users: 500, live_video_ms_per_month: 1_800_000_000, asset_bytes_per_robot: 1_000_000_000, history_days: 90, audit_days: 90,
       collection_records: 1_000_000, collection_bytes: 50_000_000_000,
     })
     expect(Object.values(PLANS.enterprise.limits).every((v) => v === null)).toBe(true)
   })
   it('features', () => {
-    expect(PLANS.basic.features).toEqual({ app_mcp: false, two_factor: false, require_two_factor: false, app_oidc: false, hosted_logo: false, audit_export: true, addons: false })
+    expect(PLANS.basic.features).toEqual({ app_mcp: false, two_factor: true, require_two_factor: false, app_oidc: false, hosted_logo: false, audit_export: true, addons: false })
     expect(PLANS.plus.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: false, app_oidc: true, hosted_logo: true, audit_export: true, addons: false })
     expect(PLANS.pro.features).toEqual({ app_mcp: true, two_factor: true, require_two_factor: true, app_oidc: true, hosted_logo: true, audit_export: true, addons: true })
     expect(Object.values(PLANS.enterprise.features).every(Boolean)).toBe(true)
   })
   it('worldwide EUR prices in cents, monthly and yearly', () => {
     expect(PLANS.basic.prices).toEqual({ eur_month: 0, eur_year: 0 })
-    expect(PLANS.plus.prices).toEqual({ eur_month: 2900, eur_year: 29580 })
-    expect(PLANS.pro.prices).toEqual({ eur_month: 14900, eur_year: 151980 })
+    expect(PLANS.plus.prices).toEqual({ eur_month: 3000, eur_year: 30600 })
+    expect(PLANS.pro.prices).toEqual({ eur_month: 15000, eur_year: 153000 })
     expect(PLANS.enterprise.prices).toBeNull()
+  })
+  it('a yearly price divides by twelve to the cent, so the monthly figure a plan is advertised with adds up to the yearly total', () => {
+    expect(PLANS.plus.prices!.eur_year % 12).toBe(0)
+    expect(PLANS.pro.prices!.eur_year % 12).toBe(0)
+    expect(PLANS.plus.prices!.eur_year / 12).toBe(2550)
+    expect(PLANS.pro.prices!.eur_year / 12).toBe(12750)
+  })
+  it('asset storage is the same on every sold plan: no plan differentiator', () => {
+    expect(new Set([PLANS.basic, PLANS.plus, PLANS.pro].map((plan) => plan.limits.asset_bytes_per_robot))).toEqual(new Set([1_000_000_000]))
   })
   it('add-ons', () => {
     expect(ADDONS.seats).toMatchObject({ raises: 'seats', per_unit: 1, prices: { eur_month: 900, eur_year: 9180 } })
@@ -51,6 +60,8 @@ describe('the USD rule: EUR × 1.15, up to the next whole dollar', () => {
   it('yearly is 15 % off twelve months', () => {
     expect(yearlyEurCents(2900)).toBe(29580)
     expect(yearlyEurCents(14900)).toBe(151980)
+    expect(yearlyEurCents(3000)).toBe(30600)
+    expect(yearlyEurCents(15000)).toBe(153000)
     expect(pricesFromEurMonth(1000)).toEqual({ eur_month: 1000, eur_year: 10200 })
   })
 })
@@ -60,6 +71,7 @@ describe('helpers', () => {
     expect(PLAN_ORDER).toEqual(['basic', 'plus', 'pro', 'enterprise'])
     expect(requiredPlanFor('app_mcp')).toBe('plus')
     expect(requiredPlanFor('require_two_factor')).toBe('pro')
+    expect(requiredPlanFor('two_factor')).toBe('basic')
     expect(requiredPlanFor('audit_export')).toBe('basic')
     expect(PLAN_ORDER.every((plan) => PLANS[plan].features.audit_export)).toBe(true)
   })
@@ -67,6 +79,11 @@ describe('helpers', () => {
     expect(nextPlanRaising('basic', 'robots')).toBe('plus')
     expect(nextPlanRaising('pro', 'robots')).toBe('enterprise')
     expect(nextPlanRaising('enterprise', 'robots')).toBeNull()
+  })
+  it('no sold plan raises asset storage: only Enterprise, by contract, is above it', () => {
+    expect(nextPlanRaising('basic', 'asset_bytes_per_robot')).toBe('enterprise')
+    expect(nextPlanRaising('plus', 'asset_bytes_per_robot')).toBe('enterprise')
+    expect(nextPlanRaising('pro', 'asset_bytes_per_robot')).toBe('enterprise')
   })
   it('the collection limits climb with the plan, and no add-on raises them', () => {
     expect(nextPlanRaising('basic', 'collection_records')).toBe('plus')

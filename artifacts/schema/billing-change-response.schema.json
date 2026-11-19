@@ -737,6 +737,29 @@
                       ],
                       "description": "`null` while a cancel is pending or nothing else renews."
                     },
+                    "current_price": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "net_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "One period of the current plan, cycle and add-ons at the agreed price, excluding VAT, in integer cents."
+                            }
+                          },
+                          "required": [
+                            "net_cents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "What one period (`cycle`) of the current plan costs this organization: the price it agreed, which stays when the catalogue changes. Show this, not the catalogue price, as the price of a billed organization. `null` when no agreed price is recorded for the current plan, cycle and add-ons."
+                    },
                     "scheduled": {
                       "type": "object",
                       "properties": {
@@ -895,6 +918,7 @@
                     "period_starts_at",
                     "period_ends_at",
                     "next_charge",
+                    "current_price",
                     "scheduled",
                     "dunning"
                   ],
@@ -1909,6 +1933,29 @@
                       ],
                       "description": "`null` while a cancel is pending or nothing else renews."
                     },
+                    "current_price": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "net_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "One period of the current plan, cycle and add-ons at the agreed price, excluding VAT, in integer cents."
+                            }
+                          },
+                          "required": [
+                            "net_cents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "What one period (`cycle`) of the current plan costs this organization: the price it agreed, which stays when the catalogue changes. Show this, not the catalogue price, as the price of a billed organization. `null` when no agreed price is recorded for the current plan, cycle and add-ons."
+                    },
                     "scheduled": {
                       "type": "object",
                       "properties": {
@@ -2067,6 +2114,7 @@
                     "period_starts_at",
                     "period_ends_at",
                     "next_charge",
+                    "current_price",
                     "scheduled",
                     "dunning"
                   ],

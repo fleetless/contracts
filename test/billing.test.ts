@@ -8,6 +8,7 @@ import {
 import * as billing from '../src/billing.js'
 import { operationKey, company, intentBase, pendingIntent, eligibleIntent, heldIntent, startedIntent } from './purchase-fixtures.js'
 import { ERROR_CODES, paymentProviderUnavailableDetails } from '../src/errors.js'
+import { PLANS } from '../src/plans.js'
 
 const NONE = { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 }
 const at = (s: string) => new Date(s)
@@ -53,8 +54,8 @@ describe('normalizeVatId', () => {
 })
 
 describe('money (worked examples)', () => {
-  it('Pro monthly, German payer: 149,00 + 28,31 = 177,31', () => {
-    expect(chargeAmounts(periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur' }), 19)).toEqual({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731 })
+  it('Pro monthly, German payer: 150,00 + 28,50 = 178,50', () => {
+    expect(chargeAmounts(periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur' }), 19)).toEqual({ net_cents: 15000, vat_cents: 2850, gross_cents: 17850 })
   })
   it('a robot on day 10 of a 30-day month: 19 € × 21/30 = 13,30 €', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
@@ -75,26 +76,28 @@ describe('money (worked examples)', () => {
   })
   it('monthly → yearly: the yearly price minus the unused share of the month', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
-    expect(changeNetCents({ from: { plan: 'pro', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'yearly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(151980 - 10430)
+    expect(changeNetCents({ from: { plan: 'pro', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'yearly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(153000 - 10500)
   })
   it('decreases charge nothing now', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
     expect(changeNetCents({ from: { plan: 'pro', addons: { ...NONE, robots: 2 }, cycle: 'yearly' }, to: { plan: 'plus', addons: NONE, cycle: 'monthly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(0)
   })
   it('add-ons count only on Pro', () => {
-    expect(periodNetCents({ plan: 'plus', addons: { ...NONE, robots: 3 }, cycle: 'monthly', currency: 'eur' })).toBe(2900)
-    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'eur' })).toBe(151980 + 2 * 19380 + 10200)
+    expect(periodNetCents({ plan: 'plus', addons: { ...NONE, robots: 3 }, cycle: 'monthly', currency: 'eur' })).toBe(3000)
+    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'eur' })).toBe(153000 + 2 * 19380 + 10200)
   })
-  it('checkout quote: lines in net and gross, a person sees 177,31', () => {
+  it('checkout quote: lines in net and gross, a person sees 178,50', () => {
     const q = checkoutQuote({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur', rate_percent: 19 })
-    expect(q.lines).toEqual([{ item: 'plan', quantity: 1, net_cents: 14900, gross_cents: 17731 }])
-    expect(q).toMatchObject({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731, rate_percent: 19, currency: 'eur', cycle: 'monthly' })
+    expect(q.lines).toEqual([{ item: 'plan', quantity: 1, net_cents: 15000, gross_cents: 17850 }])
+    expect(q).toMatchObject({ net_cents: 15000, vat_cents: 2850, gross_cents: 17850, rate_percent: 19, currency: 'eur', cycle: 'monthly' })
   })
   it('checkout quote: the gross lines add up to the gross charged', () => {
-    // EUR yearly with two seats: rounding each line's VAT on its own came to
-    // 2027,04 € while the charge is 2027,05 €.
-    const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, seats: 2 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
-    expect(q.gross_cents).toBe(202705)
+    // EUR yearly with a seat, a robot and an app: rounding each line's VAT on
+    // its own comes to 2269,80 € while the charge is 2269,81 €. (At 150 € the
+    // plan line's VAT is whole cents, so it takes three add-on lines to show.)
+    const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, seats: 1, robots: 1, apps: 1 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
+    expect(q.gross_cents).toBe(226981)
+    expect(q.lines.reduce((sum, l) => sum + Math.round(l.net_cents * 1.19), 0)).toBe(226980)
     expect(q.lines.reduce((sum, l) => sum + l.gross_cents, 0)).toBe(q.gross_cents)
   })
   it('checkout quote: every Pro basket, the gross lines add up to the gross charged', () => {
@@ -211,9 +214,19 @@ describe('purchase contracts and historical reads', () => {
     expect(billing.billingDetailsUpdate.parse({ company_name: 'New Buyer', tax_id: 'TIN 42', address: { ...company.address, country: 'US', state: 'NY' }, invoice_email: 'finance@buyer.example' })).toMatchObject({ tax_id: 'TIN 42', address: { state: 'NY' } })
   })
   it('retains a person/USD account and invoice without changing the currency', () => {
-    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, scheduled: { cycle: null, addons: null }, dunning: null }
+    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, current_price: null, scheduled: { cycle: null, addons: null }, dunning: null }
     expect(billingAccount.parse(account).currency).toBe('usd')
     expect(billingInvoice.parse({ id: intentBase.intent_id, number: 'FL-2026-0001', issued_at: '2026-10-01T00:00:00Z', status: 'open', cancellation_document_url: null, currency: 'usd', net_cents: 17200, vat_rate_percent: 0, vat_cents: 0, gross_cents: 17200 }).currency).toBe('usd')
+  })
+  it('carries the agreed price of the current period, or null, and never omits it (fleetless/fleetless#1175)', () => {
+    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'de_standard', rate_percent: 19 }, currency: 'eur', cycle: 'monthly', status: 'active', period_starts_at: '2026-11-01T00:00:00Z', period_ends_at: '2026-12-01T00:00:00Z', next_charge: { at: '2026-12-01T00:00:00Z', net_cents: 2900, vat_cents: 551, gross_cents: 3451 }, current_price: { net_cents: 2900 }, scheduled: { cycle: null, addons: null }, dunning: null }
+    // An organization that agreed 29 € keeps reading 29 € while the catalogue says 30 €.
+    expect(billingAccount.parse(account).current_price).toEqual({ net_cents: 2900 })
+    expect(PLANS.plus.prices?.eur_month).toBe(3000)
+    expect(billingAccount.parse({ ...account, current_price: null }).current_price).toBeNull()
+    const { current_price: _dropped, ...without } = account
+    expect(billingAccount.safeParse(without).success).toBe(false)
+    expect(billingAccount.safeParse({ ...account, current_price: { net_cents: 29.5 } }).success).toBe(false)
   })
   it.each([pendingIntent, eligibleIntent, heldIntent])('has no redirect before payment: $state', (intent) => {
     expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)

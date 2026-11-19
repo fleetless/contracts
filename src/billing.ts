@@ -1199,6 +1199,16 @@ export const billingAccount = z.object({
     vat_cents: z.number().int().meta({ description: 'VAT on the next charge, in integer cents.' }),
     gross_cents: z.number().int().meta({ description: 'The next charge including VAT, in integer cents.' }),
   }).nullable().meta({ description: '`null` while a cancel is pending or nothing else renews.' }),
+  current_price: z.object({
+    net_cents: z.number().int().meta({
+      description: 'One period of the current plan, cycle and add-ons at the agreed price, excluding VAT, in integer cents.',
+    }),
+  }).nullable().meta({
+    description:
+      'What one period (`cycle`) of the current plan costs this organization: the price it agreed, which stays when the ' +
+      'catalogue changes. Show this, not the catalogue price, as the price of a billed organization. `null` when no agreed ' +
+      'price is recorded for the current plan, cycle and add-ons.',
+  }),
   scheduled: z.object({
     cycle: billingCycle.nullable().meta({ description: "A cycle change queued for the period's end, or `null`." }),
     addons: orgAddons.nullable().meta({ description: "Add-on counts queued for the period's end, or `null`." }),
