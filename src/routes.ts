@@ -3710,7 +3710,9 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: false, ownerTier: true, status: 200,
     params: [], query: null, request: planChangePrepareRequest, response: planChangePrepareResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'plan_limit', 'target_state_conflict', 'plan_purchase_closed'], transport: 'http',
-    notes: 'Owner only. Persists a prepared change reference and a short-lived display, without mutating the plan, pending_change, or legal acceptance. A same-key, same-input retry while undecided returns the same change_id with a fresh display. A Basic cancellation reason belongs only in the final PUT.',
+    notes: 'Owner only. Persists a prepared change reference and a short-lived display, without mutating the plan, pending_change, or legal acceptance. A same-key, same-input retry while undecided returns the same change_id with a fresh display. A Basic cancellation reason belongs only in the final PUT. ' +
+      'A cancellation to Basic never waits for the VAT treatment; a lower paid plan names its gross, so while the account\'s VAT treatment ' +
+      'is unresolved this route and the PUT answer 409 target_state_conflict with `{ field: billing.vat_id, rule: purchase_eligibility_pending }`.',
   },
   {
     method: 'PUT', path: '/api/org/plan/change', section: 'org',
@@ -3875,7 +3877,10 @@ export const ROUTES: readonly RouteEntry[] = [
       'and proof charge once more. While another first payment of ' +
       'the org is open, a checkout answers 409 target_state_conflict with `checkoutOpenDetails` (rule `checkout_open`): continue it at ' +
       '`checkout_url`. A paid change can return 409 target_state_conflict with field billing and rule charge_in_progress while an ' +
-      'earlier charge is unresolved; it does not start another charge. Foreign ownership answers 404 without disclosure; held cannot charge.',
+      'earlier charge is unresolved; it does not start another charge. After the Lexware issuer cutover, a paid change that charges ' +
+      'something while the billing details lack a company name or a full address answers 409 target_state_conflict with ' +
+      '`{ field: billing, rule: purchase_eligibility_pending }` before the proof is consumed: nothing is charged until they are complete. ' +
+      'Foreign ownership answers 404 without disclosure; held cannot charge.',
   },
   {
     method: 'GET', path: '/api/billing/checkout/:id', section: 'billing',
