@@ -9,6 +9,24 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **The plan catalogue** (fleetless/fleetless#1175). `PLANS` keeps its shape
+  and changes its values. Pro holds ten robots, ten apps, fifteen developer
+  seats, 500 app users and 500 hours of live video a month
+  (`live_video_ms_per_month` 1,800,000,000). Plus holds five seats and 100
+  app users. `features.two_factor` is `true` on Basic, so
+  `requiredPlanFor('two_factor')` answers `basic`; requiring it for the
+  organization (`require_two_factor`) stays with Pro. Prices: Plus
+  `eur_month` 3000 and `eur_year` 30600, Pro 15000 and 153000. Both yearly
+  prices divide by twelve to the cent.
+- **`asset_bytes_per_robot` is 1,000,000,000 on Basic, Plus and Pro.** Asset
+  storage is no plan differentiator any more. No plan below Enterprise
+  raises it; an organization that needs more gets an override
+  (`planOverrides.asset_bytes_per_robot`). A consumer that names the way up
+  from this limit must not read it off `nextPlanRaising`, which answers
+  `enterprise`.
+
 ## [16.0.0] — 2026-11-19
 
 ### Changed
