@@ -53,8 +53,8 @@ describe('normalizeVatId', () => {
 })
 
 describe('money (worked examples)', () => {
-  it('Pro monthly, German payer: 149,00 + 28,31 = 177,31', () => {
-    expect(chargeAmounts(periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur' }), 19)).toEqual({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731 })
+  it('Pro monthly, German payer: 150,00 + 28,50 = 178,50', () => {
+    expect(chargeAmounts(periodNetCents({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur' }), 19)).toEqual({ net_cents: 15000, vat_cents: 2850, gross_cents: 17850 })
   })
   it('a robot on day 10 of a 30-day month: 19 € × 21/30 = 13,30 €', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
@@ -75,26 +75,28 @@ describe('money (worked examples)', () => {
   })
   it('monthly → yearly: the yearly price minus the unused share of the month', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
-    expect(changeNetCents({ from: { plan: 'pro', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'yearly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(151980 - 10430)
+    expect(changeNetCents({ from: { plan: 'pro', addons: NONE, cycle: 'monthly' }, to: { plan: 'pro', addons: NONE, cycle: 'yearly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(153000 - 10500)
   })
   it('decreases charge nothing now', () => {
     const start = at('2026-09-01T09:00:00Z'), end = at('2026-10-01T09:00:00Z'), now = at('2026-09-10T15:00:00Z')
     expect(changeNetCents({ from: { plan: 'pro', addons: { ...NONE, robots: 2 }, cycle: 'yearly' }, to: { plan: 'plus', addons: NONE, cycle: 'monthly' }, currency: 'eur', periodStart: start, periodEnd: end, now })).toBe(0)
   })
   it('add-ons count only on Pro', () => {
-    expect(periodNetCents({ plan: 'plus', addons: { ...NONE, robots: 3 }, cycle: 'monthly', currency: 'eur' })).toBe(2900)
-    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'eur' })).toBe(151980 + 2 * 19380 + 10200)
+    expect(periodNetCents({ plan: 'plus', addons: { ...NONE, robots: 3 }, cycle: 'monthly', currency: 'eur' })).toBe(3000)
+    expect(periodNetCents({ plan: 'pro', addons: { ...NONE, robots: 2, app_user_packs: 1 }, cycle: 'yearly', currency: 'eur' })).toBe(153000 + 2 * 19380 + 10200)
   })
-  it('checkout quote: lines in net and gross, a person sees 177,31', () => {
+  it('checkout quote: lines in net and gross, a person sees 178,50', () => {
     const q = checkoutQuote({ plan: 'pro', addons: NONE, cycle: 'monthly', currency: 'eur', rate_percent: 19 })
-    expect(q.lines).toEqual([{ item: 'plan', quantity: 1, net_cents: 14900, gross_cents: 17731 }])
-    expect(q).toMatchObject({ net_cents: 14900, vat_cents: 2831, gross_cents: 17731, rate_percent: 19, currency: 'eur', cycle: 'monthly' })
+    expect(q.lines).toEqual([{ item: 'plan', quantity: 1, net_cents: 15000, gross_cents: 17850 }])
+    expect(q).toMatchObject({ net_cents: 15000, vat_cents: 2850, gross_cents: 17850, rate_percent: 19, currency: 'eur', cycle: 'monthly' })
   })
   it('checkout quote: the gross lines add up to the gross charged', () => {
-    // EUR yearly with two seats: rounding each line's VAT on its own came to
-    // 2027,04 € while the charge is 2027,05 €.
-    const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, seats: 2 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
-    expect(q.gross_cents).toBe(202705)
+    // EUR yearly with a seat, a robot and an app: rounding each line's VAT on
+    // its own comes to 2269,80 € while the charge is 2269,81 €. (At 150 € the
+    // plan line's VAT is whole cents, so it takes three add-on lines to show.)
+    const q = checkoutQuote({ plan: 'pro', addons: { ...NONE, seats: 1, robots: 1, apps: 1 }, cycle: 'yearly', currency: 'eur', rate_percent: 19 })
+    expect(q.gross_cents).toBe(226981)
+    expect(q.lines.reduce((sum, l) => sum + Math.round(l.net_cents * 1.19), 0)).toBe(226980)
     expect(q.lines.reduce((sum, l) => sum + l.gross_cents, 0)).toBe(q.gross_cents)
   })
   it('checkout quote: every Pro basket, the gross lines add up to the gross charged', () => {

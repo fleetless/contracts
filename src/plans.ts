@@ -173,8 +173,21 @@ export function pricesFromEurMonth(eurMonthCents: number): PlanPrices {
 
 /**
  * The catalogue: limits, prices and features as the decision table
- * (2026-09-30) states them, except that the audit export is on every plan,
- * as the developer docs (`plans-and-limits.md`) and the cloud have it.
+ * (2026-09-30) states them, with two later changes. The audit export is on
+ * every plan, as the developer docs (`plans-and-limits.md`) and the cloud
+ * have it. And fleetless/fleetless#1175 (2026-11-19) made Pro hold a fleet
+ * (ten robots and apps, fifteen seats, 500 app users, 500 hours of live
+ * video), raised Plus to five seats and 100 app users, put a developer's
+ * own two-factor (`two_factor`) on every plan, and set the prices to 30 €
+ * and 150 € a month.
+ *
+ * **Asset storage is the same on every sold plan**, one gigabyte per robot:
+ * what a robot's meshes need depends on its CAD, not on the plan, so it is
+ * no plan differentiator. An organization that needs more gets it as an
+ * override (`planOverrides.asset_bytes_per_robot`), and no plan below
+ * Enterprise raises it — a consumer that names the way up from this limit
+ * must not read it off `nextPlanRaising`, which answers `enterprise`.
+ *
  * Live video is in milliseconds, asset storage in decimal bytes per robot;
  * Enterprise's limits and features are `null` / `true` throughout because
  * they are set by contract, not read off this table.
@@ -197,7 +210,7 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
     },
     features: {
       app_mcp: false,
-      two_factor: false,
+      two_factor: true,
       require_two_factor: false,
       app_oidc: false,
       hosted_logo: false,
@@ -211,12 +224,12 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
     id: 'plus',
     name: 'Plus',
     limits: {
-      seats: 3,
+      seats: 5,
       robots: 3,
       apps: 3,
-      app_users: 25,
+      app_users: 100,
       live_video_ms_per_month: 360_000_000,
-      asset_bytes_per_robot: 2_000_000_000,
+      asset_bytes_per_robot: 1_000_000_000,
       history_days: 30,
       audit_days: 30,
       collection_records: 250_000,
@@ -231,19 +244,19 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       audit_export: true,
       addons: false,
     },
-    prices: pricesFromEurMonth(2900),
+    prices: pricesFromEurMonth(3000),
     support: 'email',
   },
   pro: {
     id: 'pro',
     name: 'Pro',
     limits: {
-      seats: 5,
-      robots: 5,
-      apps: 5,
-      app_users: 50,
-      live_video_ms_per_month: 900_000_000,
-      asset_bytes_per_robot: 3_000_000_000,
+      seats: 15,
+      robots: 10,
+      apps: 10,
+      app_users: 500,
+      live_video_ms_per_month: 1_800_000_000,
+      asset_bytes_per_robot: 1_000_000_000,
       history_days: 90,
       audit_days: 90,
       collection_records: 1_000_000,
@@ -258,7 +271,7 @@ export const PLANS: Readonly<Record<PlanId, PlanCatalogueEntry>> = {
       audit_export: true,
       addons: true,
     },
-    prices: pricesFromEurMonth(14900),
+    prices: pricesFromEurMonth(15000),
     support: 'priority',
   },
   enterprise: {

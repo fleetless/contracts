@@ -214,14 +214,19 @@ describe('the C.4 declaration: one sentence and one button label per action', ()
   it('refuses a wrong sentence, a wrong label or a sentence of another action', () => {
     const snapshot = snapshotFor({ action: 'checkout', plan: 'plus', cycle: 'monthly', treatment: 'de_standard' })
     const declaration = snapshot.declaration
+    // The amounts come from the catalogue through `snapshotFor`, so the wrong ones are derived from the snapshot, never typed: a
+    // typed price that the catalogue has moved away from replaces nothing, and the "wrong" variant would be the right declaration.
+    const gross = formatEur(snapshot.amounts.due_today_gross_cents), net = formatEur(snapshot.amounts.plan_net_cents)
+    expect(gross).not.toBe(net)
+    expect(declaration.text).toContain(gross)
     const variants = [
-      { ...declaration, text: declaration.text.replace('34,51 €', '29 €') },
+      { ...declaration, text: declaration.text.replace(gross, net) },
       { ...declaration, text: declaration.text.replace('Acme Robotics', 'Other GmbH') },
       { ...declaration, text: declaration.text.replace('every month', 'every year') },
       { ...declaration, action_label: 'Order and pay' },
-      { ...declaration, action_label: 'Pay 29 € with Mollie' },
+      { ...declaration, action_label: `Pay ${net} with Mollie` },
       { ...declaration, text_id: 'C4-1168-pay-and-switch' },
-      { ...c4Declaration('pay_and_switch', { org, plan: 'plus', dueCents: 3451, periodGrossCents: 3451, cycle: 'monthly' }), terms, dpa },
+      { ...c4Declaration('pay_and_switch', { org, plan: 'plus', dueCents: snapshot.amounts.due_today_gross_cents, periodGrossCents: snapshot.amounts.period_gross_cents, cycle: 'monthly' }), terms, dpa },
       { ...declaration, text_id: 'DR-1374-draft-3-C.4' },
       { ...declaration, action_label: undefined },
       { ...declaration, extra: true },
