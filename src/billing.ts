@@ -559,14 +559,16 @@ export function formatEur(cents: number): string {
 /**
  * What the owner's one click does: buy a first plan, pay now and switch,
  * switch at no charge, switch from yearly to monthly at the period end,
- * schedule a lower plan (or fewer add-ons), or cancel to Basic.
+ * schedule a lower plan (or fewer add-ons), cancel to Basic, or stay on
+ * Basic and delete what was not kept.
  */
-export const C4_ACTIONS = ['checkout', 'pay_and_switch', 'switch', 'schedule_switch', 'schedule_downgrade', 'cancel'] as const
+export const C4_ACTIONS = ['checkout', 'pay_and_switch', 'switch', 'schedule_switch', 'schedule_downgrade', 'cancel', 'keep_basic'] as const
 export type C4Action = (typeof C4_ACTIONS)[number]
 
 /** The approved sentence of each action, by id, in the order of `C4_ACTIONS`. */
 export const C4_TEXT_IDS = [
   'C4-1168-checkout', 'C4-1168-pay-and-switch', 'C4-1168-switch', 'C4-1168-schedule-switch', 'C4-1168-schedule-downgrade', 'C4-1168-cancel',
+  'C4-1168-keep-basic',
 ] as const
 export type C4TextId = (typeof C4_TEXT_IDS)[number]
 
@@ -584,7 +586,7 @@ export interface C4DeclarationText {
 /** What a sentence is written from: the organization, the plan it names, the amount due now, the period's gross and its cycle. */
 export interface C4DeclarationValues {
   org: string
-  /** The plan ordered; for `cancel`, the plan cancelled. */
+  /** The plan ordered; for `cancel`, the plan cancelled; unused by `keep_basic`. */
   plan: PlanId
   dueCents: number
   periodGrossCents: number
@@ -612,6 +614,8 @@ export function c4Declaration(action: C4Action, v: C4DeclarationValues): C4Decla
         return [`Schedule downgrade to ${plan}`, `you order ${plan} for ${v.org} as a business from the end of the current period, ${legal}, and authorise Fleetless to charge ${gross} every ${period} from then until you cancel.`]
       case 'cancel':
         return ['Cancel at period end', `you cancel ${plan} for ${v.org} at the end of the current period; ${v.org} then stays on Basic under the Terms of Service and the Data Processing Agreement, and nothing more is charged.`]
+      case 'keep_basic':
+        return ['Delete the rest and stay on Basic', `${v.org} stays on Basic under the Terms of Service and the Data Processing Agreement; what you did not keep is deleted, and nothing is charged.`]
     }
   })()
   return { text_id: C4_TEXT_IDS[C4_ACTIONS.indexOf(action)]!, text: `By selecting “${label}”, ${rest}`, action_label: label }
@@ -631,15 +635,21 @@ export type C4From = PlanId | { plan: PlanId; cycle?: BillingCycle }
 /**
  * The action of a decision. `checkout` for a first purchase; a paid change
  * charging now is `pay_and_switch`, one taking effect now at no charge
- * `switch`; a plan change to Basic is `cancel`, to another plan
- * `schedule_downgrade`. A scheduled paid change is `schedule_downgrade` for a
+ * `switch`; a plan change to another plan is `schedule_downgrade`, to Basic
+ * `cancel` from Plus or Pro and `keep_basic` from Basic or Enterprise (a
+ * grandfathered plan): that needs `from`, and throws without it. A scheduled paid change is `schedule_downgrade` for a
  * lower plan or fewer add-ons and `schedule_switch` for yearly to monthly on
  * the same plan: that needs `from` when the target is monthly, and throws
  * without it.
  */
 export function c4ActionOf(s: C4Decision, from?: C4From): C4Action {
   if (s.decision_kind === 'checkout') return 'checkout'
-  if (s.decision_kind === 'plan_change') return s.selection.plan === 'basic' ? 'cancel' : 'schedule_downgrade'
+  if (s.decision_kind === 'plan_change') {
+    if (s.selection.plan !== 'basic') return 'schedule_downgrade'
+    if (from === undefined) throw new Error('c4ActionOf: a plan change to Basic needs the current plan to tell a cancellation from keeping Basic')
+    const current = typeof from === 'string' ? from : from.plan
+    return current === 'plus' || current === 'pro' ? 'cancel' : 'keep_basic'
+  }
   if (s.amounts.due_today_gross_cents > 0) return 'pay_and_switch'
   if (s.period.anchor !== 'existing_period' || s.period.effective.mode === 'on_confirmation') return 'switch'
   if (s.selection.cycle === 'yearly') return 'schedule_downgrade'
@@ -651,6 +661,7 @@ export function c4ActionOf(s: C4Decision, from?: C4From): C4Action {
 
 /** Every action a snapshot can carry when the plan it starts from is not known. */
 function c4ActionsOf(s: C4Decision): C4Action[] {
+  if (s.decision_kind === 'plan_change' && s.selection.plan === 'basic') return ['cancel', 'keep_basic']
   if (s.decision_kind !== 'paid_change' || s.amounts.due_today_gross_cents > 0
     || s.period.anchor !== 'existing_period' || s.period.effective.mode === 'on_confirmation') return [c4ActionOf(s)]
   return s.selection.cycle === 'monthly' ? ['schedule_switch', 'schedule_downgrade'] : ['schedule_downgrade']
@@ -667,6 +678,7 @@ const labelRules: Record<C4TextId, object> = {
   'C4-1168-schedule-switch': { const: 'Switch to monthly at period end' },
   'C4-1168-schedule-downgrade': { pattern: '^Schedule downgrade to \\S.*$' },
   'C4-1168-cancel': { const: 'Cancel at period end' },
+  'C4-1168-keep-basic': { const: 'Delete the rest and stay on Basic' },
 }
 const declaration = z.object({
   text_id: z.enum(C4_TEXT_IDS).meta({ description: 'The approved sentence this display shows, one per action.' }),

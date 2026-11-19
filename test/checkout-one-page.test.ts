@@ -32,7 +32,7 @@ interface Case { action: C4Action; plan: Paid; cycle: BillingCycle; treatment: V
 /** A snapshot the cloud could issue for this action, with the declaration c4Declaration writes for it. */
 function snapshotFor({ action, plan, cycle, treatment }: Case) {
   const rate = RATE[treatment]
-  const target = action === 'cancel' ? 'basic' : plan
+  const target = action === 'cancel' || action === 'keep_basic' ? 'basic' : plan
   const planNet = PLANS[target].prices![cycle === 'monthly' ? 'eur_month' : 'eur_year']
   const period = chargeAmounts(planNet, rate)
   const quoteNet = action === 'checkout' ? planNet : action === 'pay_and_switch' ? 1500 : 0
@@ -54,7 +54,7 @@ function snapshotFor({ action, plan, cycle, treatment }: Case) {
       ? { mode, at: '2026-10-25T01:30:00Z', at_period_end: true }
       : { mode, quoted_as_of_at: '2026-10-12T08:00:00Z', local_date: '2026-10-12' },
   })
-  const kind = action === 'checkout' ? 'checkout' : action === 'cancel' || (action === 'schedule_downgrade' && plan === 'plus') ? 'plan_change' : 'paid_change'
+  const kind = action === 'checkout' ? 'checkout' : action === 'cancel' || action === 'keep_basic' || (action === 'schedule_downgrade' && plan === 'plus') ? 'plan_change' : 'paid_change'
   const selection = { plan: target, cycle, addons: zeroAddons, ...(kind === 'plan_change' ? { keep: null } : {}) }
   const snapshot = {
     snapshot_id: id, decision_kind: kind, decision_id: '88791f9a-fae3-4f4b-87c0-b204e45d6a90', operation_key: operationKey,
@@ -74,12 +74,13 @@ function snapshotFor({ action, plan, cycle, treatment }: Case) {
   return snapshot
 }
 
-const plansFor = (_action: C4Action): Paid[] => ['plus', 'pro']
+// Keeping Basic names no plan: one case per cycle and treatment is enough.
+const plansFor = (action: C4Action): Paid[] => action === 'keep_basic' ? ['plus'] : ['plus', 'pro']
 const cyclesFor = (action: C4Action): BillingCycle[] => action === 'schedule_switch' ? ['monthly'] : ['monthly', 'yearly']
 const CASES: Case[] = C4_ACTIONS.flatMap(action => plansFor(action).flatMap(plan => cyclesFor(action).flatMap(cycle =>
   (['de_standard', 'reverse_charge', 'outside_eu'] as const).map(treatment => ({ action, plan, cycle, treatment })))))
 // Where the org stands before each decision. A Pro downgrade on the same plan is fewer add-ons.
-const fromOf = ({ action, plan, cycle }: Case) => action === 'checkout' ? 'basic' as const
+const fromOf = ({ action, plan, cycle }: Case) => action === 'checkout' || action === 'keep_basic' ? 'basic' as const
   : action === 'schedule_downgrade' && plan === 'plus' ? 'pro' as const
   : action === 'schedule_downgrade' ? { plan, cycle }
   : action === 'schedule_switch' ? { plan, cycle: 'yearly' as const }
@@ -113,9 +114,9 @@ describe('formatEur writes money the way the console does', () => {
 })
 
 describe('the C.4 declaration: one sentence and one button label per action', () => {
-  it('names six actions, each with its own text id', () => {
-    expect(C4_ACTIONS).toEqual(['checkout', 'pay_and_switch', 'switch', 'schedule_switch', 'schedule_downgrade', 'cancel'])
-    expect(C4_TEXT_IDS).toEqual(['C4-1168-checkout', 'C4-1168-pay-and-switch', 'C4-1168-switch', 'C4-1168-schedule-switch', 'C4-1168-schedule-downgrade', 'C4-1168-cancel'])
+  it('names seven actions, each with its own text id', () => {
+    expect(C4_ACTIONS).toEqual(['checkout', 'pay_and_switch', 'switch', 'schedule_switch', 'schedule_downgrade', 'cancel', 'keep_basic'])
+    expect(C4_TEXT_IDS).toEqual(['C4-1168-checkout', 'C4-1168-pay-and-switch', 'C4-1168-switch', 'C4-1168-schedule-switch', 'C4-1168-schedule-downgrade', 'C4-1168-cancel', 'C4-1168-keep-basic'])
     for (const [i, action] of C4_ACTIONS.entries()) {
       expect(c4Declaration(action, { org, plan: 'plus', dueCents: 3451, periodGrossCents: 3451, cycle: 'monthly' }).text_id).toBe(C4_TEXT_IDS[i])
     }
@@ -155,13 +156,23 @@ describe('the C.4 declaration: one sentence and one button label per action', ()
     })
   })
 
+  it('writes the keep-Basic sentence and label, whatever plan and amounts it is given', () => {
+    const expected = {
+      text_id: 'C4-1168-keep-basic',
+      action_label: 'Delete the rest and stay on Basic',
+      text: 'By selecting “Delete the rest and stay on Basic”, Acme Robotics stays on Basic under the Terms of Service and the Data Processing Agreement; what you did not keep is deleted, and nothing is charged.',
+    }
+    expect(c4Declaration('keep_basic', { org, plan: 'basic', dueCents: 0, periodGrossCents: 0, cycle: 'monthly' })).toEqual(expected)
+    expect(c4Declaration('keep_basic', { org, plan: 'enterprise', dueCents: 0, periodGrossCents: 0, cycle: 'yearly' })).toEqual(expected)
+  })
+
   it.each(CASES)('$action, $plan $cycle, $treatment: the snapshot parses and names its action', (c) => {
     const snapshot = snapshotFor(c)
     const parsed = billingDecisionSnapshot.safeParse(snapshot)
     expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true)
     expect(storedBillingDecisionSnapshot.safeParse(snapshot).success).toBe(true)
     expect(c4ActionOf(parsed.data!, fromOf(c))).toBe(c.action)
-    expect(snapshot.declaration.text.startsWith(`By selecting “${snapshot.declaration.action_label}”, you `)).toBe(true)
+    expect(snapshot.declaration.text.startsWith(`By selecting “${snapshot.declaration.action_label}”, ${c.action === 'keep_basic' ? org : 'you'} `)).toBe(true)
   })
 
   it('derives the action from the decision and the plan it starts from', () => {
@@ -170,7 +181,18 @@ describe('the C.4 declaration: one sentence and one button label per action', ()
     expect(c4ActionOf(at({ ...base, action: 'checkout' }))).toBe('checkout')
     expect(c4ActionOf(at({ ...base, action: 'pay_and_switch' }))).toBe('pay_and_switch')
     expect(c4ActionOf(at({ ...base, action: 'switch' }))).toBe('switch')
-    expect(c4ActionOf(at({ ...base, action: 'cancel' }))).toBe('cancel')
+    // A plan change to Basic cancels a Plus or Pro plan, unchanged ...
+    const toBasic = at({ ...base, action: 'cancel' })
+    expect(c4ActionOf(toBasic, 'plus')).toBe('cancel')
+    expect(c4ActionOf(toBasic, 'pro')).toBe('cancel')
+    expect(c4ActionOf(toBasic, { plan: 'pro', cycle: 'yearly' })).toBe('cancel')
+    // ... and keeps Basic for an org already on Basic or coming from Enterprise or a grandfathered plan.
+    expect(c4ActionOf(toBasic, 'basic')).toBe('keep_basic')
+    expect(c4ActionOf(toBasic, 'enterprise')).toBe('keep_basic')
+    expect(c4ActionOf(toBasic, { plan: 'enterprise', cycle: 'yearly' })).toBe('keep_basic')
+    expect(c4ActionOf(at({ ...base, action: 'keep_basic' }), 'basic')).toBe('keep_basic')
+    // Without the current plan, a plan change to Basic is ambiguous, and says so.
+    expect(() => c4ActionOf(toBasic)).toThrow(/current plan/)
     // A downward plan change prepared on its own route never needs the current plan.
     expect(c4ActionOf(at({ ...base, plan: 'plus', action: 'schedule_downgrade' }))).toBe('schedule_downgrade')
     // A scheduled paid change: a lower plan downgrades, the same plan on a monthly cycle switches the cycle.
@@ -212,6 +234,26 @@ describe('the C.4 declaration: one sentence and one button label per action', ()
     const cancel = snapshotFor({ action: 'cancel', plan: 'plus', cycle: 'monthly', treatment: 'de_standard' })
     const asBasic = c4Declaration('cancel', { org, plan: 'basic', dueCents: 0, periodGrossCents: 0, cycle: 'monthly' })
     expect(billingDecisionSnapshot.safeParse({ ...cancel, declaration: { ...asBasic, terms, dpa } }).success).toBe(false)
+    // Keeping Basic: exactly its own sentence and label, only on a plan change to Basic.
+    const keep = snapshotFor({ action: 'keep_basic', plan: 'plus', cycle: 'monthly', treatment: 'de_standard' })
+    expect(billingDecisionSnapshot.safeParse(keep).success).toBe(true)
+    const keepWrong = [
+      { ...keep.declaration, text: keep.declaration.text.replace('Acme Robotics', 'Other GmbH') },
+      { ...keep.declaration, text: keep.declaration.text.replace('nothing is charged', 'nothing more is charged') },
+      { ...keep.declaration, text: keep.declaration.text.replace(/[“”]/g, '"') },
+      { ...keep.declaration, action_label: 'Cancel at period end' },
+      { ...keep.declaration, action_label: 'Delete the rest and stay on basic' },
+      { ...c4Declaration('cancel', { org, plan: 'plus', dueCents: 0, periodGrossCents: 0, cycle: 'monthly' }), text_id: 'C4-1168-keep-basic', terms, dpa },
+    ]
+    for (const wrong of keepWrong) {
+      expect(billingDecisionSnapshot.safeParse({ ...keep, declaration: wrong }).success, JSON.stringify(wrong)).toBe(false)
+      expect(storedBillingDecisionSnapshot.safeParse({ ...keep, declaration: wrong }).success, JSON.stringify(wrong)).toBe(false)
+    }
+    const keepDeclaration = { ...c4Declaration('keep_basic', { org, plan: 'basic', dueCents: 0, periodGrossCents: 0, cycle: 'monthly' }), terms, dpa }
+    for (const action of ['checkout', 'pay_and_switch', 'switch', 'schedule_downgrade'] as const) {
+      const other = snapshotFor({ action, plan: 'plus', cycle: 'monthly', treatment: 'de_standard' })
+      expect(billingDecisionSnapshot.safeParse({ ...other, declaration: keepDeclaration }).success, action).toBe(false)
+    }
     // A cycle switch is only ever to monthly.
     const yearlySwitch = snapshotFor({ action: 'schedule_downgrade', plan: 'pro', cycle: 'yearly', treatment: 'de_standard' })
     const asSwitch = c4Declaration('schedule_switch', { org, plan: 'pro', dueCents: 0, periodGrossCents: yearlySwitch.amounts.period_gross_cents, cycle: 'yearly' })
@@ -224,6 +266,9 @@ describe('the C.4 declaration: one sentence and one button label per action', ()
     expect(validate(snapshot), ajv.errorsText(validate.errors)).toBe(true)
     expect(validate({ ...snapshot, declaration: { ...snapshot.declaration, action_label: 'Order and pay' } })).toBe(false)
     expect(validate({ ...snapshot, declaration: { ...snapshot.declaration, text_id: 'DR-1374-draft-3-C.4' } })).toBe(false)
+    const keep = snapshotFor({ action: 'keep_basic', plan: 'plus', cycle: 'monthly', treatment: 'de_standard' })
+    expect(validate(keep), ajv.errorsText(validate.errors)).toBe(true)
+    expect(validate({ ...keep, declaration: { ...keep.declaration, action_label: 'Cancel at period end' } })).toBe(false)
     const { action_label: _label, ...withoutLabel } = snapshot.declaration
     expect(validate({ ...snapshot, declaration: withoutLabel })).toBe(false)
   })
