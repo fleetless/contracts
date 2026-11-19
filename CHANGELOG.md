@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [16.0.0] — 2026-11-19
+
 ### Changed
 
 - **BREAKING: one consent sentence and one button label per C.4 action**
