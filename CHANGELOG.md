@@ -17,8 +17,12 @@ version.
   action in `C4_ACTIONS`: `checkout` (`Pay 34,51 € with Mollie`),
   `pay_and_switch` (`Pay 95 € and switch`), `switch` (`Switch to Pro`),
   `schedule_switch` (`Switch to monthly at period end`),
-  `schedule_downgrade` (`Schedule downgrade to Plus`) and `cancel`
-  (`Cancel at period end`). The snapshot parses only when `text` and
+  `schedule_downgrade` (`Schedule downgrade to Plus`), `cancel`
+  (`Cancel at period end`) and `keep_basic` (`Delete the rest and stay on
+  Basic`), a plan change to Basic for an organization already on Basic or
+  coming from Enterprise or a grandfathered plan, where there is no Plus or
+  Pro plan to cancel. `c4ActionOf` needs `from` for a plan change to Basic and
+  throws without it. The snapshot parses only when `text` and
   `action_label` are exactly what `c4Declaration` writes for its own action,
   amounts, plan, cycle and organization. The single `Order and pay` sentence
   (`DR-1374-draft-3-C.4`) no longer parses as a new display. A producer builds

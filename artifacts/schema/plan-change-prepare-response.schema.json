@@ -972,7 +972,8 @@
                         "C4-1168-switch",
                         "C4-1168-schedule-switch",
                         "C4-1168-schedule-downgrade",
-                        "C4-1168-cancel"
+                        "C4-1168-cancel",
+                        "C4-1168-keep-basic"
                       ],
                       "description": "The approved sentence this display shows, one per action."
                     },
@@ -1161,6 +1162,25 @@
                         "properties": {
                           "action_label": {
                             "const": "Cancel at period end"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "text_id": {
+                            "const": "C4-1168-keep-basic"
+                          }
+                        },
+                        "required": [
+                          "text_id"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "action_label": {
+                            "const": "Delete the rest and stay on Basic"
                           }
                         }
                       }
@@ -2151,7 +2171,8 @@
                         "C4-1168-switch",
                         "C4-1168-schedule-switch",
                         "C4-1168-schedule-downgrade",
-                        "C4-1168-cancel"
+                        "C4-1168-cancel",
+                        "C4-1168-keep-basic"
                       ],
                       "description": "The approved sentence this display shows, one per action."
                     },
@@ -2340,6 +2361,25 @@
                         "properties": {
                           "action_label": {
                             "const": "Cancel at period end"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "text_id": {
+                            "const": "C4-1168-keep-basic"
+                          }
+                        },
+                        "required": [
+                          "text_id"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "action_label": {
+                            "const": "Delete the rest and stay on Basic"
                           }
                         }
                       }
@@ -3330,7 +3370,8 @@
                         "C4-1168-switch",
                         "C4-1168-schedule-switch",
                         "C4-1168-schedule-downgrade",
-                        "C4-1168-cancel"
+                        "C4-1168-cancel",
+                        "C4-1168-keep-basic"
                       ],
                       "description": "The approved sentence this display shows, one per action."
                     },
@@ -3519,6 +3560,25 @@
                         "properties": {
                           "action_label": {
                             "const": "Cancel at period end"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "text_id": {
+                            "const": "C4-1168-keep-basic"
+                          }
+                        },
+                        "required": [
+                          "text_id"
+                        ]
+                      },
+                      "then": {
+                        "properties": {
+                          "action_label": {
+                            "const": "Delete the rest and stay on Basic"
                           }
                         }
                       }
