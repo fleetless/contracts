@@ -9,6 +9,16 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **`billingAccount.current_price`** (`GET /api/billing`,
+  fleetless/fleetless#1175): what one period of the current plan costs the
+  organization, `{ net_cents }`, at the price it agreed. The catalogue price
+  and the agreed price differ once the catalogue changes, so a consumer shows
+  this as the price of a billed organization and never reads it off `PLANS`.
+  `null` when no agreed price is recorded for the current plan, cycle and
+  add-ons. The field is always present.
+
 ### Changed
 
 - **The plan catalogue** (fleetless/fleetless#1175). `PLANS` keeps its shape

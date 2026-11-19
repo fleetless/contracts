@@ -8,6 +8,7 @@ import {
 import * as billing from '../src/billing.js'
 import { operationKey, company, intentBase, pendingIntent, eligibleIntent, heldIntent, startedIntent } from './purchase-fixtures.js'
 import { ERROR_CODES, paymentProviderUnavailableDetails } from '../src/errors.js'
+import { PLANS } from '../src/plans.js'
 
 const NONE = { seats: 0, robots: 0, apps: 0, app_user_packs: 0, live_video_packs: 0 }
 const at = (s: string) => new Date(s)
@@ -213,9 +214,19 @@ describe('purchase contracts and historical reads', () => {
     expect(billing.billingDetailsUpdate.parse({ company_name: 'New Buyer', tax_id: 'TIN 42', address: { ...company.address, country: 'US', state: 'NY' }, invoice_email: 'finance@buyer.example' })).toMatchObject({ tax_id: 'TIN 42', address: { state: 'NY' } })
   })
   it('retains a person/USD account and invoice without changing the currency', () => {
-    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, scheduled: { cycle: null, addons: null }, dunning: null }
+    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'outside_eu', rate_percent: 0 }, currency: 'usd', cycle: 'monthly', status: 'active', period_starts_at: null, period_ends_at: null, next_charge: null, current_price: null, scheduled: { cycle: null, addons: null }, dunning: null }
     expect(billingAccount.parse(account).currency).toBe('usd')
     expect(billingInvoice.parse({ id: intentBase.intent_id, number: 'FL-2026-0001', issued_at: '2026-10-01T00:00:00Z', status: 'open', cancellation_document_url: null, currency: 'usd', net_cents: 17200, vat_rate_percent: 0, vat_cents: 0, gross_cents: 17200 }).currency).toBe('usd')
+  })
+  it('carries the agreed price of the current period, or null, and never omits it (fleetless/fleetless#1175)', () => {
+    const account = { payer: { kind: 'person', full_name: 'Ada', address: company.address, invoice_email: 'ada@example.com' }, vat_id_status: null, vat: { treatment: 'de_standard', rate_percent: 19 }, currency: 'eur', cycle: 'monthly', status: 'active', period_starts_at: '2026-11-01T00:00:00Z', period_ends_at: '2026-12-01T00:00:00Z', next_charge: { at: '2026-12-01T00:00:00Z', net_cents: 2900, vat_cents: 551, gross_cents: 3451 }, current_price: { net_cents: 2900 }, scheduled: { cycle: null, addons: null }, dunning: null }
+    // An organization that agreed 29 € keeps reading 29 € while the catalogue says 30 €.
+    expect(billingAccount.parse(account).current_price).toEqual({ net_cents: 2900 })
+    expect(PLANS.plus.prices?.eur_month).toBe(3000)
+    expect(billingAccount.parse({ ...account, current_price: null }).current_price).toBeNull()
+    const { current_price: _dropped, ...without } = account
+    expect(billingAccount.safeParse(without).success).toBe(false)
+    expect(billingAccount.safeParse({ ...account, current_price: { net_cents: 29.5 } }).success).toBe(false)
   })
   it.each([pendingIntent, eligibleIntent, heldIntent])('has no redirect before payment: $state', (intent) => {
     expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)
