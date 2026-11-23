@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [18.0.0] — 2026-11-23
+
 ### Changed
 
 - **BREAKING: `vies_unavailable` says which side of VIES was down**
