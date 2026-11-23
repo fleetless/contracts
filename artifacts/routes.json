@@ -6915,10 +6915,12 @@
         "token_revoked",
         "tier_required",
         "validation_error",
-        "not_found"
+        "not_found",
+        "target_state_conflict",
+        "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Supply exactly one of operation_key or intent_id and the expected operation. Scope lookup to the authenticated owner and org; unknown, foreign-org or mismatched-operation intents return 404 without disclosure. Repeating a lookup after restart or lost response returns the same intent/payment identity and, for a paid change, its billing result. A proof is never returned here; a still-eligible decision needs a fresh C.4 display and explicit Owner click."
+      "notes": "Supply exactly one of operation_key or intent_id and the expected operation. Scope lookup to the authenticated owner and org; unknown, foreign-org or mismatched-operation intents return 404 without disclosure. Repeating a lookup after restart or lost response returns the same intent/payment identity and, for a paid change, its billing result. A proof is never returned here; a still-eligible decision needs a fresh C.4 display and explicit Owner click. A started hosted payment is read at the provider first: 409 target_state_conflict with `{ field: billing, rule: checkout_not_open }` when it is no longer open there (paid, canceled, expired or failed), and 502 payment_provider_unavailable when the provider does not answer. A `mandate_setup` whose payment the provider never answered also answers that 502: send its `POST /api/billing/payment-method` again with the same key."
     },
     {
       "method": "POST",
@@ -7046,7 +7048,7 @@
       "method": "PATCH",
       "path": "/api/billing/details",
       "section": "billing",
-      "summary": "Edits company billing details for revalidation before the next charge.",
+      "summary": "Edits the company's billing details; details a purchase would refuse are not saved.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": false,
@@ -7062,10 +7064,11 @@
         "token_revoked",
         "tier_required",
         "validation_error",
-        "not_found"
+        "not_found",
+        "target_state_conflict"
       ],
       "transport": "http",
-      "notes": "404 not_found when no billing account exists. Edits may change company name, full address/state, Tax ID, VAT ID and invoice email. Validate the merged buyer before a later charge; edits invalidate old evidence and quote revisions. Revalidate the email policy and country requirements. An edit does not create a payment, activate a plan, pay an invoice, clear dunning or lift a lock."
+      "notes": "404 not_found when no billing account exists. Send only the fields that change: company name, full address with state, Tax ID, VAT ID, invoice email. The merged company is decided as a checkout decides its buyer, and saved only when a purchase would accept it. Every refusal is 409 target_state_conflict with `billingDetailsConflictDetails` and saves nothing: `{ field, rule }` for a field a purchase refuses (`rule` a `purchaseRefusalRule`; `field` one of `billing.kind`, `billing.vat_id`, `billing.tax_id`, `billing.address.state`, `billing.invoice_email`), `vat_id_invalid` at `billing.vat_id` when VIES does not know the VAT ID; `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`) when VIES did not answer within its 15 seconds: send the same edit again; `{ field: billing, rule: buyer_changed }` when the details changed while the edit was decided: read `GET /api/billing` and send it again. VIES is asked only when the country or the VAT ID changes, in another EU country; any other edit keeps the recorded VIES answer and needs none. A saved edit re-prices open due charges, updates the invoicing contact and invalidates quotes made for the old details. An issued invoice keeps the details it was issued with. An edit creates no payment, activates no plan, pays no invoice, clears no dunning and lifts no lock. A person account from before company-only purchases is saved without these checks; it cannot buy."
     },
     {
       "method": "POST",
@@ -7100,7 +7103,7 @@
       "method": "POST",
       "path": "/api/billing/payment-method",
       "section": "billing",
-      "summary": "Records an invoice-paying method intent or a held mandate setup.",
+      "summary": "Starts a payment-method change: a hosted payment of 0.00 for a new mandate.",
       "audience": "developer",
       "auth": "developer",
       "rateLimited": true,
@@ -7123,7 +7126,7 @@
         "payment_provider_unavailable"
       ],
       "transport": "http",
-      "notes": "Use a stable operation_key and owner intent lookup after reload/timeout. Offer payment_method_options. Apple Pay with zero-amount changes disabled pays an open invoice through operation payment_method_invoice; without one, 400 validation_error has field method and rule applepay_needs_open_invoice. Apply the same buyer/VIES gate, current-amount reconfirmation and USD legacy hold as invoices/:id/pay. Pending, eligible and held contain no checkout URL; redirect only on payment_started.payment.kind hosted. A 0.00 mandate-only setup uses operation mandate_setup and held/mandate_policy_unresolved until the integration decision settles eligibility and currency. It pays no invoice and clears no dunning or lock. An invoice charged back is never retried automatically. 404 not_found when no account exists. Same key with changed input is a typed operation_key_reused conflict."
+      "notes": "Offer `payment_method_options`. A change is a 0.00 `first` payment on the provider's hosted page, restricted to the chosen method: the answer is operation `mandate_setup` in `payment_started` with `payment.kind` hosted at once; redirect to its `checkout_url`. Nothing is quoted, so there is no `eligible` step, no confirmation and no VIES. It pays no invoice and clears no dunning or lock: open invoices stay open. When the provider reports it paid, the new mandate is the account's and every other valid mandate of the customer is revoked; canceled, expired or failed, nothing changes. `GET /api/billing/checkout/:id` with the `checkout_id` reads the outcome (`purpose: payment_method`). Use one operation_key per method until its payment is finished. The same key again answers 200 with the same `payment_started` while the payment is open. 502 payment_provider_unavailable when the provider did not answer: the same key again resumes, and sends the same payment again under the same idempotency key. 409 target_state_conflict with `{ field: billing, rule: checkout_not_open }` when the key's payment is finished or can no longer be sent: start again with a new key. Same key with another method is a typed operation_key_reused conflict. A change stored while changes were on hold reads `held` with `mandate_policy_unresolved`; start again with a new key. Apple Pay with zero-amount changes disabled pays an open invoice through operation payment_method_invoice, with the buyer/VIES gate, current-amount reconfirmation and USD legacy hold of invoices/:id/pay; without an open invoice, 400 validation_error has field method and rule applepay_needs_open_invoice. An invoice charged back is never retried automatically. 404 not_found when no billing account is active or past due."
     },
     {
       "method": "POST",

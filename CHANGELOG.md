@@ -9,6 +9,40 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a payment-method change starts a payment**
+  (fleetless/fleetless#1185). `POST /api/billing/payment-method` answers
+  operation `mandate_setup` in `payment_started` with a hosted payment of
+  0.00: redirect to its `checkout_url`. `checkoutResponse`, `purchaseIntent`,
+  `purchaseIntentPaymentStarted` and `purchaseIntentResponse` admit
+  `mandate_setup` there, hosted only; an older schema rejects that answer. The
+  rule "`mandate_setup` if and only if `mandate_policy_unresolved`" is one-way
+  now: the hold reason still names only a mandate setup (a change stored while
+  changes were on hold), and a held mandate setup has only that reason, but a
+  new change is never held. A mandate setup is never `eligible`,
+  `awaiting_vies`, `invalid_vat_id` or `refused`: nothing is quoted and VIES is
+  not asked. The same key again answers the same payment; `502
+  payment_provider_unavailable` resumes under the same key; `409
+  target_state_conflict` with `{ field: billing, rule: checkout_not_open }`
+  means the key's payment is finished.
+- **`PATCH /api/billing/details` saves only what a purchase would accept.** The
+  route lists `409 target_state_conflict`; its notes name the refusals, when
+  VIES is asked and what a saved edit does.
+- **`GET /api/billing/intents` lists `409 target_state_conflict` and `502
+  payment_provider_unavailable`**, which it has answered for a hosted payment
+  read at the provider. A mandate setup the provider never answered reads as
+  that `502`.
+
+### Added
+
+- **`billingDetailsConflictDetails`**: the `409` details of
+  `PATCH /api/billing/details`. `{ field, rule }` with a
+  `purchaseRefusalRule` for a field a purchase would refuse,
+  `viesUnavailableDetails` when VIES did not answer, and
+  `{ field: billing, rule: buyer_changed }` when the details changed
+  meanwhile. Nothing is saved in any of them.
+
 ## [16.1.0] — 2026-11-23
 
 ### Added

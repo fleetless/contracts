@@ -445,6 +445,7 @@ import {
   billingChangeRequest,
   billingCancelRequest,
   billingDetailsUpdate,
+  billingDetailsConflictDetails,
   paymentMethodChangeRequest,
   billingInvoice,
   billingInvoicePdfQuery,
@@ -850,6 +851,7 @@ export const exportedSchemas = {
   'billing-change-request': billingChangeRequest,
   'billing-cancel-request': billingCancelRequest,
   'billing-details-update': billingDetailsUpdate,
+  'billing-details-conflict-details': billingDetailsConflictDetails,
   'payment-method-change-request': paymentMethodChangeRequest,
   'checkout-response': checkoutResponse,
   'checkout-start-response': checkoutStartResponse,
@@ -1393,7 +1395,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   // The one-page checkout (2026-11-18, fleetless/fleetless#1168): the start's
   // answer, the draft read, and two `409` details — all sent, never received.
-  'checkout-start-response', 'checkout-draft-response', 'checkout-open-details', 'vies-unavailable-details',
+  'checkout-start-response', 'checkout-draft-response', 'checkout-open-details', 'vies-unavailable-details', 'billing-details-conflict-details',
   'billing-invoice', 'payment-method', 'payment-provider-unavailable-details',
 
   // --- Lexware billing documents (2026-10-19, fleetless/fleetless#544) -----

@@ -236,6 +236,46 @@ describe('purchase contracts and historical reads', () => {
     expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, quote: { ...eligibleIntent.quote, currency: 'usd' } }).success).toBe(false)
     expect(billing.checkoutResponse.safeParse({ ...eligibleIntent, operation: 'mandate_setup' }).success).toBe(false)
   })
+  describe('a mandate setup (fleetless/fleetless#1185)', () => {
+    const started = { ...startedIntent, operation: 'mandate_setup' }
+    it('starts its hosted payment at once, on every read of an intent', () => {
+      expect(billing.checkoutResponse.safeParse(started).success).toBe(true)
+      expect(billing.purchaseIntent.safeParse(started).success).toBe(true)
+      expect(billing.purchaseIntentPaymentStarted.safeParse(started).success).toBe(true)
+      expect(billing.purchaseIntentResponse.safeParse(started).success).toBe(true)
+    })
+    it('is hosted only: a mandate charge belongs to a paid change', () => {
+      const mandate = { ...started, payment: { kind: 'mandate' } }
+      expect(billing.checkoutResponse.safeParse(mandate).success).toBe(false)
+      expect(billing.purchaseIntent.safeParse(mandate).success).toBe(false)
+      expect(billing.purchaseIntentPaymentStarted.safeParse(mandate).success).toBe(false)
+    })
+    it('names no invoice and is no paid change', () => {
+      expect(billing.checkoutResponse.parse(started)).not.toHaveProperty('invoice_id')
+      expect(billing.billingChangeResponse.safeParse({ intent: started }).success).toBe(false)
+    })
+    it.each([pendingIntent, eligibleIntent,
+      { ...intentBase, state: 'invalid_vat_id', field: 'billing.vat_id', rule: 'vat_id_invalid' },
+      { ...intentBase, state: 'refused', field: 'billing.tax_id', rule: 'tax_id_required' },
+    ])('is never $state: nothing is quoted and VIES is not asked', (intent) => {
+      expect(billing.checkoutResponse.safeParse(intent).success).toBe(true)
+      expect(billing.checkoutResponse.safeParse({ ...intent, operation: 'mandate_setup' }).success).toBe(false)
+      expect(billing.purchaseIntent.safeParse({ ...intent, operation: 'mandate_setup' }).success).toBe(false)
+    })
+    it('still reads the hold stored before 17.0.0, and only that hold', () => {
+      expect(billing.checkoutResponse.safeParse(heldIntent).success).toBe(true)
+      expect(billing.purchaseIntent.safeParse(heldIntent).success).toBe(true)
+      for (const reason of ['issuer_cutover_in_progress', 'legacy_payer_unresolved', 'legacy_usd_invoice']) {
+        expect(billing.checkoutResponse.safeParse({ ...heldIntent, reason }).success, reason).toBe(false)
+      }
+    })
+    it('keeps mandate_policy_unresolved to the mandate setup', () => {
+      for (const operation of ['checkout', 'paid_change']) {
+        expect(billing.purchaseIntent.safeParse({ ...heldIntent, operation }).success, operation).toBe(false)
+      }
+      expect(billing.checkoutResponse.safeParse({ ...heldIntent, operation: 'invoice_payment', invoice_id: intentBase.intent_id }).success).toBe(false)
+    })
+  })
   it('exposes a redirect only with a persisted payment identity', () => {
     expect(billing.checkoutResponse.safeParse(startedIntent).success).toBe(true)
     expect(billing.checkoutResponse.safeParse({ ...startedIntent, payment_id: undefined }).success).toBe(false)
@@ -261,7 +301,7 @@ it('returns the current intent on a stale confirmation, with no stale payment UR
 it('holds original USD balances and does not emit a mandate-only payment', () => {
   const held = { ...heldIntent, operation: 'invoice_payment', invoice_id: intentBase.intent_id, reason: 'legacy_usd_invoice', original_amount: { currency: 'usd', gross_cents: 17200 } }
   expect(billing.checkoutResponse.parse(held)).toMatchObject({ original_amount: { currency: 'usd', gross_cents: 17200 } })
-  expect(billing.checkoutResponse.safeParse({ ...startedIntent, operation: 'mandate_setup' }).success).toBe(false)
+  expect(billing.checkoutResponse.safeParse({ ...startedIntent, operation: 'mandate_setup', payment: { kind: 'mandate' } }).success).toBe(false)
 })
 
 it('keeps the payment identity in a completed paid-change response', () => {

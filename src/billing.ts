@@ -813,6 +813,8 @@ const intentIdentity = {
  * Why an intent is held. Lexware never holds a purchase: its contact and
  * invoice follow the payment. A checkout or paid change is held only while an
  * issuer cutover runs (`issuer_cutover_in_progress`, minutes, then try again).
+ * `mandate_policy_unresolved` is written no more (fleetless/fleetless#1185): it
+ * stays for the method changes stored while they were on hold.
  */
 export const purchaseHoldReason = z.enum([
   'legacy_usd_invoice', 'legacy_payer_unresolved', 'mandate_policy_unresolved', 'issuer_cutover_in_progress',
@@ -820,10 +822,17 @@ export const purchaseHoldReason = z.enum([
 export const purchaseRefusalRule = z.enum(['company_required', 'vat_id_required', 'vat_id_invalid', 'tax_id_required', 'us_state_required', 'public_email_domain', 'invoice_not_open'])
 
 // Cross-field invariants also travel in JSON Schema so non-TypeScript callers
-// cannot treat an invoice payment as an unbound checkout or a held setup as a charge.
+// cannot treat an invoice payment as an unbound checkout or a mandate setup as a charge.
+//
+// A mandate setup (fleetless/fleetless#1185) is the 0.00 payment that changes the
+// payment method: it is `payment_started` on the hosted page, never quoted, never
+// waiting for VIES. `held` with `mandate_policy_unresolved` is only a row stored
+// while the change was on hold (2026-10-16 to 17.0.0); the reason still names no
+// other operation.
 const intentRules = [
   { if: { properties: { operation: { enum: ['invoice_payment', 'payment_method_invoice'] } }, required: ['operation'] }, then: { required: ['invoice_id'] } },
-  { if: { properties: { operation: { const: 'mandate_setup' } }, required: ['operation'] }, then: { properties: { state: { const: 'held' }, reason: { const: 'mandate_policy_unresolved' } }, required: ['reason'] } },
+  { if: { properties: { operation: { const: 'mandate_setup' } }, required: ['operation'] }, then: { properties: { state: { enum: ['held', 'payment_started'] } } } },
+  { if: { properties: { operation: { const: 'mandate_setup' }, state: { const: 'held' } }, required: ['operation', 'state'] }, then: { properties: { reason: { const: 'mandate_policy_unresolved' } }, required: ['reason'] } },
   { if: { properties: { reason: { const: 'mandate_policy_unresolved' } }, required: ['reason'] }, then: { properties: { operation: { const: 'mandate_setup' } } } },
   { if: { properties: { payment: { properties: { kind: { const: 'mandate' } }, required: ['kind'] } }, required: ['payment'] }, then: { properties: { operation: { const: 'paid_change' } } } },
 ]
@@ -831,11 +840,17 @@ function validateIntent(intent: { operation: string; invoice_id?: string; state:
   if (['invoice_payment', 'payment_method_invoice'].includes(intent.operation) && !intent.invoice_id) {
     ctx.addIssue({ code: 'custom', path: ['invoice_id'], message: 'An invoice-paying intent must name the invoice or due charge.' })
   }
-  if ((intent.operation === 'mandate_setup') !== (intent.reason === 'mandate_policy_unresolved')) {
-    ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Mandate setup remains held until its integration policy is resolved.' })
+  if (intent.operation === 'mandate_setup' && intent.state !== 'held' && intent.state !== 'payment_started') {
+    ctx.addIssue({ code: 'custom', path: ['state'], message: 'A mandate setup is a started hosted payment, or a stored hold.' })
+  }
+  if (intent.operation === 'mandate_setup' && intent.state === 'held' && intent.reason !== 'mandate_policy_unresolved') {
+    ctx.addIssue({ code: 'custom', path: ['reason'], message: 'A held mandate setup is the stored mandate_policy_unresolved hold.' })
+  }
+  if (intent.reason === 'mandate_policy_unresolved' && intent.operation !== 'mandate_setup') {
+    ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Only a mandate setup was held as mandate_policy_unresolved.' })
   }
   if (intent.payment?.kind === 'mandate' && intent.operation !== 'paid_change') {
-    ctx.addIssue({ code: 'custom', path: ['payment'], message: 'Owner checkout and invoice payment require a hosted payment.' })
+    ctx.addIssue({ code: 'custom', path: ['payment'], message: 'Owner checkout, invoice payment and mandate setup require a hosted payment.' })
   }
 }
 
@@ -855,7 +870,7 @@ export const purchaseIntentDraft = z.discriminatedUnion('state', draftVariants).
 export type PurchaseIntentDraft = z.infer<typeof purchaseIntentDraft>
 
 const paymentStartedVariant = z.object({
-    ...intentIdentity, state: z.literal('payment_started'), payment_id: z.uuid(),
+    ...intentIdentity, operation: purchaseOperation, state: z.literal('payment_started'), payment_id: z.uuid(),
     payment: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('hosted'), checkout_id: z.uuid(), checkout_url: z.url() }).strict(),
       z.object({ kind: z.literal('mandate') }).strict(),
@@ -891,8 +906,9 @@ const nonChangeDraft = z.discriminatedUnion('state', [
   draftVariants[3].safeExtend({ operation: nonChangeChargeOperation }),
   draftVariants[4].safeExtend({ operation: nonChangeChargeOperation }),
 ]).superRefine(validateIntent).meta({ allOf: intentRules })
+// A method change starts its 0.00 hosted payment at once: `mandate_setup` is `payment_started` here, and in no draft but `held`.
 const nonChangePaymentStarted = paymentStartedVariant
-  .safeExtend({ operation: nonChangeChargeOperation })
+  .safeExtend({ operation: nonChangeOperation })
   .superRefine(validateIntent).meta({ allOf: intentRules })
 const paidChangeOperation = z.literal('paid_change')
 // A paid change is decided in its request: it never waits for VIES.
@@ -987,7 +1003,7 @@ export const checkoutOpenDetails = z.object({
 }).strict()
 export type CheckoutOpenDetails = z.infer<typeof checkoutOpenDetails>
 
-/** `409 target_state_conflict` details when a paid change needs VIES and VIES did not answer. Nothing is stored. */
+/** `409 target_state_conflict` details when a paid change or a billing-details edit needs VIES and VIES did not answer. Nothing is stored. */
 export const viesUnavailableDetails = z.object({
   field: vatIdField,
   rule: z.literal('vies_unavailable'),
@@ -1103,13 +1119,34 @@ export const billingDetailsUpdate = z.object({
 export type BillingDetailsUpdate = z.infer<typeof billingDetailsUpdate>
 
 /**
+ * `PATCH /api/billing/details`'s `409 target_state_conflict` details
+ * (fleetless/fleetless#1185). Nothing is saved in any of them.
+ *
+ * - A field a purchase would refuse: `field` as the checkout names it
+ *   (`billing.kind`, `billing.vat_id`, `billing.tax_id`,
+ *   `billing.address.state`, `billing.invoice_email`), `rule` the refusal.
+ * - `vies_unavailable` (`viesUnavailableDetails`): the country or the VAT ID
+ *   changed and VIES did not answer; check again.
+ * - `buyer_changed`: the billing details changed while this edit was decided;
+ *   read them again.
+ */
+export const billingDetailsConflictDetails = z.union([
+  z.object({ field: z.string().min(1), rule: purchaseRefusalRule }).strict()
+    .meta({ description: 'A field a purchase would refuse. Nothing is saved.' }),
+  viesUnavailableDetails,
+  z.object({ field: z.literal('billing'), rule: z.literal('buyer_changed') }).strict()
+    .meta({ description: 'The billing details changed meanwhile. Nothing is saved.' }),
+])
+export type BillingDetailsConflictDetails = z.infer<typeof billingDetailsConflictDetails>
+
+/**
  * The payment methods Fleetless takes: card, PayPal and Apple Pay, in EUR and USD, and no others (André, 2026-10-04).
  * Apple Pay is a Mollie method of its own at checkout and for a change, but the mandate it leaves is a card mandate.
  */
 export const paymentMethodKind = z.enum(['card', 'paypal', 'applepay'])
 export type PaymentMethodKind = z.infer<typeof paymentMethodKind>
 
-/** `POST /api/billing/payment-method`'s body. */
+/** `POST /api/billing/payment-method`'s body. One operation key names one method: keep the key until its payment is finished. */
 export const paymentMethodChangeRequest = z.object({
   operation_key: purchaseOperationKey,
   method: paymentMethodKind.meta({
