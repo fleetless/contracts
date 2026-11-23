@@ -431,6 +431,7 @@ import {
   purchaseIntentResponse,
   vatDecision,
   viesPendingReason,
+  viesOutage,
   billingAddress,
   billingDetails,
   checkoutRequest,
@@ -844,6 +845,7 @@ export const exportedSchemas = {
   'purchase-intent-response': purchaseIntentResponse,
   'vat-decision': vatDecision,
   'vies-pending-reason': viesPendingReason,
+  'vies-outage': viesOutage,
   'billing-address': billingAddress,
   'billing-details': billingDetails,
   'checkout-request': checkoutRequest,
@@ -1390,7 +1392,7 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104) ---------
   // The billing routes' answers, and the `details` of a `502
   // payment_provider_unavailable` — documents the server sends.
-  'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'purchase-intent-draft', 'purchase-intent-payment-started', 'purchase-intent-accepted-without-payment', 'vat-decision', 'vies-pending-reason',
+  'purchase-operation', 'purchase-quote', 'purchase-hold-reason', 'purchase-refusal-rule', 'purchase-conflict-details', 'purchase-intent-response', 'purchase-intent-draft', 'purchase-intent-payment-started', 'purchase-intent-accepted-without-payment', 'vat-decision', 'vies-pending-reason', 'vies-outage',
   'billing-decision-amounts', 'billing-decision-period', 'billing-decision-snapshot', 'billing-decision-display-response', 'plan-change-prepare-response',
   'checkout-response', 'checkout-status', 'vat-id-check-response', 'billing-view', 'billing-change-response',
   // The one-page checkout (2026-11-18, fleetless/fleetless#1168): the start's

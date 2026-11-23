@@ -9,6 +9,29 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: `vies_unavailable` says which side of VIES was down**
+  (fleetless/fleetless#1181). A new `viesOutage` is
+  `{ scope: 'member_state' | 'vies', country }`: `member_state` when the VAT
+  register of `country` does not answer VIES, `vies` when VIES itself does
+  not. `country` is the billing address's country, so Greece is `GR`, never
+  VIES's `EL`. Every object that answers `reason: 'vies_unavailable'` now
+  carries it as a required `vies_outage`, and refuses it beside
+  `vies_unverified` and `vies_identifier_missing`, which are no outage:
+  `vatDecision` (`pending`), the purchase intent (`awaiting_vies`, in
+  `purchaseIntent`, `purchaseIntentDraft`, `purchaseIntentResponse` and
+  `checkoutResponse`), `checkoutStartResponse` (`vies_unavailable`),
+  `viesUnavailableDetails` (also inside `billingDetailsConflictDetails`) and
+  `vatIdCheckResponse` (`pending`). Each is a union on `reason` now, so the
+  rule is in the JSON Schema as well, and `viesUnavailableDetails` has no
+  `.shape` any more. These objects are strict: a consumer on an older version
+  rejects the new key, and a producer that omits it no longer parses.
+- **BREAKING: `vatFor` takes the outage with an `unavailable` verdict.**
+  `ViesVerdict`'s `unavailable` is `{ status: 'unavailable', outage }`, and
+  `vatFor` returns it as `vies_outage` on the pending decision. `invalid` and
+  `unverified` are unchanged.
+
 ## [17.0.0] — 2026-11-23
 
 ### Changed

@@ -3815,6 +3815,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'Cache-Control: no-store: show `display.snapshot.declaration.text` directly above one button labelled `action_label`; that one ' +
       'click is `POST /api/billing/intents/:id/confirm` with the display\'s `confirmation_proof`. `vies_unavailable`, `invalid_vat_id` ' +
       'and `refused` answer 200 and nothing is stored but the draft: no intent, no account, no retry in the background; check again. ' +
+      '`vies_unavailable` with `reason: vies_unavailable` carries `vies_outage`: `scope: member_state` when the VAT register of ' +
+      '`country` does not answer VIES (a register VIES reports as down answers at once, not after the 15 seconds), `scope: vies` when ' +
+      'VIES itself does not. ' +
       '`held` (`issuer_cutover_in_progress`) only while an issuer cutover runs, for minutes; try again. Lexware never holds a checkout: ' +
       'its contact and invoice follow the payment. Use a fresh operation_key per press; the same key and input answer 200 with the same ' +
       'intent (`payment_started` with its hosted checkout once confirmed), without another Mollie payment; changed input conflicts. ' +
@@ -3847,7 +3850,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'still-eligible decision needs a fresh C.4 display and explicit Owner click. A started hosted payment is read at the provider ' +
       'first: 409 target_state_conflict with `{ field: billing, rule: checkout_not_open }` when it is no longer open there (paid, ' +
       'canceled, expired or failed), and 502 payment_provider_unavailable when the provider does not answer. A `mandate_setup` whose ' +
-      'payment the provider never answered also answers that 502: send its `POST /api/billing/payment-method` again with the same key.',
+      'payment the provider never answered also answers that 502: send its `POST /api/billing/payment-method` again with the same key. ' +
+      'An `awaiting_vies` intent with `reason: vies_unavailable` carries `vies_outage` as the hourly retry last found it: ' +
+      '`scope: member_state` for the VAT register of `country`, `scope: vies` for VIES itself.',
   },
   {
     method: 'POST', path: '/api/billing/intents/:id/display', section: 'billing',
@@ -3908,7 +3913,7 @@ export const ROUTES: readonly RouteEntry[] = [
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 200,
     params: [], query: null, request: vatIdCheckRequest, response: vatIdCheckResponse,
     errors: [...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'rate_limited'], transport: 'http',
-    notes: "Reports status and optional display name only; full evidence stays in protected Finance storage. valid with a missing identifier remains pending/vies_identifier_missing. unverified or unavailable remains pending without zero rating or payment. A form check never authorizes a later charge; Cloud binds current evidence to the buyer and quote at confirmation. Rate limited on billing.vat_check.",
+    notes: "Reports status and optional display name only; full evidence stays in protected Finance storage. valid with a missing identifier remains pending/vies_identifier_missing. unverified or unavailable remains pending without zero rating or payment. pending/vies_unavailable carries `vies_outage`: `scope: member_state` when the VAT register of `country` does not answer VIES, which answers at once when VIES reports the register as down, and `scope: vies` when VIES itself does not answer within the 15 seconds. A form check never authorizes a later charge; Cloud binds current evidence to the buyer and quote at confirmation. Rate limited on billing.vat_check.",
   },
   {
     method: 'PATCH', path: '/api/billing/details', section: 'billing',
@@ -3923,7 +3928,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'for a field a purchase refuses (`rule` a `purchaseRefusalRule`; `field` one of `billing.kind`, `billing.vat_id`, ' +
       '`billing.tax_id`, `billing.address.state`, `billing.invoice_email`), `vat_id_invalid` at `billing.vat_id` when VIES does not ' +
       'know the VAT ID; `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`) when VIES did not answer within ' +
-      'its 15 seconds: send the same edit again; `{ field: billing, rule: buyer_changed }` when the details changed while the edit was ' +
+      'its 15 seconds: send the same edit again (with `reason: vies_unavailable` it carries `vies_outage`: `scope: member_state` for ' +
+      'the VAT register of `country`, `scope: vies` for VIES itself); `{ field: billing, rule: buyer_changed }` when the details changed while the edit was ' +
       'decided: read `GET /api/billing` and send it again. VIES is asked when the country or the VAT ID changes, in another EU ' +
       'country; any other edit keeps a valid recorded VIES answer and needs none. While the VAT ID on file has no valid VIES answer ' +
       '(`account.vat` is null), every edit asks VIES about it again, also with the VAT ID unchanged: a valid answer is recorded and ' +
@@ -3945,7 +3951,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'acceptance. The change is decided in the request and never waits: no `awaiting_vies`, and Lexware never holds it; `held` ' +
       '(`issuer_cutover_in_progress`) only while an issuer cutover runs. VIES runs only when the billing details changed since the last ' +
       'decision or the recorded VAT treatment is blocked, and a change that charges nothing never calls it. When VIES does not answer: ' +
-      '409 target_state_conflict with `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`), nothing stored. A ' +
+      '409 target_state_conflict with `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`), nothing stored; with ' +
+      '`reason: vies_unavailable` it carries `vies_outage` (`scope: member_state` for the VAT register of `country`, `scope: vies` for ' +
+      'VIES itself). A ' +
       'change charging nothing while the recorded VAT treatment is unresolved: 409 target_state_conflict with `{ field: billing.vat_id, ' +
       'rule: purchase_eligibility_pending }`. An eligible Owner obtains a C.4 display (`POST /api/billing/intents/:id/display`) and ' +
       'confirms with one click on its `action_label`. Confirmation may return accepted_no_payment with charged: null and no provider ' +

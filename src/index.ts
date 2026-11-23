@@ -1183,7 +1183,7 @@ export {
   purchaseHoldReason, purchaseRefusalRule, purchaseIntent, purchaseIntentLookupQuery,
   purchaseIntentDraft, purchaseIntentPaymentStarted, purchaseIntentAcceptedWithoutPayment,
   purchaseIntentConfirmRequest, purchaseConflictDetails, invoicePayRequest,
-  purchaseIntentResponse, vatDecision, viesPendingReason,
+  purchaseIntentResponse, vatDecision, viesPendingReason, viesOutage,
   formatEur, C4_ACTIONS, C4_TEXT_IDS, c4ActionOf, c4Declaration, storedBillingDecisionSnapshot,
   checkoutStartResponse, checkoutDraftResponse, checkoutOpenDetails, viesUnavailableDetails,
 } from './billing.js'
@@ -1194,7 +1194,7 @@ export type {
   BillingDecisionPeriod, BillingDecisionSnapshot, BillingDecisionDisplayResponse,
   PlanChangePrepareResponse,
   PurchaseIntentLookupQuery, PurchaseIntentConfirmRequest, PurchaseConflictDetails,
-  InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason,
+  InvoicePayRequest, PurchaseIntentResponse, ViesVerdict, ViesPendingReason, ViesOutage,
   C4Action, C4TextId, C4DeclarationText, C4DeclarationValues, C4Decision, C4From, StoredBillingDecisionSnapshot,
   CheckoutStartResponse, CheckoutDraftResponse, CheckoutOpenDetails, ViesUnavailableDetails,
 } from './billing.js'

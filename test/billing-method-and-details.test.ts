@@ -60,10 +60,12 @@ describe('billingDetailsConflictDetails', () => {
   })
 
   it('says VIES did not answer, with its reason', () => {
-    both({ field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unavailable' }, true)
+    const outage = { scope: 'member_state', country: 'BE' }
+    both({ field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unavailable', vies_outage: outage }, true)
     both({ field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unverified' }, true)
     both({ field: 'billing.vat_id', rule: 'vies_unavailable' }, false)
-    both({ field: 'billing.tax_id', rule: 'vies_unavailable', reason: 'vies_unavailable' }, false)
+    both({ field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unavailable' }, false)
+    both({ field: 'billing.tax_id', rule: 'vies_unavailable', reason: 'vies_unavailable', vies_outage: outage }, false)
   })
 
   it('says the details changed meanwhile', () => {

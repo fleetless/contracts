@@ -4,61 +4,141 @@
     {
       "oneOf": [
         {
-          "type": "object",
-          "properties": {
-            "intent_id": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-              "description": "Opaque persisted purchase intent identity."
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "intent_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Opaque persisted purchase intent identity."
+                },
+                "operation_key": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "checkout",
+                    "invoice_payment",
+                    "payment_method_invoice"
+                  ]
+                },
+                "invoice_id": {
+                  "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "state": {
+                  "type": "string",
+                  "const": "awaiting_vies"
+                },
+                "next_attempt_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                "reason": {
+                  "type": "string",
+                  "const": "vies_unavailable"
+                },
+                "vies_outage": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "member_state",
+                        "vies"
+                      ],
+                      "description": "`member_state`: the VAT register of `country` does not answer VIES. `vies`: VIES itself does not answer."
+                    },
+                    "country": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$",
+                      "description": "The billing address's country whose VAT ID was asked for. Greece is `GR`, never VIES's `EL`."
+                    }
+                  },
+                  "required": [
+                    "scope",
+                    "country"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "intent_id",
+                "operation_key",
+                "operation",
+                "state",
+                "next_attempt_at",
+                "reason",
+                "vies_outage"
+              ],
+              "additionalProperties": false
             },
-            "operation_key": {
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-              "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
-            },
-            "operation": {
-              "type": "string",
-              "enum": [
-                "checkout",
-                "invoice_payment",
-                "payment_method_invoice"
-              ]
-            },
-            "invoice_id": {
-              "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
-              "type": "string",
-              "format": "uuid",
-              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-            },
-            "state": {
-              "type": "string",
-              "const": "awaiting_vies"
-            },
-            "reason": {
-              "type": "string",
-              "enum": [
-                "vies_unavailable",
-                "vies_unverified",
-                "vies_identifier_missing"
-              ]
-            },
-            "next_attempt_at": {
-              "type": "string",
-              "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            {
+              "type": "object",
+              "properties": {
+                "intent_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Opaque persisted purchase intent identity."
+                },
+                "operation_key": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
+                },
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "checkout",
+                    "invoice_payment",
+                    "payment_method_invoice"
+                  ]
+                },
+                "invoice_id": {
+                  "description": "For an invoice-paying operation, the due charge or issued invoice being paid. For a confirmed paid_change with payment_started, the charge or invoice created for that decision; when the charge was issued through Lexware (`charged` is `null`), it identifies the matching billing.charges[].id. Absent on a paid_change in any other state.",
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "state": {
+                  "type": "string",
+                  "const": "awaiting_vies"
+                },
+                "next_attempt_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "vies_unverified",
+                    "vies_identifier_missing"
+                  ]
+                }
+              },
+              "required": [
+                "intent_id",
+                "operation_key",
+                "operation",
+                "state",
+                "next_attempt_at",
+                "reason"
+              ],
+              "additionalProperties": false
             }
-          },
-          "required": [
-            "intent_id",
-            "operation_key",
-            "operation",
-            "state",
-            "reason",
-            "next_attempt_at"
-          ],
-          "additionalProperties": false
+          ]
         },
         {
           "type": "object",
