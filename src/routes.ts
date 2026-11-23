@@ -3924,8 +3924,10 @@ export const ROUTES: readonly RouteEntry[] = [
       '`billing.tax_id`, `billing.address.state`, `billing.invoice_email`), `vat_id_invalid` at `billing.vat_id` when VIES does not ' +
       'know the VAT ID; `viesUnavailableDetails` (`field: billing.vat_id`, `rule: vies_unavailable`) when VIES did not answer within ' +
       'its 15 seconds: send the same edit again; `{ field: billing, rule: buyer_changed }` when the details changed while the edit was ' +
-      'decided: read `GET /api/billing` and send it again. VIES is asked only when the country or the VAT ID changes, in another EU ' +
-      'country; any other edit keeps the recorded VIES answer and needs none. A saved edit re-prices open due charges, updates the ' +
+      'decided: read `GET /api/billing` and send it again. VIES is asked when the country or the VAT ID changes, in another EU ' +
+      'country; any other edit keeps a valid recorded VIES answer and needs none. While the VAT ID on file has no valid VIES answer ' +
+      '(`account.vat` is null), every edit asks VIES about it again, also with the VAT ID unchanged: a valid answer is recorded and ' +
+      'lifts the hold, any other answer saves the edit and leaves the hold as it is. A saved edit re-prices open due charges, updates the ' +
       'invoicing contact and invalidates quotes made for the old details. An issued invoice keeps the details it was issued with. An ' +
       'edit creates no payment, activates no plan, pays no invoice, clears no dunning and lifts no lock. A person account from before ' +
       'company-only purchases is saved without these checks; it cannot buy.',
@@ -3956,7 +3958,7 @@ export const ROUTES: readonly RouteEntry[] = [
     summary: "Starts a payment-method change: a hosted payment of 0.00 for a new mandate.",
     audience: 'developer', auth: 'developer', rateLimited: true, ownerTier: true, status: 201,
     params: [], query: null, request: paymentMethodChangeRequest, response: checkoutResponse,
-    errors: ['target_state_conflict', ...DEVELOPER_GUARD, 'tier_required', 'validation_error', 'not_found', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
+    errors: ['target_state_conflict', ...DEVELOPER_GUARD, 'tier_required', 'support_forbidden', 'validation_error', 'not_found', 'rate_limited', ...BILLING_OFF, ...MOLLIE],
     transport: 'http',
     notes:
       'Offer `payment_method_options`. A change is a 0.00 `first` payment on the provider\'s hosted page, restricted to the chosen ' +
@@ -3973,7 +3975,8 @@ export const ROUTES: readonly RouteEntry[] = [
       'again with a new key. Apple Pay with zero-amount changes disabled pays an open invoice through operation ' +
       'payment_method_invoice, with the buyer/VIES gate, current-amount reconfirmation and USD legacy hold of invoices/:id/pay; ' +
       'without an open invoice, 400 validation_error has field method and rule applepay_needs_open_invoice. An invoice charged back ' +
-      'is never retried automatically. 404 not_found when no billing account is active or past due.',
+      'is never retried automatically. 404 not_found when no billing account is active or past due. Owner only: a support session is ' +
+      'answered 403 support_forbidden.',
   },
   {
     method: 'POST', path: '/api/billing/cancel', section: 'billing',

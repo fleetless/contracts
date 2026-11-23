@@ -85,6 +85,9 @@ describe('the route entries', () => {
     for (const word of ['billingDetailsConflictDetails', 'viesUnavailableDetails', 'purchaseRefusalRule', 'buyer_changed', 'vat_id_invalid']) {
       expect(entry.notes, word).toContain(word)
     }
+    // A VAT ID on hold is asked about again though it did not change, and only a valid answer replaces the recorded one.
+    expect(entry.notes).toContain('also with the VAT ID unchanged')
+    expect(entry.notes).toContain('lifts the hold')
   })
 
   it('POST /api/billing/payment-method describes the 0.00 payment and no hold on a new change', () => {
@@ -94,6 +97,9 @@ describe('the route entries', () => {
       expect(entry.notes, word).toContain(word)
     }
     expect(entry.notes).not.toContain('until the integration decision')
+    // Owner only: a support session never switches the organization's mandate.
+    expect(entry.errors).toContain('support_forbidden')
+    expect(entry.notes).toContain('support_forbidden')
   })
 
   it('GET /api/billing/intents lists what a hosted payment read at the provider answers', () => {

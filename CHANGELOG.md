@@ -25,10 +25,13 @@ version.
   not asked. The same key again answers the same payment; `502
   payment_provider_unavailable` resumes under the same key; `409
   target_state_conflict` with `{ field: billing, rule: checkout_not_open }`
-  means the key's payment is finished.
+  means the key's payment is finished. The route lists `403
+  support_forbidden`: a support session never changes the payment method.
 - **`PATCH /api/billing/details` saves only what a purchase would accept.** The
   route lists `409 target_state_conflict`; its notes name the refusals, when
-  VIES is asked and what a saved edit does.
+  VIES is asked and what a saved edit does. A VAT ID without a valid VIES
+  answer is asked about again with every edit, also unchanged; a valid answer
+  lifts the hold.
 - **`GET /api/billing/intents` lists `409 target_state_conflict` and `502
   payment_provider_unavailable`**, which it has answered for a hosted payment
   read at the provider. A mandate setup the provider never answered reads as
