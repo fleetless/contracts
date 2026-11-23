@@ -82,14 +82,48 @@ export type PayerRefusalRule = z.infer<typeof payerRefusalRule>
 export const viesPendingReason = z.enum(['vies_unavailable', 'vies_unverified', 'vies_identifier_missing'])
 export type ViesPendingReason = z.infer<typeof viesPendingReason>
 
-/** Internal decision input; the complete direct response stays in protected Finance storage. */
+/**
+ * **Which side of a VIES check was down** (fleetless/fleetless#1181). VIES is
+ * a relay: it asks the VAT register of the member state the VAT ID belongs
+ * to. `member_state`: VIES answered, and said that this country's register is
+ * down or busy. `vies`: VIES itself did not answer, or answered nothing it
+ * can be held to. `country` is the country that was asked for, in both
+ * scopes: the billing address's, so Greece is `GR` and never VIES's `EL`.
+ */
+export const viesOutage = z.object({
+  scope: z.enum(['member_state', 'vies']).meta({
+    description: "`member_state`: the VAT register of `country` does not answer VIES. `vies`: VIES itself does not answer.",
+  }),
+  country: countryCode.meta({ description: "The billing address's country whose VAT ID was asked for. Greece is `GR`, never VIES's `EL`." }),
+}).strict()
+export type ViesOutage = z.infer<typeof viesOutage>
+
+/**
+ * A pending VIES answer in its two halves (fleetless/fleetless#1181):
+ * `vies_unavailable` always with `vies_outage`, the other two reasons never
+ * with one, since they are no outage. A split union, not a `.refine()`: the
+ * union renders to JSON Schema by itself, a refinement says nothing there.
+ */
+function viesPending<Shape extends z.core.$ZodLooseShape>(shape: Shape) {
+  return z.discriminatedUnion('reason', [
+    z.object({ ...shape, reason: z.literal('vies_unavailable'), vies_outage: viesOutage }).strict(),
+    z.object({ ...shape, reason: viesPendingReason.exclude(['vies_unavailable']) }).strict(),
+  ])
+}
+
+/**
+ * Internal decision input; the complete direct response stays in protected
+ * Finance storage. `unavailable` names its outage, which `vatFor` passes on
+ * as `vies_outage`.
+ */
 export type ViesVerdict =
   | { status: 'valid'; requestIdentifier?: string | null }
-  | { status: 'invalid' | 'unavailable' | 'unverified' }
+  | { status: 'invalid' | 'unverified' }
+  | { status: 'unavailable'; outage: ViesOutage }
 
 export const vatDecision = z.discriminatedUnion('state', [
   z.object({ state: z.literal('eligible'), treatment: vatTreatment, rate_percent: z.number().int().min(0).max(100) }).strict(),
-  z.object({ state: z.literal('pending'), reason: viesPendingReason }).strict(),
+  viesPending({ state: z.literal('pending') }),
   z.object({ state: z.literal('refused'), rule: payerRefusalRule }).strict(),
 ])
 export type VatDecision = z.infer<typeof vatDecision>
@@ -113,7 +147,8 @@ export function vatFor(input: { kind: PayerKind; country: string; vies: ViesVerd
       ? { state: 'eligible', treatment: 'reverse_charge', rate_percent: 0 }
       : { state: 'pending', reason: 'vies_identifier_missing' }
   }
-  return { state: 'pending', reason: vies.status === 'unavailable' ? 'vies_unavailable' : 'vies_unverified' }
+  if (vies.status === 'unavailable') return { state: 'pending', reason: 'vies_unavailable', vies_outage: vies.outage }
+  return { state: 'pending', reason: 'vies_unverified' }
 }
 
 /** VIES's member-state code: `EL` for `GR`, the country otherwise. */
@@ -854,9 +889,12 @@ function validateIntent(intent: { operation: string; invoice_id?: string; state:
   }
 }
 
+/** An intent waiting for the hourly VIES retry; with `vies_unavailable` it says which side was down at the last attempt. */
+const awaitingVies = { ...intentIdentity, state: z.literal('awaiting_vies'), next_attempt_at: z.iso.datetime() }
+
 /** Unaccepted intents. No draft contains a provider redirect or billing decision. */
 const draftVariants = [
-  z.object({ ...intentIdentity, state: z.literal('awaiting_vies'), reason: viesPendingReason, next_attempt_at: z.iso.datetime() }).strict(),
+  viesPending(awaitingVies),
   z.object({ ...intentIdentity, ...quoteIdentity, state: z.literal('eligible'), quote: purchaseQuote }).strict(),
   z.object({
     ...intentIdentity, operation: purchaseOperation, state: z.literal('held'), reason: purchaseHoldReason,
@@ -900,7 +938,7 @@ export type PurchaseIntent = z.infer<typeof purchaseIntent>
 const nonChangeOperation = purchaseOperation.exclude(['paid_change'])
 const nonChangeChargeOperation = chargeOperation.exclude(['paid_change'])
 const nonChangeDraft = z.discriminatedUnion('state', [
-  draftVariants[0].safeExtend({ operation: nonChangeChargeOperation }),
+  viesPending({ ...awaitingVies, operation: nonChangeChargeOperation }),
   draftVariants[1].safeExtend({ operation: nonChangeChargeOperation }),
   draftVariants[2].safeExtend({ operation: nonChangeOperation }),
   draftVariants[3].safeExtend({ operation: nonChangeChargeOperation }),
@@ -941,8 +979,8 @@ export const checkoutStartResponse = z.discriminatedUnion('state', [
     ...checkoutIntentIdentity, state: z.literal('eligible'), ...quoteIdentity, quote: purchaseQuote,
     display: billingDecisionDisplayResponse,
   }).strict().meta({ description: 'Eligible: the price is frozen and the display shown; one click on its button confirms.' }),
-  z.object({ state: z.literal('vies_unavailable'), field: vatIdField, reason: viesPendingReason }).strict()
-    .meta({ description: 'VIES did not confirm the VAT ID within its retries. Nothing is stored; check again.' }),
+  viesPending({ state: z.literal('vies_unavailable'), field: vatIdField })
+    .meta({ description: 'VIES did not confirm the VAT ID within its retries; with `vies_unavailable`, `vies_outage` says which side was down. Nothing is stored; check again.' }),
   z.object({ state: z.literal('invalid_vat_id'), field: vatIdField, rule: z.literal('vat_id_invalid') }).strict()
     .meta({ description: 'VIES says the VAT ID is invalid. Nothing is stored.' }),
   z.object({ state: z.literal('refused'), field: z.string().min(1), rule: purchaseRefusalRule }).strict()
@@ -1003,12 +1041,11 @@ export const checkoutOpenDetails = z.object({
 }).strict()
 export type CheckoutOpenDetails = z.infer<typeof checkoutOpenDetails>
 
-/** `409 target_state_conflict` details when a paid change or a billing-details edit needs VIES and VIES did not answer. Nothing is stored. */
-export const viesUnavailableDetails = z.object({
-  field: vatIdField,
-  rule: z.literal('vies_unavailable'),
-  reason: viesPendingReason,
-}).strict()
+/**
+ * `409 target_state_conflict` details when a paid change or a billing-details edit needs VIES and VIES did not answer. Nothing is stored.
+ * With `reason: vies_unavailable`, `vies_outage` says which side was down.
+ */
+export const viesUnavailableDetails = viesPending({ field: vatIdField, rule: z.literal('vies_unavailable') })
 export type ViesUnavailableDetails = z.infer<typeof viesUnavailableDetails>
 
 /** Lookup needs one identity, plus the expected operation; a mismatch discloses nothing. */
@@ -1077,7 +1114,7 @@ const vatCheckIdentity = { vat_id: z.string(), name: z.string().nullable() }
 export const vatIdCheckResponse = z.discriminatedUnion('state', [
   z.object({ ...vatCheckIdentity, state: z.literal('eligible'), status: z.literal('valid') }).strict(),
   z.object({ ...vatCheckIdentity, state: z.literal('refused'), status: z.literal('invalid'), rule: z.literal('vat_id_invalid') }).strict(),
-  z.object({ ...vatCheckIdentity, state: z.literal('pending'), status: z.enum(['valid', 'unverified', 'unavailable']), reason: viesPendingReason }).strict(),
+  viesPending({ ...vatCheckIdentity, state: z.literal('pending'), status: z.enum(['valid', 'unverified', 'unavailable']) }),
 ])
 export type VatIdCheckResponse = z.infer<typeof vatIdCheckResponse>
 

@@ -30,26 +30,71 @@
       "additionalProperties": false
     },
     {
-      "type": "object",
-      "properties": {
-        "state": {
-          "type": "string",
-          "const": "pending"
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "pending"
+            },
+            "reason": {
+              "type": "string",
+              "const": "vies_unavailable"
+            },
+            "vies_outage": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "member_state",
+                    "vies"
+                  ],
+                  "description": "`member_state`: the VAT register of `country` does not answer VIES. `vies`: VIES itself does not answer."
+                },
+                "country": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$",
+                  "description": "The billing address's country whose VAT ID was asked for. Greece is `GR`, never VIES's `EL`."
+                }
+              },
+              "required": [
+                "scope",
+                "country"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "state",
+            "reason",
+            "vies_outage"
+          ],
+          "additionalProperties": false
         },
-        "reason": {
-          "type": "string",
-          "enum": [
-            "vies_unavailable",
-            "vies_unverified",
-            "vies_identifier_missing"
-          ]
+        {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "const": "pending"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "vies_unverified",
+                "vies_identifier_missing"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "reason"
+          ],
+          "additionalProperties": false
         }
-      },
-      "required": [
-        "state",
-        "reason"
-      ],
-      "additionalProperties": false
+      ]
     },
     {
       "type": "object",

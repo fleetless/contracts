@@ -314,7 +314,7 @@ describe('checkoutStartResponse: the start decides in the request', () => {
   }
   const variants = {
     eligible,
-    vies_unavailable: { state: 'vies_unavailable', field: 'billing.vat_id', reason: 'vies_unavailable' },
+    vies_unavailable: { state: 'vies_unavailable', field: 'billing.vat_id', reason: 'vies_unavailable', vies_outage: { scope: 'member_state', country: 'NL' } },
     invalid_vat_id: { state: 'invalid_vat_id', field: 'billing.vat_id', rule: 'vat_id_invalid' },
     refused: { state: 'refused', field: 'billing.invoice_email', rule: 'public_email_domain' },
     held: { intent_id: intentBase.intent_id, operation_key: operationKey, operation: 'checkout', state: 'held', reason: 'issuer_cutover_in_progress' },
@@ -408,7 +408,7 @@ describe('the checkout draft, the open payment and the conflicts', () => {
   })
 
   it('says VIES did not answer on a paid change', () => {
-    const details = { field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unavailable' }
+    const details = { field: 'billing.vat_id', rule: 'vies_unavailable', reason: 'vies_unavailable', vies_outage: { scope: 'vies', country: 'NL' } }
     expect(viesUnavailableDetails.safeParse(details).success).toBe(true)
     expect(viesUnavailableDetails.safeParse({ ...details, reason: 'vies_down' }).success).toBe(false)
     expect(artifact('vies-unavailable-details')(details)).toBe(true)

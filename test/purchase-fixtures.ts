@@ -9,7 +9,7 @@ export const intentBase = {
   intent_id: '039172ce-712c-4ec8-897c-15492a7eeb76', operation_key: operationKey, operation: 'checkout',
 }
 export const pendingIntent = {
-  ...intentBase, state: 'awaiting_vies', reason: 'vies_unavailable', next_attempt_at: '2026-10-12T08:00:00Z',
+  ...intentBase, state: 'awaiting_vies', reason: 'vies_unavailable', vies_outage: { scope: 'member_state', country: 'NL' }, next_attempt_at: '2026-10-12T08:00:00Z',
 }
 export const eligibleIntent = {
   ...intentBase, state: 'eligible', quote_revision: 'quote-2', buyer_fingerprint: 'buyer-2',

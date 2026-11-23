@@ -23,7 +23,7 @@ describe('new paid VAT decisions', () => {
   it.each([
     [null, { state: 'refused', rule: 'vat_id_required' }],
     [{ status: 'invalid' }, { state: 'refused', rule: 'vat_id_invalid' }],
-    [{ status: 'unavailable' }, { state: 'pending', reason: 'vies_unavailable' }],
+    [{ status: 'unavailable', outage: { scope: 'member_state', country: 'NL' } }, { state: 'pending', reason: 'vies_unavailable', vies_outage: { scope: 'member_state', country: 'NL' } }],
     [{ status: 'unverified' }, { state: 'pending', reason: 'vies_unverified' }],
     [{ status: 'valid' }, { state: 'pending', reason: 'vies_identifier_missing' }],
     [{ status: 'valid', requestIdentifier: null }, { state: 'pending', reason: 'vies_identifier_missing' }],
