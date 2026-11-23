@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule": {
+          "type": "string",
+          "enum": [
+            "company_required",
+            "vat_id_required",
+            "vat_id_invalid",
+            "tax_id_required",
+            "us_state_required",
+            "public_email_domain",
+            "invoice_not_open"
+          ]
+        }
+      },
+      "required": [
+        "field",
+        "rule"
+      ],
+      "additionalProperties": false,
+      "description": "A field a purchase would refuse. Nothing is saved."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "const": "billing.vat_id"
+        },
+        "rule": {
+          "type": "string",
+          "const": "vies_unavailable"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "vies_unavailable",
+            "vies_unverified",
+            "vies_identifier_missing"
+          ]
+        }
+      },
+      "required": [
+        "field",
+        "rule",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "const": "billing"
+        },
+        "rule": {
+          "type": "string",
+          "const": "buyer_changed"
+        }
+      },
+      "required": [
+        "field",
+        "rule"
+      ],
+      "additionalProperties": false,
+      "description": "The billing details changed meanwhile. Nothing is saved."
+    }
+  ]
+}

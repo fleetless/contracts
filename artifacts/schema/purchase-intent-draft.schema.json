@@ -386,8 +386,31 @@
       "then": {
         "properties": {
           "state": {
-            "const": "held"
+            "enum": [
+              "held",
+              "payment_started"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "mandate_setup"
           },
+          "state": {
+            "const": "held"
+          }
+        },
+        "required": [
+          "operation",
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
           "reason": {
             "const": "mandate_policy_unresolved"
           }
