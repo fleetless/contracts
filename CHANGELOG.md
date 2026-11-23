@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [16.1.0] — 2026-11-23
+
 ### Added
 
 - **`billingAccount.current_price`** (`GET /api/billing`,
