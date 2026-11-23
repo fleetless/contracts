@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [17.0.0] — 2026-11-23
+
 ### Changed
 
 - **BREAKING: a payment-method change starts a payment**
