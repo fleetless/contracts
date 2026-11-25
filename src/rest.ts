@@ -4,7 +4,7 @@ import { bridgeState, MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug, rosTypeName, wireTimestampMs } from './common.js'
 import { configState, rateThrottleHz, robotConfigDoc, snapshotIntervalSeconds, validationIssue } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
-import { job } from './jobs.js'
+import { job, resultOmitted } from './jobs.js'
 
 /**
  * REST shapes of the robot resource: create, list, get, and the built-in
@@ -558,6 +558,15 @@ export type InvokeResponse = z.infer<typeof invokeResponse>
 export const serviceCallResponse = z.object({
   result: z.unknown().meta({
     description: 'What the service returned, shaped by the ROS service. A service call is awaited to completion, so there is no job to observe afterwards and no id to hold on to.',
+  }),
+  /**
+   * The service answered, and its response did not fit the robot's frame
+   * limit (fleetless/fleetless#1222): `result` is `null` and this says why.
+   * Without it, an omitted response would read as a service that returned
+   * nothing.
+   */
+  result_omitted: resultOmitted.optional().meta({
+    description: 'Present when the service answered and the robot did not send the response because it was too large; `result` is `null` then. Absent otherwise.',
   }),
 })
 export type ServiceCallResponse = z.infer<typeof serviceCallResponse>
@@ -1529,7 +1538,20 @@ export const robotDeleteQuery = z
 export type RobotDeleteQuery = z.infer<typeof robotDeleteQuery>
 
 /**
- * The seven health states, declared **once**.
+ * What a health entry is about, declared **once** for the same reason as the
+ * states below: `resourceHealthState`, `resourceHealthEvent` and
+ * `resourceHealthCleared` all read it.
+ *
+ * `camera` — `ref` is a camera slug; both facets.
+ * `datapoint` — `ref` is a datapoint slug; always `facet: 'source'`. Its one
+ * state today is `too_large`: the robot dropped the last value because its
+ * frame exceeded `BRIDGE_FRAME_MAX_BYTES` (fleetless/fleetless#1222). The
+ * entry is cleared by the next value and by a publish that removes the slug.
+ */
+export const RESOURCE_HEALTH_KINDS = ['camera', 'datapoint'] as const
+
+/**
+ * The health states, declared **once**.
  *
  * `resourceHealthState` and `resourceHealthEvent` are the snapshot and the push
  * of the same thing. Writing the values out twice publishes two independent
@@ -1572,6 +1594,12 @@ export const RESOURCE_HEALTH_STATES = [
   /** Publishing failed after the session was already granted. */
   'publish_failed',
   /**
+   * The robot dropped the last value because its frame exceeded
+   * `BRIDGE_FRAME_MAX_BYTES` (a datapoint only, fleetless/fleetless#1222).
+   * `reason` names the size and the limit, built from numbers only.
+   */
+  'too_large',
+  /**
    * Something is wrong and this platform cannot say what.
    *
    * The alternative was worse. A bridge error code the mapping table does not
@@ -1605,8 +1633,8 @@ export const RESOURCE_HEALTH_STATES = [
  */
 export const resourceHealthState = z.object({
   robot_id: z.uuid(),
-  kind: z.enum(['camera']),
-  /** The camera slug, or the credential name. */
+  kind: z.enum(RESOURCE_HEALTH_KINDS),
+  /** The camera or datapoint slug. */
   ref: z.string().min(1).max(64),
   /**
    * **Which of two questions this entry answers.**

@@ -14,7 +14,8 @@
     "kind": {
       "type": "string",
       "enum": [
-        "camera"
+        "camera",
+        "datapoint"
       ]
     },
     "ref": {
@@ -39,6 +40,7 @@
         "credential_missing",
         "stopped_by_config_change",
         "publish_failed",
+        "too_large",
         "unknown"
       ]
     },

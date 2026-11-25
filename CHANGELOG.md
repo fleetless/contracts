@@ -9,6 +9,36 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **No bridge text frame over 1.5 MiB** (fleetless/fleetless#1222). The cloud
+  closes the robot's socket at 2 MiB (1009), and the bridge reconnected into
+  the same frame: a whole map as a datapoint, an action's map as its result or
+  a huge graph kept a robot offline. All additive; **the protocol stays 5.**
+  - `BRIDGE_FRAME_MAX_BYTES` (1 572 864, the serialised UTF-8 bytes of a whole
+    text frame), beside `SNAPSHOT_MAX_BYTES` and moving alone; in
+    `constants.json` for the bridge.
+  - A new bridge → cloud frame `datapoint_dropped` (`bridgeDatapointDropped`:
+    `slug`, `reason: 'too_large'`, `bytes`, `limit_bytes`, `timestamp_ms`, the
+    capture time of the dropped sample), in `schema/` and `schema-outgoing/`.
+    A cloud that does not know it ignores it.
+  - `resultOmitted` (`reason: 'too_large'`, `bytes` of the result alone,
+    `limit_bytes`), optional as `result_omitted` on `bridgeJobUpdate`,
+    `bridgeJobStatusEntry`, `job`, `jobEvent`, `jobRun` and
+    `serviceCallResponse`: the robot had a result and did not send it because
+    it was too large; `result` is `null` and the state is unchanged.
+  - `rosGraph.omitted` (`{ topics, services, actions }`), optional: how many
+    entries of each list the bridge left out because the graph did not fit;
+    absent when the graph is complete.
+  - Resource health: `RESOURCE_HEALTH_KINDS = ['camera', 'datapoint']`, read by
+    `resourceHealthState`, `resourceHealthEvent` and `resourceHealthCleared`;
+    `RESOURCE_HEALTH_STATES` gains `too_large`. A datapoint entry always has
+    `facet: 'source'` and its slug as `ref`. A consumer that switches over
+    `kind` or `state` has two new values to handle.
+  - The config issue code `datapoint_large_message`, a warning for a whole
+    `OccupancyGrid`, `PointCloud2`, `Image` or `CompressedImage` message
+    exposed without `field`.
+
 ## [18.1.0] — 2026-11-26
 
 ### Added

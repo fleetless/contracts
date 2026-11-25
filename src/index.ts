@@ -93,6 +93,7 @@ export {
   bridgePong,
   bridgeLinkMode,
   datapointFrame,
+  bridgeDatapointDropped,
   bridgeState,
   cloudConfig,
   bridgeConfigApplied,
@@ -117,6 +118,7 @@ export {
   cloudCameraStop,
   bridgeCameraState,
   SNAPSHOT_MAX_BYTES,
+  BRIDGE_FRAME_MAX_BYTES,
   CLOSE_ROBOT_DELETED,
   CLOSE_TOKEN_ROTATED,
   // Assets.
@@ -156,6 +158,7 @@ export type {
   BridgeCancelResult,
   CloudPublish,
   BridgeJobUpdate,
+  BridgeDatapointDropped,
   BridgeJobLost,
   CloudJobQuery,
   BridgeJobStatusEntry,
@@ -169,10 +172,11 @@ export type {
   CloudAssetRequest,
   BridgeAssetProgress,
 } from './protocol.js'
-export { jobState, reportedJobState, jobOrigin, job, jobEvent, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
+export { jobState, reportedJobState, jobOrigin, job, jobEvent, resultOmitted, busyDetails, publisherBusyDetails, jobQueueFullDetails } from './jobs.js'
 export type {
   JobState,
   ReportedJobState,
+  ResultOmitted,
   JobOrigin,
   Job,
   JobEvent,
@@ -397,6 +401,7 @@ export {
   orgQuotaUsageCounts,
   robotDeletionSummary,
   RESOURCE_HEALTH_STATES,
+  RESOURCE_HEALTH_KINDS,
   resourceHealthState,
   resourceHealthListResponse,
   orgHealthQuery,

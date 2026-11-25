@@ -306,6 +306,15 @@ export const ERROR_CODES = [
    */
   'unknown_slug',
   'unknown_field_path',
+  /**
+   * A warning, not a refusal (fleetless/fleetless#1222): a datapoint exposes a
+   * whole `nav_msgs/msg/OccupancyGrid`, `sensor_msgs/msg/PointCloud2`,
+   * `sensor_msgs/msg/Image` or `sensor_msgs/msg/CompressedImage` without
+   * `field`. Such a value is usually larger than `BRIDGE_FRAME_MAX_BYTES`,
+   * and one over it is dropped. Decided by type name alone: a 100×100 grid
+   * fits.
+   */
+  'datapoint_large_message',
   'unknown_type',
   'unknown_topic',
   'invalid_rate',

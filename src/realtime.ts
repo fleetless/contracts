@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { z } from 'zod'
-import { RESOURCE_HEALTH_STATES } from './rest.js'
+import { RESOURCE_HEALTH_KINDS, RESOURCE_HEALTH_STATES } from './rest.js'
 import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
 import { clientIdentity } from './client-auth.js'
@@ -395,7 +395,7 @@ export type LiveSessionEvent = z.infer<typeof liveSessionEvent>
 export const resourceHealthCleared = z.object({
   type: z.literal('resource_health_cleared'),
   robot_id: z.uuid(),
-  kind: z.enum(['camera']),
+  kind: z.enum(RESOURCE_HEALTH_KINDS),
   ref: z.string().min(1).max(64),
   facet: z.enum(['source', 'publish']),
   cleared_at_ms: z.number().int().nonnegative(),
@@ -405,7 +405,7 @@ export type ResourceHealthCleared = z.infer<typeof resourceHealthCleared>
 export const resourceHealthEvent = z.object({
   type: z.literal('resource_health'),
   robot_id: z.uuid(),
-  kind: z.enum(['camera']),
+  kind: z.enum(RESOURCE_HEALTH_KINDS),
   ref: z.string().min(1).max(64),
   /** Which of the two questions this entry answers — see `resourceHealthState.facet`. */
   facet: z.enum(['source', 'publish']),

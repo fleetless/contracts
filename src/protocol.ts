@@ -4,7 +4,7 @@ import { assetFailure } from './assets.js'
 import { applyError, slug } from './common.js'
 import { robotConfigDoc } from './config.js'
 import { rosGraph, typeDefinition } from './introspection.js'
-import { jobOrigin, reportedJobState } from './jobs.js'
+import { jobOrigin, reportedJobState, resultOmitted } from './jobs.js'
 import { rosTypeName } from './common.js'
 
 /**
@@ -376,6 +376,34 @@ export const datapointFrame = z.object({
 export type DatapointFrame = z.infer<typeof datapointFrame>
 
 /**
+ * The bridge dropped a datapoint value because its `datapoint` frame would
+ * have exceeded `BRIDGE_FRAME_MAX_BYTES` (fleetless/fleetless#1222).
+ *
+ * A value that large is a whole message — a map, a point cloud, an image —
+ * exposed without a `field`. Sending it would close the robot's socket (the
+ * cloud refuses a frame over 2 MiB with 1009), and the bridge would reconnect
+ * into the same value. So the value is a gap, and this frame says so: at most
+ * once a minute per slug, on the telemetry tier, never behind buffered
+ * history. The cloud shows it as the datapoint's resource health
+ * (`state: 'too_large'`) until the next value arrives.
+ *
+ * Always sent; an older cloud ignores a frame type it does not know.
+ * `reason` is an enum of one so a later reason is additive.
+ */
+export const bridgeDatapointDropped = z.object({
+  type: z.literal('datapoint_dropped'),
+  slug,
+  reason: z.enum(['too_large']),
+  /** The size of the frame that was not sent, in bytes. */
+  bytes: z.number().int().positive(),
+  /** `BRIDGE_FRAME_MAX_BYTES` as the bridge applied it. */
+  limit_bytes: z.number().int().positive(),
+  /** Bridge capture time of the dropped sample, like `datapointFrame.timestamp_ms`. */
+  timestamp_ms: z.number().int().nonnegative(),
+})
+export type BridgeDatapointDropped = z.infer<typeof bridgeDatapointDropped>
+
+/**
  * Latency probe, cloud → bridge. The cloud sends its own clock in `ts_ms`;
  * the bridge echoes it back untouched and the cloud derives the round-trip
  * latency shown as `bridge_state.latency_ms`.
@@ -653,6 +681,8 @@ export const bridgeJobUpdate = z.object({
   feedback: z.unknown().nullable(),
   progress: z.number().min(0).max(1).nullable(),
   result: z.unknown().nullable(),
+  /** The robot had a result and did not send it because it was too large; `result` is `null`. See `resultOmitted`. */
+  result_omitted: resultOmitted.optional(),
   /** Same shape as `job.error`, `details` included — see `jobs.ts`. */
   error: z
     .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
@@ -713,6 +743,8 @@ export const bridgeJobStatusEntry = z.object({
   feedback: z.unknown().nullable(),
   progress: z.number().min(0).max(1).nullable(),
   result: z.unknown().nullable(),
+  /** The robot had a result and did not send it because it was too large; `result` is `null`. See `resultOmitted`. */
+  result_omitted: resultOmitted.optional(),
   /** Same shape as `job.error`, `details` included — see `jobs.ts`. */
   error: z
     .object({ code: z.string().min(1), message: z.string().min(1), details: z.unknown().optional() })
@@ -838,6 +870,25 @@ export type BridgeState = z.infer<typeof bridgeState>
  * snapshot is a gap, and a gap is an honest answer; a closed socket is not.
  */
 export const SNAPSHOT_MAX_BYTES = 1_572_864 // 1.5 MiB, against a 2 MiB socket ceiling
+
+/**
+ * The largest a **text** frame from the bridge may be on the `/bridge`
+ * socket: the serialised UTF-8 bytes of the whole frame (fleetless/fleetless#1222).
+ *
+ * The same 2 MiB ceiling `SNAPSHOT_MAX_BYTES` keeps its margin to, and the
+ * same failure: the cloud's `ws` enforces `MAX_WS_PAYLOAD_BYTES` before the
+ * frame is delivered and closes the robot's connection with 1009. The bridge
+ * reconnects, produces the same frame — a whole map as a datapoint, an
+ * action's map as its result, a huge graph — and is closed again: a robot
+ * that will not stay online, from a configuration the platform accepted.
+ *
+ * So the bridge never sends a text frame over this. A datapoint value over it
+ * is dropped and reported (`bridgeDatapointDropped`); a job frame drops its
+ * feedback, then its result (`resultOmitted`); an introspection graph is cut
+ * to fit (`rosGraph.omitted`); any other frame is not sent and logged. Its own
+ * constant rather than `SNAPSHOT_MAX_BYTES`, so either can move alone.
+ */
+export const BRIDGE_FRAME_MAX_BYTES = 1_572_864 // 1.5 MiB, against a 2 MiB socket ceiling
 
 export const snapshotHeader = z.object({
   type: z.literal('snapshot'),

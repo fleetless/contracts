@@ -27,6 +27,24 @@ export const rosGraph = z.object({
   services: z.array(rosGraphEntry),
   actions: z.array(rosGraphEntry),
   captured_at_ms: z.number().int().nonnegative(),
+  /**
+   * How many entries of each list the bridge left out because the graph did
+   * not fit `BRIDGE_FRAME_MAX_BYTES` (fleetless/fleetless#1222); absent when
+   * the graph is complete. The bridge keeps first every name the applied
+   * configuration references, then fills up in name order, so a validation
+   * against the published config stays exact; a name that is missing may
+   * still exist on the robot.
+   */
+  omitted: z
+    .object({
+      topics: z.number().int().nonnegative(),
+      services: z.number().int().nonnegative(),
+      actions: z.number().int().nonnegative(),
+    })
+    .optional()
+    .meta({
+      description: 'How many entries of each list the bridge left out because the graph did not fit `BRIDGE_FRAME_MAX_BYTES`; absent when the graph is complete.',
+    }),
 })
 export type RosGraph = z.infer<typeof rosGraph>
 
