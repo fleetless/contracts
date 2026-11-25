@@ -1183,14 +1183,13 @@ export type BillingDetailsConflictDetails = z.infer<typeof billingDetailsConflic
 export const paymentMethodKind = z.enum(['card', 'paypal', 'applepay'])
 export type PaymentMethodKind = z.infer<typeof paymentMethodKind>
 
-/** `POST /api/billing/payment-method`'s body. One operation key names one method: keep the key until its payment is finished. */
+/**
+ * `POST /api/billing/payment-method`'s body: an operation key, nothing else (fleetless/fleetless#1196). The payer chooses
+ * the method on Mollie's page, from what `billingView.payment_method_options` lists. The object is strict: a body that
+ * still sends `method` is refused `400 validation_error`. Keep the key until its payment is finished.
+ */
 export const paymentMethodChangeRequest = z.object({
   operation_key: purchaseOperationKey,
-  method: paymentMethodKind.meta({
-    description:
-      "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with " +
-      "`400 validation_error` `{ field: 'method', rule: 'applepay_needs_open_invoice' }` unless an invoice is open.",
-  }),
 }).strict()
 export type PaymentMethodChangeRequest = z.infer<typeof paymentMethodChangeRequest>
 
@@ -1402,12 +1401,12 @@ export const billingView = z.object({
   account: billingAccount.nullable().meta({ description: '`null` before the org has ever checked out.' }),
   payment_method: paymentMethod.nullable().meta({ description: 'The payment method on file, or `null`.' }),
   payment_method_options: z.array(z.object({
-    method: paymentMethodKind.meta({ description: 'A method `POST /api/billing/payment-method` accepts now.' }),
-    pays_invoice: z.boolean().meta({ description: 'Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available.' }),
+    method: paymentMethodKind.meta({ description: "A method Mollie's page offers for a change started now." }),
   })).meta({
     description:
-      'What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when ' +
-      'it needs an open invoice and none is open; `[]` when the org has no billing account.',
+      "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and " +
+      'Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or ' +
+      'past-due billing account.',
   }),
   issuer: billingIssuer.meta({ description: "Which system issues this org's charges: `cloud` before the issuer cutover, or `lexware` after it." }),
   invoices: z.array(billingInvoice).meta({ description: 'Cloud-issued invoices from before the issuer cutover; read-only, never grows after it. Newest first, at most 24.' }),

@@ -10650,7 +10650,7 @@
             }
           }
         },
-        "description": "Offer `payment_method_options`. A change is a 0.00 `first` payment on the provider's hosted page, restricted to the chosen method: the answer is operation `mandate_setup` in `payment_started` with `payment.kind` hosted at once; redirect to its `checkout_url`. Nothing is quoted, so there is no `eligible` step, no confirmation and no VIES. It pays no invoice and clears no dunning or lock: open invoices stay open. When the provider reports it paid, the new mandate is the account's and every other valid mandate of the customer is revoked; canceled, expired or failed, nothing changes. `GET /api/billing/checkout/:id` with the `checkout_id` reads the outcome (`purpose: payment_method`). Use one operation_key per method until its payment is finished. The same key again answers 200 with the same `payment_started` while the payment is open. 502 payment_provider_unavailable when the provider did not answer: the same key again resumes, and sends the same payment again under the same idempotency key. 409 target_state_conflict with `{ field: billing, rule: checkout_not_open }` when the key's payment is finished or can no longer be sent: start again with a new key. Same key with another method is a typed operation_key_reused conflict. A change stored while changes were on hold reads `held` with `mandate_policy_unresolved`; start again with a new key. Apple Pay with zero-amount changes disabled pays an open invoice through operation payment_method_invoice, with the buyer/VIES gate, current-amount reconfirmation and USD legacy hold of invoices/:id/pay; without an open invoice, 400 validation_error has field method and rule applepay_needs_open_invoice. An invoice charged back is never retried automatically. 404 not_found when no billing account is active or past due. Owner only: a support session is answered 403 support_forbidden.",
+        "description": "The body is `{ operation_key }` only: a body that still sends `method` is 400 validation_error. A change is a 0.00 `first` payment on the provider's hosted page, which offers every method `payment_method_options` lists (card, PayPal and, where a zero-amount Apple Pay payment is taken, Apple Pay); the payer chooses there, and the method paid with becomes the mandate. Offer the change only while `payment_method_options` is not empty. The answer is operation `mandate_setup` in `payment_started` with `payment.kind` hosted at once; redirect to its `checkout_url`. Nothing is quoted, so there is no `eligible` step, no confirmation and no VIES. It pays no invoice and clears no dunning or lock: open invoices stay open. When the provider reports it paid, the new mandate is the account's and every other valid mandate of the customer is revoked; canceled, expired or failed, nothing changes. `GET /api/billing/checkout/:id` with the `checkout_id` reads the outcome (`purpose: payment_method`). Keep one operation_key until its payment is finished. The same key again answers 200 with the same `payment_started` while the payment is open. 502 payment_provider_unavailable when the provider did not answer: the same key again resumes, and sends the same payment again under the same idempotency key. 409 target_state_conflict with `{ field: billing, rule: checkout_not_open }` when the key's payment is finished or can no longer be sent: start again with a new key. A key first used for another operation, or before this route took no method, is a typed operation_key_reused conflict. A change stored while changes were on hold reads `held` with `mandate_policy_unresolved`; start again with a new key. 404 not_found when no billing account is active or past due. Owner only: a support session is answered 403 support_forbidden.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10998,7 +10998,7 @@
             }
           }
         },
-        "description": "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning. After the issuer cutover, :id names a historical open FL-… invoice only; a due charge after the cutover answers 404 not_found here — pay it with POST /api/billing/charges/:id/pay instead.",
+        "description": "The required operation_key binds the org, invoice and request; reuse with changed input is 409 target_state_conflict (purchaseConflictDetails). :id may be an issued invoice or a due charge with no number. Recheck current buyer eligibility, VIES, invoice status, owed amount and original currency before every new provider call. Invalid VAT is state invalid_vat_id with rule vat_id_invalid, without a payment. Pending/eligible/held has no redirect; after VIES recovers, the owner must confirm the current quote. An issued USD invoice remains held/legacy_usd_invoice: never convert it or call the provider anew until the integration decision resolves the conflict. Already-created payments retain recorded currency/amount and are looked up/reconciled, never replaced. Under the org lock, confirmation checks the current owed amount and returns the same payment identity on retries. invoice_not_open is a typed conflict; 404 not_found for unknown/foreign invoice. Pending itself never pays an invoice, lifts a lock or resets dunning. An invoice charged back is never retried automatically. After the issuer cutover, :id names a historical open FL-… invoice only; a due charge after the cutover answers 404 not_found here — pay it with POST /api/billing/charges/:id/pay instead.",
         "requestBody": {
           "required": true,
           "content": {
@@ -17360,20 +17360,15 @@
                             "paypal",
                             "applepay"
                           ],
-                          "description": "A method `POST /api/billing/payment-method` accepts now."
-                        },
-                        "pays_invoice": {
-                          "type": "boolean",
-                          "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                          "description": "A method Mollie's page offers for a change started now."
                         }
                       },
                       "required": [
-                        "method",
-                        "pays_invoice"
+                        "method"
                       ],
                       "additionalProperties": false
                     },
-                    "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+                    "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
                   },
                   "issuer": {
                     "type": "string",
@@ -18556,20 +18551,15 @@
                             "paypal",
                             "applepay"
                           ],
-                          "description": "A method `POST /api/billing/payment-method` accepts now."
-                        },
-                        "pays_invoice": {
-                          "type": "boolean",
-                          "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                          "description": "A method Mollie's page offers for a change started now."
                         }
                       },
                       "required": [
-                        "method",
-                        "pays_invoice"
+                        "method"
                       ],
                       "additionalProperties": false
                     },
-                    "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+                    "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
                   },
                   "issuer": {
                     "type": "string",
@@ -23854,20 +23844,15 @@
                     "paypal",
                     "applepay"
                   ],
-                  "description": "A method `POST /api/billing/payment-method` accepts now."
-                },
-                "pays_invoice": {
-                  "type": "boolean",
-                  "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                  "description": "A method Mollie's page offers for a change started now."
                 }
               },
               "required": [
-                "method",
-                "pays_invoice"
+                "method"
               ],
               "additionalProperties": false
             },
-            "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+            "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
           },
           "issuer": {
             "type": "string",
@@ -46187,20 +46172,10 @@
             "format": "uuid",
             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
             "description": "Client-generated UUID persisted before the start request. Unique per org and reused only for identical input."
-          },
-          "method": {
-            "type": "string",
-            "enum": [
-              "card",
-              "paypal",
-              "applepay"
-            ],
-            "description": "The new mandate's method. Offer what `billingView.payment_method_options` lists: `applepay` may be refused with `400 validation_error` `{ field: 'method', rule: 'applepay_needs_open_invoice' }` unless an invoice is open."
           }
         },
         "required": [
-          "operation_key",
-          "method"
+          "operation_key"
         ],
         "additionalProperties": false
       },
@@ -52658,20 +52633,15 @@
                             "paypal",
                             "applepay"
                           ],
-                          "description": "A method `POST /api/billing/payment-method` accepts now."
-                        },
-                        "pays_invoice": {
-                          "type": "boolean",
-                          "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                          "description": "A method Mollie's page offers for a change started now."
                         }
                       },
                       "required": [
-                        "method",
-                        "pays_invoice"
+                        "method"
                       ],
                       "additionalProperties": false
                     },
-                    "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+                    "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
                   },
                   "issuer": {
                     "type": "string",
@@ -53854,20 +53824,15 @@
                             "paypal",
                             "applepay"
                           ],
-                          "description": "A method `POST /api/billing/payment-method` accepts now."
-                        },
-                        "pays_invoice": {
-                          "type": "boolean",
-                          "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                          "description": "A method Mollie's page offers for a change started now."
                         }
                       },
                       "required": [
-                        "method",
-                        "pays_invoice"
+                        "method"
                       ],
                       "additionalProperties": false
                     },
-                    "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+                    "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
                   },
                   "issuer": {
                     "type": "string",

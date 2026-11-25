@@ -9,6 +9,21 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a payment-method change takes no method; Mollie's page offers
+  them** (fleetless/fleetless#1196). `paymentMethodChangeRequest` is
+  `{ operation_key }` only and stays strict, so a body that still sends
+  `method` is refused `400 validation_error` (`unrecognized_keys`). The
+  payer chooses card, PayPal or Apple Pay on Mollie's page, and the method
+  paid with becomes the mandate.
+- **BREAKING: `billingView.payment_method_options[]` loses `pays_invoice`**
+  and is `{ method }`: the methods Mollie's page offers for a change started
+  now, `[]` when no change is possible. The Apple Pay fallback that paid an
+  open invoice is gone, and with it the route's
+  `applepay_needs_open_invoice` refusal. A consumer on an older version
+  requires `pays_invoice` and no longer parses the view.
+
 ## [18.2.0] — 2026-11-26
 
 ### Added

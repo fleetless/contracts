@@ -1415,20 +1415,15 @@
                       "paypal",
                       "applepay"
                     ],
-                    "description": "A method `POST /api/billing/payment-method` accepts now."
-                  },
-                  "pays_invoice": {
-                    "type": "boolean",
-                    "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                    "description": "A method Mollie's page offers for a change started now."
                   }
                 },
                 "required": [
-                  "method",
-                  "pays_invoice"
+                  "method"
                 ],
                 "additionalProperties": false
               },
-              "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+              "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
             },
             "issuer": {
               "type": "string",
@@ -2611,20 +2606,15 @@
                       "paypal",
                       "applepay"
                     ],
-                    "description": "A method `POST /api/billing/payment-method` accepts now."
-                  },
-                  "pays_invoice": {
-                    "type": "boolean",
-                    "description": "Whether changing to it also pays the open invoice — `true` only for `applepay` when a zero-amount Apple Pay payment is not available."
+                    "description": "A method Mollie's page offers for a change started now."
                   }
                 },
                 "required": [
-                  "method",
-                  "pays_invoice"
+                  "method"
                 ],
                 "additionalProperties": false
               },
-              "description": "What a payment-method change may offer right now, so a client offers exactly what the cloud accepts. `applepay` is absent when it needs an open invoice and none is open; `[]` when the org has no billing account."
+              "description": "The methods a payment-method change offers on Mollie's page right now, where the payer chooses one: card and PayPal, and Apple Pay where this cloud takes a zero-amount Apple Pay payment. `[]` when no change is possible: the org has no active or past-due billing account."
             },
             "issuer": {
               "type": "string",
