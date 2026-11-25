@@ -26,7 +26,26 @@
     "client_name_verified": {
       "type": "boolean",
       "const": false,
-      "description": "Always `false`. The client registered itself without authentication and named itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
+      "description": "Always `false`. The client named itself — in an unauthenticated dynamic registration or in its own Client ID Metadata Document — so the name must be rendered as a claim and never as an identity. Only `client_id_host` was checked, by fetching the document from it. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
+    },
+    "client_id_host": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The hostname of the client's `client_id` when that id is the HTTPS URL of a Client ID Metadata Document, which the authorization server fetched from this host; `null` for a client that registered itself by dynamic registration. Show it beside the name: it is the one part of the client's description somebody checked."
+    },
+    "redirect_uri_host": {
+      "type": "string",
+      "description": "The hostname of the redirect URI this authorization will answer to — where the authorization code is sent. Show it on the consent screen (MCP 2026-07-28 requires it). An IPv6 literal keeps its brackets."
+    },
+    "redirect_uri_loopback": {
+      "type": "boolean",
+      "description": "`true` when the redirect URI is `http` on a loopback address (`localhost`, `127.0.0.1`, `[::1]`): the answer goes to a program on the person's own computer, on any port it chose. Warn about it, for example: \"This client receives the answer on this computer (127.0.0.1). Approve only if you started it here.\""
     },
     "scopes": {
       "type": "array",
@@ -51,6 +70,9 @@
     "app_id",
     "client_name",
     "client_name_verified",
+    "client_id_host",
+    "redirect_uri_host",
+    "redirect_uri_loopback",
     "scopes",
     "already_granted",
     "expires_at"

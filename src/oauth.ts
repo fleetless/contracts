@@ -367,6 +367,9 @@ export const authorizationServerMetadata = z.object({
   registration_endpoint: z.url().optional().meta({
     description: 'The URL where a client may register itself, per RFC 7591. Absent when the app does not accept dynamic clients.',
   }),
+  client_id_metadata_document_supported: z.boolean().optional().meta({
+    description: '`true` when a client may use the HTTPS URL of its Client ID Metadata Document as `client_id` (draft-ietf-oauth-client-id-metadata-document) instead of registering. Both MCP authorization servers answer `true` and keep `registration_endpoint` beside it.',
+  }),
   response_types_supported: z.array(z.literal('code')).meta({
     description: 'The response types this server offers: `code` only, the implicit grant being gone with OAuth 2.1.',
   }),

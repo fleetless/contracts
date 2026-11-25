@@ -541,20 +541,37 @@ export type ClientOidcErrorCode = z.infer<typeof clientOidcErrorCode>
  * MCP sign-in instead, which reads and decides the same interaction.
  *
  * `client_name_verified` is `z.literal(false)`, and that is the whole point of
- * the field. The name comes from an **unauthenticated** dynamic registration —
- * the client typed it about itself, nobody checked it — so a consent screen
+ * the field. The name comes from an **unauthenticated** dynamic registration,
+ * or from a Client ID Metadata Document the client published about itself —
+ * either way the client typed it, nobody checked it — so a consent screen
  * that rendered it as though it were an identity would be teaching people to
  * trust a string an attacker chooses. A literal rather than a boolean because
  * there is no verified case to distinguish: an app that reads this field at all
  * has to handle the untrusted one, and a `true` branch would be dead code
  * pretending to be a safeguard.
+ *
+ * **What was checked is `client_id_host`, and only for a metadata-document
+ * client**: the authorization server fetched the document from that host over
+ * HTTPS, and the document named the URL it was fetched from. That proves who
+ * controls the domain, nothing about the name. A consent screen shows the
+ * domain beside the name, and the redirect host beside both, because the
+ * redirect host is where the authorization code goes.
  */
 export const clientMcpInteraction = z.object({
   id: z.string().meta({ description: 'The interaction, as it arrived in the app\'s `mcp_login_url`. Not a credential: it names a pending request the server already holds, and approving it needs the app user\'s own access token.' }),
   app_id: z.uuid().meta({ description: 'The app this authorization is for. The approving token\'s `app_id` must match it — an interaction of one app cannot be approved with a session from another.' }),
   client_name: z.string().nullable().meta({ description: 'What the MCP client calls itself, or `null` if it named nothing. **Unverified** — see `client_name_verified`.' }),
   client_name_verified: z.literal(false).meta({
-    description: 'Always `false`. The client registered itself without authentication and named itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
+    description: 'Always `false`. The client named itself — in an unauthenticated dynamic registration or in its own Client ID Metadata Document — so the name must be rendered as a claim and never as an identity. Only `client_id_host` was checked, by fetching the document from it. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
+  }),
+  client_id_host: z.string().nullable().meta({
+    description: 'The hostname of the client\'s `client_id` when that id is the HTTPS URL of a Client ID Metadata Document, which the authorization server fetched from this host; `null` for a client that registered itself by dynamic registration. Show it beside the name: it is the one part of the client\'s description somebody checked.',
+  }),
+  redirect_uri_host: z.string().meta({
+    description: 'The hostname of the redirect URI this authorization will answer to — where the authorization code is sent. Show it on the consent screen (MCP 2026-07-28 requires it). An IPv6 literal keeps its brackets.',
+  }),
+  redirect_uri_loopback: z.boolean().meta({
+    description: '`true` when the redirect URI is `http` on a loopback address (`localhost`, `127.0.0.1`, `[::1]`): the answer goes to a program on the person\'s own computer, on any port it chose. Warn about it, for example: "This client receives the answer on this computer (127.0.0.1). Approve only if you started it here."',
   }),
   scopes: z.array(z.string()).meta({ description: 'The scopes the client asked for, to show the person before they approve.' }),
   already_granted: z.boolean().meta({ description: 'Whether this user has already approved this client. It is a record of what they answered last time, and **this route makes no second use of it**: an app that skips its own consent screen when this is `true` is the only thing deciding that, and approve succeeds identically for a user who holds no grant at all. The standing grant is read elsewhere, on every request to the app\'s MCP endpoint. Withdrawing it is `DELETE /api/client/mcp/grants/:clientId` for the person themselves and `DELETE /api/apps/:id/users/:userId/mcp-grants/:clientId` for the developer. A withdrawal makes this `false` again at the next authorization **and stops the client at its very next MCP call**, unexpired access token and all — up to fifteen minutes of it — because the endpoint keys that check on the `client_id` the token carries.' }),
@@ -599,13 +616,16 @@ export type ClientMcpInteractionDecisionResponse = z.infer<typeof clientMcpInter
  */
 export const mcpConsentGrant = z.object({
   client_id: z.string().meta({
-    description: 'The MCP client this consent is for, as its dynamic registration was issued. It is the value the withdrawal routes take in their path, and it is the only stable handle on a client — the name beside it is not one.',
+    description: 'The MCP client this consent is for: the id its dynamic registration was issued, or the HTTPS URL of its Client ID Metadata Document. It is the value the withdrawal routes take in their path, percent-encoded, and it is the only stable handle on a client — the name beside it is not one.',
+  }),
+  client_id_host: z.string().nullable().meta({
+    description: 'The hostname of `client_id` when it is a Client ID Metadata Document URL; `null` for a self-registered client. The grant is to whoever controls that domain.',
   }),
   client_name: z.string().nullable().meta({
-    description: 'What the client calls itself, or `null` once its registration is gone. **Unverified** — see `client_name_verified`.',
+    description: 'What the client calls itself, or `null` once its registration or cached metadata document is gone. **Unverified** — see `client_name_verified`.',
   }),
   client_name_verified: z.literal(false).meta({
-    description: 'Always `false`. The client registered itself without authentication and named itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
+    description: 'Always `false`. The client named itself — in an unauthenticated dynamic registration or in its own Client ID Metadata Document — so the name must be rendered as a claim and never as an identity. Only `client_id_host` was checked, by fetching the document from it. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard.',
   }),
   granted_at: z.iso.datetime().meta({
     description: 'When the consent was last given. A withdrawal followed by a fresh approval moves it, because the second approval is the agreement that stands — it is not a record of the first time anybody ever said yes.',

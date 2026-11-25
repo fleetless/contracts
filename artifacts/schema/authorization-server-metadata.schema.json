@@ -22,6 +22,10 @@
       "type": "string",
       "format": "uri"
     },
+    "client_id_metadata_document_supported": {
+      "description": "`true` when a client may use the HTTPS URL of its Client ID Metadata Document as `client_id` (draft-ietf-oauth-client-id-metadata-document) instead of registering. Both MCP authorization servers answer `true` and keep `registration_endpoint` beside it.",
+      "type": "boolean"
+    },
     "response_types_supported": {
       "type": "array",
       "items": {
