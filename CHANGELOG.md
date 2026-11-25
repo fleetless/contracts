@@ -9,6 +9,22 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **MCP clients by Client ID Metadata Document** (fleetless/fleetless#1218).
+  Both MCP authorization servers accept a `client_id` that is the HTTPS URL
+  of the client's metadata document, beside dynamic registration:
+  - `authorizationServerMetadata` gains
+    `client_id_metadata_document_supported` (optional; both servers answer
+    `true`).
+  - `clientMcpInteraction` gains `client_id_host` (the document URL's
+    hostname, `null` for a self-registered client), `redirect_uri_host` and
+    `redirect_uri_loopback`, for an app's own consent screen.
+  - `mcpConsentGrant` gains `client_id_host`.
+  - `client_name_verified` stays `false`: a document's name is the client's
+    own claim too. The withdrawal routes' `:clientId` may be such a URL,
+    percent-encoded.
+
 ## [18.0.0] — 2026-11-23
 
 ### Changed

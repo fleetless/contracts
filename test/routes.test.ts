@@ -1759,7 +1759,7 @@ describe('the per-app MCP surface', () => {
 
     // And the field that must never become a boolean: a client claiming its
     // name is verified is refused by the schema, not merely undocumented.
-    const row = { client_id: 'mcpdyn_abc', client_name: 'Some Client', granted_at: new Date().toISOString() }
+    const row = { client_id: 'mcpdyn_abc', client_name: 'Some Client', client_id_host: null, granted_at: new Date().toISOString() }
     expect(mcpConsentGrant.safeParse({ ...row, client_name_verified: false }).success).toBe(true)
     expect(mcpConsentGrant.safeParse({ ...row, client_name_verified: true }).success, 'client_name_verified admits a verified case').toBe(false)
   })

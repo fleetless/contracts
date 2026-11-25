@@ -9,7 +9,18 @@
         "properties": {
           "client_id": {
             "type": "string",
-            "description": "The MCP client this consent is for, as its dynamic registration was issued. It is the value the withdrawal routes take in their path, and it is the only stable handle on a client — the name beside it is not one."
+            "description": "The MCP client this consent is for: the id its dynamic registration was issued, or the HTTPS URL of its Client ID Metadata Document. It is the value the withdrawal routes take in their path, percent-encoded, and it is the only stable handle on a client — the name beside it is not one."
+          },
+          "client_id_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The hostname of `client_id` when it is a Client ID Metadata Document URL; `null` for a self-registered client. The grant is to whoever controls that domain."
           },
           "client_name": {
             "anyOf": [
@@ -20,12 +31,12 @@
                 "type": "null"
               }
             ],
-            "description": "What the client calls itself, or `null` once its registration is gone. **Unverified** — see `client_name_verified`."
+            "description": "What the client calls itself, or `null` once its registration or cached metadata document is gone. **Unverified** — see `client_name_verified`."
           },
           "client_name_verified": {
             "type": "boolean",
             "const": false,
-            "description": "Always `false`. The client registered itself without authentication and named itself, so it must be rendered as a claim and never as an identity. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
+            "description": "Always `false`. The client named itself — in an unauthenticated dynamic registration or in its own Client ID Metadata Document — so the name must be rendered as a claim and never as an identity. Only `client_id_host` was checked, by fetching the document from it. There is no verified case, which is why this is a literal and not a boolean: a `true` branch would be dead code that looked like a safeguard."
           },
           "granted_at": {
             "type": "string",
@@ -36,6 +47,7 @@
         },
         "required": [
           "client_id",
+          "client_id_host",
           "client_name",
           "client_name_verified",
           "granted_at"
