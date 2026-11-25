@@ -2293,10 +2293,11 @@ describe('billing through Mollie (2026-10-04, fleetless/fleetless#104)', () => {
     expect(off).toEqual(['POST /api/billing/change', 'POST /api/billing/charges/:id/pay', 'POST /api/billing/checkout', 'POST /api/billing/intents/:id/confirm', 'POST /api/billing/invoices/:id/pay', 'POST /api/billing/payment-method'])
   })
 
-  it('the payment-method notes name Apple Pay\'s rule, and no billing note names SEPA (André, 2026-10-04)', () => {
+  it('the payment-method notes say Mollie offers the listed methods and no method is sent, and no billing note names SEPA (fleetless/fleetless#1196)', () => {
     const change = ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/payment-method')!
-    expect(change.notes).toContain('applepay_needs_open_invoice')
     expect(change.notes).toContain('payment_method_options')
+    expect(change.notes).toMatch(/a body that still sends `method` is 400 validation_error/)
+    expect(change.notes).not.toMatch(/applepay_needs_open_invoice|payment_method_invoice|one operation_key per method/)
     expect(ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/checkout')!.notes).toMatch(/card, PayPal or Apple Pay/)
     expect(ROUTES.filter((x) => x.section === 'billing' && /\bsepa\b|directdebit/i.test(x.notes ?? '')).map(key)).toEqual([])
   })
@@ -2423,8 +2424,7 @@ describe('the VAT-ID hold and chargebacks (André, 2026-10-04, Multica DR-297)',
     expect(pay?.notes).toMatch(/vat_id_invalid/)
     expect(pay?.notes).toMatch(/no number/)
     expect(pay?.errors).toContain('target_state_conflict')
-    const change = ROUTES.find((x) => x.method === 'POST' && x.path === '/api/billing/payment-method')
-    expect(change?.notes).toMatch(/charged back/)
+    expect(pay?.notes).toMatch(/charged back/)
   })
 })
 
@@ -2458,9 +2458,8 @@ describe('owner purchase intents', () => {
   it('requires operation keys on both hosted payment entries and supports unpaid responses', () => {
     for (const path of ['/api/billing/invoices/:id/pay', '/api/billing/payment-method']) {
       const route = ROUTES.find((r) => r.method === 'POST' && r.path === path)!
-      const body = path.endsWith('payment-method') ? { method: 'applepay' } : {}
-      expect(route.request?.safeParse(body).success).toBe(false)
-      expect(route.request?.safeParse({ ...body, operation_key: operationKey }).success).toBe(true)
+      expect(route.request?.safeParse({}).success).toBe(false)
+      expect(route.request?.safeParse({ operation_key: operationKey }).success).toBe(true)
       for (const intent of [pendingIntent, eligibleIntent, heldIntent, startedIntent]) expect(route.response?.safeParse(intent).success).toBe(true)
       expect(route.errors).toContain('target_state_conflict')
     }

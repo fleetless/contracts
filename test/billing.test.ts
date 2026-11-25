@@ -166,12 +166,23 @@ describe('billing shapes (I-2)', () => {
   })
   it('card, PayPal and Apple Pay; no SEPA (André, 2026-10-04)', () => {
     expect(paymentMethodKind.options).toEqual(['card', 'paypal', 'applepay'])
-    expect(paymentMethodChangeRequest.safeParse({ operation_key: operationKey, method: 'applepay' }).success).toBe(true)
     expect(paymentMethodChangeRequest.safeParse({ method: 'sepa' }).success).toBe(false)
     expect(paymentMethod.safeParse({ kind: 'applepay', brand: 'Mastercard', last4: '0004', expires: '11/29' }).success).toBe(true)
     expect(paymentMethod.safeParse({ kind: 'paypal', account: 'ada@example.com' }).success).toBe(true)
     expect(paymentMethod.safeParse({ kind: 'sepa', holder: 'Ada', iban_last4: '0000' }).success).toBe(false)
-    expect(billingView.shape.payment_method_options.safeParse([{ method: 'card', pays_invoice: false }, { method: 'applepay', pays_invoice: true }]).success).toBe(true)
+    expect(billingView.shape.payment_method_options.safeParse([{ method: 'card' }, { method: 'paypal' }, { method: 'applepay' }]).success).toBe(true)
+    expect(billingView.shape.payment_method_options.safeParse([{ method: 'sepa' }]).success).toBe(false)
+  })
+  it('a payment-method change takes an operation key and no method: Mollie offers the methods (fleetless/fleetless#1196)', () => {
+    expect(paymentMethodChangeRequest.safeParse({ operation_key: operationKey }).success).toBe(true)
+    for (const method of ['card', 'paypal', 'applepay']) {
+      const refused = paymentMethodChangeRequest.safeParse({ operation_key: operationKey, method })
+      expect(refused.success).toBe(false)
+      expect(refused.error?.issues[0]).toMatchObject({ code: 'unrecognized_keys', keys: ['method'] })
+    }
+    expect(paymentMethodChangeRequest.safeParse({}).success).toBe(false)
+    expect(Object.keys(paymentMethodChangeRequest.shape)).toEqual(['operation_key'])
+    expect(Object.keys(billingView.shape.payment_method_options.element.shape)).toEqual(['method'])
   })
   it('knows the new codes', () => {
     for (const c of ['billing_unavailable', 'payment_provider_unavailable']) expect(ERROR_CODES).toContain(c)
