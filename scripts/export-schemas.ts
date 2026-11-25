@@ -39,6 +39,7 @@ import {
   bridgePong,
   bridgeLinkMode,
   datapointFrame,
+  bridgeDatapointDropped,
   bridgeState,
   cloudConfig,
   bridgeConfigApplied,
@@ -63,6 +64,7 @@ import {
   JOB_HEARTBEAT_INTERVAL_MS,
   JOB_HEARTBEAT_TIMEOUT_MS,
   JOB_OFFLINE_GRACE_MS,
+  BRIDGE_FRAME_MAX_BYTES,
 } from '../src/protocol.js'
 import { applyError } from '../src/common.js'
 import { MCP_APP_PATHS } from '../src/mcp.js'
@@ -540,6 +542,7 @@ export const exportedSchemas = {
   'bridge-pong': bridgePong,
   'bridge-link-mode': bridgeLinkMode,
   'datapoint-frame': datapointFrame,
+  'bridge-datapoint-dropped': bridgeDatapointDropped,
   'bridge-state': bridgeState,
   'cloud-config': cloudConfig,
   'bridge-config-applied': bridgeConfigApplied,
@@ -1087,6 +1090,13 @@ export const exportedConstants = {
   JOB_HEARTBEAT_TIMEOUT_MS,
   JOB_OFFLINE_GRACE_MS,
 
+  /**
+   * The bound on every text frame the bridge sends (fleetless/fleetless#1222),
+   * so the bridge drops, shapes or cuts against the number the cloud's margin
+   * is built on instead of a Python literal.
+   */
+  BRIDGE_FRAME_MAX_BYTES,
+
   ASSET_UPLOAD_HEADERS,
   /**
    * **The store belongs here, or the bridge has to guess it.**
@@ -1173,7 +1183,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
   'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong', 'bridge-link-mode',
-  'datapoint-frame', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
+  'datapoint-frame', 'bridge-datapoint-dropped', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
   'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
   'bridge-assets-available', 'cloud-asset-request', 'bridge-asset-progress',
@@ -1499,7 +1509,7 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
  */
 export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
   'bridge-hello', 'bridge-pong', 'bridge-link-mode', 'bridge-config-applied', 'bridge-introspect',
-  'bridge-type-definitions', 'datapoint-frame', 'bridge-job-update', 'bridge-job-lost', 'bridge-job-status',
+  'bridge-type-definitions', 'datapoint-frame', 'bridge-datapoint-dropped', 'bridge-job-update', 'bridge-job-lost', 'bridge-job-status',
   'bridge-cancel-result', 'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
 ]
 

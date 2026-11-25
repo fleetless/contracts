@@ -52,6 +52,38 @@ export const jobOrigin = z.enum(['fleetless', 'external'])
 export type JobOrigin = z.infer<typeof jobOrigin>
 
 /**
+ * Why a job's `result` is `null` although the robot had one: it did not fit
+ * the frame (fleetless/fleetless#1222).
+ *
+ * The bridge never sends a text frame over `BRIDGE_FRAME_MAX_BYTES` — the
+ * cloud closes the robot's socket at 2 MiB, and the bridge would reconnect
+ * into the same frame. An action or service whose result is larger (a map, a
+ * point cloud) therefore ends with its state unchanged and this beside a
+ * `null` result. The bridge keeps nothing it did not send: there is no later
+ * way to fetch the result. `reason` is an enum of one so a later reason is
+ * additive.
+ */
+export const resultOmitted = z
+  .object({
+    reason: z.enum(['too_large']).meta({
+      description: 'Why the result was left out. `too_large`: its frame would have exceeded the robot\'s frame limit.',
+    }),
+    bytes: z.number().int().positive().meta({
+      description: 'The size of the result alone, serialised as JSON, in bytes.',
+    }),
+    limit_bytes: z.number().int().positive().meta({
+      description: 'The frame limit the robot applied, in bytes (`BRIDGE_FRAME_MAX_BYTES`, 1.5 MiB).',
+    }),
+  })
+  .meta({
+    description: 'The robot had a result and did not send it because it was too large; `result` is `null`. The state is unchanged, and the result cannot be fetched later.',
+  })
+export type ResultOmitted = z.infer<typeof resultOmitted>
+
+const RESULT_OMITTED_DESCRIPTION =
+  'Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.'
+
+/**
  * One job, as the cloud tells every client about it — a Fleetless job or an
  * external goal alike, told apart only by `origin`.
  */
@@ -97,6 +129,7 @@ export const job = z.object({
   result: z.unknown().nullable().meta({
     description: 'What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed.',
   }),
+  result_omitted: resultOmitted.optional().meta({ description: RESULT_OMITTED_DESCRIPTION }),
   /**
    * Present on `failed`; a human message, plus a code where one exists.
    *
@@ -147,6 +180,8 @@ export const jobEvent = z.object({
   feedback: z.unknown().nullable(),
   /** 0..1 when the action reports progress; null when it does not. */
   progress: z.number().min(0).max(1).nullable(),
+  /** The job's own `result_omitted`, repeated so a consumer of the event alone sees it — see `resultOmitted`. */
+  result_omitted: resultOmitted.optional().meta({ description: RESULT_OMITTED_DESCRIPTION }),
   timestamp_ms: z.number().int().nonnegative(),
 })
 export type JobEvent = z.infer<typeof jobEvent>
@@ -301,6 +336,7 @@ export const jobRun = z.object({
   result: z.unknown().nullable().meta({
     description: 'What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise.',
   }),
+  result_omitted: resultOmitted.optional().meta({ description: RESULT_OMITTED_DESCRIPTION }),
   error: z
     .object({
       code: z.string().min(1).meta({
