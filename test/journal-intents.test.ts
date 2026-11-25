@@ -66,6 +66,15 @@ const examples: [string, Record<string, unknown>, boolean][] = [
 ]
 const candidates = examples.map(([kind, ids, needsManifest]) => ({ ...base, kind, ids, ...(needsManifest ? manifest : {}) }))
 
+// Both schemas are compiled once, when the file loads, not inside a test.
+// Compiling one is synchronous work vitest counted against the test's 5 s:
+// under `docker run --cpus=2` each test took 3.2-4.7 s with its compile and
+// 1.4-2.8 s without (ten runs each, 2026-11-25; fleetless/fleetless#1128).
+const ajv = new (Ajv2020 as any)({ strict: false })
+;(addFormats as any)(ajv)
+const compiled = Object.fromEntries(['journal-intent-v2-body', 'journal-intent-v2'].map((artifact) => [artifact,
+  ajv.compile(JSON.parse(readFileSync(new URL(`../artifacts/schema/${artifact}.schema.json`, import.meta.url), 'utf8')))]))
+
 describe('closed v2 journal intents', () => {
   it('exports body and envelope schemas', () => {
     expect(contracts).toHaveProperty('journalIntentV2Body')
@@ -86,9 +95,7 @@ describe('closed v2 journal intents', () => {
   ] as const) {
     it(`${name}: preserves every branch and rejects malformed identities in Zod and JSON Schema`, () => {
       const schema = (contracts as any)[name]
-      const ajv = new (Ajv2020 as any)({ strict: false })
-      ;(addFormats as any)(ajv)
-      const validate = ajv.compile(JSON.parse(readFileSync(new URL(`../artifacts/schema/${artifact}.schema.json`, import.meta.url), 'utf8')))
+      const validate = compiled[artifact]
       const rejects = (value: unknown) => {
         expect(schema.safeParse(value).success, JSON.stringify(value)).toBe(false)
         expect(validate(value), JSON.stringify(value)).toBe(false)
