@@ -9,6 +9,20 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **The bridge says whether its failsafe still holds** (fleetless/fleetless#1124).
+  A publisher's `failsafe` goes out at most 10 ms after its `timeout_ms`; a
+  bridge that cannot promise that takes no publishes. All additive; **the
+  protocol stays 5.**
+  - A new bridge → cloud frame `failsafe_watchdog` (`bridgeFailsafeWatchdog`:
+    `state` `ok` or `failed`, `reason` `self_test`, `late_fire`, `not_alive`
+    or `crashed` and `null` with `ok`, `lateness_ms`, `at_ms`), sent once
+    after `hello_ok` and on every change, in `schema/` and `schema-outgoing/`.
+    A cloud that does not know it ignores it.
+  - `bridgeState.failsafe` (`'ok' | 'failed' | null`), optional: bridge-reported,
+    `null` until the bridge states it, absent in older observations.
+
 ## [19.0.1] — 2026-11-26
 
 ### Fixed
