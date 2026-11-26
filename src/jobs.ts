@@ -127,7 +127,7 @@ export const job = z.object({
     description: 'A monotonic counter ascending in mint order, and the named tiebreaker for any listing that claims one — `started_at` alone is not a total order. Scoped per cloud process and per run: job state lives in memory, so this restarts with the registry it orders.',
   }),
   result: z.unknown().nullable().meta({
-    description: 'What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed.',
+    description: 'What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`).',
   }),
   result_omitted: resultOmitted.optional().meta({ description: RESULT_OMITTED_DESCRIPTION }),
   /**
@@ -334,7 +334,7 @@ export const jobRun = z.object({
     description: 'How long the run took, in milliseconds. `null` while it is still `running` or `unknown`, never `0` standing in for "nothing so far".',
   }),
   result: z.unknown().nullable().meta({
-    description: 'What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise.',
+    description: 'What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`).',
   }),
   result_omitted: resultOmitted.optional().meta({ description: RESULT_OMITTED_DESCRIPTION }),
   error: z

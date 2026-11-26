@@ -41805,7 +41805,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+                    "description": "What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`)."
                   },
                   "result_omitted": {
                     "description": "Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.",
@@ -42039,7 +42039,7 @@
                         "type": "null"
                       }
                     ],
-                    "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+                    "description": "What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`)."
                   },
                   "result_omitted": {
                     "description": "Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.",
@@ -42216,7 +42216,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "What the action or service returned once it succeeded, shaped by ROS itself. `null` otherwise."
+                  "description": "What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`)."
                 },
                 "result_omitted": {
                   "description": "Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.",
@@ -54759,7 +54759,7 @@
                     "type": "null"
                   }
                 ],
-                "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+                "description": "What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`)."
               },
               "result_omitted": {
                 "description": "Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.",
@@ -55520,7 +55520,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "What the call returned once it succeeded, shaped by the ROS action or service itself. `null` until then, and for a job that did not succeed."
+                  "description": "What the call returned, shaped by the ROS action or service itself: on `succeeded`, and on `failed` or `cancelled` when the action sent a result. `null` while running, when nothing was returned, and when it was too large to send (`result_omitted`)."
                 },
                 "result_omitted": {
                   "description": "Present when the robot had a result and did not send it because it was too large; `result` is `null` then. The state is unchanged: a goal that succeeded is still `succeeded`. Absent otherwise.",

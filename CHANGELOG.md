@@ -9,6 +9,15 @@ version.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`result` on a job and a job run says what it carries**
+  (fleetless/fleetless#1220). It said `null` for every job that did not
+  succeed; the bridge sends an action's result on `failed` and `cancelled`
+  too, and the cloud keeps it. The description now says so, and that it is
+  `null` while running, when nothing was returned, and when the result was
+  too large to send (`result_omitted`). No shape changed.
+
 ## [19.0.0] — 2026-11-26
 
 ### Changed
