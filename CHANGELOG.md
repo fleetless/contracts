@@ -9,10 +9,25 @@ version.
 
 ## [Unreleased]
 
+### Added
+
+- **`ROBOT_DATAPOINT_FIELDS`** (fleetless/fleetless#1262): the datapoint fields
+  the bridge acts on, as sorted schema paths: `field`, `low_bandwidth`,
+  `numeric.offset`, `numeric.scale`, `rate_throttle_hz`, `retention.enabled`,
+  `retention.max_buffer_values`, `topic`, `type`. A publish that changes one of
+  them is pushed to the robot. In `constants.json` for the bridge, whose suite
+  checks the list against what its config apply reads, as the cloud's checks
+  it against what a publish pushes. Additive; no shape changes.
+
 ### Changed
 
 - **`LATEST_BRIDGE_VERSION` is 6.6.0** (fleetless/fleetless#1222): the bridge
   that reports an oversized frame instead of reconnecting. Protocol stays 5.
+- **`retention.enabled` and `retention.max_buffer_values` say what the robot
+  does with them.** `enabled` also switches the robot's buffer: with it off,
+  the robot holds nothing for the datapoint, and switching it off drops what it
+  held. `max_buffer_values` needs `enabled`, and it also holds what
+  low-bandwidth mode's rate cap holds back. Descriptions only.
 
 ## [19.0.1] — 2026-11-26
 

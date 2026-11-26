@@ -920,14 +920,14 @@ export type DatapointNumeric = z.infer<typeof datapointNumeric>
  */
 export const datapointRetention = strictObject({
   enabled: z.boolean().meta({
-    description: 'Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it.',
+    description: 'Whether values are written to the time series and become queryable. Off by default: without it the value is live only, and nobody who was not watching will ever see it. It also switches the robot\'s buffer: with it off, the robot holds nothing for this datapoint, and switching it off drops what the robot held.',
   }).optional(),
   interval_seconds: z.number().int().min(1).max(3600).meta({
     description: 'How often a value is written to history, in seconds; absent means `300`. **Not** how often it is sent — that is `rate_throttle_hz`. Stored points are billed, so this is the direct lever on what a robot costs, and a bumper that is true for 200 ms does not appear unless a write falls inside it.',
     examples: [300, 60],
   }).optional(),
   max_buffer_values: z.number().int().min(1).max(100_000).meta({
-    description: 'How many values the robot holds while the bridge is disconnected, to be pushed once it reconnects. The catch-up runs behind live telemetry and job results at a limited rate, so closing a gap never delays the present; without it the series simply has a gap, which is an honest answer.',
+    description: 'How many values the robot holds while the bridge is disconnected, to be pushed once it reconnects. The catch-up runs behind live telemetry and job results at a limited rate, so closing a gap never delays the present; without it the series simply has a gap, which is an honest answer. It needs `enabled`, and it also holds the values low-bandwidth mode\'s rate cap holds back.',
     examples: [5000],
   }).optional(),
 })
@@ -1200,6 +1200,42 @@ export const datapointConfig = strictObject({
    */
   .meta({ defaultSnippets: [DATAPOINT_SNIPPET, NUMERIC_DATAPOINT_SNIPPET] })
 export type DatapointConfig = z.infer<typeof datapointConfig>
+
+/** A datapoint field as a path: a top-level key, or one key inside `numeric` or `retention`. */
+type DatapointFieldPath =
+  | Exclude<keyof DatapointConfig, 'numeric' | 'retention'>
+  | `numeric.${keyof DatapointNumeric & string}`
+  | `retention.${keyof DatapointRetention & string}`
+
+/**
+ * The fields of a datapoint the bridge acts on, as paths, sorted.
+ *
+ * A publish that changes one of them has to reach the robot, so the cloud
+ * pushes the configuration for it. A publish that changes only fields not
+ * named here is a new version and no push: the cloud alone acts on them.
+ *
+ * The list is written here because both sides read this package and nothing
+ * else. The bridge cannot import it and vendors it from `constants.json`.
+ * Two tests keep it honest, one on each side. The bridge's records which
+ * datapoint fields its config apply reads and compares them with this list.
+ * The cloud's compares the fields its publish projection takes. A field the
+ * bridge starts to read turns the first red until it is listed here, and the
+ * second until the cloud pushes it.
+ *
+ * `numeric.unit` and `retention.interval_seconds` are not on it: the bridge
+ * parses them and never reads them.
+ */
+export const ROBOT_DATAPOINT_FIELDS = [
+  'field',
+  'low_bandwidth',
+  'numeric.offset',
+  'numeric.scale',
+  'rate_throttle_hz',
+  'retention.enabled',
+  'retention.max_buffer_values',
+  'topic',
+  'type',
+] as const satisfies readonly DatapointFieldPath[]
 
 /**
  * Whether a template holds an explicit `null` anywhere inside it.

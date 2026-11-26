@@ -221,6 +221,7 @@ export {
   datapointRetention,
   datapointChart,
   datapointConfig,
+  ROBOT_DATAPOINT_FIELDS,
   lowBandwidthSection,
   LOW_BANDWIDTH_DEFAULTS,
   liveSection,
