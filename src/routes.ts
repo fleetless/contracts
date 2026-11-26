@@ -2039,7 +2039,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'applies; those refusals are `oauthError`. \n\n**Three client kinds.** The one central client; a client that registered itself at ' +
       '`POST /mcp/oauth/register`; and a client whose `client_id` is the HTTPS URL of its Client ID Metadata Document ' +
       '(draft-ietf-oauth-client-id-metadata-document). The last is recognised by its `https://` prefix, which no issued id carries. Its URL ' +
-      'must have a path other than `/`, no dot segment, query, fragment or userinfo, and at most 512 characters. On a cache miss the server ' +
+      'must have a host and a path other than `/`, no dot segment, query, fragment or userinfo, and at most 512 characters, and it must be ' +
+      'spelled the way a URL parser writes it back (`new URL(id).href === id`: a lower-case host, no `:443`, no escape the parser ' +
+      'rewrites), so the id a grant is stored under is the only spelling of it. On a cache miss the server ' +
       'fetches the document: `GET`, no redirects followed, 5 s, at most 5,120 bytes, `200` with a JSON content type, from a public address ' +
       'only, connecting to the exact address it checked. The document must name this URL as its `client_id`, list its `redirect_uris` and ' +
       'be a public client (`token_endpoint_auth_method` absent or `none`). A valid document is cached for its `Cache-Control: max-age`, ' +
