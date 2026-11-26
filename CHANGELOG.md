@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [18.1.0] — 2026-11-26
+
 ### Added
 
 - **MCP clients by Client ID Metadata Document** (fleetless/fleetless#1218).
