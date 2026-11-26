@@ -91,7 +91,7 @@ export const PROTOCOL_VERSIONS: readonly ProtocolVersionEntry[] = [
 ]
 
 /** The newest bridge package. The cloud mails organisations still below it. */
-export const LATEST_BRIDGE_VERSION = '6.1.0'
+export const LATEST_BRIDGE_VERSION = '6.6.0'
 
 export interface ProtocolStatus {
   status: 'current' | 'deprecated' | 'unsupported'

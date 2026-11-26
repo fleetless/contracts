@@ -9,6 +9,11 @@ version.
 
 ## [Unreleased]
 
+### Changed
+
+- **`LATEST_BRIDGE_VERSION` is 6.6.0** (fleetless/fleetless#1222): the bridge
+  that reports an oversized frame instead of reconnecting. Protocol stays 5.
+
 ## [19.0.1] — 2026-11-26
 
 ### Fixed
