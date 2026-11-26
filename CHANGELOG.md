@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [19.0.1] — 2026-11-26
+
 ### Fixed
 
 - **`result` on a job and a job run says what it carries**
