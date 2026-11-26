@@ -73,7 +73,7 @@ import {
   liveSessionResponse,
   snapshotMetaResponse,
 } from '../src/rest.js'
-import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS, LIVE_DEFAULTS, LIVE_BOUNDS } from '../src/config.js'
+import { robotConfigDoc, datapointConfig, validationIssue, configState, cameraSource, LOW_BANDWIDTH_DEFAULTS, LIVE_DEFAULTS, LIVE_BOUNDS, ROBOT_DATAPOINT_FIELDS } from '../src/config.js'
 import { AUDIT_RETENTION_DAYS } from '../src/audit.js'
 import { rosGraph, typeDefinition } from '../src/introspection.js'
 import {
@@ -1147,6 +1147,14 @@ export const exportedConstants = {
    * the schema refuses.
    */
   LIVE_BOUNDS,
+
+  /**
+   * The datapoint fields the bridge acts on. The bridge's own suite compares
+   * what its config apply reads with this list, so a field it starts to read
+   * is red there until it is listed, and then red in the cloud until a
+   * publish of it is pushed. Read by a test, not by the running bridge.
+   */
+  ROBOT_DATAPOINT_FIELDS,
 } as const
 
 /**
