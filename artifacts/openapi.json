@@ -41709,6 +41709,37 @@
           },
           "stale": {
             "type": "boolean"
+          },
+          "bridge_version": {
+            "description": "The bridge version the graph was read under. `null` for a snapshot older than this field. Absent when the server predates this field.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "types_fetched_at": {
+            "description": "When the types of this snapshot were read and replaced the stored definitions. `null` while they have not been, or when reading them failed: the stored definitions are then the older ones. Absent when the server predates this field.",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unresolved_types": {
+            "description": "The type names the robot could not resolve when the types of this snapshot were read, sorted; empty when every one resolved, or when they have not been read. Absent when the server predates this field.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

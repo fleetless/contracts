@@ -365,6 +365,25 @@ describe('REST shapes', () => {
     ).toBe(true)
   })
 
+  it('says how the types of a snapshot were read, and still reads a body without it', () => {
+    const graph = { topics: [], services: [], actions: [], captured_at_ms: 1 }
+    const read = {
+      graph,
+      fetched_at: '2026-11-26T12:00:00.000Z',
+      stale: false,
+      bridge_version: '6.5.2',
+      types_fetched_at: '2026-11-26T12:00:01.000Z',
+      unresolved_types: ['pkg/msg/Ghost'],
+    }
+    expect(introspectionResponse.parse(read)).toEqual(read)
+    expect(
+      introspectionResponse.safeParse({ ...read, bridge_version: null, types_fetched_at: null, unresolved_types: [] }).success,
+    ).toBe(true)
+    expect(introspectionResponse.safeParse({ graph, fetched_at: read.fetched_at, stale: true }).success).toBe(true)
+    expect(introspectionResponse.safeParse({ ...read, types_fetched_at: 'yesterday' }).success).toBe(false)
+    expect(introspectionResponse.safeParse({ ...read, unresolved_types: null }).success).toBe(false)
+  })
+
   it('describes the readable datapoints including the built-in bridge_state', () => {
     expect(
       datapointListResponse.safeParse({

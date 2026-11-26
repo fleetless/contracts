@@ -18,6 +18,15 @@ version.
   them is pushed to the robot. In `constants.json` for the bridge, whose suite
   checks the list against what its config apply reads, as the cloud's checks
   it against what a publish pushes. Additive; no shape changes.
+- **`introspectionResponse` says how the types of a snapshot were read**
+  (fleetless/fleetless#1221). A refresh now reads the graph and then the
+  definition of every type the graph and the robot's configuration name, and
+  replaces the stored definitions with what the robot returned. Three
+  optional fields report it: `bridge_version` (the bridge version the graph
+  was read under, `null` for an older snapshot), `types_fetched_at` (when the
+  types were read and stored, `null` while they have not been or when reading
+  them failed) and `unresolved_types` (the names the robot could not resolve,
+  sorted). Additive: a body from an older server has none of them.
 
 ### Changed
 
