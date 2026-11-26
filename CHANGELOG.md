@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [19.0.0] — 2026-11-26
+
 ### Changed
 
 - **BREAKING: a payment-method change takes no method; Mollie's page offers
