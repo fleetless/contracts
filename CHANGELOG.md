@@ -9,6 +9,8 @@ version.
 
 ## [Unreleased]
 
+## [18.2.0] — 2026-11-26
+
 ### Added
 
 - **No bridge text frame over 1.5 MiB** (fleetless/fleetless#1222). The cloud
