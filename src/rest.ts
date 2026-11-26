@@ -335,11 +335,26 @@ export type ConfigVersionResponse = z.infer<typeof configVersionResponse>
  * The cached ROS graph. It survives the bridge going offline on purpose —
  * a developer keeps configuring while the robot is off; `stale` says the
  * bridge is not connected right now, `fetched_at` how old the picture is.
+ *
+ * A refresh reads the graph, then the definition of every type the graph and
+ * the robot's configuration name, and replaces the stored definitions with
+ * what the robot returned (fleetless/fleetless#1221). The last three fields
+ * say how that second phase went; all three are additive, so a consumer reads
+ * a body from an older server without them.
  */
 export const introspectionResponse = z.object({
   graph: rosGraph,
   fetched_at: z.iso.datetime(),
   stale: z.boolean(),
+  bridge_version: z.string().nullable().optional().meta({
+    description: 'The bridge version the graph was read under. `null` for a snapshot older than this field. Absent when the server predates this field.',
+  }),
+  types_fetched_at: z.iso.datetime().nullable().optional().meta({
+    description: 'When the types of this snapshot were read and replaced the stored definitions. `null` while they have not been, or when reading them failed: the stored definitions are then the older ones. Absent when the server predates this field.',
+  }),
+  unresolved_types: z.array(z.string()).optional().meta({
+    description: 'The type names the robot could not resolve when the types of this snapshot were read, sorted; empty when every one resolved, or when they have not been read. Absent when the server predates this field.',
+  }),
 })
 export type IntrospectionResponse = z.infer<typeof introspectionResponse>
 
