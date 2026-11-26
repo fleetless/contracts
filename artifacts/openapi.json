@@ -30434,6 +30434,21 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "failsafe": {
+                      "description": "The bridge's failsafe watchdog: `failed` while the bridge takes no publishes because it cannot promise a failsafe on time; `null` until the bridge states it. Bridge-reported. Optional for older observations.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -55167,6 +55182,21 @@
                     "type": "null"
                   }
                 ]
+              },
+              "failsafe": {
+                "description": "The bridge's failsafe watchdog: `failed` while the bridge takes no publishes because it cannot promise a failsafe on time; `null` until the bridge states it. Bridge-reported. Optional for older observations.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ok",
+                      "failed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -55661,6 +55691,21 @@
                           "type": "string",
                           "enum": [
                             "job_query_unanswered"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failsafe": {
+                      "description": "The bridge's failsafe watchdog: `failed` while the bridge takes no publishes because it cannot promise a failsafe on time; `null` until the bridge states it. Bridge-reported. Optional for older observations.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ok",
+                            "failed"
                           ]
                         },
                         {

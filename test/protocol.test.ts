@@ -11,6 +11,7 @@ import {
   datapointFrame,
   bridgeState,
   bridgeLinkMode,
+  bridgeFailsafeWatchdog,
   cloudPing,
   protocolStatus,
   minimumProtocolVersion,
@@ -95,6 +96,41 @@ describe('contracts v1', () => {
     expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: true, reason: 'lag', at_ms: 1754800000000 }).success).toBe(true)
     expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: false, reason: 'recovered', at_ms: 1 }).success).toBe(true)
     expect(bridgeLinkMode.safeParse({ type: 'link_mode', low_bandwidth: true, reason: 'tired', at_ms: 1 }).success).toBe(false)
+  })
+
+  it('failsafe_watchdog names the state, why it failed, the deciding lateness and the bridge time', () => {
+    const ok = { type: 'failsafe_watchdog', state: 'ok', reason: null, lateness_ms: 0.42, at_ms: 1754800000000 }
+    expect(bridgeFailsafeWatchdog.parse(ok)).toEqual(ok)
+    for (const reason of ['self_test', 'late_fire'] as const) {
+      expect(bridgeFailsafeWatchdog.safeParse({ ...ok, state: 'failed', reason, lateness_ms: 23.5 }).success).toBe(true)
+    }
+    for (const reason of ['not_alive', 'crashed'] as const) {
+      expect(bridgeFailsafeWatchdog.safeParse({ ...ok, state: 'failed', reason, lateness_ms: null }).success).toBe(true)
+    }
+    expect(bridgeFailsafeWatchdog.safeParse({ ...ok, state: 'starting' }).success).toBe(false)
+    expect(bridgeFailsafeWatchdog.safeParse({ ...ok, state: 'failed', reason: 'tired' }).success).toBe(false)
+    expect(bridgeFailsafeWatchdog.safeParse({ ...ok, lateness_ms: -1 }).success).toBe(false)
+    expect(bridgeFailsafeWatchdog.safeParse({ ...ok, at_ms: 1.5 }).success).toBe(false)
+    const { reason: _reason, ...withoutReason } = ok
+    expect(bridgeFailsafeWatchdog.safeParse(withoutReason).success).toBe(false)
+  })
+
+  it('bridge-failsafe-watchdog is registered for export as a bridge-sent input frame', () => {
+    expect(Object.keys(exportedSchemas)).toContain('bridge-failsafe-watchdog')
+    expect(BRIDGE_SENT_SCHEMAS).toContain('bridge-failsafe-watchdog')
+    expect(schemaIo('bridge-failsafe-watchdog')).toBe('input')
+    for (const dir of ['schema', 'schema-outgoing']) {
+      expect(existsSync(join(import.meta.dirname, '..', 'artifacts', dir, 'bridge-failsafe-watchdog.schema.json'))).toBe(true)
+    }
+  })
+
+  it('bridge-state carries the failsafe watchdog, null until stated and absent in older observations', () => {
+    const base = { online: true, latency_ms: 42, low_bandwidth: false }
+    expect(bridgeState.parse({ ...base, failsafe: 'ok' })).toHaveProperty('failsafe', 'ok')
+    expect(bridgeState.parse({ ...base, failsafe: 'failed' })).toHaveProperty('failsafe', 'failed')
+    expect(bridgeState.parse({ ...base, failsafe: null })).toHaveProperty('failsafe', null)
+    expect(bridgeState.parse(base)).not.toHaveProperty('failsafe')
+    expect(bridgeState.safeParse({ ...base, failsafe: 'starting' }).success).toBe(false)
   })
 
   it('bridge-state carries online, latency and the low-bandwidth flag', () => {

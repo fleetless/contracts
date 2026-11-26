@@ -446,6 +446,22 @@ export const bridgeLinkMode = z.object({
 export type BridgeLinkMode = z.infer<typeof bridgeLinkMode>
 
 /**
+ * The state of the bridge's failsafe watchdog, the one that publishes a
+ * publisher's `failsafe` message when a client falls silent. Sent once after
+ * `hello_ok` and on every change, at tier 0 like `link_mode`: the cloud folds
+ * it into `bridge_state.failsafe`. While the state is `failed` the bridge
+ * takes no publishes; a failsafe it cannot promise on time is not one.
+ */
+export const bridgeFailsafeWatchdog = z.object({
+  type: z.literal('failsafe_watchdog'),
+  state: z.enum(['ok', 'failed']).meta({ description: '`ok`: the watchdog passed its self-test and holds its bound, and the bridge takes publishes; `failed`: it does not, and the bridge refuses every publish until it recovers.' }),
+  reason: z.enum(['self_test', 'late_fire', 'not_alive', 'crashed']).nullable().meta({ description: 'Why the state is `failed`; `null` with `ok`. `self_test`: the start-up self-test ran past the bound; `late_fire`: a failsafe went out past the bound; `not_alive`: the watchdog stopped answering; `crashed`: it failed twice within a minute or exited.' }),
+  lateness_ms: z.number().nonnegative().nullable().meta({ description: 'The lateness that decided the state, in milliseconds after the deadline: the self-test\'s or the late failsafe\'s; `null` for `not_alive` and `crashed`.' }),
+  at_ms: z.number().int().nonnegative().meta({ description: 'Bridge time of the state change, epoch milliseconds.' }),
+})
+export type BridgeFailsafeWatchdog = z.infer<typeof bridgeFailsafeWatchdog>
+
+/**
  * The published configuration, cloud → bridge — the bridge applies the
  * published version. Sent right after `hello_ok` and again on every publish,
  * so a bridge never has to ask.
@@ -817,13 +833,16 @@ export type BridgeTypeDefinitions = z.infer<typeof bridgeTypeDefinitions>
  *
  * `online` and `latency_ms` are cloud-observed (the socket, the pong);
  * `low_bandwidth` is bridge-reported through `link_mode` and `false` for a
- * bridge that never sends one.
+ * bridge that never sends one. `failsafe` is bridge-reported through
+ * `failsafe_watchdog`: `null` until a bridge states it, so also from a bridge
+ * that never does.
  */
 export const bridgeState = z.object({
   online: z.boolean(),
   latency_ms: z.number().nonnegative().nullable(),
   low_bandwidth: z.boolean().meta({ description: 'Whether the bridge is in its low-bandwidth mode: datapoints capped, cameras reduced or stopped. Bridge-reported.' }),
   health_reason: z.enum(['job_query_unanswered']).nullable().optional().meta({ description: 'Cloud-observed connection health: `job_query_unanswered` after a bridge ignores held-job queries; `null` on an ordinary connect or disconnect. Optional for older observations.' }),
+  failsafe: z.enum(['ok', 'failed']).nullable().optional().meta({ description: 'The bridge\'s failsafe watchdog: `failed` while the bridge takes no publishes because it cannot promise a failsafe on time; `null` until the bridge states it. Bridge-reported. Optional for older observations.' }),
 })
 export type BridgeState = z.infer<typeof bridgeState>
 

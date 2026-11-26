@@ -38,6 +38,7 @@ import {
   cloudPing,
   bridgePong,
   bridgeLinkMode,
+  bridgeFailsafeWatchdog,
   datapointFrame,
   bridgeDatapointDropped,
   bridgeState,
@@ -541,6 +542,7 @@ export const exportedSchemas = {
   'cloud-ping': cloudPing,
   'bridge-pong': bridgePong,
   'bridge-link-mode': bridgeLinkMode,
+  'bridge-failsafe-watchdog': bridgeFailsafeWatchdog,
   'datapoint-frame': datapointFrame,
   'bridge-datapoint-dropped': bridgeDatapointDropped,
   'bridge-state': bridgeState,
@@ -1182,7 +1184,7 @@ const SCHEMA_IO_INPUT: readonly string[] = [
   'controller-register-write',
   // --- socket frames, bridge <-> cloud -------------------------------------
   // Both directions, because both ends validate what they receive.
-  'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong', 'bridge-link-mode',
+  'bridge-hello', 'cloud-hello-ok', 'cloud-hello-error', 'cloud-ping', 'bridge-pong', 'bridge-link-mode', 'bridge-failsafe-watchdog',
   'datapoint-frame', 'bridge-datapoint-dropped', 'bridge-state', 'cloud-config', 'bridge-config-applied', 'apply-error',
   'cloud-introspect-request', 'bridge-introspect', 'cloud-type-request', 'bridge-type-definitions',
   'cloud-camera-start', 'cloud-camera-stop', 'bridge-camera-state',
@@ -1508,7 +1510,7 @@ export const schemaIo = (name: string): 'input' | 'output' => (INPUT.has(name) ?
  * never reach the wire and no consumer generates from them.
  */
 export const BRIDGE_SENT_SCHEMAS: readonly string[] = [
-  'bridge-hello', 'bridge-pong', 'bridge-link-mode', 'bridge-config-applied', 'bridge-introspect',
+  'bridge-hello', 'bridge-pong', 'bridge-link-mode', 'bridge-failsafe-watchdog', 'bridge-config-applied', 'bridge-introspect',
   'bridge-type-definitions', 'datapoint-frame', 'bridge-datapoint-dropped', 'bridge-job-update', 'bridge-job-lost', 'bridge-job-status',
   'bridge-cancel-result', 'snapshot-header', 'bridge-camera-state', 'bridge-assets-available', 'bridge-asset-progress',
 ]
