@@ -1600,6 +1600,13 @@ export const RESOURCE_HEALTH_STATES = [
    */
   'too_large',
   /**
+   * A camera's live video is paused because the bridge is in low-bandwidth
+   * mode: a new stream is refused and a running one may have been ended
+   * (fleetless/fleetless#1126). Not an error; snapshots go on. `reason` is
+   * the cloud's fixed sentence.
+   */
+  'low_bandwidth',
+  /**
    * Something is wrong and this platform cannot say what.
    *
    * The alternative was worse. A bridge error code the mapping table does not

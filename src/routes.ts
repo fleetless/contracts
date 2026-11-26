@@ -3448,7 +3448,9 @@ export const ROUTES: readonly RouteEntry[] = [
       'Refcounted: the first viewer starts the robot publishing and the last release stops it. No token is ever minted for an ungranted or ' +
       'offline camera — both refusals return before the hold is taken. `409 camera_offline` means the **robot itself** reported the failure; ' +
       '`502 live_unavailable` means this cloud could not start the stream. The difference matters, and it is why a failure the robot named is ' +
-      'never dressed up as one this side invented.',
+      'never dressed up as one this side invented. The `409` carries `details.refusal` (`cameraOfflineDetails`) and the cloud\'s fixed sentence for ' +
+      'it as `message`, never the robot\'s own words. A start the robot refuses after the `201` ends the session with a `live_session` frame, ' +
+      'reason `start_refused`, the same sentence as `detail` and the class as `refusal`; the next viewer of an emptied room gets a fresh try.',
   },
   {
     method: 'DELETE', path: '/api/robots/:id/cameras/:slug/live', section: 'cameras',

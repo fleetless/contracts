@@ -930,7 +930,11 @@ export {
   requiredMissingDetails,
   // Organization roles.
   roleCycleDetails,
+  // 2026-11-26 — a refused live start (fleetless/fleetless#1126).
+  cameraOfflineDetails,
 } from './errors.js'
+export { LIVE_START_REFUSALS, liveStartRefusal } from './live-start-refusal.js'
+export type { LiveStartRefusal } from './live-start-refusal.js'
 export type {
   ApiError,
   ParameterViolation,
@@ -943,6 +947,7 @@ export type {
   PlanRequiredDetails,
   OrgLockedDetails,
   FileTooLargeDetails,
+  CameraOfflineDetails,
   PaymentProviderUnavailableDetails,
   BillingDocumentsUnavailableDetails,
   ConfirmationRequiredDetails,

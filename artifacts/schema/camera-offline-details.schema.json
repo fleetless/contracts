@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "refusal": {
+      "type": "string",
+      "enum": [
+        "low_bandwidth",
+        "source_auth",
+        "source_unreachable",
+        "not_startable",
+        "unknown"
+      ],
+      "description": "Why the robot refused to start live video: `low_bandwidth` (the link is weak; snapshots go on), `source_auth` (the source refused the credentials), `source_unreachable` (the source could not be reached), `not_startable` (the bridge could not start it; its log says why), `unknown` (a reason this cloud does not know yet)."
+    }
+  },
+  "required": [
+    "refusal"
+  ],
+  "additionalProperties": false
+}
