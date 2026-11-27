@@ -14,9 +14,10 @@ version.
 - **A live start the robot refuses ends with a reason** (fleetless/fleetless#1126).
   The first viewer used to sit in a room nobody published into; a later one
   got the robot's own error text. All additive; **the protocol stays 5.**
-  - `liveSessionEndReason` gains `start_refused`: the robot refused to start,
-    so the session never carried a picture. `publish_failed` keeps meaning it
-    stopped after starting. `detail` is the cloud's fixed sentence.
+  - `liveSessionEndReason` gains `start_refused`: the robot refused to start
+    the camera's live video (the first start, or the restart after a bridge
+    reconnect). `publish_failed` keeps meaning a running stream stopped.
+    `detail` is the cloud's fixed sentence.
   - `liveSessionEvent.refusal` (`liveStartRefusal`, optional and nullable):
     `low_bandwidth`, `source_auth`, `source_unreachable`, `not_startable` or
     `unknown`, set with `start_refused` only. Also exported as

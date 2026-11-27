@@ -317,9 +317,9 @@ export const liveSessionEndReason = z.enum([
    */
   'publish_failed',
   /**
-   * The robot refused to start this camera's live video, so the session
-   * never carried a picture (fleetless/fleetless#1126). Distinct from
-   * `publish_failed`, which means it stopped after starting. `detail` is the
+   * The robot refused to start this camera's live video: the first start,
+   * or the restart after a bridge reconnect (fleetless/fleetless#1126).
+   * Distinct from `publish_failed`, which means a running stream stopped. `detail` is the
    * cloud's fixed sentence for the refusal and `refusal` names its class.
    */
   'start_refused',
