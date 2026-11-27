@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { RESOURCE_HEALTH_KINDS, RESOURCE_HEALTH_STATES } from './rest.js'
 import { MAX_PATIENCE_MS, MIN_PATIENCE_MS } from './protocol.js'
 import { slug } from './common.js'
+import { liveStartRefusal } from './live-start-refusal.js'
 import { clientIdentity } from './client-auth.js'
 import { job } from './jobs.js'
 import { collectionKey } from './collections.js'
@@ -310,8 +311,18 @@ export const liveSessionEndReason = z.enum([
   'released_by_peer',
   /** The robot's configuration was published and this camera changed with it. */
   'config_changed',
-  /** The robot said it could not publish. `detail` carries its own words. */
+  /**
+   * The robot said publishing died after it had started. `detail` is `null`:
+   * the robot's own words never travel here (see `detail`).
+   */
   'publish_failed',
+  /**
+   * The robot refused to start this camera's live video: the first start,
+   * or the restart after a bridge reconnect (fleetless/fleetless#1126).
+   * Distinct from `publish_failed`, which means a running stream stopped. `detail` is the
+   * cloud's fixed sentence for the refusal and `refusal` names its class.
+   */
+  'start_refused',
   /** The bridge stopped answering. */
   'robot_offline',
   /** The grant this session was minted under was withdrawn. */
@@ -371,6 +382,12 @@ export const liveSessionEvent = z.object({
    * forwarded foreign text on a channel a client reads.
    */
   detail: z.string().max(200).nullable(),
+  /**
+   * Why the robot refused the start, as a class: set with `reason:
+   * 'start_refused'` (fleetless/fleetless#1126), absent or `null` for every
+   * other reason. `detail` carries the matching sentence.
+   */
+  refusal: liveStartRefusal.nullable().optional(),
   /** When it ended — not when this frame was sent. Same reasoning as `changed_at_ms`. */
   ended_at_ms: z.number().int().nonnegative(),
 })

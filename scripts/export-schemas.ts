@@ -408,6 +408,7 @@ import {
   fileTooLargeDetails,
   paymentProviderUnavailableDetails,
   billingDocumentsUnavailableDetails,
+  cameraOfflineDetails,
 } from '../src/errors.js'
 import {
   purchaseBillingDetails,
@@ -823,6 +824,7 @@ export const exportedSchemas = {
   'plan-required-details': planRequiredDetails,
   'org-locked-details': orgLockedDetails,
   'file-too-large-details': fileTooLargeDetails,
+  'camera-offline-details': cameraOfflineDetails,
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104, I-2, I-4)
   'purchase-billing-details': purchaseBillingDetails,
@@ -1398,6 +1400,10 @@ const SCHEMA_IO_OUTPUT: readonly string[] = [
   // --- The per-file asset limit (2026-10-03, fleetless/fleetless#136) ------
   // Rides an `apiError.details` the server sends, never one it validates.
   'file-too-large-details',
+
+  // --- A refused live start (2026-11-26, fleetless/fleetless#1126) ---------
+  // The `details` of a `409 camera_offline`, sent, never received.
+  'camera-offline-details',
 
   // --- Billing through Mollie (2026-10-04, fleetless/fleetless#104) ---------
   // The billing routes' answers, and the `details` of a `502

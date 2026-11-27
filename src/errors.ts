@@ -5,6 +5,8 @@ import { addonKey, planFeature, planId, planLimitKey } from './plans.js'
 import { bridgeCancelResultEntry } from './protocol.js'
 export { fileTooLargeDetails } from './file-too-large-details.js'
 export type { FileTooLargeDetails } from './file-too-large-details.js'
+export { cameraOfflineDetails } from './live-start-refusal.js'
+export type { CameraOfflineDetails } from './live-start-refusal.js'
 
 /**
  * The one error shape of the REST and realtime APIs: a stable
@@ -482,7 +484,12 @@ export const ERROR_CODES = [
    */
   'not_subscribable',
   // Cameras.
-  /** The robot is connected but this camera is not publishing. */
+  /**
+   * The robot is connected but this camera is not publishing. On `POST
+   * .../live` it means the robot refused the current attempt to start:
+   * `details` is `cameraOfflineDetails` (`refusal`), and the message is the
+   * cloud's fixed sentence for it, never the robot's own words.
+   */
   'camera_offline',
   /**
    * Nothing has been captured yet. An answer, not a failure: a camera

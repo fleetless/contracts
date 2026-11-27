@@ -42,6 +42,7 @@
               "stopped_by_config_change",
               "publish_failed",
               "too_large",
+              "low_bandwidth",
               "unknown"
             ]
           },
