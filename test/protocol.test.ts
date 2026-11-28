@@ -133,6 +133,20 @@ describe('contracts v1', () => {
     expect(bridgeState.safeParse({ ...base, failsafe: 'starting' }).success).toBe(false)
   })
 
+  it('bridge-state carries why the failsafe watchdog failed, and its lateness, null otherwise and absent in older observations', () => {
+    const base = { online: true, latency_ms: 42, low_bandwidth: false, failsafe: 'failed' }
+    for (const reason of ['self_test', 'late_fire', 'not_alive', 'crashed']) {
+      expect(bridgeState.parse({ ...base, failsafe_reason: reason })).toHaveProperty('failsafe_reason', reason)
+    }
+    expect(bridgeState.parse({ ...base, failsafe_reason: 'late_fire', failsafe_lateness_ms: 37.5 }))
+      .toHaveProperty('failsafe_lateness_ms', 37.5)
+    expect(bridgeState.parse({ ...base, failsafe: 'ok', failsafe_reason: null, failsafe_lateness_ms: null }))
+      .toMatchObject({ failsafe_reason: null, failsafe_lateness_ms: null })
+    expect(bridgeState.parse({ online: true, latency_ms: 42, low_bandwidth: false })).not.toHaveProperty('failsafe_reason')
+    expect(bridgeState.safeParse({ ...base, failsafe_reason: 'tired' }).success).toBe(false)
+    expect(bridgeState.safeParse({ ...base, failsafe_lateness_ms: -1 }).success).toBe(false)
+  })
+
   it('bridge-state carries online, latency and the low-bandwidth flag', () => {
     expect(bridgeState.safeParse({ online: true, latency_ms: 42, low_bandwidth: false }).success).toBe(true)
     expect(bridgeState.safeParse({ online: false, latency_ms: null, low_bandwidth: false }).success).toBe(true)

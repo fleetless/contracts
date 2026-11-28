@@ -22,6 +22,10 @@ version.
     A cloud that does not know it ignores it.
   - `bridgeState.failsafe` (`'ok' | 'failed' | null`), optional: bridge-reported,
     `null` until the bridge states it, absent in older observations.
+  - `bridgeState.failsafe_reason` (the same four reasons, `failsafeWatchdogReason`)
+    and `bridgeState.failsafe_lateness_ms`, optional: why the watchdog failed
+    and by how much, for a console to say; `null` unless `failsafe` is
+    `failed`.
 
 ## [19.0.1] — 2026-11-26
 

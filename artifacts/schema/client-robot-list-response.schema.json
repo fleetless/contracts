@@ -74,6 +74,35 @@
                     "type": "null"
                   }
                 ]
+              },
+              "failsafe_reason": {
+                "description": "Why `failsafe` is `failed`, as the bridge stated it: `self_test`, `late_fire`, `not_alive` or `crashed`; `null` otherwise. Bridge-reported. Optional for older observations.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "self_test",
+                      "late_fire",
+                      "not_alive",
+                      "crashed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failsafe_lateness_ms": {
+                "description": "The lateness that made `failsafe` `failed`, in milliseconds after the deadline, where the bridge knows it (`self_test`, `late_fire`); `null` otherwise. Bridge-reported. Optional for older observations.",
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
